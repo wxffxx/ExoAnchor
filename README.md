@@ -97,7 +97,7 @@ simpleipmi/
 │   ├── coreboard/                    #   SoC core modules
 │   └── accessories/                  #   Video capture, relay, etc.
 │
-├── cortex/                           # KVM Agent framework (vision + auto-remediation)
+├── exoanchor/                           # KVM Agent framework (vision + auto-remediation)
 │   ├── core/                         #   Passive monitor + semi-active executor
 │   ├── vision/                       #   Screen analysis (local + LLM API)
 │   ├── action/                       #   HID/SSH action driver

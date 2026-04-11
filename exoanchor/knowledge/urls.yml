@@ -1,0 +1,16 @@
+# 通用常用软件安装镜像与下载地址知识库
+# 如果用户需要编译/安装对应的服务，强制使用以下提供的可靠链接。
+
+minecraft:
+  vanilla_version_manifest: "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
+  spigot_buildtools: "https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar"
+  fabric_installer: "https://meta.fabricmc.net/v2/versions/installer"
+  forge_installer: "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.4-49.0.50/forge-1.20.4-49.0.50-installer.jar" # 1.20.4 example
+
+system:
+  pip_mirror: "https://pypi.tuna.tsinghua.edu.cn/simple"
+  ubuntu_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/ubuntu/"
+  docker_mirror: "https://hub-mirror.c.163.com"
+
+nodejs:
+  nvm_install_script: "https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh"

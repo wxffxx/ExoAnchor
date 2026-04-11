@@ -1,0 +1,5277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExoAnchor — Mission Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f1419;
+            --bg-secondary: #1a1f2e;
+            --bg-card: rgba(26, 31, 46, 0.92);
+            --bg-card-hover: #232a3b;
+            --bg-input: #161b28;
+            --border: rgba(99, 118, 150, 0.18);
+            --border-focus: #3b82f6;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #8b5cf6;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-orange: #f97316;
+            --glow-blue: rgba(59, 130, 246, 0.12);
+            --glow-green: rgba(16, 185, 129, 0.12);
+            --glow-red: rgba(239, 68, 68, 0.12);
+            --radius: 14px;
+            --radius-sm: 8px;
+            --transition: 0.2s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+            background:
+                radial-gradient(ellipse at 20% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 0%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+                #0f1419;
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── App Layout ─────────────────── */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .app-content {
+            flex: 1;
+            min-width: 0;
+            margin-left: 200px;
+        }
+
+        /* ── Sidebar ────────────────────── */
+        .sidebar {
+            width: 200px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 200;
+            background: rgba(13, 17, 23, 0.95);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 8px 10px;
+            gap: 2px;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
+        }
+
+        .sidebar-link:hover {
+            background: rgba(59, 130, 246, 0.08);
+            color: var(--text-primary);
+        }
+
+        .sidebar-link.active {
+            background: rgba(59, 130, 246, 0.12);
+            border-color: rgba(59, 130, 246, 0.25);
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .sidebar-icon {
+            font-size: 14px;
+            width: 18px;
+            text-align: center;
+            flex-shrink: 0;
+            opacity: 0.7;
+        }
+
+        .sidebar-link.active .sidebar-icon {
+            opacity: 1;
+        }
+
+        .sidebar-footer {
+            padding: 12px 10px 0;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-status {
+            display: flex;
+            gap: 6px;
+            padding: 0 10px;
+        }
+
+        .status-chip.compact {
+            padding: 4px 10px;
+            font-size: 11px;
+            border-radius: 14px;
+        }
+
+        .sidebar-footer .uptime {
+            padding: 0 10px;
+        }
+
+        .settings-link {
+            margin-top: 4px;
+        }
+
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa 60%, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-sub {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 400;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .status-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            background: rgba(26, 31, 46, 0.8);
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.green { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+        .status-dot.red { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+        .status-dot.yellow { background: var(--accent-yellow); box-shadow: 0 0 8px var(--accent-yellow); }
+        .status-dot.gray { background: var(--text-muted); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ── Main Layout ────────────────── */
+        .main {
+            max-width: 1680px;
+            margin: 0 auto;
+            padding: 16px 20px 28px;
+            display: grid;
+            grid-template-columns: 240px minmax(0, 1fr) 340px;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .rail,
+        .center-stage,
+        .right-inspector {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .right-inspector {
+            position: sticky;
+            top: 92px;
+        }
+
+        /* ── Workloads page: full-screen Inspector ── */
+        body[data-page="workloads"] .main {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        body[data-page="workloads"] .left-rail,
+        body[data-page="workloads"] .center-stage,
+        body[data-page="workloads"] #pendingCard {
+            display: none;
+        }
+
+        body[data-page="workloads"] .right-inspector {
+            display: flex;
+            grid-column: auto;
+            position: static;
+        }
+
+        body[data-page="workloads"] #workloadsCard .inspector-shell {
+            grid-template-columns: 240px minmax(0, 1fr);
+            min-height: 760px;
+        }
+
+        /* ── Terminal page: full-screen SSH ── */
+        body[data-page="terminal"] .main {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        body[data-page="terminal"] .left-rail,
+        body[data-page="terminal"] .right-inspector,
+        body[data-page="terminal"] #overviewBanner,
+        body[data-page="terminal"] #commandCenterCard,
+        body[data-page="terminal"] #statusMonitorCard,
+        body[data-page="terminal"] #workloadSummaryCard {
+            display: none;
+        }
+
+        body[data-page="terminal"] #terminalCard {
+            min-height: 720px;
+        }
+
+        body[data-page="terminal"] #terminalCard .terminal-output {
+            max-height: 560px;
+        }
+
+        /* ── Overview: clean status dashboard ── */
+        body[data-page="overview"] #modeCard,
+        body[data-page="overview"] #commandCenterCard,
+        body[data-page="overview"] #terminalCard,
+        body[data-page="overview"] #servicesCard,
+        body[data-page="overview"] #skillsCard {
+            display: none;
+        }
+
+        body[data-page="overview"] .main {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 14px;
+        }
+
+        body[data-page="overview"] .left-rail {
+            display: contents;
+        }
+
+        body[data-page="overview"] .center-stage {
+            display: contents;
+        }
+
+        body[data-page="overview"] .right-inspector {
+            display: none;
+        }
+
+        body[data-page="overview"] #overviewBanner {
+            grid-column: 1 / -1;
+            grid-row: 1;
+        }
+
+        body[data-page="overview"] #statusMonitorCard {
+            grid-column: 1 / -1;
+            grid-row: 2;
+        }
+
+        body[data-page="overview"] #triggerCard {
+            grid-column: 1;
+            grid-row: 3;
+        }
+
+        body[data-page="overview"] #workloadSummaryCard {
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        body[data-page="overview"] #pendingCard {
+            grid-column: 1 / -1;
+            grid-row: 4;
+        }
+
+        /* ── Workload Summary (Overview compact) ── */
+        .wl-summary-stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .wl-summary-stat {
+            flex: 1;
+            text-align: center;
+            padding: 10px 8px;
+            background: var(--bg-input);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .wl-summary-stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .wl-summary-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-top: 2px;
+        }
+
+        .wl-summary-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .wl-summary-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: var(--bg-input);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        .wl-summary-item-name {
+            color: var(--text-primary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .wl-summary-item-status {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .wl-summary-item-status.running {
+            color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .wl-summary-item-status.stopped {
+            color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .wl-summary-item-status.unknown {
+            color: var(--text-muted);
+            background: rgba(148, 163, 184, 0.1);
+        }
+
+        .wl-summary-footer {
+            margin-top: 12px;
+            text-align: center;
+        }
+
+        .wl-summary-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent-blue);
+            font-size: 12px;
+            font-weight: 500;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(99, 144, 255, 0.2);
+            transition: all var(--transition);
+        }
+
+        .wl-summary-link:hover {
+            background: rgba(99, 144, 255, 0.1);
+            border-color: rgba(99, 144, 255, 0.4);
+        }
+
+        /* ── Status Monitor Card ─────────── */
+        .status-monitor-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            padding: 4px 0;
+        }
+
+        .status-monitor-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 14px 16px;
+            background: var(--bg-input);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            transition: border-color var(--transition);
+        }
+
+        .status-monitor-item:hover {
+            border-color: rgba(99, 144, 255, 0.3);
+        }
+
+        .status-monitor-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+
+        .status-monitor-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-monitor-value .status-dot {
+            width: 8px;
+            height: 8px;
+        }
+
+        .status-monitor-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Chat page ──────────────────── */
+        body[data-page="chat"] .main {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        body[data-page="chat"] .left-rail,
+        body[data-page="chat"] .right-inspector,
+        body[data-page="chat"] #overviewBanner,
+        body[data-page="chat"] #terminalCard,
+        body[data-page="chat"] #statusMonitorCard {
+            display: none;
+        }
+
+        body[data-page="chat"] #commandCenterCard {
+            display: block;
+        }
+
+        body[data-page="chat"] .cmd-center {
+            min-height: 75vh;
+        }
+
+        body[data-page="chat"] .cmd-center-body {
+            min-height: 65vh;
+        }
+
+        /* ── Settings page ─────────────────── */
+        body[data-page="settings"] .main {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        body[data-page="settings"] .left-rail,
+        body[data-page="settings"] .center-stage,
+        body[data-page="settings"] .right-inspector {
+            display: none;
+        }
+
+        body[data-page="settings"] #settingsPage {
+            display: block;
+        }
+
+        #settingsPage {
+            display: none;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+        }
+
+        .settings-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+
+        .settings-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .settings-section-title .icon {
+            color: var(--accent-blue);
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+
+        .settings-row-label {
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .settings-row-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .settings-toggle {
+            position: relative;
+            width: 40px;
+            height: 22px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .settings-toggle.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .settings-toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: transform var(--transition);
+        }
+
+        .settings-toggle.active::after {
+            transform: translateX(18px);
+        }
+
+        .mode-option-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .mode-option {
+            padding: 14px 12px;
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all var(--transition);
+        }
+
+        .mode-option:hover {
+            border-color: rgba(99, 144, 255, 0.3);
+        }
+
+        .mode-option.active {
+            border-color: var(--accent-blue);
+            background: rgba(99, 144, 255, 0.08);
+        }
+
+        .mode-option-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .mode-option-desc {
+            font-size: 10px;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        .settings-section .empty-state {
+            padding: 16px 0;
+        }
+
+        .full-width { grid-column: 1 / -1; }
+
+        /* ── Cards ──────────────────────── */
+        .card {
+            background: rgba(26, 31, 46, 0.85);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            transition: border-color var(--transition);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(12px);
+        }
+
+        .card:hover { border-color: rgba(59,130,246,0.25); }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .icon {
+            font-size: 18px;
+        }
+
+        .mission-banner {
+            display: flex;
+            align-items: stretch;
+            justify-content: space-between;
+            gap: 18px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .mission-banner::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(135deg, rgba(59, 130, 246, 0.08), transparent 40%),
+                radial-gradient(circle at top right, rgba(139, 92, 246, 0.1), transparent 35%);
+            pointer-events: none;
+        }
+
+        .mission-copy,
+        .mission-stats {
+            position: relative;
+            z-index: 1;
+        }
+
+        .mission-copy {
+            max-width: 760px;
+        }
+
+        .mission-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--accent-blue);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+
+        .mission-copy h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .mission-copy p {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            max-width: 440px;
+        }
+
+        .mission-stats {
+            width: 320px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .mission-stat {
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(22, 27, 40, 0.8);
+            min-height: 72px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .mission-stat-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+        }
+
+        .mission-stat strong {
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .control-card {
+            overflow: hidden;
+        }
+
+        .card-badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-green { background: rgba(16,185,129,0.15); color: var(--accent-green); }
+        .badge-red { background: rgba(239,68,68,0.15); color: var(--accent-red); }
+        .badge-blue { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+        .badge-yellow { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
+        .badge-purple { background: rgba(139,92,246,0.15); color: var(--accent-purple); }
+
+        /* ── Mode Selector ──────────────── */
+        .mode-selector {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mode-btn {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 13px;
+            font-family: inherit;
+            transition: all var(--transition);
+        }
+
+        .mode-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+            background: var(--bg-card-hover);
+        }
+
+        .mode-btn.active {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.35);
+            color: var(--accent-blue);
+            box-shadow: 0 0 20px rgba(59,130,246,0.08);
+        }
+
+        .mode-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* ── Supervised Toggle ───────────── */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin-top: 16px;
+        }
+
+        .toggle-info h4 {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .toggle-info p {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--border);
+            border-radius: 26px;
+            transition: var(--transition);
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            transition: var(--transition);
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background: var(--accent-blue);
+        }
+
+        .toggle input:checked + .toggle-slider::before {
+            transform: translateX(22px);
+        }
+
+        /* ── Service Grid ───────────────── */
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .service-card {
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: 3px 3px 0 0;
+        }
+
+        .service-card.up::before { background: var(--accent-green); }
+        .service-card.down::before { background: var(--accent-red); }
+        .service-card.unknown::before { background: var(--text-muted); }
+
+        .service-card.down {
+            border-color: rgba(239,68,68,0.3);
+            background: rgba(239,68,68,0.05);
+        }
+
+        .service-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .service-status {
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .service-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* ── Trigger History ──────────────── */
+        .trigger-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .trigger-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            margin-bottom: 8px;
+            transition: all var(--transition);
+        }
+
+        .trigger-item.resolved { border-left: 3px solid var(--accent-green); }
+        .trigger-item.unresolved { border-left: 3px solid var(--accent-red); }
+
+        .trigger-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .trigger-content { flex: 1; }
+
+        .trigger-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .trigger-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .trigger-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 32px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ── Terminal ──────────────────────── */
+        .terminal {
+            background: #0d1117;
+            border: 1px solid rgba(99, 118, 150, 0.15);
+            border-radius: var(--radius-sm);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background: rgba(22, 27, 40, 0.8);
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid rgba(99, 118, 150, 0.12);
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .terminal-dots span:nth-child(1) { background: #ef4444; }
+        .terminal-dots span:nth-child(2) { background: #f59e0b; }
+        .terminal-dots span:nth-child(3) { background: #10b981; }
+
+        .terminal-title {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: 8px;
+        }
+
+        .terminal-output {
+            padding: 16px;
+            max-height: 250px;
+            overflow-y: auto;
+            line-height: 1.6;
+            color: var(--accent-green);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .terminal-input-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-top: 1px solid var(--border);
+            gap: 8px;
+        }
+
+        .terminal-prompt {
+            color: var(--accent-cyan);
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        .terminal-input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #e2e8f0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .terminal-send {
+            padding: 4px 14px;
+            background: var(--accent-blue);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background var(--transition);
+        }
+
+        .terminal-send:hover { background: #2563eb; }
+
+        /* ── Confirmation Modal ──────────── */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-body {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .modal-command {
+            background: var(--bg-input);
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--accent-yellow);
+            margin-top: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 9px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-danger {
+            background: rgba(239,68,68,0.15);
+            color: var(--accent-red);
+            border-color: rgba(239,68,68,0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239,68,68,0.25);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+        }
+
+        /* ── Action Queue ───────────────── */
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(245,158,11,0.3);
+            margin-bottom: 8px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-10px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .queue-item .action-info { flex: 1; }
+        .queue-item .action-name {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .queue-item .action-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .queue-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 11px;
+            border-radius: 6px;
+        }
+
+        .btn-approve {
+            background: rgba(16,185,129,0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(16,185,129,0.3);
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all var(--transition);
+        }
+
+        .btn-approve:hover { background: rgba(16,185,129,0.3); }
+
+        .btn-reject {
+            background: rgba(239,68,68,0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(239,68,68,0.3);
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all var(--transition);
+        }
+
+        .btn-reject:hover { background: rgba(239,68,68,0.25); }
+
+        /* ── Scrollbar ──────────────────── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        .left-rail .service-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .left-rail .trigger-list {
+            max-height: 380px;
+        }
+
+        .terminal-card .terminal-output {
+            max-height: 360px;
+        }
+
+        /* ── Responsive ─────────────────── */
+        @media (max-width: 1320px) {
+            .main {
+                grid-template-columns: 260px minmax(0, 1fr);
+            }
+
+            .right-inspector {
+                position: static;
+                grid-column: 1 / -1;
+            }
+
+            .mission-banner {
+                flex-direction: column;
+            }
+
+            .mission-stats {
+                width: 100%;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+
+            .inspector-shell {
+                grid-template-columns: 160px minmax(0, 1fr);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .sidebar { width: 56px; padding: 12px 0; }
+            .sidebar-brand { padding: 0 8px 12px; }
+            .sidebar-brand .logo { font-size: 0; }
+            .sidebar-brand .logo::first-letter { font-size: 20px; }
+            .sidebar-brand .logo-sub { display: none; }
+            .sidebar-link { padding: 10px; justify-content: center; font-size: 0; }
+            .sidebar-icon { font-size: 16px; margin: 0; }
+            .sidebar-footer .uptime { font-size: 9px; padding: 0 4px; text-align: center; }
+            .sidebar-status { flex-direction: column; padding: 0 4px; }
+            .status-chip.compact span:not(.status-dot) { display: none; }
+            .settings-link { font-size: 0; justify-content: center; }
+            .app-content { margin-left: 56px; }
+            .main { grid-template-columns: 1fr; padding: 12px; gap: 10px; }
+            .mode-selector { flex-wrap: wrap; }
+            .mission-copy h2 { font-size: 18px; }
+            .mission-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .cmd-center-body { flex-direction: column; min-height: 0; }
+            .conv-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+            .inspector-shell { grid-template-columns: 1fr; min-height: 0; }
+            .workload-list { max-height: none; }
+            .wl-meta { grid-template-columns: 1fr; }
+        }
+
+        /* ── Uptime ─────────────────────── */
+        .uptime {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ── Skill list ──────────────────── */
+        .skill-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin-bottom: 8px;
+            transition: all var(--transition);
+        }
+
+        .skill-item:hover {
+            border-color: rgba(59,130,246,0.3);
+            background: var(--bg-card-hover);
+        }
+
+        .skill-name { font-weight: 600; font-size: 13px; }
+        .skill-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .skill-tags { display: flex; gap: 4px; margin-top: 4px; }
+        .skill-tag {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: rgba(139,92,246,0.15);
+            color: var(--accent-purple);
+        }
+
+        .btn-run {
+            padding: 6px 14px;
+            background: rgba(59,130,246,0.15);
+            color: var(--accent-blue);
+            border: 1px solid rgba(59,130,246,0.3);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all var(--transition);
+        }
+
+        .btn-run:hover { background: rgba(59,130,246,0.3); }
+
+        /* ── Command Center ─────────────── */
+        .cmd-center {
+            border: 1px solid var(--border);
+            background: rgba(26, 31, 46, 0.85);
+        }
+
+        .chat-area {
+            max-height: 520px;
+            min-height: 340px;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-msg {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            animation: slideIn 0.3s ease;
+        }
+
+        .chat-msg.user {
+            flex-direction: row-reverse;
+        }
+
+        .chat-msg.user > div {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .chat-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .chat-avatar.agent-av {
+            background: linear-gradient(135deg, rgba(6,182,212,0.2), rgba(59,130,246,0.2));
+            border: 1px solid rgba(6,182,212,0.3);
+        }
+
+        .chat-avatar.user-av {
+            background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(59,130,246,0.2));
+            border: 1px solid rgba(139,92,246,0.3);
+        }
+
+        .chat-bubble {
+            max-width: 80%;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .chat-msg.user .chat-bubble {
+            white-space: normal;
+            word-break: normal;
+            overflow-wrap: break-word;
+        }
+
+        .chat-msg.agent .chat-bubble {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            border-top-left-radius: 4px;
+        }
+
+        /* ── Workloads ─────────── */
+        .workload-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 0;
+        }
+
+        .inspector-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: -6px;
+            margin-bottom: 16px;
+        }
+
+        .inspector-chip {
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .inspector-shell {
+            display: grid;
+            grid-template-columns: 132px minmax(0, 1fr);
+            gap: 14px;
+            min-height: 620px;
+        }
+
+        .workload-list {
+            padding-right: 4px;
+            overflow-y: auto;
+            max-height: 680px;
+        }
+
+        .workload-list-item {
+            width: 100%;
+            padding: 12px 12px 13px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            text-align: left;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+        }
+
+        .workload-list-item:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .workload-list-item.active {
+            background: rgba(59, 130, 246, 0.12);
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.1);
+        }
+
+        .workload-list-item .name {
+            display: block;
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        .workload-list-item .meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+
+        .workload-inspector {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(22, 27, 40, 0.9);
+            min-height: 480px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow: hidden;
+        }
+
+        .workload-card {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .workload-card:hover {
+            border-color: transparent;
+            box-shadow: none;
+        }
+
+        .wl-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .wl-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 24px;
+            line-height: 1.05;
+        }
+        
+        .wl-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-family: inherit;
+        }
+
+        .wl-meta div {
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+        }
+
+        .wl-command {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(59, 130, 246, 0.06);
+            border: 1px solid rgba(59, 130, 246, 0.1);
+            border-radius: 6px;
+            padding: 8px 10px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .wl-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .wl-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: -2px;
+        }
+
+        .wl-actions .btn-sm:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .wl-console {
+            background: #0d1117;
+            border-radius: 6px;
+            padding: 8px 10px;
+            min-height: 140px;
+            max-height: 260px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            line-height: 1.45;
+            color: var(--accent-green);
+        }
+
+        .wl-console.empty {
+            color: #94a3b8;
+        }
+
+        .wl-console.error {
+            color: #fca5a5;
+        }
+
+        /* Terminal-style console */
+        .wl-terminal {
+            background: #0d1117;
+            border: 1px solid rgba(99, 144, 255, 0.15);
+            border-radius: 8px;
+            overflow: hidden;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+        }
+
+        .wl-terminal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .wl-terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .wl-terminal-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .wl-terminal-dots span:nth-child(1) { background: #ff5f57; }
+        .wl-terminal-dots span:nth-child(2) { background: #febc2e; }
+        .wl-terminal-dots span:nth-child(3) { background: #28c840; }
+
+        .wl-terminal-title {
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.03em;
+        }
+
+        .wl-terminal-output {
+            padding: 10px 12px;
+            min-height: 100px;
+            max-height: 220px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+            color: var(--accent-green);
+        }
+
+        .wl-terminal-output .cmd-line {
+            color: #7dd3fc;
+        }
+
+        .wl-terminal-output .error-line {
+            color: #fca5a5;
+        }
+
+        .wl-terminal-output .info-line {
+            color: #94a3b8;
+        }
+
+        .wl-terminal-prompt {
+            display: flex;
+            align-items: center;
+            padding: 0 12px 10px;
+            gap: 0;
+            background: #0d1117;
+        }
+
+        .wl-terminal-prompt-prefix {
+            color: #7dd3fc;
+            font-weight: 600;
+            flex-shrink: 0;
+            user-select: none;
+            line-height: 1;
+        }
+
+        .wl-terminal-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            outline: none;
+            padding: 0 0 0 2px;
+            line-height: 1;
+            caret-color: var(--accent-cyan);
+        }
+
+        .wl-terminal-input::placeholder {
+            color: rgba(148, 163, 184, 0.4);
+        }
+
+        .wl-console-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .wl-console-input {
+            flex: 1;
+            min-width: 140px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            outline: none;
+        }
+
+        .wl-console-input:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        .wl-console-help {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .wl-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .wl-status-dot.running { background: var(--accent-green); box-shadow: 0 0 6px rgba(16,185,129,0.4); }
+        .wl-status-dot.stopped { background: var(--accent-red); box-shadow: 0 0 6px rgba(239,68,68,0.4); }
+        .wl-status-dot.unknown { background: var(--text-muted); }
+
+        .chat-msg.user .chat-bubble {
+            background: rgba(139, 92, 246, 0.12);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-top-right-radius: 4px;
+        }
+
+        .chat-bubble code {
+            background: rgba(14,165,233,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-cyan);
+        }
+
+        .chat-bubble .cmd-output {
+            background: #0d1117;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-top: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--accent-green);
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .chat-bubble .cmd-output.error { color: var(--accent-red); }
+
+        .chat-bubble .action-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 4px;
+        }
+
+        .action-tag.ssh-tag { background: rgba(16,185,129,0.15); color: var(--accent-green); }
+        .action-tag.skill-tag { background: rgba(139,92,246,0.15); color: var(--accent-purple); }
+        .action-tag.info-tag { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+        .action-tag.warn-tag { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
+        .action-tag.ai-tag { background: rgba(168,85,247,0.15); color: #c084fc; }
+
+        .chat-time {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .cmd-input-area {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .cmd-input {
+            flex: 1;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 16px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        .cmd-input:focus { border-color: var(--accent-cyan); }
+
+        .cmd-input::placeholder { color: var(--text-muted); }
+
+        .cmd-send {
+            height: 42px;
+            padding: 0 16px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border: none;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            flex-shrink: 0;
+        }
+
+        .cmd-send:hover { box-shadow: 0 4px 20px rgba(59,130,246,0.3); transform: scale(1.05); }
+        .cmd-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .plan-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 10px;
+            flex-shrink: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .plan-toggle-container span {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .plan-switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+
+        .plan-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .plan-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border);
+            transition: .3s;
+            border-radius: 20px;
+        }
+
+        .plan-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        .plan-switch input:checked + .plan-slider {
+            background-color: var(--accent-blue);
+        }
+
+        .plan-switch input:checked + .plan-slider:before {
+            transform: translateX(14px);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 6px;
+            padding: 8px 16px;
+            overflow-x: auto;
+            border-top: 1px solid var(--border);
+        }
+
+        .quick-chip {
+            padding: 5px 12px;
+            border-radius: 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-family: inherit;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition);
+        }
+
+        .quick-chip:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            padding: 4px 0;
+        }
+
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+            30% { opacity: 1; transform: translateY(-4px); }
+        }
+
+        /* ── Conversation Sidebar (ChatGPT-style) ──── */
+        .cmd-center-body {
+            display: flex;
+            min-height: 620px;
+            border-top: 1px solid var(--border);
+        }
+
+        .conv-sidebar {
+            width: 220px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--border);
+            background: rgba(15, 20, 25, 0.6);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .conv-sidebar-header {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .conv-new-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-align: left;
+        }
+
+        .conv-new-btn:hover {
+            border-color: var(--accent-blue);
+            background: var(--glow-blue);
+        }
+
+        .conv-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .conv-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition);
+            margin-bottom: 2px;
+            position: relative;
+        }
+
+        .conv-item:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .conv-item.active {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .conv-item-title {
+            flex: 1;
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.4;
+        }
+
+        .conv-item.active .conv-item-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .conv-item-del {
+            opacity: 0;
+            padding: 2px 6px;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all var(--transition);
+            flex-shrink: 0;
+        }
+
+        .conv-item:hover .conv-item-del {
+            opacity: 1;
+        }
+
+        .conv-item-del:hover {
+            color: var(--accent-red);
+            background: rgba(239,68,68,0.1);
+        }
+
+        .conv-chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .chat-msg.plan-msg .chat-bubble,
+        .chat-msg.session-msg .chat-bubble,
+        .chat-msg.task-msg .chat-bubble {
+            max-width: min(100%, 920px);
+            width: 100%;
+            padding: 0;
+            border: none;
+            background: transparent;
+        }
+
+        .chat-msg.plan-msg > div,
+        .chat-msg.session-msg > div,
+        .chat-msg.task-msg > div {
+            width: min(100%, 960px);
+        }
+
+        .conv-model-bar {
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(22, 27, 40, 0.6);
+        }
+        .model-select:focus { border-color: var(--accent-purple); }
+        /* ── Plan Execution UI ─────────── */
+        .plan-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin: 8px 0;
+            overflow: hidden;
+        }
+
+        .plan-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(59, 130, 246, 0.06);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .plan-goal {
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .plan-progress {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .plan-steps {
+            padding: 8px 0;
+        }
+
+        .plan-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 16px;
+            transition: background var(--transition);
+            border-left: 3px solid transparent;
+        }
+
+        .plan-step:hover { background: rgba(14,165,233,0.03); }
+        .plan-step.running { border-left-color: var(--accent-blue); background: rgba(14,165,233,0.05); }
+        .plan-step.done { border-left-color: var(--accent-green); }
+        .plan-step.failed { border-left-color: var(--accent-red); background: rgba(239,68,68,0.05); }
+        .plan-step.skipped { opacity: 0.5; }
+
+        .step-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .step-icon.pending { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); }
+        .step-icon.running { background: rgba(14,165,233,0.15); border: 1px solid var(--accent-blue); color: var(--accent-blue); animation: pulse-step 1.5s infinite; }
+        .step-icon.done { background: rgba(16,185,129,0.2); border: 1px solid var(--accent-green); color: var(--accent-green); }
+        .step-icon.failed { background: rgba(239,68,68,0.2); border: 1px solid var(--accent-red); color: var(--accent-red); }
+        .step-icon.skipped { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); }
+
+        @keyframes pulse-step {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(14,165,233,0.3); }
+            50% { box-shadow: 0 0 0 6px rgba(14,165,233,0); }
+        }
+
+        .step-body { flex: 1; min-width: 0; }
+
+        .step-desc {
+            font-size: 13px;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .step-cmd {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .step-output {
+            margin-top: 6px;
+            padding: 6px 10px;
+            background: #0d1117;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            color: var(--accent-green);
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .step-output.error { color: var(--accent-red); }
+
+        .step-eval {
+            margin-top: 4px;
+            font-size: 11px;
+            color: var(--accent-purple);
+            font-style: italic;
+        }
+
+        .step-confirm-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .plan-footer {
+            padding: 8px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .plan-mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .plan-mode-toggle select {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 11px;
+            outline: none;
+        }
+
+        .plan-abort-btn {
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--accent-red);
+            background: rgba(239,68,68,0.1);
+            color: var(--accent-red);
+            font-size: 11px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+        .plan-abort-btn:hover { background: rgba(239,68,68,0.2); }
+
+        .session-card .plan-header {
+            background: rgba(139, 92, 246, 0.06);
+        }
+
+        .session-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 16px 0 16px;
+        }
+
+        .session-meta-chip {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-secondary);
+        }
+
+        .session-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .session-timeline {
+            padding: 0 16px 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .session-event {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+        }
+
+        .session-event-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .session-event-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .session-event-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .session-event-summary {
+            font-size: 12px;
+            color: var(--text-primary);
+            line-height: 1.45;
+        }
+        .header-nav-settings {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            background: rgba(26, 31, 46, 0.8);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .header-nav-settings:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+<!-- ═══ App Layout ═══════════════════════════════════ -->
+<div class="app-layout">
+
+<!-- ── Sidebar Nav ────────────────────────────────── -->
+<nav class="sidebar" id="headerNav">
+    <div class="sidebar-brand">
+        <div class="logo">ExoAnchor</div>
+        <div class="logo-sub">KVM Agent</div>
+    </div>
+    <div class="sidebar-nav">
+        <a href="/" data-page="overview" class="sidebar-link active">
+            <span class="sidebar-icon">◆</span> Overview
+        </a>
+        <a href="/chat" data-page="chat" class="sidebar-link">
+            <span class="sidebar-icon">💬</span> Chat
+        </a>
+        <a href="/terminal" data-page="terminal" class="sidebar-link">
+            <span class="sidebar-icon">▤</span> Terminal
+        </a>
+        <a href="/workloads" data-page="workloads" class="sidebar-link">
+            <span class="sidebar-icon">▣</span> Workloads
+        </a>
+    </div>
+    <div class="sidebar-footer">
+        <div class="sidebar-status">
+            <div class="status-chip compact">
+                <span class="status-dot" id="sshDot"></span>
+                <span id="sshLabel">SSH</span>
+            </div>
+            <div class="status-chip compact">
+                <span class="status-dot" id="passiveDot"></span>
+                <span id="passiveLabel">Monitor</span>
+            </div>
+        </div>
+        <div class="uptime" id="uptimeDisplay">00:00:00</div>
+        <a href="/settings" data-page="settings" class="sidebar-link settings-link">
+            <span class="sidebar-icon">⚙</span> Settings
+        </a>
+    </div>
+</nav>
+
+<!-- ── Content Area ───────────────────────────────── -->
+<div class="app-content">
+
+<!-- ═══ Main ════════════════════════════════════════ -->
+<div class="main">
+    <aside class="rail left-rail">
+        <div class="card control-card" id="modeCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">MODE</span> 运行模式</div>
+                <span class="card-badge badge-blue" id="currentModeBadge">MANUAL</span>
+            </div>
+            <div class="mode-selector">
+                <button class="mode-btn active" data-mode="manual" onclick="setMode('manual')">
+                    <span>A</span>
+                    <div>
+                        <div>人工模式</div>
+                        <div class="mode-desc">仅手动触发，无后台监控</div>
+                    </div>
+                </button>
+                <button class="mode-btn" data-mode="passive" onclick="setMode('passive')">
+                    <span>B</span>
+                    <div>
+                        <div>被动模式</div>
+                        <div class="mode-desc">监控画面+服务，异常自动恢复</div>
+                    </div>
+                </button>
+                <button class="mode-btn" data-mode="semi_active" onclick="setMode('semi_active')">
+                    <span>C</span>
+                    <div>
+                        <div>半主动模式</div>
+                        <div class="mode-desc">被动监控 + 条件触发预案</div>
+                    </div>
+                </button>
+            </div>
+
+            <div class="toggle-row">
+                <div class="toggle-info">
+                    <h4>Supervised Mode</h4>
+                    <p>启用后，所有自动操作需要人工确认后才执行</p>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="supervisedToggle" onchange="toggleSupervised()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="card" id="pendingCard" style="display:none;">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">WAIT</span> 待确认操作</div>
+                <span class="card-badge badge-yellow" id="pendingCount">0</span>
+            </div>
+            <div id="pendingQueue">
+                <div class="empty-state">暂无待确认操作</div>
+            </div>
+        </div>
+
+        <div class="card" id="servicesCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">SVC</span> 服务监控</div>
+                <span class="card-badge" id="servicesCountBadge">0 services</span>
+            </div>
+            <div class="service-grid" id="serviceGrid">
+                <div class="empty-state">No services configured</div>
+            </div>
+        </div>
+
+        <div class="card" id="triggerCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">LOG</span> 事件历史</div>
+                <button class="btn btn-secondary btn-sm" onclick="clearTriggers()" style="font-size:11px;">清空</button>
+            </div>
+            <div class="trigger-list" id="triggerList">
+                <div class="empty-state">暂无事件</div>
+            </div>
+        </div>
+
+        <div class="card" id="skillsCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">SKL</span> 技能库</div>
+            </div>
+            <div id="skillList">
+                <div class="empty-state">No skills loaded</div>
+            </div>
+        </div>
+    </aside>
+
+    <section class="center-stage">
+        <div class="card mission-banner" id="overviewBanner">
+            <div class="mission-copy">
+                <div class="mission-eyebrow">Mission Control</div>
+                <h2>Sessions in the center. Systems on the flank.</h2>
+                <p>让自然语言、runtime 事件流、SSH 操作和人工确认出现在同一个舞台里。ExoAnchor 既是代理，也是你的托管控制台。</p>
+            </div>
+            <div class="mission-stats">
+                <div class="mission-stat">
+                    <span class="mission-stat-label">Mode</span>
+                    <strong id="missionModeLabel">MANUAL</strong>
+                </div>
+                <div class="mission-stat">
+                    <span class="mission-stat-label">SSH Link</span>
+                    <strong id="missionSshLabel">Offline</strong>
+                </div>
+                <div class="mission-stat">
+                    <span class="mission-stat-label">Workloads</span>
+                    <strong id="missionWorkloadCount">0</strong>
+                </div>
+                <div class="mission-stat">
+                    <span class="mission-stat-label">Latest Session</span>
+                    <strong id="missionSessionState">IDLE</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="statusMonitorCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">SYS</span> 系统监控</div>
+                <span class="card-badge badge-blue" id="sysStatusBadge">ONLINE</span>
+            </div>
+            <div class="status-monitor-grid">
+                <div class="status-monitor-item">
+                    <span class="status-monitor-label">运行时间</span>
+                    <span class="status-monitor-value" id="sysUptime">00:00:00</span>
+                    <span class="status-monitor-sub" id="sysUptimeSince">--</span>
+                </div>
+                <div class="status-monitor-item">
+                    <span class="status-monitor-label">SSH 连接</span>
+                    <span class="status-monitor-value">
+                        <span class="status-dot" id="sysSshDot"></span>
+                        <span id="sysSshStatus">Offline</span>
+                    </span>
+                    <span class="status-monitor-sub" id="sysSshTarget">--</span>
+                </div>
+                <div class="status-monitor-item">
+                    <span class="status-monitor-label">被动监控</span>
+                    <span class="status-monitor-value">
+                        <span class="status-dot" id="sysMonitorDot"></span>
+                        <span id="sysMonitorStatus">Off</span>
+                    </span>
+                    <span class="status-monitor-sub">实时服务/画面监控</span>
+                </div>
+                <div class="status-monitor-item">
+                    <span class="status-monitor-label">运行模式</span>
+                    <span class="status-monitor-value" id="sysModeName">MANUAL</span>
+                    <span class="status-monitor-sub" id="sysModeDesc">仅手动触发</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="workloadSummaryCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">APP</span> Workloads</div>
+                <span class="card-badge badge-green" id="wlSummaryBadge">0</span>
+            </div>
+            <div class="wl-summary-stats">
+                <div class="wl-summary-stat">
+                    <div class="wl-summary-stat-value" id="wlSummaryTotal">0</div>
+                    <div class="wl-summary-stat-label">Total</div>
+                </div>
+                <div class="wl-summary-stat">
+                    <div class="wl-summary-stat-value" id="wlSummaryRunning">0</div>
+                    <div class="wl-summary-stat-label">Running</div>
+                </div>
+                <div class="wl-summary-stat">
+                    <div class="wl-summary-stat-value" id="wlSummaryStopped">0</div>
+                    <div class="wl-summary-stat-label">Stopped</div>
+                </div>
+            </div>
+            <div class="wl-summary-list" id="wlSummaryList">
+                <div class="empty-state" style="padding:12px 0;">暂无工作负载</div>
+            </div>
+            <div class="wl-summary-footer">
+                <a href="/workloads" data-page="workloads" class="wl-summary-link" onclick="event.preventDefault();navigateTo('/workloads')">
+                    管理全部 →
+                </a>
+            </div>
+        </div>
+
+        <div class="card cmd-center" id="commandCenterCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">CMD</span> Command Center</div>
+                <span class="card-badge badge-purple">SESSION</span>
+            </div>
+            <div class="cmd-center-body">
+                <div class="conv-sidebar">
+                    <div class="conv-sidebar-header">
+                        <button class="conv-new-btn" onclick="newConversation()">+ New Chat</button>
+                    </div>
+                    <div class="conv-list" id="convList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <div class="conv-chat-area">
+                    <div class="conv-model-bar">
+                        <select class="model-select" id="modelSelect" onchange="onModelChange(this.value)" title="AI Model" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--accent-purple);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;cursor:pointer;">
+                            <option value="">Default Model</option>
+                        </select>
+                    </div>
+                    <div class="chat-area" id="chatArea">
+                        <div class="chat-msg agent">
+                            <div class="chat-avatar agent-av">C</div>
+                            <div>
+                                <div class="chat-bubble">
+                                    <strong>ExoAnchor Agent Ready.</strong><br>
+                                    Use this lane for open-ended work. Sessions, plans, confirmations, and task telemetry now stream here as a single timeline.
+                                    <ul style="margin:8px 0 0 16px;font-size:12px;color:var(--text-secondary);line-height:1.8">
+                                        <li>Check disk usage</li>
+                                        <li>Restart redis service</li>
+                                        <li>Show running docker containers</li>
+                                        <li>Inspect workload logs and console</li>
+                                    </ul>
+                                    Slash commands: <code>/run</code> <code>/status</code> <code>/services</code> <code>/help</code>
+                                </div>
+                                <div class="chat-time" id="welcomeTime"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="quick-chip" onclick="sendCommand('查看系统状态')">System</button>
+                        <button class="quick-chip" onclick="sendCommand('查看磁盘用量')">Disk</button>
+                        <button class="quick-chip" onclick="sendCommand('显示运行中的容器')">Docker</button>
+                        <button class="quick-chip" onclick="sendCommand('查看内存使用')">Memory</button>
+                        <button class="quick-chip" onclick="sendCommand('查看网络连接')">Network</button>
+                        <button class="quick-chip" onclick="sendCommand('/services')">Services</button>
+                        <button class="quick-chip" onclick="sendCommand('/help')">Help</button>
+                    </div>
+                    <div class="cmd-input-area">
+                        <input class="cmd-input" id="cmdInput" placeholder="Ask anything... (e.g. restart nginx, check logs, /help)" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();sendCommand()}">
+                        <label class="plan-toggle-container" title="Force AI to generate a multi-step plan">
+                            <span class="plan-switch">
+                                <input type="checkbox" id="planToggle">
+                                <span class="plan-slider"></span>
+                            </span>
+                            <span>Plan Mode</span>
+                        </label>
+                        <button class="cmd-send" id="cmdSendBtn" onclick="sendCommand()">Go</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card terminal-card" id="terminalCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">SSH</span> SSH 终端</div>
+                <span class="card-badge" id="sshTargetBadge">--</span>
+            </div>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-dots"><span></span><span></span><span></span></div>
+                    <span class="terminal-title" id="terminalTitle">exoanchor@target</span>
+                </div>
+                <div class="terminal-output" id="terminalOutput">Welcome to ExoAnchor SSH Terminal.\nType a command and press Enter.\n</div>
+                <div class="terminal-input-row">
+                    <span class="terminal-prompt">$</span>
+                    <input class="terminal-input" id="terminalInput" placeholder="Enter command..." onkeydown="if(event.key==='Enter'&&!event.isComposing)execCommand()">
+                    <button class="terminal-send" onclick="execCommand()">Run</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <aside class="right-inspector">
+        <div class="card" id="workloadsCard">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">APP</span> Workload Inspector</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="showCreateWorkloadModal()" style="font-size:11px;padding:4px 10px;">＋ 新建</button>
+                    <span class="card-badge badge-green" id="workloadsCountBadge">0 workloads</span>
+                </div>
+            </div>
+            <div class="inspector-meta">
+                <span class="inspector-chip" id="workloadRunningBadge">0 running</span>
+                <span class="inspector-chip" id="workloadSelectionBadge">未选择工作负载</span>
+            </div>
+            <div class="inspector-shell">
+                <div class="workload-grid workload-list" id="workloadGrid">
+                    <div class="empty-state">No AI managed workloads deployed yet</div>
+                </div>
+                <div class="workload-inspector" id="workloadInspectorDetail">
+                    <div class="empty-state">选择一个 workload 查看状态、日志、控制台和管理动作</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ── Settings Page ────────────────────────── -->
+    <div id="settingsPage">
+        <div class="card" style="margin-bottom: 18px;">
+            <div class="card-header">
+                <div class="card-title"><span class="icon">⚙</span> Settings</div>
+                <span class="card-badge badge-blue">配置中心</span>
+            </div>
+        </div>
+
+        <div class="settings-grid">
+            <!-- Mode Selection -->
+            <div class="settings-section">
+                <div class="settings-section-title"><span class="icon">MODE</span> 运行模式</div>
+                <div class="mode-option-grid" id="settingsModeGrid">
+                    <div class="mode-option active" data-mode="manual" onclick="settingsSetMode('manual')">
+                        <div class="mode-option-name">MANUAL</div>
+                        <div class="mode-option-desc">仅手动触发<br>所有操作需人工确认</div>
+                    </div>
+                    <div class="mode-option" data-mode="passive" onclick="settingsSetMode('passive')">
+                        <div class="mode-option-name">PASSIVE</div>
+                        <div class="mode-option-desc">被动监控<br>自动检测 + 恢复</div>
+                    </div>
+                    <div class="mode-option" data-mode="semi_active" onclick="settingsSetMode('semi_active')">
+                        <div class="mode-option-name">SEMI-ACTIVE</div>
+                        <div class="mode-option-desc">条件触发<br>特定事件自动响应</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toggles -->
+            <div class="settings-section">
+                <div class="settings-section-title"><span class="icon">CTL</span> 控制开关</div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">Supervised Mode</div>
+                        <div class="settings-row-desc">所有 AI 操作需要人工审批</div>
+                    </div>
+                    <div class="settings-toggle" id="settingsSupervisedToggle" onclick="toggleSupervised()"></div>
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">被动监控</div>
+                        <div class="settings-row-desc">启用后台服务检测与画面监控</div>
+                    </div>
+                    <div class="settings-toggle" id="settingsPassiveToggle" onclick="togglePassiveMonitor()"></div>
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">SSH 连接目标</div>
+                        <div class="settings-row-desc" id="settingsSshTargetDisplay">未配置</div>
+                    </div>
+                    <span class="card-badge" id="settingsSshStatusBadge">--</span>
+                </div>
+            </div>
+
+            <!-- Services -->
+            <div class="settings-section">
+                <div class="settings-section-title"><span class="icon">SVC</span> 服务监控</div>
+                <div id="settingsServiceGrid">
+                    <div class="empty-state">No services configured</div>
+                </div>
+            </div>
+
+            <!-- Skills -->
+            <div class="settings-section">
+                <div class="settings-section-title"><span class="icon">SKL</span> 技能库</div>
+                <div id="settingsSkillGrid">
+                    <div class="empty-state">No skills loaded</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div> <!-- .main -->
+</div> <!-- .app-content -->
+</div> <!-- .app-layout -->
+
+<!-- ═══ Confirmation Modal ══════════════════════════ -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+        <h3>Confirm Execution</h3>
+        <div class="modal-body" id="confirmBody">
+            即将执行以下操作：
+            <div class="modal-command" id="confirmCommand">--</div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-danger" onclick="rejectAction()">Reject</button>
+            <button class="btn btn-primary" onclick="approveAction()">Approve</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Create Workload Modal ──────────────── -->
+<div class="approval-overlay" id="createWorkloadOverlay" style="display:none;">
+    <div class="approval-modal" style="max-width:480px;">
+        <div class="approval-header">
+            <span class="approval-level" style="background: var(--accent-cyan); color: #000;">NEW</span>
+            <span>创建 Workload</span>
+        </div>
+        <div style="padding:18px 22px;">
+            <div class="wl-form-group">
+                <label class="wl-form-label">ID <span style="color:var(--text-muted);font-weight:400;">(目录名，仅允许英文/数字/下划线/连字符)</span></label>
+                <input class="wl-form-input" id="cwlId" placeholder="my-minecraft-server" autocomplete="off" spellcheck="false">
+                <div class="wl-form-error" id="cwlIdError"></div>
+            </div>
+            <div class="wl-form-group">
+                <label class="wl-form-label">名称</label>
+                <input class="wl-form-input" id="cwlName" placeholder="Minecraft Server" autocomplete="off">
+            </div>
+            <div class="wl-form-group">
+                <label class="wl-form-label">类型</label>
+                <select class="wl-form-input" id="cwlType">
+                    <option value="custom">custom</option>
+                    <option value="minecraft">minecraft</option>
+                    <option value="web">web</option>
+                    <option value="service">service</option>
+                </select>
+            </div>
+            <div class="wl-form-group">
+                <label class="wl-form-label">启动命令 <span style="color:var(--text-muted);font-weight:400;">(可选)</span></label>
+                <input class="wl-form-input" id="cwlCommand" placeholder="nohup ./launch.sh > server.log 2>&1 &" autocomplete="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;font-size:11px;">
+            </div>
+            <div class="wl-form-group">
+                <label class="wl-form-label">端口 <span style="color:var(--text-muted);font-weight:400;">(可选，用于状态检测)</span></label>
+                <input class="wl-form-input" id="cwlPort" type="number" placeholder="25565" min="1" max="65535">
+            </div>
+        </div>
+        <div class="modal-actions" style="padding:12px 22px 18px;">
+            <button class="btn btn-secondary" onclick="hideCreateWorkloadModal()">取消</button>
+            <button class="btn btn-primary" id="cwlSubmitBtn" onclick="submitCreateWorkload()">创建</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .approval-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: rgba(0, 0, 0, 0.65);
+        backdrop-filter: blur(6px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .approval-modal {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+        width: 90%;
+        max-width: 480px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .approval-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+    .approval-level {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        border-top: 1px solid var(--border);
+    }
+    .wl-form-group {
+        margin-bottom: 14px;
+    }
+    .wl-form-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 5px;
+    }
+    .wl-form-input {
+        width: 100%;
+        background: var(--bg-input);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        color: var(--text-primary);
+        font-size: 13px;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+    }
+    .wl-form-input:focus {
+        border-color: var(--accent-cyan);
+    }
+    .wl-form-input.invalid {
+        border-color: var(--accent-red);
+    }
+    .wl-form-error {
+        font-size: 11px;
+        color: var(--accent-red);
+        margin-top: 3px;
+        min-height: 14px;
+    }
+    select.wl-form-input {
+        appearance: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 28px;
+    }
+</style>
+
+<script>
+    const API = '';  // Same origin
+    let agentState = {};
+    let pendingActions = [];
+    let ws = null;
+    let supervised = false;
+    let currentConvId = '';
+    let allowedModels = [];
+    let planReactMode = 'on_fail';  // 'always' | 'on_fail'
+    let activePlanRunId = '';
+    let activeTaskId = '';
+    let pendingPlanConfirmation = null;
+    const sessionRuns = {};
+    const sessionByRunId = {};
+    const sessionByTaskId = {};
+    const sessionEvents = {};
+    const planRuns = {};
+    const taskRuns = {};
+    const workloadPanelState = {};
+    const consoleHistory = {};        // { wlId: [{cmd, output, error}...] }
+    const consoleCommandHistory = {}; // { wlId: [cmd1, cmd2, ...] }
+    const consoleHistoryIndex = {};   // { wlId: number }
+    const consolePendingInput = {};   // { wlId: string } — preserves input during refreshes
+    let currentWorkloads = [];
+    let selectedWorkloadId = '';
+    const CURRENT_CONV_KEY = 'exoanchor_current_conv';
+
+    function currentPageKey() {
+        const path = String(window.location.pathname || '/').replace(/\/+$/, '') || '/';
+        if (path === '/' || path === '/overview') return 'overview';
+        if (path === '/chat') return 'chat';
+        if (path === '/workloads') return 'workloads';
+        if (path === '/terminal') return 'terminal';
+        if (path === '/settings') return 'settings';
+        return 'overview';
+    }
+
+    function applyPageMode() {
+        const page = currentPageKey();
+        document.body.dataset.page = page;
+        document.querySelectorAll('#headerNav a').forEach((link) => {
+            link.classList.toggle('active', link.dataset.page === page);
+        });
+    }
+
+    function navigateTo(path) {
+        history.pushState(null, '', path);
+        applyPageMode();
+    }
+
+    // SPA nav: intercept sidebar link clicks
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('#headerNav a, .wl-summary-link');
+        if (link && link.dataset.page) {
+            e.preventDefault();
+            navigateTo(link.getAttribute('href'));
+        }
+    });
+    window.addEventListener('popstate', applyPageMode);
+
+    // ── Init ────────────────────────────────────────
+    async function init() {
+        applyPageMode();
+        await refreshStatus();
+        await loadSkills();
+        await loadConversations();
+        await loadAllowedModels();
+        await loadCurrentPlanRun();
+        await loadCurrentTaskRun();
+        await loadRecentSessions(currentConvId).catch(() => {});
+        connectWS();
+        setInterval(refreshStatus, 5000);
+    }
+
+    // ── Conversation Management ─────────────────────
+    async function loadConversations() {
+        try {
+            const res = await fetch(API + '/api/conversations');
+            const convos = await res.json();
+            const list = document.getElementById('convList');
+            list.innerHTML = '';
+            convos.forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'conv-item' + (c.id === currentConvId ? ' active' : '');
+                item.innerHTML = `
+                    <span class="conv-item-title">${escapeHtml(c.title)} (${c.message_count})</span>
+                    <button class="conv-item-del" onclick="event.stopPropagation();deleteConversation('${c.id}')" title="Delete">x</button>
+                `;
+                item.onclick = () => switchConversation(c.id);
+                list.appendChild(item);
+            });
+            // Restore last active conversation
+            const lastId = localStorage.getItem(CURRENT_CONV_KEY);
+            if (lastId && convos.some(c => c.id === lastId) && !currentConvId) {
+                await switchConversation(lastId);
+            }
+        } catch (e) {
+            console.warn('[ExoAnchor] Failed to load conversations:', e);
+        }
+    }
+
+    async function newConversation() {
+        const modelSel = document.getElementById('modelSelect');
+        const model = modelSel ? modelSel.value : '';
+        try {
+            const res = await fetch(API + '/api/conversations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: 'New Chat', model }),
+            });
+            const convo = await res.json();
+            currentConvId = convo.id;
+            localStorage.setItem(CURRENT_CONV_KEY, convo.id);
+            clearChatArea();
+            await loadConversations();
+            await loadRecentSessions(convo.id).catch(() => {});
+        } catch (e) {
+            console.error('[ExoAnchor] Failed to create conversation:', e);
+        }
+    }
+
+    async function ensureConversation(seedText = '新对话') {
+        if (currentConvId) return currentConvId;
+        const modelSel = document.getElementById('modelSelect');
+        const model = modelSel ? modelSel.value : '';
+        const res = await fetch(API + '/api/conversations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: seedText.substring(0, 30) || '新对话', model }),
+        });
+        const convo = await res.json();
+        currentConvId = convo.id;
+        localStorage.setItem(CURRENT_CONV_KEY, convo.id);
+        await loadConversations();
+        return convo.id;
+    }
+
+    async function switchConversation(convId) {
+        if (!convId) {
+            currentConvId = '';
+            localStorage.removeItem(CURRENT_CONV_KEY);
+            clearChatArea();
+            await loadConversations();
+            return;
+        }
+        currentConvId = convId;
+        localStorage.setItem(CURRENT_CONV_KEY, convId);
+        // Update sidebar active state
+        document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.conv-item').forEach(el => {
+            if (el.querySelector('.conv-item-del')?.getAttribute('onclick')?.includes(convId)) {
+                el.classList.add('active');
+            }
+        });
+        try {
+            const res = await fetch(API + `/api/conversations/${convId}`);
+            const convo = await res.json();
+            if (convo.error) return;
+            if (convo.model) {
+                const modelSel = document.getElementById('modelSelect');
+                if ([...modelSel.options].some(o => o.value === convo.model)) {
+                    modelSel.value = convo.model;
+                }
+            }
+            clearChatArea();
+            (convo.messages || []).forEach(msg => {
+                if (msg.html) {
+                    renderSavedMsg(msg.role, msg.html, msg.cls || '', msg.timestamp);
+                } else if (msg.content) {
+                    renderSavedMsg(msg.role, msg.role === 'user' ? escapeHtml(msg.content) : msg.content, msg.cls || '', msg.timestamp);
+                }
+            });
+            await loadRecentSessions(convId).catch(() => {});
+        } catch (e) {
+            console.error('[ExoAnchor] Failed to load conversation:', e);
+        }
+    }
+
+    async function deleteConversation(convId) {
+        if (!convId) return;
+        if (!confirm('Delete this conversation?')) return;
+        try {
+            await fetch(API + `/api/conversations/${convId}`, { method: 'DELETE' });
+            if (currentConvId === convId) {
+                currentConvId = '';
+                localStorage.removeItem(CURRENT_CONV_KEY);
+                clearChatArea();
+            }
+            await loadConversations();
+        } catch (e) {
+            console.error('[ExoAnchor] Failed to delete conversation:', e);
+        }
+    }
+
+    function onModelChange(model) {
+        // Update current conversation's model
+        if (currentConvId) {
+            fetch(API + `/api/conversations/${currentConvId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model }),
+            }).catch(() => {});
+        }
+    }
+
+    async function loadAllowedModels() {
+        try {
+            const cfgRes = await fetch(API + '/api/agent/config');
+            const cfg = await cfgRes.json();
+            const nlp = cfg.nlp || {};
+            const allowed = nlp.allowed_models || [];
+            const modelSel = document.getElementById('modelSelect');
+            modelSel.innerHTML = '<option value="">默认模型</option>';
+            if (allowed.length > 0) {
+                allowed.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id || m;
+                    opt.textContent = m.name || m.id || m;
+                    modelSel.appendChild(opt);
+                });
+            } else if (nlp.model) {
+                // Fallback: show configured model
+                const opt = document.createElement('option');
+                opt.value = nlp.model;
+                opt.textContent = nlp.model;
+                modelSel.appendChild(opt);
+            }
+        } catch (e) {
+            console.warn('[ExoAnchor] Failed to load models:', e);
+        }
+    }
+
+    function clearChatArea() {
+        const area = document.getElementById('chatArea');
+        area.innerHTML = `
+            <div class="chat-msg agent">
+                <div class="chat-avatar agent-av">C</div>
+                <div>
+                    <div class="chat-bubble">
+                        <strong>ExoAnchor Mission Feed 已就绪。</strong><br>
+                        在这里发起自然语言任务，后端 session、计划、确认和执行结果会沿同一条时间线持续展开。快捷命令仍然可用：<code>/help</code>
+                    </div>
+                    <div class="chat-time">${new Date().toLocaleTimeString()}</div>
+                </div>
+            </div>`;
+    }
+
+    function renderSavedMsg(role, html, cls, timestamp) {
+        const area = document.getElementById('chatArea');
+        const avatar = role === 'agent' ? '<div class="chat-avatar agent-av">C</div>' : '<div class="chat-avatar user-av">U</div>';
+        const time = timestamp ? new Date(timestamp).toLocaleTimeString() : '';
+        area.innerHTML += `
+            <div class="chat-msg ${role} ${cls}">
+                ${avatar}
+                <div>
+                    <div class="chat-bubble">${html}</div>
+                    <div class="chat-time">${time}</div>
+                </div>
+            </div>`;
+        area.scrollTop = area.scrollHeight;
+    }
+
+    async function saveMessage(role, content, html, cls) {
+        if (!currentConvId) {
+            // Auto-create conversation on first message
+            try {
+                const modelSel = document.getElementById('modelSelect');
+                const model = modelSel ? modelSel.value : '';
+                const res = await fetch(API + '/api/conversations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: content.substring(0, 30) || '新对话', model }),
+                });
+                const convo = await res.json();
+                currentConvId = convo.id;
+                localStorage.setItem(CURRENT_CONV_KEY, convo.id);
+                // Refresh conversation list
+                loadConversations().then(() => {
+                    document.getElementById('convSelect').value = convo.id;
+                });
+            } catch (e) {
+                console.warn('[ExoAnchor] Auto-create conversation failed:', e);
+                return;
+            }
+        }
+        // Save message
+        try {
+            await fetch(API + `/api/conversations/${currentConvId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, content, html, cls }),
+            });
+        } catch (e) {
+            console.warn('[ExoAnchor] Failed to save message:', e);
+        }
+    }
+
+    function renderTaskCard(taskId, skillName) {
+        return `
+            <div class="plan-card task-card" id="task-${taskId}">
+                <div class="plan-header">
+                    <div class="plan-goal">Task · ${escapeHtml(skillName || taskId)}</div>
+                    <div class="plan-progress" id="task-${taskId}-progress">0</div>
+                </div>
+                <div class="plan-steps" id="task-${taskId}-content">
+                    <div class="empty-state">等待任务开始...</div>
+                </div>
+                <div class="plan-footer">
+                    <div class="plan-mode-toggle" id="task-${taskId}-meta">准备中</div>
+                </div>
+            </div>`;
+    }
+
+    function ensureTaskCard(taskId, skillName = '') {
+        if (!taskId) return;
+        if (!document.getElementById(`task-${taskId}`)) {
+            renderSavedMsg('agent', renderTaskCard(taskId, skillName || `task-${taskId}`), 'task-msg', new Date().toISOString());
+        }
+    }
+
+    function renderTaskHistory(snapshot) {
+        const history = snapshot.history || [];
+        if (!history.length) {
+            const currentStep = snapshot.current_step || 0;
+            if (snapshot.state === 'running') {
+                return `<div class="empty-state">正在执行中... 当前步数 ${currentStep}</div>`;
+            }
+            return '<div class="empty-state">暂无步骤记录</div>';
+        }
+
+        return history.map((item, idx) => {
+            const isLast = idx === history.length - 1;
+            const status = snapshot.state === 'failed' && isLast ? 'failed' : 'done';
+            const title = escapeHtml(item.action_type || `step ${item.step_number ?? idx + 1}`);
+            const detail = escapeHtml(item.action_detail || item.screen_state?.description || '');
+            const result = escapeHtml((item.action_result || item.observation?.output || '').slice(0, 240));
+            return `
+                <div class="plan-step ${status}">
+                    <div class="step-icon ${status}">${(item.step_number ?? idx) + 1}</div>
+                    <div class="step-body">
+                        <div class="step-desc">${title}</div>
+                        ${detail ? `<div class="step-cmd">${detail}</div>` : ''}
+                        ${result ? `<div class="step-output${status === 'failed' ? ' error' : ''}">${result}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function syncTaskSnapshot(snapshot) {
+        if (!snapshot || !snapshot.task_id) return;
+        taskRuns[snapshot.task_id] = { ...(taskRuns[snapshot.task_id] || {}), ...snapshot };
+        activeTaskId = snapshot.state === 'running' || snapshot.state === 'paused' ? snapshot.task_id : (activeTaskId === snapshot.task_id ? '' : activeTaskId);
+
+        ensureTaskCard(snapshot.task_id, snapshot.skill_name || 'task');
+        const progressEl = document.getElementById(`task-${snapshot.task_id}-progress`);
+        const metaEl = document.getElementById(`task-${snapshot.task_id}-meta`);
+        const contentEl = document.getElementById(`task-${snapshot.task_id}-content`);
+        if (!progressEl || !metaEl || !contentEl) return;
+
+        const historyLen = (snapshot.history || []).length;
+        const currentStep = snapshot.current_step || historyLen || 0;
+        const total = snapshot.total_steps || Math.max(currentStep, historyLen, 1);
+        progressEl.textContent = `${currentStep}/${total}`;
+        metaEl.textContent = `${String(snapshot.state || 'running').toUpperCase()}${snapshot.current_checkpoint ? ' · checkpoint: ' + snapshot.current_checkpoint : ''}`;
+        contentEl.innerHTML = renderTaskHistory(snapshot);
+
+        if (snapshot.error) {
+            contentEl.innerHTML += `<div class="step-output error">${escapeHtml(snapshot.error)}</div>`;
+        }
+    }
+
+    async function loadTaskSnapshot(taskId) {
+        if (!taskId) return null;
+        const snapshot = await api('GET', `/api/agent/task/history/${taskId}`);
+        syncTaskSnapshot(snapshot);
+        return snapshot;
+    }
+
+    async function loadCurrentTaskRun() {
+        try {
+            const current = await api('GET', '/api/agent/task/current');
+            if (current && current.task_id) {
+                syncTaskSnapshot(current);
+                await loadTaskSnapshot(current.task_id).catch(() => {});
+            }
+        } catch (e) {
+            console.warn('[ExoAnchor] Failed to load current task:', e);
+        }
+    }
+
+    function sessionMatchesCurrentConversation(session) {
+        const sessionConv = String(session?.conversation_id || '');
+        if (!currentConvId) return true;
+        return sessionConv === String(currentConvId);
+    }
+
+    function sessionStateLabel(state) {
+        const labels = {
+            pending: 'PENDING',
+            parsing: 'PARSING',
+            waiting_input: 'WAITING INPUT',
+            dispatching: 'DISPATCHING',
+            running: 'RUNNING',
+            waiting_confirmation: 'WAITING CONFIRMATION',
+            paused: 'PAUSED',
+            completed: 'COMPLETED',
+            failed: 'FAILED',
+            aborted: 'ABORTED',
+        };
+        return labels[String(state || '').toLowerCase()] || String(state || 'UNKNOWN').toUpperCase();
+    }
+
+    function sessionStateTagClass(state) {
+        const key = String(state || '').toLowerCase();
+        if (key === 'completed') return 'ssh-tag';
+        if (key === 'failed' || key === 'aborted') return 'warn-tag';
+        if (key === 'waiting_confirmation' || key === 'waiting_input' || key === 'paused') return 'info-tag';
+        return 'ai-tag';
+    }
+
+    function renderSessionControls(session) {
+        const state = String(session.state || '').toLowerCase();
+        const buttons = [];
+        if (state === 'waiting_confirmation') {
+            buttons.push(`<button class="btn-sm btn-approve" onclick="approveSession('${session.session_id}')">批准</button>`);
+            buttons.push(`<button class="btn-sm btn-reject" onclick="rejectSession('${session.session_id}')">拒绝</button>`);
+        }
+        if (['running', 'dispatching', 'parsing', 'waiting_confirmation', 'pending'].includes(state)) {
+            buttons.push(`<button class="btn-sm btn-reject" onclick="abortSession('${session.session_id}')">中止</button>`);
+        }
+        if ((session.run_id || session.task_id) && ['paused', 'failed', 'aborted', 'completed'].includes(state)) {
+            buttons.push(`<button class="btn-sm btn-approve" onclick="resumeSession('${session.session_id}')">恢复</button>`);
+        }
+        return buttons.length ? `<div class="session-controls">${buttons.join('')}</div>` : '<div class="plan-mode-toggle">等待后端事件...</div>';
+    }
+
+    function eventTime(ts) {
+        const value = Number(ts || 0);
+        if (!value) return '--:--:--';
+        return new Date(value * 1000).toLocaleTimeString();
+    }
+
+    function eventBadgeClass(event) {
+        const state = String(event?.state || '').toLowerCase();
+        if (state === 'completed') return 'ssh-tag';
+        if (state === 'failed' || state === 'aborted') return 'warn-tag';
+        if (state === 'waiting_confirmation' || state === 'paused') return 'info-tag';
+        return 'ai-tag';
+    }
+
+    function renderSessionTimeline(sessionId) {
+        const items = (sessionEvents[sessionId] || []).slice(-8).reverse();
+        if (!items.length) {
+            return '<div class="session-timeline"><div class="empty-state">暂无 runtime 事件</div></div>';
+        }
+        return `
+            <div class="session-timeline">
+                ${items.map((event) => `
+                    <div class="session-event">
+                        <div class="session-event-head">
+                            <span class="session-event-name">${escapeHtml(event.stream || event.entity_kind || 'event')} · ${escapeHtml(event.event || 'updated')}</span>
+                            <span class="session-event-time">${eventTime(event.timestamp)}</span>
+                        </div>
+                        <div class="session-event-summary">
+                            <span class="action-tag ${eventBadgeClass(event)}">${escapeHtml(sessionStateLabel(event.state || 'running'))}</span>
+                            ${escapeHtml(event.summary || event.payload?.run?.goal || event.payload?.status?.skill_name || 'runtime event')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function upsertSessionEvent(sessionId, event) {
+        if (!sessionId || !event) return;
+        const list = (sessionEvents[sessionId] || []).slice();
+        if (event.event_id && list.some(item => item.event_id === event.event_id)) {
+            sessionEvents[sessionId] = list;
+            return;
+        }
+        list.push(event);
+        list.sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+        sessionEvents[sessionId] = list.slice(-20);
+    }
+
+    async function loadSessionEvents(sessionId) {
+        if (!sessionId) return [];
+        const res = await api('GET', `/api/agent/events?session_id=${encodeURIComponent(sessionId)}&limit=20`);
+        sessionEvents[sessionId] = res.events || [];
+        return sessionEvents[sessionId];
+    }
+
+    function childMessageToRuntimeEvent(msg, entityKind, entityId) {
+        if (!msg) return null;
+        const summary = entityKind === 'plan_run'
+            ? (msg.run?.goal || msg.event || entityId)
+            : (msg.status?.skill_name || msg.skill || msg.step_id || entityId);
+        const state = entityKind === 'plan_run'
+            ? String(msg.run?.state || '')
+            : String(msg.status?.state || (msg.type === 'step' ? 'running' : ''));
+        return {
+            event_id: `ui-${entityKind}-${entityId}-${msg.event || msg.type || Date.now()}-${msg.step || ''}`,
+            timestamp: Date.now() / 1000,
+            stream: entityKind === 'plan_run' ? 'plan_run' : 'task',
+            event: String(msg.event || msg.type || 'updated'),
+            entity_kind: entityKind,
+            entity_id: entityId,
+            state,
+            summary,
+            payload: msg,
+        };
+    }
+
+    function renderSessionCard(session) {
+        const parsed = session.parsed_result || {};
+        const state = String(session.state || '').toLowerCase();
+        const statusTag = `<span class="action-tag ${sessionStateTagClass(state)}">${escapeHtml(sessionStateLabel(state))}</span>`;
+        const meta = [];
+        if (session.execution_kind) meta.push(`执行: ${session.execution_kind}`);
+        if (session.result_type) meta.push(`解析: ${session.result_type}`);
+        if (session.run_id) meta.push(`run: ${session.run_id}`);
+        if (session.task_id) meta.push(`task: ${session.task_id}`);
+        const metaHtml = meta.length
+            ? `<div class="session-meta-row">${meta.map(item => `<span class="session-meta-chip">${escapeHtml(item)}</span>`).join('')}</div>`
+            : '';
+
+        const primaryText = session.summary || parsed.goal || parsed.description || session.request || session.session_id;
+        const requestText = session.request && session.request !== primaryText ? `<div class="step-cmd">${escapeHtml(session.request)}</div>` : '';
+        const detailText = session.message
+            ? `<div class="step-eval">${escapeHtml(session.message)}</div>`
+            : '';
+        const outputText = session.output
+            ? `<div class="step-output">${escapeHtml(session.output)}</div>`
+            : '';
+        const errorText = session.error
+            ? `<div class="step-output error">${escapeHtml(session.error)}</div>`
+            : '';
+
+        return `
+            <div class="plan-card session-card" id="session-${session.session_id}">
+                <div class="plan-header">
+                    <div class="plan-goal">Session · ${escapeHtml(primaryText)}</div>
+                    <div class="plan-progress">${statusTag}</div>
+                </div>
+                ${metaHtml}
+                <div class="plan-steps">
+                    <div class="plan-step ${state === 'failed' || state === 'aborted' ? 'failed' : state === 'completed' ? 'done' : state === 'running' || state === 'dispatching' || state === 'parsing' ? 'running' : 'pending'}">
+                        <div class="step-icon ${state === 'failed' || state === 'aborted' ? 'failed' : state === 'completed' ? 'done' : state === 'running' || state === 'dispatching' || state === 'parsing' ? 'running' : 'pending'}">S</div>
+                        <div class="step-body">
+                            <div class="step-desc">${escapeHtml(primaryText)}</div>
+                            ${requestText}
+                            ${detailText}
+                            ${outputText}
+                            ${errorText}
+                        </div>
+                    </div>
+                </div>
+                ${renderSessionTimeline(session.session_id)}
+                <div class="plan-footer">
+                    <div class="plan-mode-toggle">Session ${escapeHtml(session.session_id)}</div>
+                    ${renderSessionControls(session)}
+                </div>
+            </div>`;
+    }
+
+    function syncSessionSnapshot(session) {
+        if (!session || !session.session_id) return;
+        const merged = { ...(sessionRuns[session.session_id] || {}), ...session };
+        sessionRuns[session.session_id] = merged;
+        if (merged.run_id) sessionByRunId[merged.run_id] = merged.session_id;
+        if (merged.task_id) sessionByTaskId[merged.task_id] = merged.session_id;
+        const missionState = document.getElementById('missionSessionState');
+        if (missionState) missionState.textContent = sessionStateLabel(merged.state || 'idle');
+        if (!sessionMatchesCurrentConversation(merged)) return;
+
+        const existing = document.getElementById(`session-${merged.session_id}`);
+        if (existing) {
+            existing.outerHTML = renderSessionCard(merged);
+            return;
+        }
+        renderSavedMsg('agent', renderSessionCard(merged), 'session-msg', new Date((merged.created_at || Date.now() / 1000) * 1000).toISOString());
+    }
+
+    async function loadSession(sessionId) {
+        if (!sessionId) return null;
+        const session = await api('GET', `/api/agent/sessions/${sessionId}`);
+        await loadSessionEvents(sessionId).catch(() => {});
+        syncSessionSnapshot(session);
+        return session;
+    }
+
+    async function loadRecentSessions(conversationId = currentConvId) {
+        const query = conversationId
+            ? `?limit=30&conversation_id=${encodeURIComponent(conversationId)}`
+            : '?limit=30';
+        const res = await api('GET', `/api/agent/sessions${query}`);
+        const sessions = (res.sessions || []).slice().sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+        if (!sessions.length) {
+            const missionState = document.getElementById('missionSessionState');
+            if (missionState) missionState.textContent = 'IDLE';
+        }
+        for (const session of sessions) {
+            await loadSessionEvents(session.session_id).catch(() => {});
+            syncSessionSnapshot(session);
+        }
+        for (const session of sessions) {
+            if (session.run_id) loadPlanRun(session.run_id).catch(() => {});
+            if (session.task_id) loadTaskSnapshot(session.task_id).catch(() => {});
+        }
+        return sessions;
+    }
+
+    function sessionIdForRun(runId) {
+        return runId ? sessionByRunId[runId] || '' : '';
+    }
+
+    function sessionIdForTask(taskId) {
+        return taskId ? sessionByTaskId[taskId] || '' : '';
+    }
+
+    async function approveSession(sessionId) {
+        await api('POST', `/api/agent/sessions/${sessionId}/approve`, {});
+        await loadSession(sessionId).catch(() => {});
+    }
+
+    async function rejectSession(sessionId) {
+        await api('POST', `/api/agent/sessions/${sessionId}/reject`, {});
+        await loadSession(sessionId).catch(() => {});
+    }
+
+    async function resumeSession(sessionId) {
+        await api('POST', `/api/agent/sessions/${sessionId}/resume`, {});
+        await loadSession(sessionId).catch(() => {});
+    }
+
+    async function abortSession(sessionId) {
+        await api('POST', `/api/agent/sessions/${sessionId}/abort`, {});
+        await loadSession(sessionId).catch(() => {});
+    }
+
+    // ── Plan Execution Engine ───────────────────────
+    function renderPlan(goal, steps, planId) {
+        const stepsHtml = steps.map((s, i) => `
+            <div class="plan-step pending" id="plan-${planId}-step-${s.id || i}">
+                <div class="step-icon pending">${s.id || i+1}</div>
+                <div class="step-body">
+                    <div class="step-desc">${escapeHtml(s.description)}${s.dangerous ? ' <span class="action-tag warn-tag" style="font-size:10px">危险</span>' : ''}</div>
+                    <div class="step-cmd">${escapeHtml(s.command)}</div>
+                </div>
+            </div>
+        `).join('');
+
+        return `
+            <div class="plan-card" id="plan-${planId}">
+                <div class="plan-header">
+                    <div class="plan-goal">${escapeHtml(goal)}</div>
+                    <div class="plan-progress" id="plan-${planId}-progress">0/${steps.length}</div>
+                </div>
+                <div class="plan-steps" id="plan-content-${planId}">${stepsHtml}</div>
+                <div class="plan-footer">
+                    <div class="plan-mode-toggle">
+                        ReAct:
+                        <select id="plan-${planId}-mode" disabled>
+                            <option value="on_fail" ${planReactMode==='on_fail'?'selected':''}>仅异常反馈</option>
+                            <option value="always" ${planReactMode==='always'?'selected':''}>每步反馈</option>
+                        </select>
+                    </div>
+                    <button class="plan-abort-btn" onclick="abortPlanRun('${planId}')">⏹ 中止计划</button>
+                </div>
+            </div>`;
+    }
+
+    function renderPlanStep(planId, step, stepIndex = 0) {
+        const stepId = step.id || stepIndex + 1;
+        return `
+            <div class="plan-step pending" id="plan-${planId}-step-${stepId}">
+                <div class="step-icon pending">${stepId}</div>
+                <div class="step-body">
+                    <div class="step-desc">${escapeHtml(step.description || `步骤 ${stepIndex + 1}`)}${step.dangerous ? ' <span class="action-tag warn-tag" style="font-size:10px">危险</span>' : ''}</div>
+                    <div class="step-cmd">${escapeHtml(step.command || '')}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderStepConfirmActions(planId, stepId) {
+        return `
+            <div class="step-confirm-actions" id="plan-${planId}-confirm-${stepId}">
+                <button class="btn-sm btn-approve" onclick="approvePlanStep('${planId}')">批准</button>
+                <button class="btn-sm btn-reject" onclick="rejectPlanStep('${planId}')">拒绝</button>
+            </div>
+        `;
+    }
+
+    function insertPlanStep(planId, step, afterStepId = null, stepIndex = 0) {
+        const listEl = document.getElementById(`plan-content-${planId}`);
+        if (!listEl) return;
+
+        const html = renderPlanStep(planId, step, stepIndex);
+        if (!afterStepId) {
+            listEl.insertAdjacentHTML('beforeend', html);
+            return;
+        }
+
+        const anchor = document.getElementById(`plan-${planId}-step-${afterStepId}`);
+        if (anchor) {
+            anchor.insertAdjacentHTML('afterend', html);
+        } else {
+            listEl.insertAdjacentHTML('beforeend', html);
+        }
+    }
+
+    function updateStepUI(planId, stepId, status, output, evalMsg) {
+        const stepEl = document.getElementById(`plan-${planId}-step-${stepId}`);
+        if (!stepEl) return;
+
+        // Update step class
+        stepEl.className = `plan-step ${status}`;
+
+        // Update icon
+        const iconEl = stepEl.querySelector('.step-icon');
+        iconEl.className = `step-icon ${status}`;
+        const icons = {
+            pending: stepId,
+            running: '...',
+            waiting_confirmation: '?',
+            done: 'V',
+            failed: 'X',
+            skipped: '-'
+        };
+        iconEl.textContent = icons[status] || stepId;
+
+        // Add output if present
+        if (output) {
+            const existing = stepEl.querySelector('.step-output');
+            if (existing) existing.remove();
+            const outEl = document.createElement('div');
+            outEl.className = `step-output${status === 'failed' ? ' error' : ''}`;
+            outEl.textContent = output.length > 500 ? output.substring(0, 500) + '...' : output;
+            stepEl.querySelector('.step-body').appendChild(outEl);
+        }
+
+        // Add eval message if present
+        if (evalMsg) {
+            const existing = stepEl.querySelector('.step-eval');
+            if (existing) existing.remove();
+            const evalEl = document.createElement('div');
+            evalEl.className = 'step-eval';
+            evalEl.textContent = `${evalMsg}`;
+            stepEl.querySelector('.step-body').appendChild(evalEl);
+        }
+
+        // Scroll chat
+        const area = document.getElementById('chatArea');
+        area.scrollTop = area.scrollHeight;
+    }
+
+    function updateStepConfirmationUI(planId, stepId, waiting) {
+        const stepEl = document.getElementById(`plan-${planId}-step-${stepId}`);
+        if (!stepEl) return;
+        const body = stepEl.querySelector('.step-body');
+        if (!body) return;
+
+        const existing = document.getElementById(`plan-${planId}-confirm-${stepId}`);
+        if (waiting) {
+            if (!existing) {
+                body.insertAdjacentHTML('beforeend', renderStepConfirmActions(planId, stepId));
+            }
+            return;
+        }
+
+        if (existing) existing.remove();
+    }
+
+    function updatePlanProgress(planId, done, total) {
+        const el = document.getElementById(`plan-${planId}-progress`);
+        if (el) el.textContent = `${done}/${total}`;
+    }
+
+    function ensurePlanCard(run) {
+        const planId = run.run_id;
+        if (!document.getElementById(`plan-${planId}`)) {
+            renderSavedMsg('agent', renderPlan(run.goal, run.steps, planId), 'plan-msg', new Date().toISOString());
+        }
+
+        const modeEl = document.getElementById(`plan-${planId}-mode`);
+        if (modeEl) modeEl.value = run.react_mode || 'on_fail';
+    }
+
+    function syncPlanRun(run) {
+        if (!run || !run.run_id) return;
+        planRuns[run.run_id] = run;
+        activePlanRunId = run.state === 'running' || run.state === 'waiting_confirmation' || run.state === 'paused'
+            ? run.run_id
+            : (activePlanRunId === run.run_id ? '' : activePlanRunId);
+
+        ensurePlanCard(run);
+        updatePlanProgress(run.run_id, run.completed_steps || 0, run.total_steps || run.steps.length || 0);
+
+        const listEl = document.getElementById(`plan-content-${run.run_id}`);
+        if (!listEl) return;
+
+        run.steps.forEach((step, idx) => {
+            if (!document.getElementById(`plan-${run.run_id}-step-${step.id}`)) {
+                insertPlanStep(run.run_id, step, idx > 0 ? run.steps[idx - 1].id : null, idx);
+            }
+
+            let output = step.output || '';
+            if (!output && step.error) output = step.error;
+
+            let evalMsg = step.eval_reason || null;
+            const waitingThisStep = run.state === 'waiting_confirmation' && run.waiting_step_id === step.id;
+            if (waitingThisStep) {
+                evalMsg = '等待确认...';
+            }
+
+            updateStepUI(run.run_id, step.id, step.status || 'pending', output, evalMsg);
+            updateStepConfirmationUI(run.run_id, step.id, waitingThisStep);
+        });
+    }
+
+    async function loadCurrentPlanRun() {
+        try {
+            const res = await fetch(API + '/api/agent/runs/current');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.run) {
+                syncPlanRun(data.run);
+                if (data.run.state === 'waiting_confirmation') {
+                    promptPlanConfirmation(data.run);
+                }
+            }
+        } catch (e) {
+            console.warn('[ExoAnchor] Failed to load current plan run:', e);
+        }
+    }
+
+    async function loadPlanRun(runId) {
+        if (!runId) return null;
+        try {
+            const run = await api('GET', `/api/agent/runs/${runId}`);
+            syncPlanRun(run);
+            if (run.state === 'waiting_confirmation') {
+                promptPlanConfirmation(run);
+            }
+            return run;
+        } catch (e) {
+            console.warn('[ExoAnchor] Failed to load plan run:', e);
+            return null;
+        }
+    }
+
+    function promptPlanConfirmation(run) {
+        if (!run || !run.run_id || run.state !== 'waiting_confirmation') return;
+        const step = (run.steps || []).find(s => s.id === run.waiting_step_id);
+        if (!step) return;
+
+        pendingPlanConfirmation = {
+            runId: run.run_id,
+            sessionId: sessionIdForRun(run.run_id),
+        };
+        const modal = document.getElementById('confirmModal');
+        document.getElementById('confirmBody').innerHTML = `即将执行以下步骤：<br><strong>${escapeHtml(step.description)}</strong>`;
+        document.getElementById('confirmCommand').textContent = step.command;
+        modal.style.display = 'flex';
+    }
+
+    async function confirmPlanRun(runId, approved, sessionId = '') {
+        if (!runId) return;
+        try {
+            if (sessionId) {
+                await api('POST', `/api/agent/sessions/${sessionId}/${approved ? 'approve' : 'reject'}`, {});
+                await loadSession(sessionId).catch(() => {});
+            } else {
+                const res = await fetch(API + `/api/agent/runs/${runId}/confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ approved }),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || err.error || '确认失败');
+                }
+            }
+            await loadPlanRun(runId);
+            setTimeout(() => { loadPlanRun(runId).catch(() => {}); }, 300);
+            setTimeout(() => { loadPlanRun(runId).catch(() => {}); }, 1500);
+        } catch (e) {
+            addChatMsg('agent', `<span class="action-tag warn-tag">确认失败</span> ${escapeHtml(e.message)}`);
+        }
+    }
+
+    async function approveAction() {
+        if (!pendingPlanConfirmation) return;
+        const runId = pendingPlanConfirmation.runId || pendingPlanConfirmation;
+        const sessionId = pendingPlanConfirmation.sessionId || '';
+        pendingPlanConfirmation = null;
+        document.getElementById('confirmModal').style.display = 'none';
+        await confirmPlanRun(runId, true, sessionId);
+    }
+
+    async function rejectAction() {
+        if (!pendingPlanConfirmation) return;
+        const runId = pendingPlanConfirmation.runId || pendingPlanConfirmation;
+        const sessionId = pendingPlanConfirmation.sessionId || '';
+        pendingPlanConfirmation = null;
+        document.getElementById('confirmModal').style.display = 'none';
+        await confirmPlanRun(runId, false, sessionId);
+    }
+
+    async function approvePlanStep(runId) {
+        const modal = document.getElementById('confirmModal');
+        modal.style.display = 'none';
+        pendingPlanConfirmation = null;
+        await confirmPlanRun(runId, true, sessionIdForRun(runId));
+    }
+
+    async function rejectPlanStep(runId) {
+        const modal = document.getElementById('confirmModal');
+        modal.style.display = 'none';
+        pendingPlanConfirmation = null;
+        await confirmPlanRun(runId, false, sessionIdForRun(runId));
+    }
+
+    async function abortPlanRun(runId) {
+        const id = runId || activePlanRunId;
+        if (!id) return;
+        try {
+            const sessionId = sessionIdForRun(id);
+            if (sessionId) {
+                await api('POST', `/api/agent/sessions/${sessionId}/abort`, {});
+                await loadSession(sessionId).catch(() => {});
+            } else {
+                await fetch(API + `/api/agent/runs/${id}/abort`, { method: 'POST' });
+            }
+        } catch (e) {
+            addChatMsg('agent', `<span class="action-tag warn-tag">中止失败</span> ${escapeHtml(e.message)}`);
+        }
+    }
+
+    // ── API Helpers ─────────────────────────────────
+    async function api(method, path, body = null) {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(API + path, opts);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            const detail = data?.detail;
+            const message = typeof detail === 'string'
+                ? detail
+                : (detail?.message || data?.error || data?.message || `HTTP ${res.status}`);
+            const err = new Error(message);
+            err.status = res.status;
+            err.payload = data;
+            throw err;
+        }
+        return data;
+    }
+
+    // ── Status Refresh ──────────────────────────────
+    async function refreshStatus() {
+        try {
+            const status = await api('GET', '/api/agent/status');
+            agentState = status;
+            updateUI(status);
+            updateSettingsPage(status);
+
+            const passive = await api('GET', '/api/agent/passive/status');
+            updateServices(passive.services || []);
+            updateSettingsServices(passive.services || []);
+            updateTriggers(passive.recent_triggers || []);
+
+            const workloads = await api('GET', '/api/agent/workloads');
+            updateWorkloads(workloads || []);
+        } catch (e) {
+            console.error('Status refresh failed:', e);
+        }
+    }
+
+    function selectWorkload(id) {
+        selectedWorkloadId = String(id || '');
+        _forceDetailRender = true;
+        updateWorkloads(currentWorkloads);
+    }
+
+    function showCreateWorkloadModal() {
+        const overlay = document.getElementById('createWorkloadOverlay');
+        if (!overlay) return;
+        // Reset form
+        document.getElementById('cwlId').value = '';
+        document.getElementById('cwlName').value = '';
+        document.getElementById('cwlType').value = 'custom';
+        document.getElementById('cwlCommand').value = '';
+        document.getElementById('cwlPort').value = '';
+        document.getElementById('cwlIdError').textContent = '';
+        document.getElementById('cwlId').classList.remove('invalid');
+        document.getElementById('cwlSubmitBtn').disabled = false;
+        document.getElementById('cwlSubmitBtn').textContent = '创建';
+        overlay.style.display = 'flex';
+        setTimeout(() => document.getElementById('cwlId').focus(), 80);
+    }
+
+    function hideCreateWorkloadModal() {
+        const overlay = document.getElementById('createWorkloadOverlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    async function submitCreateWorkload() {
+        const idInput = document.getElementById('cwlId');
+        const nameInput = document.getElementById('cwlName');
+        const typeInput = document.getElementById('cwlType');
+        const cmdInput = document.getElementById('cwlCommand');
+        const portInput = document.getElementById('cwlPort');
+        const errDiv = document.getElementById('cwlIdError');
+        const btn = document.getElementById('cwlSubmitBtn');
+
+        const wlId = (idInput.value || '').trim();
+        const wlName = (nameInput.value || '').trim();
+
+        // Validation
+        errDiv.textContent = '';
+        idInput.classList.remove('invalid');
+
+        if (!wlId) {
+            errDiv.textContent = 'ID 不能为空';
+            idInput.classList.add('invalid');
+            idInput.focus();
+            return;
+        }
+        if (!/^[a-zA-Z0-9_-]+$/.test(wlId)) {
+            errDiv.textContent = '仅允许英文字母、数字、下划线和连字符';
+            idInput.classList.add('invalid');
+            idInput.focus();
+            return;
+        }
+        if (!wlName) {
+            errDiv.textContent = '名称不能为空';
+            nameInput.focus();
+            return;
+        }
+
+        // Build payload
+        const payload = {
+            id: wlId,
+            name: wlName,
+            type: typeInput.value || 'custom',
+        };
+        const cmd = (cmdInput.value || '').trim();
+        if (cmd) payload.command = cmd;
+        const port = parseInt(portInput.value, 10);
+        if (port > 0 && port <= 65535) payload.port = port;
+
+        // Submit
+        btn.disabled = true;
+        btn.textContent = '创建中...';
+
+        try {
+            const result = await api('POST', '/api/agent/workloads', payload);
+            appendTerminal(`[Workload] Created: ${result.name || result.id} (${result.dir || wlId})`, 'cyan');
+            hideCreateWorkloadModal();
+
+            // Select the new workload and refresh
+            selectedWorkloadId = String(result.id || result.dir || wlId);
+            _forceDetailRender = true;
+            await refreshStatus();
+        } catch (e) {
+            const msg = e?.payload?.message || e?.payload?.detail || e?.message || 'Failed to create workload';
+            errDiv.textContent = msg;
+            btn.disabled = false;
+            btn.textContent = '创建';
+        }
+    }
+
+    function renderWorkloadInspector(wl) {
+        const wlId = String(wl.id || wl.dir || '');
+        const domId = wlId.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const safeId = wlId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const state = workloadPanelState[wlId] || {};
+        const consoleMeta = wl.console || {};
+        const dotCls = wl.status === 'running' ? 'running' : wl.status === 'stopped' ? 'stopped' : 'unknown';
+        const statusTagClass = wl.status === 'running' ? 'ssh-tag' : wl.status === 'stopped' ? 'warn-tag' : 'info-tag';
+        const consoleText = state.output || 'Ready for direct workload control.\nUse Refresh or Logs to inspect this workload.';
+        const consoleCls = state.tone === 'error' ? ' error' : (!state.output ? ' empty' : '');
+        const disabled = state.busy ? 'disabled' : '';
+        const startDisabled = state.busy || wl.status === 'running' ? 'disabled' : '';
+        const stopDisabled = state.busy || wl.status === 'stopped' ? 'disabled' : '';
+        const consoleEnabled = !!consoleMeta.available;
+        const consoleCapable = consoleMeta.type === 'minecraft-rcon';
+
+        let consoleControls = `
+            <div class="wl-section-title">Operator Output</div>
+            <div class="wl-console${consoleCls}" id="wl-console-${escapeHtml(wlId)}">${escapeHtml(consoleText)}</div>
+        `;
+
+        if (consoleEnabled) {
+            const historyLines = (consoleHistory[wlId] || []).map(h => {
+                const cls = h.error ? 'error-line' : '';
+                return `<span class="cmd-line">$ ${escapeHtml(h.cmd)}</span>\n` +
+                    (h.output ? `<span class="${cls}">${escapeHtml(h.output)}</span>\n` : '');
+            }).join('');
+            const currentOutput = state.output || '';
+            const outputContent = historyLines + (currentOutput ? escapeHtml(currentOutput) : '<span class="info-line">Console ready. Type a command and press Enter.</span>');
+
+            consoleControls = `
+                <div class="wl-section-title">Console</div>
+                <div class="wl-terminal" id="wl-term-${domId}">
+                    <div class="wl-terminal-header">
+                        <div class="wl-terminal-dots"><span></span><span></span><span></span></div>
+                        <div class="wl-terminal-title">RCON · ${escapeHtml(wl.name || wl.id)} · :${escapeHtml(String(consoleMeta.port || 25575))}</div>
+                    </div>
+                    <div class="wl-terminal-output" id="wl-output-${domId}">${outputContent}</div>
+                    <div class="wl-terminal-prompt">
+                        <span class="wl-terminal-prompt-prefix">$&nbsp;</span>
+                        <input class="wl-terminal-input" id="wl-input-${domId}"
+                            placeholder="Enter command..."
+                            autocomplete="off" spellcheck="false" ${disabled}
+                            onkeydown="handleConsoleKey(event, '${safeId}', '${domId}')">
+                    </div>
+                </div>
+            `;
+        } else if (consoleCapable) {
+            consoleControls = `
+                <div class="wl-section-title">Console</div>
+                <div class="wl-console-controls">
+                    <button class="btn btn-secondary btn-sm" onclick="setupWorkloadConsole('${safeId}')" ${disabled}>启用控制台</button>
+                    <div class="wl-console-help">Minecraft workload 已检测到，但 RCON 还没开启。启用后会自动重启一次服务。</div>
+                </div>
+                <div class="wl-console${consoleCls}" id="wl-console-${escapeHtml(wlId)}">${escapeHtml(consoleText)}</div>
+            `;
+        }
+
+        return `
+            <div class="workload-card">
+                <div class="wl-title-row">
+                    <div>
+                        <div class="wl-section-title">Selected Workload</div>
+                        <div class="wl-title">${escapeHtml(wl.name || wl.id)}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="action-tag ${statusTagClass}">${escapeHtml((wl.status || 'unknown').toUpperCase())}</span>
+                        <span class="wl-status-dot ${dotCls}" title="Status: ${wl.status}"></span>
+                    </div>
+                </div>
+                <div class="wl-meta">
+                    <div><strong>Status</strong><br>${escapeHtml((wl.status || 'unknown').toUpperCase())}</div>
+                    <div><strong>Type</strong><br>${escapeHtml(wl.type || 'unknown')}</div>
+                    <div><strong>Port</strong><br>${wl.port ? escapeHtml(String(wl.port)) : 'None'}</div>
+                    <div><strong>Path</strong><br>${wl.dir ? `~/.${escapeHtml(wl.base_dir || 'exoanchor')}/workloads/${escapeHtml(wl.dir)}` : '--'}</div>
+                </div>
+                ${wl.command ? `
+                    <div>
+                        <div class="wl-section-title">Launch Command</div>
+                        <div class="wl-command">${escapeHtml(wl.command)}</div>
+                    </div>
+                ` : ''}
+                <div>
+                    <div class="wl-section-title">Actions</div>
+                    <div class="wl-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="workloadAction('${safeId}', 'refresh')" ${disabled}>刷新</button>
+                        <button class="btn btn-secondary btn-sm" onclick="workloadAction('${safeId}', 'logs')" ${disabled}>日志</button>
+                        <button class="btn-sm btn-approve" onclick="workloadAction('${safeId}', 'start')" ${startDisabled}>启动</button>
+                        <button class="btn btn-secondary btn-sm" onclick="workloadAction('${safeId}', 'restart')" ${disabled}>重启</button>
+                        <button class="btn-sm btn-reject" onclick="workloadAction('${safeId}', 'stop')" ${stopDisabled}>停止</button>
+                    </div>
+                </div>
+                ${consoleControls}
+            </div>
+        `;
+    }
+
+    let _forceDetailRender = true;  // Set to true when user action requires detail panel rebuild
+
+    function updateWorkloads(wls) {
+        currentWorkloads = Array.isArray(wls) ? wls : [];
+        const grid = document.getElementById('workloadGrid');
+        const detail = document.getElementById('workloadInspectorDetail');
+        const badge = document.getElementById('workloadsCountBadge');
+        const countLabel = document.getElementById('missionWorkloadCount');
+        const runningBadge = document.getElementById('workloadRunningBadge');
+        const selectionBadge = document.getElementById('workloadSelectionBadge');
+        const total = currentWorkloads.length;
+        const runningCount = currentWorkloads.filter(item => item.status === 'running').length;
+
+        badge.textContent = `${total} workloads`;
+        if (countLabel) countLabel.textContent = String(total);
+        if (runningBadge) runningBadge.textContent = `${runningCount} running`;
+
+        if (!total) {
+            selectedWorkloadId = '';
+            if (selectionBadge) selectionBadge.textContent = '未选择工作负载';
+            grid.innerHTML = '<div class="empty-state">No AI managed workloads deployed yet</div>';
+            detail.innerHTML = '<div class="empty-state">选择一个 workload 查看状态、日志、控制台和管理动作</div>';
+            updateWorkloadSummary(currentWorkloads);
+            _forceDetailRender = true;
+            return;
+        }
+
+        const prevSelectedId = selectedWorkloadId;
+        if (!selectedWorkloadId || !currentWorkloads.some(wl => String(wl.id || wl.dir || '') === selectedWorkloadId)) {
+            selectedWorkloadId = String(currentWorkloads[0].id || currentWorkloads[0].dir || '');
+            _forceDetailRender = true;  // selection changed, need to render
+        }
+
+        // Always update the sidebar list (lightweight)
+        grid.innerHTML = currentWorkloads.map((wl) => {
+            const wlId = String(wl.id || wl.dir || '');
+            const active = wlId === selectedWorkloadId ? ' active' : '';
+            const safeId = wlId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            return `
+                <button type="button" class="workload-list-item${active}" onclick="selectWorkload('${safeId}')">
+                    <span class="name">${escapeHtml(wl.name || wl.id)}</span>
+                    <span class="meta">${escapeHtml((wl.status || 'unknown').toUpperCase())}<br>${wl.port ? `:${escapeHtml(String(wl.port))}` : 'no-port'}</span>
+                </button>
+            `;
+        }).join('');
+
+        const selected = currentWorkloads.find(wl => String(wl.id || wl.dir || '') === selectedWorkloadId) || currentWorkloads[0];
+        if (selectionBadge) selectionBadge.textContent = selected ? `${selected.name || selected.id}` : '未选择工作负载';
+
+        // Only rebuild detail panel when explicitly requested (user action, not timer refresh)
+        if (_forceDetailRender) {
+            _forceDetailRender = false;
+
+            // Save any pending input value before re-render
+            const activeEl = document.activeElement;
+            if (activeEl && (activeEl.classList.contains('wl-terminal-input') || activeEl.classList.contains('wl-console-input'))) {
+                consolePendingInput[selectedWorkloadId] = activeEl.value || '';
+            }
+
+            detail.innerHTML = selected ? renderWorkloadInspector(selected) : '<div class="empty-state">选择一个 workload 查看状态、日志、控制台和管理动作</div>';
+
+            // Restore pending input if there was one
+            const pendingVal = consolePendingInput[selectedWorkloadId];
+            if (pendingVal) {
+                const domId = selectedWorkloadId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const inputEl = document.getElementById(`wl-input-${domId}`);
+                if (inputEl) {
+                    inputEl.value = pendingVal;
+                }
+            }
+        }
+
+        // ── Update Overview summary card ──
+        updateWorkloadSummary(currentWorkloads);
+    }
+
+    function updateWorkloadSummary(wls) {
+        const summaryList = document.getElementById('wlSummaryList');
+        const summaryBadge = document.getElementById('wlSummaryBadge');
+        const summaryTotal = document.getElementById('wlSummaryTotal');
+        const summaryRunning = document.getElementById('wlSummaryRunning');
+        const summaryStopped = document.getElementById('wlSummaryStopped');
+        if (!summaryList) return;
+
+        const total = wls.length;
+        const running = wls.filter(w => w.status === 'running').length;
+        const stopped = wls.filter(w => w.status === 'stopped').length;
+
+        if (summaryBadge) summaryBadge.textContent = String(total);
+        if (summaryTotal) summaryTotal.textContent = String(total);
+        if (summaryRunning) summaryRunning.textContent = String(running);
+        if (summaryStopped) summaryStopped.textContent = String(stopped);
+
+        if (!total) {
+            summaryList.innerHTML = '<div class="empty-state" style="padding:12px 0;">暂无工作负载</div>';
+            return;
+        }
+
+        summaryList.innerHTML = wls.slice(0, 5).map(wl => {
+            const statusCls = wl.status === 'running' ? 'running' : wl.status === 'stopped' ? 'stopped' : 'unknown';
+            return `
+                <div class="wl-summary-item">
+                    <span class="wl-summary-item-name">
+                        <span class="status-dot ${wl.status === 'running' ? 'green' : wl.status === 'stopped' ? 'red' : 'gray'}"></span>
+                        ${escapeHtml(wl.name || wl.id)}
+                    </span>
+                    <span class="wl-summary-item-status ${statusCls}">${(wl.status || 'unknown').toUpperCase()}</span>
+                </div>
+            `;
+        }).join('') + (wls.length > 5 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);padding:4px 0;">+${wls.length - 5} more</div>` : '');
+    }
+
+    function formatWorkloadActionOutput(payload, action) {
+        const parts = [];
+        if (action === 'logs' && payload.output) {
+            parts.push(payload.output.trim());
+        }
+        (payload.results || []).forEach(item => {
+            const text = String(item.output || item.stdout || item.stderr || '').trim();
+            if (text) parts.push(`[${item.step}] ${text}`);
+        });
+        const resultOutput = String(payload.result?.output || '').trim();
+        if (resultOutput && action !== 'logs') {
+            parts.push(resultOutput);
+        }
+        const verifyOutput = String(payload.verify?.output || '').trim();
+        if (verifyOutput && !parts.includes(verifyOutput)) {
+            parts.push(`Verification:\n${verifyOutput}`);
+        }
+        return parts.filter(Boolean).join('\n\n').trim();
+    }
+
+    function setWorkloadPanelState(id, patch = {}) {
+        workloadPanelState[id] = { ...(workloadPanelState[id] || {}), ...patch };
+    }
+
+    function updateWorkloadConsoleState(id, patch = {}) {
+        setWorkloadPanelState(id, patch);
+        _forceDetailRender = true;
+        updateWorkloads(currentWorkloads);
+    }
+
+    async function workloadAction(id, action) {
+        const labels = {
+            refresh: '刷新 workload',
+            logs: '查看日志',
+            start: '启动 workload',
+            restart: '重启 workload',
+            stop: '停止 workload',
+        };
+        if (action === 'stop' && !confirm(`确定要停止 workload ${id} 吗？`)) return;
+
+        setWorkloadPanelState(id, {
+            busy: true,
+            tone: '',
+            output: `${labels[action] || action} 中...`,
+            lastAction: action,
+        });
+        _forceDetailRender = true;
+        updateWorkloads(currentWorkloads);
+
+        try {
+            let payload;
+            const encodedId = encodeURIComponent(id);
+            if (action === 'refresh') {
+                payload = await api('GET', `/api/agent/workloads/${encodedId}`);
+            } else if (action === 'logs') {
+                payload = await api('GET', `/api/agent/workloads/${encodedId}/logs?lines=80`);
+            } else {
+                payload = await api('POST', `/api/agent/workloads/${encodedId}/${action}`, {});
+            }
+
+            const output = formatWorkloadActionOutput(payload, action) || `${labels[action] || action} 完成`;
+            setWorkloadPanelState(id, {
+                busy: false,
+                tone: '',
+                output,
+                lastAction: action,
+            });
+            _forceDetailRender = true;
+            updateWorkloads(currentWorkloads);
+        } catch (e) {
+            const detail = e?.payload?.message || e.message || 'Unknown error';
+            setWorkloadPanelState(id, {
+                busy: false,
+                tone: 'error',
+                output: `${labels[action] || action} 失败\n${detail}`,
+                lastAction: action,
+            });
+            _forceDetailRender = true;
+            updateWorkloads(currentWorkloads);
+        }
+    }
+
+    async function setupWorkloadConsole(id) {
+        updateWorkloadConsoleState(id, {
+            busy: true,
+            tone: '',
+            output: '正在启用控制台...\n这会自动开启 RCON 并重启一次服务。',
+        });
+        try {
+            await api('POST', `/api/agent/workloads/${encodeURIComponent(id)}/console/setup`, {});
+            updateWorkloadConsoleState(id, {
+                busy: false,
+                tone: '',
+                output: '控制台已启用。\n现在可以直接在这里发送 Minecraft 控制台指令。',
+            });
+            await refreshStatus();
+        } catch (e) {
+            updateWorkloadConsoleState(id, {
+                busy: false,
+                tone: 'error',
+                output: `启用控制台失败\n${e?.payload?.message || e.message || 'Unknown error'}`,
+            });
+        }
+    }
+
+    function handleConsoleKey(event, id, domId) {
+        const input = document.getElementById(`wl-input-${domId}`);
+        if (!input) return;
+
+        if (event.key === 'Enter' && !event.isComposing) {
+            event.preventDefault();
+            sendWorkloadConsole(id, domId);
+            return;
+        }
+
+        // Command history navigation
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            const history = consoleCommandHistory[id] || [];
+            if (!history.length) return;
+
+            if (consoleHistoryIndex[id] === undefined) {
+                consoleHistoryIndex[id] = history.length;
+            }
+
+            if (event.key === 'ArrowUp') {
+                consoleHistoryIndex[id] = Math.max(0, consoleHistoryIndex[id] - 1);
+            } else {
+                consoleHistoryIndex[id] = Math.min(history.length, consoleHistoryIndex[id] + 1);
+            }
+
+            if (consoleHistoryIndex[id] < history.length) {
+                input.value = history[consoleHistoryIndex[id]];
+            } else {
+                input.value = '';
+            }
+            // Move cursor to end
+            input.selectionStart = input.selectionEnd = input.value.length;
+        }
+    }
+
+    async function sendWorkloadConsole(id, domId) {
+        const input = document.getElementById(`wl-input-${domId}`);
+        if (!input) return;
+        const command = (input.value || '').trim();
+        if (!command) return;
+
+        // Add to command history
+        if (!consoleCommandHistory[id]) consoleCommandHistory[id] = [];
+        consoleCommandHistory[id].push(command);
+        consoleHistoryIndex[id] = consoleCommandHistory[id].length;
+
+        // Clear pending input cache and the input field
+        input.value = '';
+        delete consolePendingInput[id];
+
+        // Show sending state in output
+        const outputEl = document.getElementById(`wl-output-${domId}`);
+        if (outputEl) {
+            outputEl.innerHTML += `<span class="cmd-line">$ ${escapeHtml(command)}</span>\n<span class="info-line">Sending...</span>\n`;
+            outputEl.scrollTop = outputEl.scrollHeight;
+        }
+
+        updateWorkloadConsoleState(id, {
+            busy: true,
+            tone: '',
+            output: '',
+        });
+
+        try {
+            const payload = await api('POST', `/api/agent/workloads/${encodeURIComponent(id)}/console`, { command });
+            const output = String(payload.output || '').trim();
+
+            // Store in persistent history
+            if (!consoleHistory[id]) consoleHistory[id] = [];
+            consoleHistory[id].push({ cmd: command, output: output || '(no output)', error: false });
+
+            // Update terminal output directly without full re-render
+            if (outputEl) {
+                // Rebuild output from history
+                const historyHtml = consoleHistory[id].map(h => {
+                    return `<span class="cmd-line">$ ${escapeHtml(h.cmd)}</span>\n` +
+                        (h.output ? `<span class="${h.error ? 'error-line' : ''}">${escapeHtml(h.output)}</span>\n` : '');
+                }).join('');
+                outputEl.innerHTML = historyHtml;
+                outputEl.scrollTop = outputEl.scrollHeight;
+            }
+
+            updateWorkloadConsoleState(id, { busy: false, tone: '', output: '' });
+            input.focus();
+        } catch (e) {
+            const errMsg = e?.payload?.message || e.message || 'Console command failed';
+
+            if (!consoleHistory[id]) consoleHistory[id] = [];
+            consoleHistory[id].push({ cmd: command, output: errMsg, error: true });
+
+            if (outputEl) {
+                const historyHtml = consoleHistory[id].map(h => {
+                    return `<span class="cmd-line">$ ${escapeHtml(h.cmd)}</span>\n` +
+                        (h.output ? `<span class="${h.error ? 'error-line' : ''}">${escapeHtml(h.output)}</span>\n` : '');
+                }).join('');
+                outputEl.innerHTML = historyHtml;
+                outputEl.scrollTop = outputEl.scrollHeight;
+            }
+
+            updateWorkloadConsoleState(id, { busy: false, tone: 'error', output: '' });
+            input.focus();
+        }
+    }
+
+    function updateUI(s) {
+        // SSH status
+        const sshDot = document.getElementById('sshDot');
+        const sshLabel = document.getElementById('sshLabel');
+        sshDot.className = 'status-dot ' + (s.ssh_connected ? 'green' : 'red');
+        sshLabel.textContent = s.ssh_connected ? 'SSH OK' : 'SSH Off';
+        const missionSsh = document.getElementById('missionSshLabel');
+        if (missionSsh) missionSsh.textContent = s.ssh_connected ? 'Linked' : 'Offline';
+
+        // Passive status
+        const pDot = document.getElementById('passiveDot');
+        const pLabel = document.getElementById('passiveLabel');
+        pDot.className = 'status-dot ' + (s.passive_running ? 'green' : 'gray');
+        pLabel.textContent = s.passive_running ? 'Monitor On' : 'Monitor Off';
+
+        // Mode badge
+        const modeBadge = document.getElementById('currentModeBadge');
+        const modeNames = { manual: 'MANUAL', passive: 'PASSIVE', semi_active: 'SEMI-ACTIVE' };
+        const modeColors = { manual: 'badge-blue', passive: 'badge-green', semi_active: 'badge-purple' };
+        modeBadge.textContent = modeNames[s.mode] || s.mode;
+        modeBadge.className = 'card-badge ' + (modeColors[s.mode] || 'badge-blue');
+        const missionMode = document.getElementById('missionModeLabel');
+        if (missionMode) missionMode.textContent = modeNames[s.mode] || String(s.mode || 'MANUAL').toUpperCase();
+
+        // Mode buttons
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === s.mode);
+        });
+
+        // SSH target
+        document.getElementById('sshTargetBadge').textContent = s.ssh_target || '--';
+        document.getElementById('terminalTitle').textContent = s.ssh_target || 'exoanchor@target';
+
+        // Services count
+        document.getElementById('servicesCountBadge').textContent = `${s.services_monitored} services`;
+
+        // Uptime
+        const h = Math.floor(s.uptime / 3600);
+        const m = Math.floor((s.uptime % 3600) / 60);
+        const sec = Math.floor(s.uptime % 60);
+        document.getElementById('uptimeDisplay').textContent =
+            `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+
+        // ── Status Monitor Card ──
+        const sysUptime = document.getElementById('sysUptime');
+        if (sysUptime) {
+            const days = Math.floor(s.uptime / 86400);
+            const rh = Math.floor((s.uptime % 86400) / 3600);
+            const rm = Math.floor((s.uptime % 3600) / 60);
+            const rs = Math.floor(s.uptime % 60);
+            if (days > 0) {
+                sysUptime.textContent = `${days}d ${String(rh).padStart(2,'0')}:${String(rm).padStart(2,'0')}:${String(rs).padStart(2,'0')}`;
+            } else {
+                sysUptime.textContent = `${String(rh).padStart(2,'0')}:${String(rm).padStart(2,'0')}:${String(rs).padStart(2,'0')}`;
+            }
+        }
+        const sysUptimeSince = document.getElementById('sysUptimeSince');
+        if (sysUptimeSince) {
+            const startTime = new Date(Date.now() - s.uptime * 1000);
+            sysUptimeSince.textContent = `启动于 ${startTime.toLocaleTimeString()}`;
+        }
+
+        const sysSshDot = document.getElementById('sysSshDot');
+        const sysSshStatus = document.getElementById('sysSshStatus');
+        const sysSshTarget = document.getElementById('sysSshTarget');
+        if (sysSshDot) sysSshDot.className = 'status-dot ' + (s.ssh_connected ? 'green' : 'red');
+        if (sysSshStatus) sysSshStatus.textContent = s.ssh_connected ? 'Connected' : 'Offline';
+        if (sysSshTarget) sysSshTarget.textContent = s.ssh_target || '未配置目标';
+
+        const sysMonitorDot = document.getElementById('sysMonitorDot');
+        const sysMonitorStatus = document.getElementById('sysMonitorStatus');
+        if (sysMonitorDot) sysMonitorDot.className = 'status-dot ' + (s.passive_running ? 'green' : 'gray');
+        if (sysMonitorStatus) sysMonitorStatus.textContent = s.passive_running ? 'Active' : 'Inactive';
+
+        const sysModeName = document.getElementById('sysModeName');
+        const sysModeDesc = document.getElementById('sysModeDesc');
+        const modeDescs = { manual: '仅手动触发', passive: '监控+自动恢复', semi_active: '被动+条件触发' };
+        if (sysModeName) sysModeName.textContent = modeNames[s.mode] || String(s.mode || 'MANUAL').toUpperCase();
+        if (sysModeDesc) sysModeDesc.textContent = modeDescs[s.mode] || '';
+
+        const sysStatusBadge = document.getElementById('sysStatusBadge');
+        if (sysStatusBadge) {
+            const online = s.ssh_connected;
+            sysStatusBadge.textContent = online ? 'ONLINE' : 'OFFLINE';
+            sysStatusBadge.className = 'card-badge ' + (online ? 'badge-green' : 'badge-red');
+        }
+    }
+
+    function updateServices(services) {
+        const grid = document.getElementById('serviceGrid');
+        if (!services.length) {
+            grid.innerHTML = '<div class="empty-state">No services monitored</div>';
+            return;
+        }
+        grid.innerHTML = services.map(s => `
+            <div class="service-card ${s.status}">
+                <div class="service-name">${s.name}</div>
+                <div class="service-status">
+                    <span class="status-dot ${s.status === 'up' ? 'green' : s.status === 'down' ? 'red' : 'gray'}"></span>
+                    ${s.status.toUpperCase()}
+                </div>
+                <div class="service-meta">
+                    Type: ${s.type}
+                    ${s.restart_count > 0 ? `<br>Restarts: ${s.restart_count}` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function updateTriggers(triggers) {
+        const list = document.getElementById('triggerList');
+        if (!triggers.length) {
+            list.innerHTML = '<div class="empty-state">暂无事件</div>';
+            return;
+        }
+        list.innerHTML = triggers.reverse().map(t => {
+            const time = new Date(t.timestamp * 1000).toLocaleTimeString();
+            return `
+                <div class="trigger-item ${t.resolved ? 'resolved' : 'unresolved'}">
+                    <span class="trigger-icon">${t.resolved ? 'OK' : '!'}</span>
+                    <div class="trigger-content">
+                        <div class="trigger-title">${t.name}</div>
+                        <div class="trigger-desc">${t.description}</div>
+                        <div class="trigger-time">${time} · ${t.type} · ${t.resolved ? 'Resolved' : 'Unresolved'}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ── Mode Control ────────────────────────────────
+    async function setMode(mode) {
+        try {
+            const res = await api('POST', '/api/agent/mode', { mode });
+            appendTerminal(`[ExoAnchor] Mode changed: ${res.old_mode} → ${res.new_mode}`, 'cyan');
+            await refreshStatus();
+        } catch (e) {
+            appendTerminal(`[Error] Mode change failed: ${e.message}`, 'red');
+        }
+    }
+
+    async function settingsSetMode(mode) {
+        await setMode(mode);
+    }
+
+    async function togglePassiveMonitor() {
+        const toggle = document.getElementById('settingsPassiveToggle');
+        const isActive = toggle.classList.contains('active');
+        try {
+            if (isActive) {
+                await api('POST', '/api/agent/passive/stop');
+                appendTerminal('[ExoAnchor] Passive monitor stopped', 'yellow');
+            } else {
+                await api('POST', '/api/agent/passive/start');
+                appendTerminal('[ExoAnchor] Passive monitor started', 'green');
+            }
+            await refreshStatus();
+        } catch (e) {
+            appendTerminal(`[Error] Passive monitor toggle failed: ${e.message}`, 'red');
+        }
+    }
+
+    function updateSettingsPage(s) {
+        // Mode grid
+        const modeGrid = document.getElementById('settingsModeGrid');
+        if (modeGrid) {
+            modeGrid.querySelectorAll('.mode-option').forEach(opt => {
+                opt.classList.toggle('active', opt.dataset.mode === s.mode);
+            });
+        }
+
+        // Supervised toggle
+        const supToggle = document.getElementById('settingsSupervisedToggle');
+        if (supToggle) supToggle.classList.toggle('active', supervised);
+
+        // Passive toggle
+        const passToggle = document.getElementById('settingsPassiveToggle');
+        if (passToggle) passToggle.classList.toggle('active', s.passive_running);
+
+        // SSH status
+        const sshTarget = document.getElementById('settingsSshTargetDisplay');
+        const sshBadge = document.getElementById('settingsSshStatusBadge');
+        if (sshTarget) sshTarget.textContent = s.ssh_target || '未配置';
+        if (sshBadge) {
+            sshBadge.textContent = s.ssh_connected ? 'Connected' : 'Offline';
+            sshBadge.className = 'card-badge ' + (s.ssh_connected ? 'badge-green' : 'badge-red');
+        }
+    }
+
+    function updateSettingsServices(services) {
+        const grid = document.getElementById('settingsServiceGrid');
+        if (!grid) return;
+        if (!services.length) {
+            grid.innerHTML = '<div class="empty-state">No services configured</div>';
+            return;
+        }
+        grid.innerHTML = services.map(s => `
+            <div class="settings-row">
+                <div>
+                    <div class="settings-row-label">${escapeHtml(s.name)}</div>
+                    <div class="settings-row-desc">${escapeHtml(s.type)}</div>
+                </div>
+                <span class="card-badge ${s.status === 'up' ? 'badge-green' : 'badge-red'}">${s.status.toUpperCase()}</span>
+            </div>
+        `).join('');
+    }
+
+    function updateSettingsSkills(skills) {
+        const grid = document.getElementById('settingsSkillGrid');
+        if (!grid) return;
+        if (!skills || !skills.length) {
+            grid.innerHTML = '<div class="empty-state">No skills loaded</div>';
+            return;
+        }
+        grid.innerHTML = skills.map(sk => `
+            <div class="settings-row">
+                <div>
+                    <div class="settings-row-label">${escapeHtml(sk.name || sk.id)}</div>
+                    <div class="settings-row-desc">${escapeHtml(sk.description || '')}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ── Supervised Mode ─────────────────────────────
+    function toggleSupervised() {
+        const oldToggle = document.getElementById('supervisedToggle');
+        const settingsToggle = document.getElementById('settingsSupervisedToggle');
+        if (oldToggle) {
+            supervised = oldToggle.checked;
+        } else {
+            supervised = !supervised;
+        }
+        if (settingsToggle) settingsToggle.classList.toggle('active', supervised);
+        const card = document.getElementById('pendingCard');
+        card.style.display = supervised ? 'block' : 'none';
+        appendTerminal(
+            `[ExoAnchor] Supervised mode: ${supervised ? 'ON — actions require confirmation' : 'OFF'}`,
+            supervised ? 'yellow' : 'cyan'
+        );
+    }
+
+    function addPendingAction(id, name, desc, command, extra = {}) {
+        pendingActions.push({ id, name, desc, command, ...extra });
+        renderPendingQueue();
+    }
+
+    function renderPendingQueue() {
+        const queue = document.getElementById('pendingQueue');
+        const count = document.getElementById('pendingCount');
+        count.textContent = pendingActions.length;
+
+        if (!pendingActions.length) {
+            queue.innerHTML = '<div class="empty-state">暂无待确认操作</div>';
+            return;
+        }
+
+        queue.innerHTML = pendingActions.map(a => `
+            <div class="queue-item">
+                <span style="font-size:20px;"></span>
+                <div class="action-info">
+                    <div class="action-name">${a.name}</div>
+                    <div class="action-desc">${a.desc}</div>
+                </div>
+                <div class="queue-actions">
+                    <button class="btn-sm btn-approve" onclick="approveQueueItem('${a.id}')"> 批准</button>
+                    <button class="btn-sm btn-reject" onclick="rejectQueueItem('${a.id}')"> 拒绝</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function approveQueueItem(id) {
+        const action = pendingActions.find(a => a.id === id);
+        if (!action) return;
+        pendingActions = pendingActions.filter(a => a.id !== id);
+        renderPendingQueue();
+        appendTerminal(`[Supervised] Approved: ${action.name}`, 'green');
+
+        // Execute the actual command
+        if (action.command) {
+            try {
+                const res = await api('POST', '/api/agent/ssh/exec', { command: action.command });
+                appendTerminal(`$ ${action.command}`, 'cyan');
+                appendTerminal(res.output || '(no output)', 'white');
+            } catch (e) {
+                appendTerminal(`[Error] ${e.message}`, 'red');
+            }
+            return;
+        }
+
+        if (action.skill_name) {
+            try {
+                const res = await api('POST', '/api/agent/task/start', {
+                    skill_name: action.skill_name,
+                    params: action.params || {},
+                });
+                ensureTaskCard(res.task_id, action.skill_name);
+                loadTaskSnapshot(res.task_id).catch(() => {});
+                appendTerminal(`[Supervised] Skill started: ${action.skill_name} (${res.task_id || 'task'})`, 'purple');
+            } catch (e) {
+                appendTerminal(`[Error] ${e.message}`, 'red');
+            }
+        }
+    }
+
+    function rejectQueueItem(id) {
+        const action = pendingActions.find(a => a.id === id);
+        pendingActions = pendingActions.filter(a => a.id !== id);
+        renderPendingQueue();
+        appendTerminal(`[Supervised] Rejected: ${action?.name || id}`, 'red');
+    }
+
+    // ── Skills ──────────────────────────────────────
+    async function loadSkills() {
+        try {
+            const res = await api('GET', '/api/agent/skills');
+            const list = document.getElementById('skillList');
+            if (!res.skills || !res.skills.length) {
+                list.innerHTML = '<div class="empty-state">No skills loaded</div>';
+                return;
+            }
+            list.innerHTML = res.skills.map(s => `
+                <div class="skill-item">
+                    <div>
+                        <div class="skill-name">${s.name}</div>
+                        <div class="skill-desc">${s.description}</div>
+                        <div class="skill-tags">
+                            <span class="skill-tag">${s.mode}</span>
+                            ${(s.tags || []).map(t => `<span class="skill-tag">${t}</span>`).join('')}
+                        </div>
+                    </div>
+                    <button class="btn-run" onclick="runSkill('${s.name}')">▶ Run</button>
+                </div>
+            `).join('');
+            updateSettingsSkills(res.skills);
+        } catch (e) {
+            console.error('Load skills failed:', e);
+        }
+    }
+
+    async function runSkill(name) {
+        if (supervised) {
+            addPendingAction(
+                'skill_' + Date.now(),
+                `Run Skill: ${name}`,
+                'Execute skill playbook',
+                null,
+                { skill_name: name, params: {} }
+            );
+            return;
+        }
+        appendTerminal(`[ExoAnchor] Running skill: ${name}...`, 'purple');
+        try {
+            const res = await api('POST', '/api/agent/task/start', { skill_name: name, params: {} });
+            ensureTaskCard(res.task_id, name);
+            loadTaskSnapshot(res.task_id).catch(() => {});
+            appendTerminal(`[ExoAnchor] Skill started: ${name} (${res.task_id || 'task'})`, 'green');
+        } catch (e) {
+            appendTerminal(`[Error] ${e.message}`, 'red');
+        }
+    }
+
+    // ── SSH Terminal ────────────────────────────────
+    async function execCommand() {
+        const input = document.getElementById('terminalInput');
+        const cmd = input.value.trim();
+        if (!cmd) return;
+        input.value = '';
+
+        if (supervised) {
+            addPendingAction(
+                'ssh_' + Date.now(),
+                `SSH: ${cmd}`,
+                `Execute command on target machine`,
+                cmd
+            );
+            appendTerminal(`[Supervised] Command queued for approval: ${cmd}`, 'yellow');
+            return;
+        }
+
+        appendTerminal(`$ ${cmd}`, 'cyan');
+
+        try {
+            const res = await api('POST', '/api/agent/ssh/exec', { command: cmd });
+            if (res.output) {
+                appendTerminal(res.output.trim(), 'white');
+            } else if (res.detail) {
+                appendTerminal(`Error: ${res.detail}`, 'red');
+            }
+        } catch (e) {
+            appendTerminal(`Error: ${e.message}`, 'red');
+        }
+    }
+
+    function appendTerminal(text, color = 'green') {
+        const output = document.getElementById('terminalOutput');
+        const colors = {
+            green: '#10b981', red: '#ef4444', yellow: '#f59e0b',
+            cyan: '#06b6d4', white: '#e2e8f0', purple: '#8b5cf6',
+        };
+        output.innerHTML += `<span style="color:${colors[color] || colors.green}">${escapeHtml(text)}</span>\n`;
+        output.scrollTop = output.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+        return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function clearTriggers() {
+        document.getElementById('triggerList').innerHTML = '<div class="empty-state">暂无事件</div>';
+    }
+
+    // ── WebSocket ───────────────────────────────────
+    function connectWS() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${location.host}/api/agent/ws`);
+
+        ws.onopen = () => appendTerminal('[WS] Connected to ExoAnchor agent', 'cyan');
+        ws.onclose = () => {
+            appendTerminal('[WS] Disconnected, reconnecting in 3s...', 'yellow');
+            setTimeout(connectWS, 3000);
+        };
+        ws.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                handleWSMessage(msg);
+            } catch {}
+        };
+    }
+
+    function handleRuntimeEvent(event) {
+        if (!event || event.entity_kind !== 'session') return;
+        const session = event.payload?.session;
+        if (!session) return;
+        upsertSessionEvent(session.session_id, event);
+        syncSessionSnapshot(session);
+        if (session.run_id) {
+            loadPlanRun(session.run_id).catch(() => {});
+        }
+        if (session.task_id) {
+            loadTaskSnapshot(session.task_id).catch(() => {});
+        }
+    }
+
+    function handleWSMessage(msg) {
+        if (msg.type === 'runtime_event') {
+            handleRuntimeEvent(msg.event);
+            return;
+        }
+
+        if (msg.type === 'plan_run') {
+            const run = msg.run;
+            if (run) {
+                syncPlanRun(run);
+                const sessionId = sessionIdForRun(run.run_id);
+                if (sessionId) {
+                    upsertSessionEvent(sessionId, childMessageToRuntimeEvent(msg, 'plan_run', run.run_id));
+                    if (sessionRuns[sessionId]) {
+                        syncSessionSnapshot(sessionRuns[sessionId]);
+                    } else {
+                        loadSession(sessionId).catch(() => {});
+                    }
+                }
+                if (msg.event === 'confirmation_requested') {
+                    promptPlanConfirmation(run);
+                    appendTerminal(`[Plan] Waiting for confirmation: ${run.waiting_step_id || ''}`, 'yellow');
+                } else if (msg.event === 'finished') {
+                    if (!sessionId) {
+                        if (run.state === 'completed') {
+                            addChatMsg('agent', `<span class="action-tag ssh-tag">Plan Done</span> ${escapeHtml(run.goal)} — ${run.completed_steps}/${run.total_steps} 步完成`);
+                        } else if (run.state === 'aborted') {
+                            addChatMsg('agent', `<span class="action-tag warn-tag">⏹ 计划已中止</span> ${escapeHtml(run.error || '')}`);
+                        } else {
+                            addChatMsg('agent', `<span class="action-tag warn-tag">Plan Failed</span> ${escapeHtml(run.error || run.goal)}`);
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
+        if (msg.type === 'task_start') {
+            ensureTaskCard(msg.task_id, msg.skill || 'task');
+            syncTaskSnapshot({
+                task_id: msg.task_id,
+                skill_name: msg.skill || 'task',
+                state: 'running',
+                current_step: 0,
+                total_steps: 1,
+                history: [],
+            });
+            const sessionId = sessionIdForTask(msg.task_id);
+            if (sessionId) {
+                upsertSessionEvent(sessionId, childMessageToRuntimeEvent(msg, 'task', msg.task_id));
+                if (sessionRuns[sessionId]) {
+                    syncSessionSnapshot(sessionRuns[sessionId]);
+                } else {
+                    loadSession(sessionId).catch(() => {});
+                }
+            }
+            appendTerminal(`[Task] Started: ${msg.skill}`, 'cyan');
+            return;
+        }
+
+        if (msg.type === 'step' && msg.task_id) {
+            const current = taskRuns[msg.task_id] || {};
+            syncTaskSnapshot({
+                ...current,
+                task_id: msg.task_id,
+                skill_name: current.skill_name || 'task',
+                state: 'running',
+                current_step: msg.step || current.current_step || 0,
+                total_steps: msg.total || current.total_steps || msg.step || 1,
+                current_checkpoint: msg.checkpoint || current.current_checkpoint || '',
+                history: current.history || [],
+            });
+            const sessionId = sessionIdForTask(msg.task_id);
+            if (sessionId) {
+                upsertSessionEvent(sessionId, childMessageToRuntimeEvent(msg, 'task', msg.task_id));
+                if (sessionRuns[sessionId]) {
+                    syncSessionSnapshot(sessionRuns[sessionId]);
+                } else {
+                    loadSession(sessionId).catch(() => {});
+                }
+            }
+            appendTerminal(`[Step ${msg.step}] ${msg.step_id || msg.screen_state || ''} (${(msg.progress*100).toFixed(0)}%)`, 'purple');
+            return;
+        }
+
+        if (msg.type === 'task_end') {
+            const s = msg.status || {};
+            syncTaskSnapshot({
+                ...(taskRuns[msg.task_id] || {}),
+                ...s,
+                task_id: msg.task_id,
+                skill_name: s.skill_name || taskRuns[msg.task_id]?.skill_name || 'task',
+            });
+            const sessionId = sessionIdForTask(msg.task_id);
+            if (sessionId) {
+                upsertSessionEvent(sessionId, childMessageToRuntimeEvent(msg, 'task', msg.task_id));
+                if (sessionRuns[sessionId]) {
+                    syncSessionSnapshot(sessionRuns[sessionId]);
+                } else {
+                    loadSession(sessionId).catch(() => {});
+                }
+            }
+            loadTaskSnapshot(msg.task_id).catch(() => {});
+            appendTerminal(`[Task] ${s.state}: ${s.skill_name}`, s.state === 'completed' ? 'green' : 'red');
+            return;
+        }
+
+        if (msg.type === 'step') {
+            appendTerminal(`[Step ${msg.step}] ${msg.step_id || msg.screen_state || ''} (${(msg.progress*100).toFixed(0)}%)`, 'purple');
+        } else if (msg.type === 'trigger') {
+            appendTerminal(`[Trigger] ${msg.name}: ${msg.description}`, 'yellow');
+            if (supervised && msg.action) {
+                addPendingAction(
+                    'trigger_' + Date.now(),
+                    `Auto-recovery: ${msg.name}`,
+                    msg.description,
+                    msg.action.startsWith('shell:') ? msg.action.slice(6) : null
+                );
+            }
+            refreshStatus();
+        }
+    }
+
+    // ── Command Center ──────────────────────────────
+    const CMD_MAP = [
+        { pattern: /^\/(help|帮助)$/i, handler: cmdHelp },
+        { pattern: /^\/status$/i, handler: cmdStatus },
+        { pattern: /^\/services$/i, handler: cmdServices },
+        { pattern: /^\/run\s+(.+)/i, handler: cmdRunSkill },
+        { pattern: /^\/ssh\s+(.+)/i, handler: cmdSSH },
+        { pattern: /^\/mode\s+(manual|passive|semi_active)/i, handler: cmdMode },
+    ];
+
+    async function sendCommand(text) {
+        const input = document.getElementById('cmdInput');
+        const msg = text || input.value.trim();
+        if (!msg) return;
+        input.value = '';
+
+        await ensureConversation(msg).catch(() => {});
+        addChatMsg('user', msg);
+
+        // Process command
+        await processCommand(msg);
+    }
+
+    async function processCommand(msg) {
+        // Try slash commands first
+        for (const rule of CMD_MAP) {
+            const match = msg.match(rule.pattern);
+            if (!match) continue;
+
+            if (rule.handler) {
+                await rule.handler(match);
+                return;
+            }
+
+            // SSH command
+            const cmd = rule.sshFn ? rule.sshFn(match) : rule.ssh;
+            const desc = rule.desc ? rule.desc(match) : cmd;
+
+            // Supervised or dangerous → confirm
+            if (supervised || rule.confirm) {
+                addChatMsg('agent', `<span class="action-tag warn-tag">... 待确认</span> ${escapeHtml(desc)}`, 'pending');
+                addPendingAction(
+                    'cmd_' + Date.now(),
+                    desc,
+                    '从指令中心发出',
+                    cmd
+                );
+                return;
+            }
+
+            // Execute directly
+            showTyping();
+            try {
+                const res = await api('POST', '/api/agent/ssh/exec', { command: cmd });
+                hideTyping();
+                const output = res.output ? res.output.trim() : (res.detail || 'No output');
+                const isError = !res.output;
+                addChatMsg('agent',
+                    `<span class="action-tag ssh-tag">SSH</span> <code>${escapeHtml(cmd)}</code>` +
+                    `<div class="cmd-output${isError ? ' error' : ''}">${escapeHtml(output)}</div>`
+                );
+            } catch (e) {
+                hideTyping();
+                addChatMsg('agent', `<span class="action-tag warn-tag">错误</span> ${escapeHtml(e.message)}`);
+            }
+            return;
+        }
+
+        // No regex pattern matched → use AI (LLM) to understand
+        const deployKeywords = /部署|安装|搭建|配置|deploy|install|setup|新建.*服务|build.*server/i;
+        const autoForcePlan = deployKeywords.test(msg) || document.getElementById('planToggle')?.checked;
+        await processWithAI(msg, autoForcePlan);
+    }
+
+    async function processWithAI(msg, forcePlan = false) {
+        showTyping();
+        try {
+            const payload = {
+                message: msg,
+                model: document.getElementById('modelSelect')?.value || '',
+                conversation_id: currentConvId || '',
+                metadata: { client: 'dashboard' }
+            };
+            if (forcePlan) payload.force_plan = true;
+            const session = await api('POST', '/api/agent/sessions', payload);
+            hideTyping();
+            syncSessionSnapshot(session);
+            if (session.run_id) {
+                await loadPlanRun(session.run_id).catch(() => {});
+            }
+            if (session.task_id) {
+                await loadTaskSnapshot(session.task_id).catch(() => {});
+            }
+            if (session.execution_kind === 'ssh' && session.command) {
+                appendTerminal(`[Session SSH] ${session.command}`, 'cyan');
+            }
+
+        } catch (e) {
+            hideTyping();
+            if (String(e.message || '').includes('API key')) {
+                addChatMsg('agent',
+                    `<span class="action-tag warn-tag">AI Not Configured</span> ` +
+                    `请到 <a href="/settings" style="color:var(--accent-blue)">设置页面</a> 配置 API Key 后使用自然语言指令。<br>` +
+                    `当前仍可使用快捷命令：<code>/help</code> 查看所有命令`
+                );
+            } else {
+                addChatMsg('agent', `<span class="action-tag warn-tag">AI 请求失败</span> ${escapeHtml(e.message)}`);
+            }
+        }
+    }
+
+    // ── Slash Command Handlers ──────────────────────
+    async function cmdHelp() {
+        addChatMsg('agent',
+            `<strong> 指令帮助</strong><br><br>` +
+            `<strong>自然语言（中英文均支持）：</strong><br>` +
+            `&nbsp;&nbsp;• 查看系统状态 / 磁盘用量 / 内存 / CPU<br>` +
+            `&nbsp;&nbsp;• 重启/停止/启动 &lt;服务名&gt;<br>` +
+            `&nbsp;&nbsp;• 显示运行中的容器 / 查看网络连接<br>` +
+            `&nbsp;&nbsp;• 查看日志 &lt;服务名&gt;<br><br>` +
+            `<strong>快捷指令：</strong><br>` +
+            `&nbsp;&nbsp;<code>/status</code> — Agent 状态<br>` +
+            `&nbsp;&nbsp;<code>/services</code> — 服务列表<br>` +
+            `&nbsp;&nbsp;<code>/run &lt;skill&gt;</code> — 执行技能<br>` +
+            `&nbsp;&nbsp;<code>/ssh &lt;cmd&gt;</code> — 直接执行 SSH 命令<br>` +
+            `&nbsp;&nbsp;<code>/mode &lt;manual|passive|semi_active&gt;</code> — 切换模式<br><br>` +
+            `<strong>直接命令：</strong>输入任意 shell 命令（如 <code>ls -la</code>）将直接通过 SSH 执行`
+        );
+    }
+
+    async function cmdStatus() {
+        const s = agentState;
+        addChatMsg('agent',
+            `<span class="action-tag info-tag">状态</span><br>` +
+            `模式: <strong>${s.mode}</strong><br>` +
+            `SSH: ${s.ssh_connected ? 'Connected' : 'Disconnected'} (${s.ssh_target})<br>` +
+            `监控: ${s.passive_running ? 'Running' : 'Stopped'}<br>` +
+            `服务监控: ${s.services_monitored} 个<br>` +
+            `运行时间: ${formatUptime(s.uptime)}`
+        );
+    }
+
+    async function cmdServices() {
+        showTyping();
+        try {
+            const passive = await api('GET', '/api/agent/passive/status');
+            hideTyping();
+            const svcs = passive.services || [];
+            if (!svcs.length) {
+                addChatMsg('agent', '暂无配置的服务监控');
+                return;
+            }
+            const rows = svcs.map(s => {
+                const icon = s.status === 'up' ? '' : s.status === 'down' ? '!' : '⚪';
+                return `${icon} <strong>${s.name}</strong> — ${s.status.toUpperCase()}${s.restart_count > 0 ? ` (重启${s.restart_count}次)` : ''}`;
+            }).join('<br>');
+            addChatMsg('agent', `<span class="action-tag info-tag">服务状态</span><br>${rows}`);
+        } catch (e) {
+            hideTyping();
+            addChatMsg('agent', `<span class="action-tag warn-tag">错误</span> ${escapeHtml(e.message)}`);
+        }
+    }
+
+    async function cmdRunSkill(match) {
+        const parts = match[1].trim().split(/\s+/);
+        const name = parts[0];
+        const params = {};
+        // Parse key=value params: /run restart_service service=nginx
+        for (let i = 1; i < parts.length; i++) {
+            const [k, ...v] = parts[i].split('=');
+            if (k && v.length) params[k] = v.join('=');
+        }
+        const paramStr = Object.keys(params).length
+            ? ' (' + Object.entries(params).map(([k,v]) => `${k}=${v}`).join(', ') + ')'
+            : '';
+        addChatMsg('agent', `<span class="action-tag skill-tag">Skill</span> Running: <strong>${escapeHtml(name)}</strong>${paramStr}...`);
+        if (supervised) {
+            addPendingAction(
+                'skill_' + Date.now(),
+                `Run Skill: ${name}`,
+                '通过 /run 指令启动技能',
+                null,
+                { skill_name: name, params }
+            );
+            return;
+        }
+        try {
+            const res = await api('POST', '/api/agent/task/start', { skill_name: name, params });
+            ensureTaskCard(res.task_id, name);
+            loadTaskSnapshot(res.task_id).catch(() => {});
+            addChatMsg('agent', `<span class="action-tag skill-tag">Skill</span> ${escapeHtml(name)} 已启动 (${escapeHtml(res.task_id || 'task')})`);
+        } catch (e) {
+            addChatMsg('agent', `<span class="action-tag warn-tag">Failed</span> ${escapeHtml(e.message)}`);
+        }
+    }
+
+    async function cmdSSH(match) {
+        const cmd = match[1].trim();
+        if (supervised) {
+            addChatMsg('agent', `<span class="action-tag warn-tag">... 待确认</span> ${escapeHtml(cmd)}`);
+            addPendingAction('cmd_' + Date.now(), `SSH: ${cmd}`, '使用 /ssh 指令', cmd);
+            return;
+        }
+        showTyping();
+        try {
+            const res = await api('POST', '/api/agent/ssh/exec', { command: cmd });
+            hideTyping();
+            addChatMsg('agent',
+                `<span class="action-tag ssh-tag">SSH</span> <code>${escapeHtml(cmd)}</code>` +
+                `<div class="cmd-output">${escapeHtml(res.output?.trim() || 'No output')}</div>`
+            );
+        } catch (e) {
+            hideTyping();
+            addChatMsg('agent', `<span class="action-tag warn-tag">错误</span> ${escapeHtml(e.message)}`);
+        }
+    }
+
+    async function cmdMode(match) {
+        const mode = match[1];
+        try {
+            const res = await api('POST', '/api/agent/mode', { mode });
+            addChatMsg('agent', `<span class="action-tag info-tag">模式</span> ${res.old_mode} → <strong>${res.new_mode}</strong>`);
+            await refreshStatus();
+        } catch (e) {
+            addChatMsg('agent', `<span class="action-tag warn-tag">失败</span> ${escapeHtml(e.message)}`);
+        }
+    }
+
+    // ── Chat UI ─────────────────────────────────────
+    function addChatMsg(role, html, cls = '') {
+        const area = document.getElementById('chatArea');
+        const time = new Date().toLocaleTimeString();
+        const avatar = role === 'agent' ? '<div class="chat-avatar agent-av">C</div>' : '<div class="chat-avatar user-av">U</div>';
+        const content = role === 'user' ? escapeHtml(html) : html;
+        area.innerHTML += `
+            <div class="chat-msg ${role} ${cls}">
+                ${avatar}
+                <div>
+                    <div class="chat-bubble">${content}</div>
+                    <div class="chat-time">${time}</div>
+                </div>
+            </div>`;
+        area.scrollTop = area.scrollHeight;
+        // Auto-save to conversation
+        const rawContent = role === 'user' ? html : '';
+        const savedHtml = role === 'agent' ? html : '';
+        saveMessage(role, rawContent, savedHtml, cls);
+    }
+
+    let typingEl = null;
+    function showTyping() {
+        const area = document.getElementById('chatArea');
+        typingEl = document.createElement('div');
+        typingEl.className = 'chat-msg agent';
+        typingEl.innerHTML = '<div class="chat-avatar agent-av">C</div><div><div class="chat-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div></div>';
+        area.appendChild(typingEl);
+        area.scrollTop = area.scrollHeight;
+    }
+
+    function hideTyping() {
+        if (typingEl) { typingEl.remove(); typingEl = null; }
+    }
+
+    function formatUptime(s) {
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = Math.floor(s % 60);
+        return `${h}h ${m}m ${sec}s`;
+    }
+
+    // Set welcome time
+    document.getElementById('welcomeTime').textContent = new Date().toLocaleTimeString();
+
+    // ── Start ───────────────────────────────────────
+    init();
+</script>
+
+</body>
+</html>

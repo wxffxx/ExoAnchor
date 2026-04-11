@@ -1,0 +1,500 @@
+[
+  {
+    "id": "9772bf22",
+    "title": "New Chat",
+    "model": "",
+    "created_at": "2026-04-10T01:37:48.409368",
+    "updated_at": "2026-04-10T01:38:04.033945",
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我部署一个简单的python后端网页，默认目录",
+        "html": "",
+        "timestamp": "2026-04-10T01:38:04.033897",
+        "cls": ""
+      }
+    ]
+  },
+  {
+    "id": "dd64ec37",
+    "title": "New Chat",
+    "model": "",
+    "created_at": "2026-04-09T02:40:12.241295",
+    "updated_at": "2026-04-09T12:46:05.964694",
+    "messages": [
+      {
+        "role": "user",
+        "content": "你好",
+        "html": "",
+        "timestamp": "2026-04-09T03:47:47.390616",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ai-tag\">AI</span> 你好！我是 ExoAnchor，你的服务器管理助手。你可以用自然语言告诉我你想执行什么操作，比如'查看内存使用'、'部署一个 Minecraft 服务器'或'检查系统健康状态'。复杂任务我会自动拆分为多步骤计划。",
+        "timestamp": "2026-04-09T03:47:53.509190",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "停止 workloads 下的 spigot-server",
+        "html": "",
+        "timestamp": "2026-04-09T03:48:01.146842",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "停止 workloads 下的 spigot-server",
+        "html": "",
+        "timestamp": "2026-04-09T03:48:03.983307",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">SSH</span> <code>cd /home/wxffxx/.exoanchor/workloads/spigot-server &amp;&amp; if [ -f server.pid ]; then kill $(cat server.pid) 2&gt;/dev/null; rm -f server.pid; echo 'Stopped via pid file'; else pkill -f 'java.*server.jar' 2&gt;/dev/null; echo 'Stopped via pkill'; fi</code><div class=\"cmd-output\">Stopped via pid file</div>",
+        "timestamp": "2026-04-09T03:48:20.379305",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">SSH</span> <code>cd /home/wxffxx/.exoanchor/workloads/spigot-server &amp;&amp; if [ -f server.pid ]; then kill $(cat server.pid) 2&gt;/dev/null; rm -f server.pid; echo '已通过 server.pid 停止服务'; else fuser -k 25565</code><div class=\"cmd-output error\">bash: -c: line 2: syntax error: unexpected end of file</div>",
+        "timestamp": "2026-04-09T03:48:29.242953",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "重新启动 workloads 下的 spigot-server",
+        "html": "",
+        "timestamp": "2026-04-09T03:55:12.617464",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">SSH</span> <code>cd /home/wxffxx/.exoanchor/workloads/spigot-server &amp;&amp; ./launch.sh</code><div class=\"cmd-output\">STARTED</div>",
+        "timestamp": "2026-04-09T03:55:29.442552",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 检查 Minecraft (Spigot) 的状态 — 1/1 步完成",
+        "timestamp": "2026-04-09T04:08:06.126182",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 检查 Minecraft (Spigot) 的状态 — 1/1 步完成",
+        "timestamp": "2026-04-09T12:46:05.964658",
+        "cls": ""
+      }
+    ]
+  },
+  {
+    "id": "097e58b0",
+    "title": "New Chat",
+    "model": "",
+    "created_at": "2026-04-08T23:34:23.456799",
+    "updated_at": "2026-04-09T02:29:54.404517",
+    "messages": [
+      {
+        "role": "user",
+        "content": "部署最新版 Spigot Minecraft 服务器",
+        "html": "",
+        "timestamp": "2026-04-08T23:34:25.892972",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ai-tag\">AI</span> 已生成执行计划：<strong>部署最新版 Spigot Minecraft 服务器</strong>（8 步）",
+        "timestamp": "2026-04-08T23:35:47.713136",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> sudo requires a password, which cannot be",
+        "timestamp": "2026-04-08T23:35:56.645735",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 检查磁盘和内存使用情况 — 2/2 步完成",
+        "timestamp": "2026-04-08T23:43:52.971345",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 检查磁盘和内存使用情况 — 2/2 步完成",
+        "timestamp": "2026-04-08T23:51:03.193359",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 使用 sudo 执行 whoami 并输出结果 — 2/2 步完成",
+        "timestamp": "2026-04-08T23:51:23.709000",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> apt-",
+        "timestamp": "2026-04-09T00:15:51.689802",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> plain sudo runtime rewrite test — 1/1 步完成",
+        "timestamp": "2026-04-09T00:17:58.515296",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> [sudo] password for wxffxx: E: Malformed entry 1 in sources file /etc/apt/sources.list.d/ubuntu.sources (URI)\r\nE: The list of sources could not be read.",
+        "timestamp": "2026-04-09T00:20:05.215839",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 修复 apt 软件源并安装 Java 21 — 4/4 步完成",
+        "timestamp": "2026-04-09T00:23:05.689026",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> SSH command timed out after 300s: cd ~/.exoanchor/workloads/spigot-server &amp;&amp; printf '#!/usr/bin/env bash\\nset -e\\ncd ~/.exoanchor/workloads/spigot-server\\nexec java -Xms1G -Xmx4G -jar spigot-*.jar nogui\\n' &gt; start.sh &amp;&amp; chmod +x start.sh &amp;&amp; nohup ./start.sh &gt; server.log 2&gt;&amp;1 &lt; /dev/null &amp; echo $! &gt; server.pid",
+        "timestamp": "2026-04-09T00:32:00.127573",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 完成 Spigot 部署收尾 — 4/4 步完成",
+        "timestamp": "2026-04-09T00:34:03.401643",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 修正 Spigot pid 与 manifest — 3/3 步完成",
+        "timestamp": "2026-04-09T00:36:13.513495",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 用 launch.sh 收口 Spigot 部署 — 3/3 步完成",
+        "timestamp": "2026-04-09T00:38:18.407891",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "我想把玩家的人数改为32人",
+        "html": "",
+        "timestamp": "2026-04-09T01:08:35.558368",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ai-tag\">AI</span> 修改 Spigot 服务器最大玩家数为 32 并重启服务",
+        "timestamp": "2026-04-09T01:08:54.099707",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "我想把玩家的人数改为32人",
+        "html": "",
+        "timestamp": "2026-04-09T01:12:34.189407",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ai-tag\">AI</span> 已生成执行计划：<strong>将 Minecraft (Spigot) 的最大玩家数修改为 32 并重启服务</strong>（3 步）",
+        "timestamp": "2026-04-09T01:12:34.883824",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "确认",
+        "html": "",
+        "timestamp": "2026-04-09T01:15:50.853460",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ai-tag\">AI</span> 修改 Spigot 服务器最大玩家数为 32 并重启服务",
+        "timestamp": "2026-04-09T01:16:10.118977",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 将 Minecraft (Spigot) 的最大玩家数修改为 32 并重启服务 — 3/3 步完成",
+        "timestamp": "2026-04-09T01:18:46.748210",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 将 Minecraft (Spigot) 的最大玩家数修改为 32 并重启服务 — 3/3 步完成",
+        "timestamp": "2026-04-09T01:18:46.753846",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 将 Minecraft (Spigot) 的最大玩家数修改为 31 并重启服务 — 3/3 步完成",
+        "timestamp": "2026-04-09T01:34:09.246571",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 将 Minecraft (Spigot) 的最大玩家数修改为 28 并重启服务 — 3/3 步完成",
+        "timestamp": "2026-04-09T01:52:05.326596",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 将 Minecraft (Spigot) 的最大玩家数修改为 27 并重启服务 — 3/3 步完成",
+        "timestamp": "2026-04-09T01:53:30.189658",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 检查磁盘和内存使用情况 — 2/2 步完成",
+        "timestamp": "2026-04-09T01:55:09.022844",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 将 Minecraft (Spigot) 的最大玩家数修改为 26 并重启服务 — 3/3 步完成",
+        "timestamp": "2026-04-09T02:29:54.404502",
+        "cls": ""
+      }
+    ]
+  },
+  {
+    "id": "49cd7426",
+    "title": "New Chat",
+    "model": "",
+    "created_at": "2026-04-08T23:22:49.976778",
+    "updated_at": "2026-04-09T01:07:41.869235",
+    "messages": [
+      {
+        "role": "user",
+        "content": "部署最新版 Spigot Minecraft 服务器",
+        "html": "",
+        "timestamp": "2026-04-08T23:22:54.226535",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ai-tag\">AI</span> 部署最新版 Spigot Minecraft 服务器",
+        "timestamp": "2026-04-08T23:23:09.326748",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "部署最新版 Spigot Minecraft 服务器",
+        "html": "",
+        "timestamp": "2026-04-08T23:23:43.855873",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ai-tag\">AI</span> 部署最新版 Spigot Minecraft 服务器",
+        "timestamp": "2026-04-08T23:24:03.701697",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> sudo requires a password, which cannot be",
+        "timestamp": "2026-04-08T23:35:56.651443",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 检查磁盘和内存使用情况 — 2/2 步完成",
+        "timestamp": "2026-04-08T23:43:52.974161",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 检查磁盘和内存使用情况 — 2/2 步完成",
+        "timestamp": "2026-04-08T23:51:03.191592",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 使用 sudo 执行 whoami 并输出结果 — 2/2 步完成",
+        "timestamp": "2026-04-08T23:51:23.704743",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> apt-",
+        "timestamp": "2026-04-09T00:15:51.685261",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> apt-",
+        "timestamp": "2026-04-09T00:15:51.691895",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> plain sudo runtime rewrite test — 1/1 步完成",
+        "timestamp": "2026-04-09T00:17:58.512669",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> plain sudo runtime rewrite test — 1/1 步完成",
+        "timestamp": "2026-04-09T00:17:58.516568",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> [sudo] password for wxffxx: E: Malformed entry 1 in sources file /etc/apt/sources.list.d/ubuntu.sources (URI)\r\nE: The list of sources could not be read.",
+        "timestamp": "2026-04-09T00:20:05.209718",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> [sudo] password for wxffxx: E: Malformed entry 1 in sources file /etc/apt/sources.list.d/ubuntu.sources (URI)\r\nE: The list of sources could not be read.",
+        "timestamp": "2026-04-09T00:20:05.214043",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 修复 apt 软件源并安装 Java 21 — 4/4 步完成",
+        "timestamp": "2026-04-09T00:23:05.684340",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 修复 apt 软件源并安装 Java 21 — 4/4 步完成",
+        "timestamp": "2026-04-09T00:23:05.694027",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> SSH command timed out after 300s: cd ~/.exoanchor/workloads/spigot-server &amp;&amp; printf '#!/usr/bin/env bash\\nset -e\\ncd ~/.exoanchor/workloads/spigot-server\\nexec java -Xms1G -Xmx4G -jar spigot-*.jar nogui\\n' &gt; start.sh &amp;&amp; chmod +x start.sh &amp;&amp; nohup ./start.sh &gt; server.log 2&gt;&amp;1 &lt; /dev/null &amp; echo $! &gt; server.pid",
+        "timestamp": "2026-04-09T00:32:00.094321",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> SSH command timed out after 300s: cd ~/.exoanchor/workloads/spigot-server &amp;&amp; printf '#!/usr/bin/env bash\\nset -e\\ncd ~/.exoanchor/workloads/spigot-server\\nexec java -Xms1G -Xmx4G -jar spigot-*.jar nogui\\n' &gt; start.sh &amp;&amp; chmod +x start.sh &amp;&amp; nohup ./start.sh &gt; server.log 2&gt;&amp;1 &lt; /dev/null &amp; echo $! &gt; server.pid",
+        "timestamp": "2026-04-09T00:32:00.192826",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 完成 Spigot 部署收尾 — 4/4 步完成",
+        "timestamp": "2026-04-09T00:34:03.394076",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 完成 Spigot 部署收尾 — 4/4 步完成",
+        "timestamp": "2026-04-09T00:34:03.398962",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 修正 Spigot pid 与 manifest — 3/3 步完成",
+        "timestamp": "2026-04-09T00:36:13.509084",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 修正 Spigot pid 与 manifest — 3/3 步完成",
+        "timestamp": "2026-04-09T00:36:13.516695",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 用 launch.sh 收口 Spigot 部署 — 3/3 步完成",
+        "timestamp": "2026-04-09T00:38:18.372582",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ssh-tag\">Plan Done</span> 用 launch.sh 收口 Spigot 部署 — 3/3 步完成",
+        "timestamp": "2026-04-09T00:38:18.389167",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "我想把玩家的人数改为32人",
+        "html": "",
+        "timestamp": "2026-04-09T00:45:44.769179",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag ai-tag\">AI</span> 已生成执行计划：<strong>修改 Minecraft 服务器最大玩家数为 32 人并重启服务</strong>（5 步）",
+        "timestamp": "2026-04-09T00:45:58.931565",
+        "cls": ""
+      },
+      {
+        "role": "agent",
+        "content": "",
+        "html": "<span class=\"action-tag warn-tag\">Plan Failed</span> The configuration file server.properties does not exist.",
+        "timestamp": "2026-04-09T00:46:02.729540",
+        "cls": ""
+      },
+      {
+        "role": "user",
+        "content": "我想把玩家的人数改为32人",
+        "html": "",
+        "timestamp": "2026-04-09T01:07:41.869208",
+        "cls": ""
+      }
+    ]
+  }
+]
