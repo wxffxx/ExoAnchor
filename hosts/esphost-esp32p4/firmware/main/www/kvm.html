@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SI BMC KVM</title>
+<style>
+:root{color-scheme:dark;--bg:#0d0f12;--panel:#171a20;--panel2:#20242c;--line:#30343d;--text:#eef2f6;--muted:#97a2af;--green:#2dd4bf;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
+body.touch-capture,body.touch-capture *{cursor:none!important}
+.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#14171c}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:32px;height:32px;border:1px solid #4b5563;border-radius:6px;display:grid;place-items:center;font-weight:800;background:#20242c;flex:0 0 auto}
+.title{font-weight:700}
+.sub{font-size:12px;color:var(--muted);margin-top:-2px}
+.nav{display:flex;gap:8px;flex:0 0 auto}
+.nav a{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}
+.nav a.active,.nav a:hover{background:#20242c;color:var(--text)}
+.status{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:6px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
+.status.ok{color:var(--green);border-color:#1f766d}
+.status.bad{color:var(--red);border-color:#7f2d2d}
+.toolbar{height:48px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 12px;background:var(--panel)}
+.left,.right,.combos{display:flex;align-items:center;gap:8px;min-width:0}
+.combos{flex-wrap:wrap;justify-content:center}
+button{border:1px solid var(--line);background:#232732;color:var(--text);border-radius:6px;padding:8px 10px;cursor:pointer;font-weight:650;line-height:1;min-height:34px}
+button:hover{border-color:#59606d;background:#2a303b}
+button.active{color:var(--green);border-color:#1f766d;background:#17302f}
+.stage{height:calc(100vh - 106px);display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,24vw);background:#050506}
+.screen{position:relative;display:grid;place-items:center;overflow:hidden;background:#020203;min-width:0}
+.screen img{width:100%;height:100%;object-fit:contain;display:block}
+.nosignal{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);text-align:center;background:radial-gradient(circle at center,#161a20,#050506 70%);pointer-events:none}
+.nosignal.hide{display:none}
+.nosignal b{display:block;color:var(--text);font-size:28px;margin-bottom:6px}
+.screen-pad{position:absolute;inset:0;cursor:crosshair;outline:none}
+.cursor{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--green);border:1px solid white;transform:translate(-50%,-50%);pointer-events:none;opacity:0}
+.side{border-left:1px solid var(--line);background:#121419;padding:14px;display:flex;flex-direction:column;gap:12px;overflow:hidden auto;min-width:0}
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:12px}
+.panel h2{font-size:13px;margin:0 0 10px;color:#dce1e8}
+.row{display:flex;justify-content:space-between;gap:12px;color:var(--muted);padding:7px 0;border-bottom:1px solid #242832}
+.row:last-child{border-bottom:0}
+.row b{color:var(--text);font-weight:650;text-align:right}
+.mouse-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.mouse-tabs button{min-width:0}
+.mouse-pane{display:grid;gap:10px}
+.mouse-pane.hide{display:none}
+.joystick{position:relative;width:min(190px,100%);aspect-ratio:1;margin:0 auto;border:1px solid #3a404b;border-radius:50%;background:radial-gradient(circle at center,#242a32 0 12%,#171b21 13% 100%);touch-action:none;outline:none}
+.joystick:focus-visible,.touchpad:focus-visible,.screen-pad:focus-visible{box-shadow:0 0 0 2px rgba(45,212,191,.55)}
+.joy-axis{position:absolute;inset:18%;border:1px solid #343a44;border-radius:50%;pointer-events:none}
+.joy-axis:before,.joy-axis:after{content:"";position:absolute;background:#343a44;opacity:.75}
+.joy-axis:before{left:50%;top:0;bottom:0;width:1px}
+.joy-axis:after{top:50%;left:0;right:0;height:1px}
+.joy-thumb{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:50%;border:1px solid #6b7280;background:#d8dee8;box-shadow:0 8px 18px rgba(0,0,0,.35);transform:translate(-50%,-50%);pointer-events:none}
+.touchpad{position:relative;height:156px;border:1px solid #3a404b;border-radius:8px;background:linear-gradient(135deg,#15191f,#20252d);touch-action:none;overflow:hidden;outline:none}
+.touchpad:before{content:"触控板";position:absolute;inset:0;display:grid;place-items:center;color:#687180;font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0}
+.touchpad.locked{border-color:#1f766d;cursor:none;background:linear-gradient(135deg,#172522,#20252d)}
+.touch-dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--green);border:1px solid white;transform:translate(-50%,-50%);opacity:0;pointer-events:none}
+.mouse-speed{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+input[type=range]{width:100%;accent-color:var(--green)}
+.mouse-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.mouse-buttons.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mouse-buttons button{min-width:0;padding:8px 4px;font-size:12px}
+.keys{display:grid;gap:5px;min-width:0}
+.keyrow{display:flex;gap:5px;min-width:0}
+.key{flex:1 1 0;min-width:0;height:32px;padding:0 3px;font-size:10px;white-space:nowrap;overflow:hidden}
+.wide{flex:3 1 0}
+@media(max-width:900px){
+  body{overflow:hidden}
+  .top{height:auto;align-items:flex-start;flex-direction:column;padding:12px;gap:10px}
+  .toolbar{height:auto;align-items:flex-start;flex-direction:column;padding:10px}
+  .combos{display:none}
+  .stage{height:calc(100vh - 144px);grid-template-columns:1fr;grid-template-rows:minmax(240px,52vh) minmax(0,1fr)}
+  .side{border-left:0;border-top:1px solid var(--line);min-height:0}
+}
+</style>
+</head>
+<body>
+<nav class="top">
+  <div class="brand"><div class="logo">SI</div><div><div class="title">SI BMC KVM</div><div class="sub">CSI video · TinyUSB HID</div></div></div>
+  <div class="nav"><a href="/">Dashboard</a><a class="active" href="/kvm">KVM</a></div>
+  <span id="conn" class="status">CONNECTING</span>
+</nav>
+<div class="toolbar">
+  <div class="left"><span id="hidStatus" class="status">HID --</span><span id="videoStatus" class="status">VIDEO --</span></div>
+  <div class="combos">
+    <button data-combo="ctrl-alt-del">Ctrl Alt Del</button><button data-combo="alt-tab">Alt Tab</button><button data-combo="alt-f4">Alt F4</button><button data-combo="win">Win</button><button data-combo="print-screen">PrtSc</button>
+  </div>
+  <div class="right"><button id="release">Release</button><button id="fs">Fullscreen</button></div>
+</div>
+<main class="stage">
+  <section id="screen" class="screen">
+    <img id="video" alt="">
+    <div id="nosignal" class="nosignal"><div><b>No Video</b><div id="videoText">waiting for CSI frame</div></div></div>
+    <div id="screenPad" class="screen-pad" tabindex="0" data-testid="screen-pad"></div>
+    <div id="cursor" class="cursor"></div>
+  </section>
+  <aside class="side">
+    <div class="panel">
+      <h2>状态</h2>
+      <div class="row"><span>WebSocket</span><b id="wsText">--</b></div>
+      <div class="row"><span>USB mounted</span><b id="usbText">--</b></div>
+      <div class="row"><span>Mouse</span><b id="mouseText">--</b></div>
+      <div class="row"><span>Video</span><b id="videoTextSide">--</b></div>
+      <div class="row"><span>Clients</span><b id="clientText">--</b></div>
+    </div>
+    <div class="panel">
+      <h2>鼠标</h2>
+      <div class="mouse-tabs">
+        <button id="modeJoy" class="active" data-mode="joy">摇杆</button>
+        <button id="modeTouch" data-mode="touch">触控板</button>
+      </div>
+      <div id="joyPane" class="mouse-pane">
+        <div id="joystick" class="joystick" tabindex="0" data-testid="joystick">
+          <div class="joy-axis"></div>
+          <div id="joyThumb" class="joy-thumb"></div>
+        </div>
+      </div>
+      <div id="touchPane" class="mouse-pane hide">
+        <div id="touchPad" class="touchpad" tabindex="0" data-testid="touchpad"><span id="touchDot" class="touch-dot"></span></div>
+      </div>
+      <div class="mouse-speed"><span>速度</span><input id="mouseSpeed" type="range" min="1" max="10" value="5"><b id="speedText">5</b></div>
+      <div class="mouse-buttons three">
+        <button data-mouse-button="0">左键</button><button data-mouse-button="1">中键</button><button data-mouse-button="2">右键</button>
+      </div>
+      <div class="mouse-buttons">
+        <button id="dragLock">拖拽</button><button data-mouse-click="0">单击</button><button data-mouse-dblclick="0">双击</button><button data-wheel="-1">滚轮</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>虚拟键盘</h2>
+      <div id="keyboard" class="keys"></div>
+    </div>
+  </aside>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const API={ws:null,retry:1000,send(o){if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(o))},connect(){const proto=location.protocol==="https:"?"wss:":"ws:";this.ws=new WebSocket(proto+"//"+location.host+"/api/ws/hid");this.ws.onopen=()=>{conn.textContent="CONNECTED";conn.className="status ok";this.retry=1000};this.ws.onclose=()=>{conn.textContent="DISCONNECTED";conn.className="status";setTimeout(()=>this.connect(),this.retry);this.retry=Math.min(this.retry*1.5,10000)};this.ws.onerror=()=>{conn.textContent="ERROR";conn.className="status bad"}},async get(p){return (await fetch(p)).json()}};
+API.connect();
+
+const screenEl=$("screen"),screenPad=$("screenPad"),cursor=$("cursor"),video=$("video"),nosignal=$("nosignal");
+let videoTimer=0;
+function refreshVideo(delay=160){clearTimeout(videoTimer);videoTimer=setTimeout(()=>{video.src="/api/snapshot?t="+Date.now()},delay)}
+video.onload=()=>{nosignal.classList.add("hide");refreshVideo(160)};
+video.onerror=()=>{nosignal.classList.remove("hide");refreshVideo(1000)};
+refreshVideo(0);
+
+function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function speed(){return Number(mouseSpeed.value||5)}
+function sendMove(dx,dy){const x=Math.round(clamp(dx,-127,127));const y=Math.round(clamp(dy,-127,127));if(x||y)API.send({type:"mousemove",unit:"hid",dx:x,dy:y})}
+function sendWheel(deltaY){API.send({type:"wheel",deltaY:deltaY,deltaX:0})}
+function sendClick(button=0){API.send({type:"click",button})}
+function sendDblClick(button=0){sendClick(button);setTimeout(()=>sendClick(button),90)}
+
+screenPad.addEventListener("mouseenter",()=>screenPad.focus());
+screenPad.addEventListener("pointerdown",e=>{e.preventDefault();screenPad.focus()});
+screenPad.addEventListener("pointermove",e=>{const r=screenEl.getBoundingClientRect();cursor.style.left=e.clientX-r.left+"px";cursor.style.top=e.clientY-r.top+"px";cursor.style.opacity=1});
+screenPad.addEventListener("pointerleave",()=>{cursor.style.opacity=0});
+screenPad.addEventListener("wheel",e=>e.preventDefault(),{passive:false});
+screenPad.addEventListener("contextmenu",e=>e.preventDefault());
+
+const joystick=$("joystick"),joyThumb=$("joyThumb");
+const joy={active:false,pointer:null,x:0,y:0,timer:0};
+function setJoy(x,y){joy.x=x;joy.y=y;joyThumb.style.left=(50+x*34)+"%";joyThumb.style.top=(50+y*34)+"%"}
+function updateJoy(e){const r=joystick.getBoundingClientRect();const radius=Math.min(r.width,r.height)*0.38;let x=(e.clientX-r.left-r.width/2)/radius;let y=(e.clientY-r.top-r.height/2)/radius;const mag=Math.hypot(x,y);if(mag>1){x/=mag;y/=mag}setJoy(x,y)}
+function stopJoy(){if(joy.pointer!==null){try{joystick.releasePointerCapture(joy.pointer)}catch(e){}}joy.active=false;joy.pointer=null;setJoy(0,0);clearInterval(joy.timer);joy.timer=0}
+joystick.addEventListener("pointerdown",e=>{e.preventDefault();joystick.focus();joy.active=true;joy.pointer=e.pointerId;joystick.setPointerCapture(e.pointerId);updateJoy(e);if(!joy.timer)joy.timer=setInterval(()=>sendMove(joy.x*speed()*4,joy.y*speed()*4),32)});
+joystick.addEventListener("pointermove",e=>{if(joy.active&&e.pointerId===joy.pointer)updateJoy(e)});
+joystick.addEventListener("pointerup",stopJoy);
+joystick.addEventListener("pointercancel",stopJoy);
+joystick.addEventListener("contextmenu",e=>e.preventDefault());
+
+const touchPad=$("touchPad"),touchDot=$("touchDot");
+const touch={active:false,pointer:null,lastX:0,lastY:0,startX:0,startY:0,moved:0,startAt:0,locked:false,centered:false};
+function setTouchDot(e,visible=true){const r=touchPad.getBoundingClientRect();touchDot.style.left=e.clientX-r.left+"px";touchDot.style.top=e.clientY-r.top+"px";touchDot.style.opacity=visible?1:0}
+function setTouchCenter(visible=true){const r=touchPad.getBoundingClientRect();touchDot.style.left=r.width/2+"px";touchDot.style.top=r.height/2+"px";touchDot.style.opacity=visible?1:0}
+function requestTouchLock(e){if(e.pointerType!=="mouse"||!touchPad.requestPointerLock)return false;setTouchCenter(true);try{const ret=touchPad.requestPointerLock();if(ret&&ret.catch)ret.catch(()=>{if(touch.active&&!touch.locked){try{touchPad.setPointerCapture(touch.pointer)}catch(err){}setTouchDot({clientX:touch.lastX,clientY:touch.lastY},true)}});return true}catch(err){return false}}
+function stopTouch(e,allowTap=true){if(!touch.active)return;const wasTap=allowTap&&touch.moved<7&&(Date.now()-touch.startAt)<320;if(document.pointerLockElement===touchPad&&document.exitPointerLock)document.exitPointerLock();if(e&&!touch.locked&&!touch.centered)setTouchDot(e,false);else setTouchCenter(false);try{touchPad.releasePointerCapture(touch.pointer)}catch(err){}touch.active=false;touch.pointer=null;touch.locked=false;touch.centered=false;touchPad.classList.remove("locked");document.body.classList.remove("touch-capture");if(wasTap)sendClick(0)}
+touchPad.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"&&e.button!==0)return;e.preventDefault();touchPad.focus();touch.active=true;touch.pointer=e.pointerId;touch.lastX=e.clientX;touch.lastY=e.clientY;touch.startX=e.clientX;touch.startY=e.clientY;touch.moved=0;touch.startAt=Date.now();touch.centered=e.pointerType==="mouse";document.body.classList.toggle("touch-capture",touch.centered);if(!requestTouchLock(e)){touchPad.setPointerCapture(e.pointerId);touch.centered?setTouchCenter(true):setTouchDot(e,true)}});
+touchPad.addEventListener("pointermove",e=>{if(!touch.active||touch.locked||e.pointerId!==touch.pointer)return;e.preventDefault();const dx=e.clientX-touch.lastX;const dy=e.clientY-touch.lastY;touch.lastX=e.clientX;touch.lastY=e.clientY;touch.moved=Math.max(touch.moved,Math.hypot(e.clientX-touch.startX,e.clientY-touch.startY));touch.centered?setTouchCenter(true):setTouchDot(e,true);sendMove(dx*speed()*0.55,dy*speed()*0.55)});
+touchPad.addEventListener("pointerup",stopTouch);
+touchPad.addEventListener("pointercancel",stopTouch);
+touchPad.addEventListener("wheel",e=>{e.preventDefault();sendWheel(Math.sign(e.deltaY)*-1)},{passive:false});
+touchPad.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("pointerlockchange",()=>{const locked=document.pointerLockElement===touchPad;const wasLocked=touch.locked;touch.locked=locked;touchPad.classList.toggle("locked",locked);if(locked)setTouchCenter(true);else if(wasLocked&&touch.active)stopTouch(null,false)});
+document.addEventListener("mousemove",e=>{if(!touch.active||document.pointerLockElement!==touchPad)return;e.preventDefault();const dx=e.movementX||0,dy=e.movementY||0;touch.moved+=Math.hypot(dx,dy);setTouchCenter(true);sendMove(dx*speed()*0.55,dy*speed()*0.55)});
+document.addEventListener("mouseup",e=>{if(touch.active&&document.pointerLockElement===touchPad&&e.button===0){e.preventDefault();stopTouch(e)}});
+
+function setMouseMode(mode){modeJoy.classList.toggle("active",mode==="joy");modeTouch.classList.toggle("active",mode==="touch");joyPane.classList.toggle("hide",mode!=="joy");touchPane.classList.toggle("hide",mode!=="touch");(mode==="joy"?joystick:touchPad).focus()}
+modeJoy.onclick=()=>setMouseMode("joy");
+modeTouch.onclick=()=>setMouseMode("touch");
+mouseSpeed.oninput=()=>speedText.textContent=mouseSpeed.value;
+
+document.querySelectorAll("[data-mouse-button]").forEach(b=>{let held=false;const button=Number(b.dataset.mouseButton);const up=()=>{if(!held)return;held=false;b.classList.remove("active");API.send({type:"mouseup",button})};b.addEventListener("pointerdown",e=>{e.preventDefault();held=true;b.classList.add("active");b.setPointerCapture(e.pointerId);API.send({type:"mousedown",button})});b.addEventListener("pointerup",up);b.addEventListener("pointercancel",up);b.addEventListener("pointerleave",up)});
+document.querySelectorAll("[data-mouse-click]").forEach(b=>b.onclick=()=>sendClick(Number(b.dataset.mouseClick)));
+document.querySelectorAll("[data-mouse-dblclick]").forEach(b=>b.onclick=()=>sendDblClick(Number(b.dataset.mouseDblclick)));
+document.querySelectorAll("[data-wheel]").forEach(b=>{let timer=0;const step=()=>sendWheel(Number(b.dataset.wheel));const stop=()=>{clearInterval(timer);timer=0;b.classList.remove("active")};b.addEventListener("pointerdown",e=>{e.preventDefault();b.classList.add("active");b.setPointerCapture(e.pointerId);step();timer=setInterval(step,90)});b.addEventListener("pointerup",stop);b.addEventListener("pointercancel",stop);b.addEventListener("pointerleave",stop)});
+dragLock.onclick=()=>{const active=!dragLock.classList.contains("active");dragLock.classList.toggle("active",active);API.send({type:active?"mousedown":"mouseup",button:0})};
+
+function releaseAll(){stopJoy();stopTouch();dragLock.classList.remove("active");API.send({type:"releaseall"})}
+release.onclick=releaseAll;
+fs.onclick=()=>document.fullscreenElement?document.exitFullscreen():screenEl.requestFullscreen();
+
+function acceptsKeyboard(){return document.activeElement===screenPad||document.activeElement===joystick||document.activeElement===touchPad}
+document.addEventListener("keydown",e=>{if(!acceptsKeyboard())return;e.preventDefault();API.send({type:"keydown",code:e.code})});
+document.addEventListener("keyup",e=>{if(!acceptsKeyboard())return;e.preventDefault();API.send({type:"keyup",code:e.code})});
+
+const combos={"ctrl-alt-del":{modifiers:["ControlLeft","AltLeft"],keys:["Delete"]},"alt-tab":{modifiers:["AltLeft"],keys:["Tab"]},"alt-f4":{modifiers:["AltLeft"],keys:["F4"]},win:{modifiers:["MetaLeft"],keys:[]},"print-screen":{modifiers:[],keys:["PrintScreen"]}};
+document.querySelectorAll("[data-combo]").forEach(b=>b.onclick=()=>API.send({type:"combo",...combos[b.dataset.combo]}));
+
+const layout=[["Escape","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"],["Backquote","Digit1","Digit2","Digit3","Digit4","Digit5","Digit6","Digit7","Digit8","Digit9","Digit0","Backspace"],["Tab","KeyQ","KeyW","KeyE","KeyR","KeyT","KeyY","KeyU","KeyI","KeyO","KeyP"],["CapsLock","KeyA","KeyS","KeyD","KeyF","KeyG","KeyH","KeyJ","KeyK","KeyL","Enter"],["ShiftLeft","KeyZ","KeyX","KeyC","KeyV","KeyB","KeyN","KeyM","ArrowUp","ShiftRight"],["ControlLeft","MetaLeft","AltLeft","Space","ArrowLeft","ArrowDown","ArrowRight"]];
+const labels={Escape:"Esc",Backspace:"Back",CapsLock:"Caps",ShiftLeft:"Shift",ShiftRight:"Shift",ControlLeft:"Ctrl",MetaLeft:"Win",AltLeft:"Alt",Space:"Space",ArrowLeft:"Left",ArrowRight:"Right",ArrowUp:"Up",ArrowDown:"Down"};
+keyboard.innerHTML=layout.map(row=>`<div class="keyrow">${row.map(code=>`<button class="key ${code==="Space"?"wide":""}" data-code="${code}">${labels[code]||code.replace("Key","").replace("Digit","")}</button>`).join("")}</div>`).join("");
+keyboard.querySelectorAll("button").forEach(b=>{b.onmousedown=e=>{e.preventDefault();b.classList.add("active");API.send({type:"keydown",code:b.dataset.code})};b.onmouseup=e=>{e.preventDefault();b.classList.remove("active");API.send({type:"keyup",code:b.dataset.code})};b.onmouseleave=()=>{b.classList.remove("active");API.send({type:"keyup",code:b.dataset.code})}});
+
+async function status(){try{const s=await API.get("/api/status");const h=s.hid||{},v=s.video||{};const mouse=h.mouse||{};hidStatus.textContent=h.connected?"HID MOUNTED":"HID WAITING";hidStatus.className="status "+(h.connected?"ok":"");videoStatus.textContent=v.connected?`${v.resolution} ${Number(v.fps||0).toFixed(1)}fps`:"VIDEO WAITING";videoStatus.className="status "+(v.connected?"ok":"");wsText.textContent=API.ws?.readyState===1?"open":"closed";usbText.textContent=h.connected?"yes":"no";mouseText.textContent=mouse.available?"ready":"off";videoTextSide.textContent=v.connected?`${v.frames_encoded} frames`:(v.last_error||"waiting");videoText.textContent=v.last_error||"waiting for CSI frame";clientText.textContent=s.active_connections||0;if(v.connected)nosignal.classList.add("hide")}catch(e){}}status();setInterval(status,2000);
+</script>
+</body>
+</html>
