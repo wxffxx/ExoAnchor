@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor ESP32-P4 KVM</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0c0f;--panel:#15181e;--panel2:#20242c;--line:#30343d;--text:#eef2f6;--muted:#98a2af;--green:#2dd4bf;--red:#f87171;--yellow:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
+body.touch-capture,body.touch-capture *{cursor:none!important}
+.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:flex-start;gap:22px;padding:0 18px;background:#12151a}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}.logo{width:32px;height:32px;border:1px solid #4b5563;border-radius:6px;display:grid;place-items:center;font-weight:800;background:#20242c;flex:0 0 auto}.title{font-weight:700;white-space:nowrap}.sub{font-size:12px;color:var(--muted);margin-top:-2px}
+.nav{display:flex;align-items:center;gap:8px;flex:0 0 auto}.nav a{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}.nav a.active,.nav a:hover{background:#20242c;color:var(--text)}.version-pill{color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:7px 0}
+.status-strip{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-left:auto}.status{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:6px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}.status.ok{color:var(--green);border-color:#1f766d}.status.bad{color:var(--red);border-color:#7f2d2d}.status.warn{color:var(--yellow);border-color:#7c5d16}
+.toolbar{height:48px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 12px;background:var(--panel)}.left,.right,.combos{display:flex;align-items:center;gap:8px;min-width:0}.right{flex-wrap:wrap;justify-content:flex-end}.combos{flex-wrap:wrap;justify-content:center}
+button,select{border:1px solid var(--line);background:#232732;color:var(--text);border-radius:6px;padding:8px 10px;font-weight:650;line-height:1;min-height:34px}button{cursor:pointer}select{max-width:190px}button:hover,select:hover{border-color:#59606d;background:#2a303b}button.active{color:var(--green);border-color:#1f766d;background:#17302f}
+.stage{height:calc(100vh - 106px);display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,24vw);gap:16px;padding:16px;background:#090a0d}.screen{position:relative;display:grid;place-items:center;overflow:hidden;background:#020203;border:1px solid #252a33;border-radius:8px;box-shadow:0 18px 46px rgba(0,0,0,.42);min-width:0;min-height:0;padding:8px}.screen img{width:100%;height:100%;object-fit:contain;display:block}body.keyboard-capture .screen{border-color:#1f766d;box-shadow:0 0 0 2px rgba(45,212,191,.18),0 18px 46px rgba(0,0,0,.42)}
+.nosignal{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);text-align:center;background:#050506;pointer-events:none}.nosignal.hide{display:none}.nosignal b{display:block;color:var(--text);font-size:28px;margin-bottom:6px}
+.screen-pad{position:absolute;inset:0;cursor:crosshair;outline:none}.cursor{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--green);border:1px solid white;transform:translate(-50%,-50%);pointer-events:none;opacity:0}
+.side{border-left:1px solid var(--line);background:#121419;padding:14px;display:flex;flex-direction:column;gap:12px;overflow:hidden auto;min-width:0}.panel{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:12px}.panel h2{font-size:13px;margin:0 0 10px;color:#dce1e8}.row{display:flex;justify-content:space-between;gap:12px;color:var(--muted);padding:7px 0;border-bottom:1px solid #242832}.row:last-child{border-bottom:0}.row b{color:var(--text);font-weight:650;text-align:right;word-break:break-word}
+.mouse-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}.mouse-tabs button{min-width:0}.mouse-pane{display:grid;gap:10px}.mouse-pane.hide{display:none}
+.joystick{position:relative;width:min(190px,100%);aspect-ratio:1;margin:0 auto;border:1px solid #3a404b;border-radius:50%;background:#171b21;touch-action:none;outline:none}.joystick:focus-visible,.touchpad:focus-visible,.screen-pad:focus-visible{box-shadow:0 0 0 2px rgba(45,212,191,.55)}
+.joy-axis{position:absolute;inset:18%;border:1px solid #343a44;border-radius:50%;pointer-events:none}.joy-axis:before,.joy-axis:after{content:"";position:absolute;background:#343a44;opacity:.75}.joy-axis:before{left:50%;top:0;bottom:0;width:1px}.joy-axis:after{top:50%;left:0;right:0;height:1px}
+.joy-thumb{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:50%;border:1px solid #6b7280;background:#d8dee8;box-shadow:0 8px 18px rgba(0,0,0,.35);transform:translate(-50%,-50%);pointer-events:none}
+.touchpad{position:relative;height:156px;border:1px solid #3a404b;border-radius:8px;background:#1b2028;touch-action:none;overflow:hidden;outline:none}.touchpad:before{content:"触控板";position:absolute;inset:0;display:grid;place-items:center;color:#687180;font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0}.touchpad.locked{border-color:#1f766d;cursor:none;background:#172522}
+.touch-dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--green);border:1px solid white;transform:translate(-50%,-50%);opacity:0;pointer-events:none}.mouse-speed{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px;color:var(--muted);font-size:12px}input[type=range]{width:100%;accent-color:var(--green)}
+.mouse-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.mouse-buttons.three{grid-template-columns:repeat(3,minmax(0,1fr))}.mouse-buttons button{min-width:0;padding:8px 4px;font-size:12px}
+.capture-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;color:#dce1e8;font-weight:650}.switch-control{display:inline-flex;align-items:center;gap:8px;min-height:34px;color:var(--text);font-weight:650;cursor:pointer;user-select:none}.switch-control input{position:absolute;opacity:0;pointer-events:none}.switch-track{position:relative;width:48px;height:28px;border:1px solid #3b414c;border-radius:999px;background:#30343d;transition:background .18s,border-color .18s}.switch-thumb{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#d8dee8;box-shadow:0 3px 8px rgba(0,0,0,.35);transition:transform .18s,background .18s}.switch-control input:checked+.switch-track{background:#17302f;border-color:#1f766d}.switch-control input:checked+.switch-track .switch-thumb{transform:translateX(20px);background:var(--green)}.switch-control input:focus-visible+.switch-track{outline:2px solid rgba(45,212,191,.45);outline-offset:2px}.switch-text{font-size:13px;color:var(--muted);min-width:34px}.capture-msg{min-height:18px;margin:-2px 0 8px;color:var(--muted);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}.capture-msg.ok{color:var(--green)}.capture-msg.bad{color:var(--red)}.capture-msg.warn{color:var(--yellow)}
+.text-input{width:100%;min-height:92px;resize:vertical;border:1px solid #3a404b;border-radius:8px;background:#0e1014;color:var(--text);padding:10px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;outline:none}.text-input:focus{border-color:#1f766d;box-shadow:0 0 0 2px rgba(45,212,191,.25)}.text-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px}.text-actions button{min-width:0;padding:8px 4px;font-size:12px}.text-msg{min-height:18px;margin-top:8px;color:var(--muted);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}.text-msg.ok{color:var(--green)}.text-msg.bad{color:var(--red)}.text-msg.warn{color:var(--yellow)}
+.keys{display:grid;gap:5px;min-width:0}.keyrow{display:flex;gap:5px;min-width:0}.key{flex:1 1 0;min-width:0;height:32px;padding:0 3px;font-size:10px;white-space:nowrap;overflow:hidden}.wide{flex:3 1 0}.modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,6,8,.72);z-index:20;padding:18px}.modal.show{display:grid}.dialog{width:min(430px,100%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45)}.dialog h2{font-size:16px;margin:0 0 6px}.dialog p{margin:0 0 14px;color:var(--muted)}.dialog .field{display:grid;gap:6px;margin-bottom:10px}.dialog label{font-size:12px;color:var(--muted)}.dialog input{width:100%;border:1px solid var(--line);background:#0e1014;color:var(--text);border-radius:6px;padding:11px 12px;font:15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.dialog input:focus{outline:2px solid rgba(45,212,191,.35);border-color:#1f766d}.dialog .msg{min-height:20px;color:var(--muted);margin-top:10px}.dialog .msg.bad{color:var(--red)}.dialog .msg.ok{color:var(--green)}
+@media(max-width:900px){body{overflow:hidden}.top{height:auto;align-items:flex-start;flex-direction:column;padding:12px;gap:10px}.status-strip{justify-content:flex-start;margin-left:0}.toolbar{height:auto;align-items:flex-start;flex-direction:column;padding:10px}.combos{display:none}.stage{height:calc(100vh - 154px);grid-template-columns:1fr;grid-template-rows:minmax(220px,50vh) minmax(0,1fr);gap:12px;padding:12px}.side{border-left:0;border-top:1px solid var(--line);min-height:0}}
+</style>
+</head>
+<body>
+<nav class="top">
+  <div class="brand"><div class="logo">EA</div><div><div class="title">ExoAnchor ESP32-P4</div><div id="deviceLabelText" class="sub">ESP32-P4</div></div></div>
+  <div class="nav"><a href="/">Dashboard</a><a class="active" href="/kvm">KVM</a><a href="/settings">Settings</a><span class="version-pill">v0.84</span></div>
+  <div class="status-strip" aria-label="设备概要">
+    <span id="badgeVideo" class="status">VIDEO --</span>
+    <span id="badgeUsb" class="status">USB --</span>
+    <span id="badgePwr" class="status bad">Power OFF</span>
+    <span id="badgeStandby" class="status bad">Power Standby OFF</span>
+  </div>
+</nav>
+<div class="toolbar">
+  <div class="left"><span id="conn" class="status">CONNECTING</span><span id="hidStatus" class="status">HID --</span><span id="videoStatus" class="status">VIDEO --</span></div>
+  <div class="combos"><button data-combo="ctrl-alt-del">Ctrl Alt Del</button><button data-combo="alt-tab">Alt Tab</button><button data-combo="alt-f4">Alt F4</button><button data-combo="win">Win</button><button data-combo="print-screen">PrtSc</button><button data-hold-key="ControlLeft">Hold Ctrl</button><button data-hold-key="AltLeft">Hold Alt</button><button data-hold-key="MetaLeft">Hold Win</button><button data-hold-key="ShiftLeft">Hold Shift</button></div>
+  <div class="right"><select id="resolutionSelect"></select><button id="syncPointer" title="Move the absolute pointer to the hovered video position">Sync</button><button id="snapshot">Snapshot</button><button id="release">Release</button><button id="reload">Reload</button><button id="fs">Fullscreen</button></div>
+</div>
+<main class="stage">
+  <section id="screen" class="screen">
+    <img id="video" alt="">
+    <div id="nosignal" class="nosignal"><div><b>No Video</b><div id="videoText">waiting for USB UVC frame</div></div></div>
+    <div id="screenPad" class="screen-pad" tabindex="0"></div>
+    <div id="cursor" class="cursor"></div>
+  </section>
+  <aside class="side">
+    <div class="panel">
+      <h2>输入</h2>
+      <div class="capture-row"><span>键盘直通</span><label class="switch-control"><input id="keyboardPassthrough" type="checkbox" role="switch" aria-label="键盘直通"><span class="switch-track"><span class="switch-thumb"></span></span><span id="keyboardPassthroughText" class="switch-text">关闭</span></label></div>
+      <div class="capture-row"><span>Direct Click</span><label class="switch-control"><input id="directClickToggle" type="checkbox" role="switch" aria-label="Direct Click"><span class="switch-track"><span class="switch-thumb"></span></span><span id="directClickText" class="switch-text">关闭</span></label></div>
+      <div id="keyboardCaptureMsg" class="capture-msg">待机</div>
+      <textarea id="textInput" class="text-input" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      <div class="text-actions"><button id="pasteText" type="button">粘贴</button><button id="sendText" class="active" type="button">发送</button><button id="clearText" type="button">清空</button></div>
+      <div id="textMsg" class="text-msg"></div>
+    </div>
+    <div class="panel">
+      <h2>鼠标</h2>
+      <div class="mouse-tabs"><button id="modeJoy" data-mode="joy">摇杆</button><button id="modeTouch" class="active" data-mode="touch">触控板</button></div>
+      <div id="joyPane" class="mouse-pane hide"><div id="joystick" class="joystick" tabindex="0"><div class="joy-axis"></div><div id="joyThumb" class="joy-thumb"></div></div></div>
+      <div id="touchPane" class="mouse-pane"><div id="touchPad" class="touchpad" tabindex="0"><span id="touchDot" class="touch-dot"></span></div></div>
+      <div class="mouse-speed"><span>速度</span><input id="mouseSpeed" type="range" min="1" max="10" value="5"><b id="speedText">5</b></div>
+      <div class="mouse-buttons three"><button data-mouse-button="0">左键</button><button data-mouse-button="1">中键</button><button data-mouse-button="2">右键</button></div>
+      <div class="mouse-buttons"><button id="dragLock">拖拽</button><button data-mouse-click="0">单击</button><button data-mouse-dblclick="0">双击</button><button data-wheel="-1">滚轮</button></div>
+    </div>
+    <div class="panel">
+      <h2>虚拟键盘</h2>
+      <div id="keyboard" class="keys"></div>
+    </div>
+  </aside>
+</main>
+<div id="authModal" class="modal" role="dialog" aria-modal="true">
+  <form id="authForm" class="dialog">
+    <h2 id="authTitle">本地账户</h2>
+    <p id="authHint">请输入本地账户凭据。</p>
+    <div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>
+    <div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div>
+    <div id="authNewFields">
+      <div class="field"><label for="authNewUsername">新用户名</label><input id="authNewUsername" type="text" autocomplete="username" maxlength="32"></div>
+      <div class="field"><label for="authNewPassword">新密码</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="4" maxlength="64"></div>
+      <div class="field"><label for="authConfirmPassword">确认新密码</label><input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="4" maxlength="64"></div>
+    </div>
+    <div class="actions"><button id="authSubmit" class="active" type="submit">保存并继续</button></div>
+    <div id="authMsg" class="msg"></div>
+  </form>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const screenEl=$("screen"),screenPad=$("screenPad"),cursor=$("cursor"),video=$("video"),nosignal=$("nosignal");
+const keyboardPassthrough=$("keyboardPassthrough"),keyboardPassthroughText=$("keyboardPassthroughText"),keyboardCaptureMsg=$("keyboardCaptureMsg"),directClickToggle=$("directClickToggle"),directClickText=$("directClickText");
+const API={ws:null,retry:1000,token:localStorage.getItem("si_token")||"",username:localStorage.getItem("si_username")||"admin",headers(){const h={"Content-Type":"application/json"};if(this.token)h.Authorization="Bearer "+this.token;return h},setSession(t,u){this.token=t||"";this.username=u||this.username||"admin";if(this.token){localStorage.setItem("si_token",this.token);localStorage.setItem("si_auth_last_active",String(Date.now()))}else{localStorage.removeItem("si_token");localStorage.removeItem("si_auth_last_active")}if(this.username)localStorage.setItem("si_username",this.username)},async login(username,password){const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});if(!r.ok)throw new Error(await r.text());const j=await r.json();this.setSession(j.token,j.username||username);return j},async ensureToken(){if(!Session.active())return AuthUI.requireLogin();try{const r=await fetch("/api/auth/status",{headers:this.headers()});if(r.status===401)throw new Error("login required");if(!r.ok)throw new Error(await r.text());const s=await r.json();if(!s.enabled)return true;if(s.must_change_credentials)return AuthUI.requireChange(s);if(s.token_valid)return true}catch(e){}return AuthUI.requireLogin()},send(o){if(!Session.active())return;Session.touch();if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(o))},async connect(){if(!(await this.ensureToken())){conn.textContent="LOGIN NEEDED";conn.className="status bad";setTimeout(()=>this.connect(),this.retry);return}const proto=location.protocol==="https:"?"wss:":"ws:";const qs=this.token?"?auth="+encodeURIComponent(this.token):"";this.ws=new WebSocket(proto+"//"+location.host+"/api/ws/hid"+qs);this.ws.onopen=()=>{conn.textContent="CONNECTED";conn.className="status ok";this.retry=1000};this.ws.onclose=()=>{conn.textContent="DISCONNECTED";conn.className="status";setTimeout(()=>this.connect(),this.retry);this.retry=Math.min(this.retry*1.5,10000)};this.ws.onerror=()=>{conn.textContent="ERROR";conn.className="status bad"}},async get(p){if(!Session.active())throw new Error("login required");const r=await fetch(p,{headers:this.headers()});if(r.status===401){if(await AuthUI.requireLogin())return this.get(p);throw new Error("login required")}if(!r.ok)throw new Error(await r.text());return r.json()},async post(p,b){if(!(await this.ensureToken()))throw new Error("login required");const r=await fetch(p,{method:"POST",headers:this.headers(),body:JSON.stringify(b||{})});if(!r.ok)throw new Error(await r.text());return r.json()}};
+const AuthUI={mode:"change",pending:null,auth:null,show(mode,auth){this.mode=mode;this.auth=auth||{};authModal.classList.add("show");authNewFields.style.display=mode==="login"?"none":"block";authTitle.textContent=mode==="login"?"登录本地账户":"请修改默认账户";authHint.textContent=mode==="login"?"需要登录后才能继续。":"当前仍在使用默认 admin/admin，请保存新的本地账户。";authSubmit.textContent=mode==="login"?"登录":"保存并继续";authMsg.textContent="";authMsg.className="msg";authCurrentUsername.value=this.auth.username||this.auth.default_username||API.username||"admin";authNewUsername.value=this.auth.username||API.username||"admin";authCurrentPassword.value="";authNewPassword.value="";authConfirmPassword.value="";setTimeout(()=>authCurrentPassword.focus(),0)},hide(ok){authModal.classList.remove("show");if(this.pending){this.pending(ok);this.pending=null}},requireLogin(){this.show("login",{});return new Promise(resolve=>{this.pending=resolve})},requireChange(auth){this.show("change",auth);return new Promise(resolve=>{this.pending=resolve})}};
+const Session={enabled(){return localStorage.getItem("si_auto_logout_enabled")==="1"},minutes(){return Math.max(1,Math.min(1440,Number(localStorage.getItem("si_auto_logout_minutes")||15)))},touch(){if(API.token)localStorage.setItem("si_auth_last_active",String(Date.now()))},active(){if(!this.enabled()||!API.token)return true;const last=Number(localStorage.getItem("si_auth_last_active")||Date.now());if(Date.now()-last>this.minutes()*60000){API.setSession("",API.username);try{if(API.ws)API.ws.close()}catch(e){}AuthUI.requireLogin();return false}return true},start(){["click","keydown","pointerdown","touchstart"].forEach(ev=>document.addEventListener(ev,()=>this.touch(),{passive:true,capture:true}));setInterval(()=>this.active(),10000)}};
+authForm.onsubmit=async e=>{e.preventDefault();authMsg.textContent="";authMsg.className="msg";const currentUsername=authCurrentUsername.value.trim();const currentPassword=authCurrentPassword.value;if(AuthUI.mode==="login"){try{const r=await API.login(currentUsername,currentPassword);if(r.must_change_credentials){AuthUI.show("change",r);return}AuthUI.hide(true)}catch(err){authMsg.textContent=err.message||"登录失败";authMsg.className="msg bad"}return}const username=authNewUsername.value.trim();const next=authNewPassword.value,confirm=authConfirmPassword.value;if(!username){authMsg.textContent="用户名不能为空";authMsg.className="msg bad";return}if(next!==confirm){authMsg.textContent="两次密码不一致";authMsg.className="msg bad";return}try{if(!API.token)await API.login(currentUsername,currentPassword);const headers={"Content-Type":"application/json"};if(API.token)headers.Authorization="Bearer "+API.token;const resp=await fetch("/api/settings/account",{method:"POST",headers,body:JSON.stringify({current_username:currentUsername,current_password:currentPassword,username,new_password:next})});if(!resp.ok)throw new Error(await resp.text());const r=await resp.json();API.setSession(r.token,r.username||username);authMsg.textContent="账户已保存";authMsg.className="msg ok";AuthUI.hide(true)}catch(err){authMsg.textContent=err.message||"保存失败";authMsg.className="msg bad"}};
+function fmtBytes(n){if(!n)return"--";if(n>1048576)return Math.round(n/1048576)+" MB";return Math.round(n/1024)+" KB"}
+const DEFAULT_DEVICE_LABEL="ESP32-P4";
+function deviceLabelValue(info){const label=String(info?.device_label||info?.label||localStorage.getItem("si_device_label")||DEFAULT_DEVICE_LABEL).trim();return label||DEFAULT_DEVICE_LABEL}
+function applyDeviceLabel(label){const value=String(label||DEFAULT_DEVICE_LABEL).trim()||DEFAULT_DEVICE_LABEL;localStorage.setItem("si_device_label",value);deviceLabelText.textContent=value}
+async function refreshDeviceLabel(){try{const info=await API.get("/api/system/info");applyDeviceLabel(deviceLabelValue(info))}catch(e){applyDeviceLabel(deviceLabelValue({}))}}
+Session.start();API.connect();refreshDeviceLabel();setInterval(refreshDeviceLabel,10000);
+function setBadge(el,label,state,kind){el.textContent=`${label} ${state}`;el.className=`status ${kind||""}`.trim()}
+function modeCount(video){return Array.isArray(video.modes)?video.modes.length:Number(video.modes_count??video.mode_count??video.modes??0)}
+function renderTopBadges(status){const video=status.video||{},hid=status.hid||{};if(video.connected)setBadge(badgeVideo,"VIDEO","ONLINE","ok");else if(modeCount(video)>0)setBadge(badgeVideo,"VIDEO","STANDBY","warn");else setBadge(badgeVideo,"VIDEO","OFFLINE","bad");if(hid.hid_ready||hid.ready)setBadge(badgeUsb,"USB","ONLINE","ok");else if(hid.connected||hid.mounted||hid.initialized||hid.enabled)setBadge(badgeUsb,"USB","STANDBY","warn");else setBadge(badgeUsb,"USB","OFFLINE","bad");setBadge(badgePwr,"Power","OFF","bad");setBadge(badgeStandby,"Power Standby","OFF","bad")}
+let videoTimer=0;
+function authUrl(path){return path+(path.includes("?")?"&":"?")+"auth="+encodeURIComponent(API.token||"")}
+function streamUrl(){const host=location.hostname||location.host.split(":")[0];return authUrl(location.protocol+"//"+host+":81/api/stream?t="+Date.now())}
+function startVideo(delay=0){clearTimeout(videoTimer);videoTimer=setTimeout(()=>{video.src=streamUrl()},delay)}
+video.onload=()=>nosignal.classList.add("hide");
+video.onerror=()=>{nosignal.classList.remove("hide");startVideo(1000)};
+let kvmLeaseTimer=0;
+async function sendKvmLease(active){try{const headers={"Content-Type":"application/json"};if(API.token)headers.Authorization="Bearer "+API.token;await fetch("/api/video/lease",{method:"POST",headers,body:JSON.stringify({owner:"kvm",active}),keepalive:!active})}catch(e){}}
+async function touchKvm(){await sendKvmLease(true)}
+function startKvmLease(){touchKvm().finally(()=>startVideo(0));if(!kvmLeaseTimer)kvmLeaseTimer=setInterval(touchKvm,2000)}
+function releaseKvmLease(){if(kvmLeaseTimer){clearInterval(kvmLeaseTimer);kvmLeaseTimer=0}sendKvmLease(false)}
+window.addEventListener("pagehide",releaseKvmLease);
+startKvmLease();
+function modeFpsX100(m){return Number(m.fps_x100||Math.round(Number(m.fps||0)*100))}
+function modeFormat(m){return String(m.pixel_format||"MJPEG").toUpperCase()}
+function modeValue(m){return `${modeFormat(m)}:${m.width}x${m.height}@${modeFpsX100(m)}`}
+function modeLabel(m){const fps=modeFpsX100(m)/100;return `${modeFormat(m)} ${m.width}x${m.height} @ ${fps%1?fps.toFixed(1):fps.toFixed(0)}fps`}
+const COMMON_VIDEO_MODES=[["MJPEG",1920,1080,50],["MJPEG",1920,1080,30],["MJPEG",1920,1080,25],["MJPEG",1280,720,60],["MJPEG",1280,720,50],["MJPEG",1280,720,30],["MJPEG",640,480,30]];
+function commonModes(modes){const list=Array.isArray(modes)?modes:[];return COMMON_VIDEO_MODES.map(([fmt,w,h,fps])=>list.find(m=>modeFormat(m)===fmt&&m.width===w&&m.height===h&&modeFpsX100(m)===fps*100)).filter(Boolean)}
+let resolutionSignature="";
+function renderResolution(v){const allModes=Array.isArray(v.modes)?v.modes:[],modes=commonModes(allModes),kvm=v.control?.kvm_mode||{};const saved=`${kvm.width||0}x${kvm.height||0}@${kvm.fps_x100||0}`;const signature=saved+"|"+modes.map(m=>`${modeValue(m)}:${m.selected?1:0}`).join("|");if(document.activeElement===resolutionSelect&&resolutionSelect.options.length)return;if(signature===resolutionSignature)return;resolutionSignature=signature;resolutionSelect.disabled=modes.length===0;resolutionSelect.innerHTML=modes.length?modes.map(m=>`<option value="${modeValue(m)}">${modeLabel(m)}</option>`).join(""):`<option value="">No common mode</option>`;if(modes.length){const selected=modes.find(m=>m.width===kvm.width&&m.height===kvm.height&&modeFpsX100(m)===(kvm.fps_x100||0))||modes.find(m=>m.selected)||modes.find(m=>m.width===v.width&&m.height===v.height)||modes[0];resolutionSelect.value=modeValue(selected)}}
+resolutionSelect.onchange=async()=>{const m=/^([A-Z0-9]+):(\d+)x(\d+)@(\d+)$/.exec(resolutionSelect.value||"");if(!m)return;const pixel_format=m[1],w=Number(m[2]),h=Number(m[3]),fps_x100=Number(m[4]);try{await API.post("/api/video/resolution",{pixel_format,width:w,height:h,fps_x100});nosignal.classList.remove("hide");videoText.textContent="switching video mode";startVideo(500);setTimeout(status,800)}catch(e){videoText.textContent=e.message||"video mode switch failed";nosignal.classList.remove("hide")}};
+snapshot.onclick=()=>window.open(authUrl("/api/snapshot?t="+Date.now()),"_blank");
+reload.onclick=()=>{nosignal.classList.remove("hide");startVideo(0)};
+fs.onclick=()=>document.fullscreenElement?document.exitFullscreen():screenEl.requestFullscreen();
+function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function speed(){return Number(mouseSpeed.value||5)}
+const direct={enabled:localStorage.getItem("si_direct_click")!=="0",hover:null,drag:false,pointer:null,button:0};
+function activeVideoRect(){const r=video.getBoundingClientRect();const vw=video.naturalWidth||16,vh=video.naturalHeight||9,ar=vw/vh;let w=r.width,h=w/ar;if(h>r.height){h=r.height;w=h*ar}const left=r.left+(r.width-w)/2,top=r.top+(r.height-h)/2;return{left,top,width:w,height:h}}
+function screenPoint(e){const r=activeVideoRect();const x=e.clientX-r.left,y=e.clientY-r.top;if(x<0||y<0||x>r.width||y>r.height)return null;return{x,y,u:r.width?x/r.width:.5,v:r.height?y/r.height:.5,rect:r}}
+function setDirectEnabled(on){direct.enabled=!!on;localStorage.setItem("si_direct_click",direct.enabled?"1":"0");directClickToggle.checked=direct.enabled;directClickText.textContent=direct.enabled?"开启":"关闭"}
+function absPoint(p){return{x:Math.round(clamp(p.u,0,1)*32767),y:Math.round(clamp(p.v,0,1)*32767)}}
+function directMoveTo(p){const a=absPoint(p);API.send({type:"absmove",x:a.x,y:a.y})}
+function syncDirectPointer(){if(direct.hover)directMoveTo(direct.hover);syncPointer.classList.add("active");setTimeout(()=>syncPointer.classList.remove("active"),220)}
+function sendMove(dx,dy){const x=Math.round(clamp(dx,-127,127));const y=Math.round(clamp(dy,-127,127));if(x||y)API.send({type:"mousemove",unit:"hid",dx:x,dy:y})}
+function sendWheel(deltaY){API.send({type:"wheel",deltaY:deltaY,deltaX:0})}
+function sendClick(button=0){API.send({type:"click",button})}
+function sendDblClick(button=0){sendClick(button);setTimeout(()=>sendClick(button),90)}
+const textKeys={" ":"Space","\n":"Enter","\t":"Tab","a":"KeyA","b":"KeyB","c":"KeyC","d":"KeyD","e":"KeyE","f":"KeyF","g":"KeyG","h":"KeyH","i":"KeyI","j":"KeyJ","k":"KeyK","l":"KeyL","m":"KeyM","n":"KeyN","o":"KeyO","p":"KeyP","q":"KeyQ","r":"KeyR","s":"KeyS","t":"KeyT","u":"KeyU","v":"KeyV","w":"KeyW","x":"KeyX","y":"KeyY","z":"KeyZ","0":"Digit0","1":"Digit1","2":"Digit2","3":"Digit3","4":"Digit4","5":"Digit5","6":"Digit6","7":"Digit7","8":"Digit8","9":"Digit9","-":"Minus","=":"Equal","[":"BracketLeft","]":"BracketRight","\\":"Backslash",";":"Semicolon","'":"Quote","`":"Backquote",",":"Comma",".":"Period","/":"Slash"};
+const shiftedTextKeys={"A":"KeyA","B":"KeyB","C":"KeyC","D":"KeyD","E":"KeyE","F":"KeyF","G":"KeyG","H":"KeyH","I":"KeyI","J":"KeyJ","K":"KeyK","L":"KeyL","M":"KeyM","N":"KeyN","O":"KeyO","P":"KeyP","Q":"KeyQ","R":"KeyR","S":"KeyS","T":"KeyT","U":"KeyU","V":"KeyV","W":"KeyW","X":"KeyX","Y":"KeyY","Z":"KeyZ","!":"Digit1","@":"Digit2","#":"Digit3","$":"Digit4","%":"Digit5","^":"Digit6","&":"Digit7","*":"Digit8","(":"Digit9",")":"Digit0","_":"Minus","+":"Equal","{":"BracketLeft","}":"BracketRight","|":"Backslash",":":"Semicolon","\"":"Quote","~":"Backquote","<":"Comma",">":"Period","?":"Slash"};
+const textState={sending:false};
+function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+function setTextMsg(text,kind=""){textMsg.textContent=text||"";textMsg.className="text-msg "+kind}
+async function tapCode(code,mods=[]){for(const mod of mods)API.send({type:"keydown",code:mod});API.send({type:"keydown",code});await wait(5);API.send({type:"keyup",code});for(let i=mods.length-1;i>=0;i--)API.send({type:"keyup",code:mods[i]});await wait(6)}
+async function typeText(value){const text=String(value||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");let sent=0,skipped=0;for(const ch of text){if(textKeys[ch]){await tapCode(textKeys[ch]);sent++;continue}if(shiftedTextKeys[ch]){await tapCode(shiftedTextKeys[ch],["ShiftLeft"]);sent++;continue}if(ch==="\b"){await tapCode("Backspace");sent++;continue}skipped++}return{sent,skipped}}
+pasteText.onclick=async()=>{setTextMsg("");if(navigator.clipboard&&navigator.clipboard.readText){try{const clip=await navigator.clipboard.readText();if(clip){textInput.value+=clip;setTextMsg(`已读取 ${clip.length} 字符`,"ok");return}}catch(e){}}textInput.focus();setTextMsg("请在输入框内粘贴后发送","warn")};
+clearText.onclick=()=>{textInput.value="";setTextMsg("")};
+sendText.onclick=async()=>{if(textState.sending)return;const value=textInput.value;if(!value){setTextMsg("没有文本","warn");return}if(!API.ws||API.ws.readyState!==1){setTextMsg("HID 未连接","bad");return}textState.sending=true;sendText.disabled=true;pasteText.disabled=true;setTextMsg("发送中","warn");try{const r=await typeText(value);setTextMsg(r.skipped?`已发送 ${r.sent}，跳过 ${r.skipped}`:`已发送 ${r.sent}`,"ok")}catch(e){setTextMsg(e.message||"发送失败","bad")}finally{textState.sending=false;sendText.disabled=false;pasteText.disabled=false}};
+const modifierCodes=new Set(["ControlLeft","ControlRight","ShiftLeft","ShiftRight","AltLeft","AltRight","MetaLeft","MetaRight"]);
+const keyboardCapture={enabled:false,pendingMods:new Set(),pressed:new Set(),pastePending:false,pasteTimer:0,pasting:false};
+function keyboardWsReady(){return API.ws&&API.ws.readyState===1}
+function setKeyboardCaptureMsg(text,kind=""){keyboardCaptureMsg.textContent=text||"";keyboardCaptureMsg.className="capture-msg "+kind}
+function isCaptureEditableTarget(e){const t=e.target;if(authModal.classList.contains("show"))return true;if(!t||!t.closest)return false;return !!(t.closest("input,textarea,select")||t.isContentEditable)}
+function isLocalPasteShortcut(e){return e.code==="KeyV"&&(e.ctrlKey||e.metaKey)&&!e.altKey}
+function releaseKeyboardCaptureKeys(){const keys=Array.from(keyboardCapture.pressed).reverse();keyboardCapture.pendingMods.clear();for(const code of keys)API.send({type:"keyup",code});keyboardCapture.pressed.clear()}
+function flushPendingModifiers(){for(const code of Array.from(keyboardCapture.pendingMods)){if(!keyboardCapture.pressed.has(code)){API.send({type:"keydown",code});keyboardCapture.pressed.add(code)}keyboardCapture.pendingMods.delete(code)}}
+function updateKeyboardCaptureState(){keyboardPassthrough.checked=keyboardCapture.enabled;keyboardPassthroughText.textContent=keyboardCapture.enabled?"开启":"关闭";document.body.classList.toggle("keyboard-capture",keyboardCapture.enabled)}
+function setKeyboardCapture(on){keyboardCapture.enabled=!!on;updateKeyboardCaptureState();if(keyboardCapture.enabled){screenPad.focus({preventScroll:true});setKeyboardCaptureMsg(keyboardWsReady()?"捕获中":"HID 未连接",keyboardWsReady()?"ok":"bad")}else{releaseKeyboardCaptureKeys();setKeyboardCaptureMsg("待机")}}
+function releaseKeyboardCapture(reason=""){releaseKeyboardCaptureKeys();keyboardCapture.pastePending=false;clearTimeout(keyboardCapture.pasteTimer);if(keyboardCapture.enabled&&reason)setKeyboardCaptureMsg(reason,"warn")}
+async function sendLocalClipboardText(text){keyboardCapture.pastePending=false;clearTimeout(keyboardCapture.pasteTimer);releaseKeyboardCaptureKeys();const value=String(text||"");if(!value){setKeyboardCaptureMsg("剪贴板为空","warn");return}if(keyboardCapture.pasting)return;keyboardCapture.pasting=true;setKeyboardCaptureMsg("粘贴中","warn");try{const r=await typeText(value);setKeyboardCaptureMsg(r.skipped?`已输入 ${r.sent} 跳过 ${r.skipped}`:`已输入 ${r.sent}`,"ok")}catch(err){setKeyboardCaptureMsg(err.message||"粘贴失败","bad")}finally{keyboardCapture.pasting=false}}
+async function readClipboardAfterShortcut(){if(!keyboardCapture.pastePending)return;keyboardCapture.pastePending=false;if(navigator.clipboard&&navigator.clipboard.readText){try{const text=await navigator.clipboard.readText();await sendLocalClipboardText(text);return}catch(e){}}releaseKeyboardCaptureKeys();setKeyboardCaptureMsg("剪贴板不可用","warn")}
+function handleKeyboardCaptureKeydown(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;if(keyboardCapture.pasting){e.preventDefault();e.stopImmediatePropagation();return}if(isLocalPasteShortcut(e)){keyboardCapture.pastePending=true;clearTimeout(keyboardCapture.pasteTimer);keyboardCapture.pasteTimer=setTimeout(readClipboardAfterShortcut,80);e.stopImmediatePropagation();return}e.preventDefault();e.stopImmediatePropagation();const code=e.code;if(!code)return;if(!keyboardWsReady()){setKeyboardCaptureMsg("HID 未连接","bad");return}if(modifierCodes.has(code)){if(!keyboardCapture.pressed.has(code))keyboardCapture.pendingMods.add(code);setKeyboardCaptureMsg("捕获中","ok");return}flushPendingModifiers();if(e.repeat&&keyboardCapture.pressed.has(code))return;if(!keyboardCapture.pressed.has(code)){keyboardCapture.pressed.add(code);API.send({type:"keydown",code})}setKeyboardCaptureMsg("捕获中","ok")}
+function handleKeyboardCaptureKeyup(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;e.preventDefault();e.stopImmediatePropagation();const code=e.code;if(!code)return;if(modifierCodes.has(code)&&keyboardCapture.pendingMods.delete(code)){setKeyboardCaptureMsg("捕获中","ok");return}if(keyboardCapture.pressed.has(code)){API.send({type:"keyup",code});keyboardCapture.pressed.delete(code)}setKeyboardCaptureMsg("捕获中","ok")}
+function handleKeyboardCapturePaste(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;e.preventDefault();e.stopImmediatePropagation();const text=e.clipboardData?e.clipboardData.getData("text/plain"):"";sendLocalClipboardText(text)}
+keyboardPassthrough.onchange=()=>setKeyboardCapture(keyboardPassthrough.checked);
+document.addEventListener("keydown",handleKeyboardCaptureKeydown,true);
+document.addEventListener("keyup",handleKeyboardCaptureKeyup,true);
+document.addEventListener("paste",handleKeyboardCapturePaste,true);
+window.addEventListener("blur",()=>releaseKeyboardCapture("窗口失焦"));
+document.addEventListener("visibilitychange",()=>{if(document.hidden)releaseKeyboardCapture("页面后台")});
+window.addEventListener("pagehide",()=>{releaseKeyboardCapture("");releaseHoldKeys()});
+setKeyboardCapture(false);
+function stopDirectDrag(e,sendUp=true){if(!direct.drag)return;const p=e?screenPoint(e):null;if(p)directMoveTo(p);if(sendUp)API.send({type:"absmouseup",button:direct.button});try{screenPad.releasePointerCapture(direct.pointer)}catch(err){}direct.drag=false;direct.pointer=null}
+setDirectEnabled(direct.enabled);
+directClickToggle.onchange=()=>setDirectEnabled(directClickToggle.checked);
+syncPointer.onclick=syncDirectPointer;
+screenPad.addEventListener("mouseenter",()=>screenPad.focus());
+screenPad.addEventListener("pointerdown",e=>{e.preventDefault();screenPad.focus();if(!direct.enabled||e.button>2)return;const p=screenPoint(e);if(!p)return;direct.drag=true;direct.pointer=e.pointerId;direct.button=e.button;screenPad.setPointerCapture(e.pointerId);directMoveTo(p);API.send({type:"absmousedown",button:e.button})});
+screenPad.addEventListener("pointermove",e=>{const r=screenEl.getBoundingClientRect();cursor.style.left=e.clientX-r.left+"px";cursor.style.top=e.clientY-r.top+"px";cursor.style.opacity=1;const p=screenPoint(e);if(p)direct.hover={u:p.u,v:p.v};if(direct.enabled&&direct.drag&&e.pointerId===direct.pointer&&p){e.preventDefault();directMoveTo(p)}});
+screenPad.addEventListener("pointerup",e=>{if(direct.drag&&e.pointerId===direct.pointer){e.preventDefault();stopDirectDrag(e,true)}});
+screenPad.addEventListener("pointercancel",e=>{if(direct.drag&&e.pointerId===direct.pointer){e.preventDefault();stopDirectDrag(e,true)}});
+screenPad.addEventListener("pointerleave",()=>{if(!direct.drag)cursor.style.opacity=0});
+screenPad.addEventListener("wheel",e=>{e.preventDefault();if(direct.enabled)sendWheel(Math.sign(e.deltaY)*-1)},{passive:false});
+screenPad.addEventListener("contextmenu",e=>e.preventDefault());
+const joystick=$("joystick"),joyThumb=$("joyThumb");
+const joy={active:false,pointer:null,x:0,y:0,timer:0};
+function setJoy(x,y){joy.x=x;joy.y=y;joyThumb.style.left=(50+x*34)+"%";joyThumb.style.top=(50+y*34)+"%"}
+function updateJoy(e){const r=joystick.getBoundingClientRect();const radius=Math.min(r.width,r.height)*0.38;let x=(e.clientX-r.left-r.width/2)/radius;let y=(e.clientY-r.top-r.height/2)/radius;const mag=Math.hypot(x,y);if(mag>1){x/=mag;y/=mag}setJoy(x,y)}
+function stopJoy(){if(joy.pointer!==null){try{joystick.releasePointerCapture(joy.pointer)}catch(e){}}joy.active=false;joy.pointer=null;setJoy(0,0);clearInterval(joy.timer);joy.timer=0}
+joystick.addEventListener("pointerdown",e=>{e.preventDefault();joystick.focus();joy.active=true;joy.pointer=e.pointerId;joystick.setPointerCapture(e.pointerId);updateJoy(e);if(!joy.timer)joy.timer=setInterval(()=>sendMove(joy.x*speed()*4,joy.y*speed()*4),32)});
+joystick.addEventListener("pointermove",e=>{if(joy.active&&e.pointerId===joy.pointer)updateJoy(e)});
+joystick.addEventListener("pointerup",stopJoy);joystick.addEventListener("pointercancel",stopJoy);joystick.addEventListener("contextmenu",e=>e.preventDefault());
+const touchPad=$("touchPad"),touchDot=$("touchDot");
+const touch={active:false,pointer:null,lastX:0,lastY:0,startX:0,startY:0,moved:0,startAt:0,locked:false,centered:false};
+function setTouchDot(e,visible=true){const r=touchPad.getBoundingClientRect();touchDot.style.left=e.clientX-r.left+"px";touchDot.style.top=e.clientY-r.top+"px";touchDot.style.opacity=visible?1:0}
+function setTouchCenter(visible=true){const r=touchPad.getBoundingClientRect();touchDot.style.left=r.width/2+"px";touchDot.style.top=r.height/2+"px";touchDot.style.opacity=visible?1:0}
+function requestTouchLock(e){if(e.pointerType!=="mouse"||!touchPad.requestPointerLock)return false;setTouchCenter(true);try{const ret=touchPad.requestPointerLock();if(ret&&ret.catch)ret.catch(()=>{if(touch.active&&!touch.locked){try{touchPad.setPointerCapture(touch.pointer)}catch(err){}setTouchDot({clientX:touch.lastX,clientY:touch.lastY},true)}});return true}catch(err){return false}}
+function stopTouch(e,allowTap=true){if(!touch.active)return;const wasTap=allowTap&&touch.moved<7&&(Date.now()-touch.startAt)<320;if(document.pointerLockElement===touchPad&&document.exitPointerLock)document.exitPointerLock();if(e&&!touch.locked&&!touch.centered)setTouchDot(e,false);else setTouchCenter(false);try{touchPad.releasePointerCapture(touch.pointer)}catch(err){}touch.active=false;touch.pointer=null;touch.locked=false;touch.centered=false;touchPad.classList.remove("locked");document.body.classList.remove("touch-capture");if(wasTap)sendClick(0)}
+touchPad.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"&&e.button!==0)return;e.preventDefault();touchPad.focus();touch.active=true;touch.pointer=e.pointerId;touch.lastX=e.clientX;touch.lastY=e.clientY;touch.startX=e.clientX;touch.startY=e.clientY;touch.moved=0;touch.startAt=Date.now();touch.centered=e.pointerType==="mouse";document.body.classList.toggle("touch-capture",touch.centered);if(!requestTouchLock(e)){touchPad.setPointerCapture(e.pointerId);touch.centered?setTouchCenter(true):setTouchDot(e,true)}});
+touchPad.addEventListener("pointermove",e=>{if(!touch.active||touch.locked||e.pointerId!==touch.pointer)return;e.preventDefault();const dx=e.clientX-touch.lastX;const dy=e.clientY-touch.lastY;touch.lastX=e.clientX;touch.lastY=e.clientY;touch.moved=Math.max(touch.moved,Math.hypot(e.clientX-touch.startX,e.clientY-touch.startY));touch.centered?setTouchCenter(true):setTouchDot(e,true);sendMove(dx*speed()*0.55,dy*speed()*0.55)});
+touchPad.addEventListener("pointerup",stopTouch);touchPad.addEventListener("pointercancel",stopTouch);touchPad.addEventListener("wheel",e=>{e.preventDefault();sendWheel(Math.sign(e.deltaY)*-1)},{passive:false});touchPad.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("pointerlockchange",()=>{const locked=document.pointerLockElement===touchPad;const wasLocked=touch.locked;touch.locked=locked;touchPad.classList.toggle("locked",locked);if(locked)setTouchCenter(true);else if(wasLocked&&touch.active)stopTouch(null,false)});
+document.addEventListener("mousemove",e=>{if(!touch.active||document.pointerLockElement!==touchPad)return;e.preventDefault();const dx=e.movementX||0,dy=e.movementY||0;touch.moved+=Math.hypot(dx,dy);setTouchCenter(true);sendMove(dx*speed()*0.55,dy*speed()*0.55)});
+document.addEventListener("mouseup",e=>{if(touch.active&&document.pointerLockElement===touchPad&&e.button===0){e.preventDefault();stopTouch(e)}});
+function setMouseMode(mode){modeJoy.classList.toggle("active",mode==="joy");modeTouch.classList.toggle("active",mode==="touch");joyPane.classList.toggle("hide",mode!=="joy");touchPane.classList.toggle("hide",mode!=="touch");(mode==="joy"?joystick:touchPad).focus()}
+modeJoy.onclick=()=>setMouseMode("joy");modeTouch.onclick=()=>setMouseMode("touch");mouseSpeed.oninput=()=>speedText.textContent=mouseSpeed.value;
+document.querySelectorAll("[data-mouse-button]").forEach(b=>{let held=false;const button=Number(b.dataset.mouseButton);const up=()=>{if(!held)return;held=false;b.classList.remove("active");API.send({type:"mouseup",button})};b.addEventListener("pointerdown",e=>{e.preventDefault();held=true;b.classList.add("active");b.setPointerCapture(e.pointerId);API.send({type:"mousedown",button})});b.addEventListener("pointerup",up);b.addEventListener("pointercancel",up);b.addEventListener("pointerleave",up)});
+document.querySelectorAll("[data-mouse-click]").forEach(b=>b.onclick=()=>sendClick(Number(b.dataset.mouseClick)));
+document.querySelectorAll("[data-mouse-dblclick]").forEach(b=>b.onclick=()=>sendDblClick(Number(b.dataset.mouseDblclick)));
+document.querySelectorAll("[data-wheel]").forEach(b=>{let timer=0;const step=()=>sendWheel(Number(b.dataset.wheel));const stop=()=>{clearInterval(timer);timer=0;b.classList.remove("active")};b.addEventListener("pointerdown",e=>{e.preventDefault();b.classList.add("active");b.setPointerCapture(e.pointerId);step();timer=setInterval(step,90)});b.addEventListener("pointerup",stop);b.addEventListener("pointercancel",stop);b.addEventListener("pointerleave",stop)});
+dragLock.onclick=()=>{const active=!dragLock.classList.contains("active");dragLock.classList.toggle("active",active);API.send({type:active?"mousedown":"mouseup",button:0})};
+function releaseAll(){stopJoy();stopTouch();releaseKeyboardCaptureKeys();releaseHoldKeys();dragLock.classList.remove("active");API.send({type:"releaseall"})}
+release.onclick=releaseAll;
+function acceptsKeyboard(){return !keyboardCapture.enabled&&(document.activeElement===screenPad||document.activeElement===joystick||document.activeElement===touchPad)}
+document.addEventListener("keydown",e=>{if(!acceptsKeyboard())return;e.preventDefault();API.send({type:"keydown",code:e.code})});
+document.addEventListener("keyup",e=>{if(!acceptsKeyboard())return;e.preventDefault();API.send({type:"keyup",code:e.code})});
+const combos={"ctrl-alt-del":{modifiers:["ControlLeft","AltLeft"],keys:["Delete"]},"alt-tab":{modifiers:["AltLeft"],keys:["Tab"]},"alt-f4":{modifiers:["AltLeft"],keys:["F4"]},win:{modifiers:["MetaLeft"],keys:[]},"print-screen":{modifiers:[],keys:["PrintScreen"]}};
+document.querySelectorAll("[data-combo]").forEach(b=>b.onclick=()=>API.send({type:"combo",...combos[b.dataset.combo]}));
+const heldKeys=new Set();
+function setHoldKey(button,on){const code=button.dataset.holdKey;if(!code)return;const active=!!on;if(active===heldKeys.has(code))return;if(active){heldKeys.add(code);button.classList.add("active");API.send({type:"keydown",code})}else{heldKeys.delete(code);button.classList.remove("active");API.send({type:"keyup",code})}}
+function releaseHoldKeys(){document.querySelectorAll("[data-hold-key]").forEach(b=>setHoldKey(b,false))}
+document.querySelectorAll("[data-hold-key]").forEach(b=>{b.onclick=()=>setHoldKey(b,!b.classList.contains("active"))});
+const layout=[["Escape","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"],["Backquote","Digit1","Digit2","Digit3","Digit4","Digit5","Digit6","Digit7","Digit8","Digit9","Digit0","Backspace"],["Tab","KeyQ","KeyW","KeyE","KeyR","KeyT","KeyY","KeyU","KeyI","KeyO","KeyP"],["CapsLock","KeyA","KeyS","KeyD","KeyF","KeyG","KeyH","KeyJ","KeyK","KeyL","Enter"],["ShiftLeft","KeyZ","KeyX","KeyC","KeyV","KeyB","KeyN","KeyM","ArrowUp","ShiftRight"],["ControlLeft","MetaLeft","AltLeft","Space","ArrowLeft","ArrowDown","ArrowRight"]];
+const labels={Escape:"Esc",Backspace:"Back",CapsLock:"Caps",ShiftLeft:"Shift",ShiftRight:"Shift",ControlLeft:"Ctrl",MetaLeft:"Win",AltLeft:"Alt",Space:"Space",ArrowLeft:"Left",ArrowRight:"Right",ArrowUp:"Up",ArrowDown:"Down"};
+keyboard.innerHTML=layout.map(row=>`<div class="keyrow">${row.map(code=>`<button class="key ${code==="Space"?"wide":""}" data-code="${code}">${labels[code]||code.replace("Key","").replace("Digit","")}</button>`).join("")}</div>`).join("");
+keyboard.querySelectorAll("button").forEach(b=>{b.onmousedown=e=>{e.preventDefault();b.classList.add("active");API.send({type:"keydown",code:b.dataset.code})};b.onmouseup=e=>{e.preventDefault();b.classList.remove("active");API.send({type:"keyup",code:b.dataset.code})};b.onmouseleave=()=>{b.classList.remove("active");API.send({type:"keyup",code:b.dataset.code})}});
+async function status(){try{const s=await API.get("/api/status");const h=s.hid||{},v=s.video||{};renderTopBadges(s);renderResolution(v);const hidReady=!!(h.hid_ready||h.ready);hidStatus.textContent=hidReady?"HID READY":h.connected?"HID MOUNTED":h.initialized?"HID WAITING":"HID OFF";hidStatus.className="status "+(hidReady?"ok":h.enabled?"warn":"bad");videoStatus.textContent=v.connected?`${v.resolution} ${Number(v.fps||0).toFixed(1)}fps`:"VIDEO WAITING";videoStatus.className="status "+(v.connected?"ok":(modeCount(v)>0?"warn":"bad"));videoText.textContent=v.last_error||"waiting for USB UVC frame";if(v.connected)nosignal.classList.add("hide")}catch(e){conn.textContent="ERROR";conn.className="status bad"}}status();setInterval(status,2000);
+</script>
+</body>
+</html>

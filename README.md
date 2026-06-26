@@ -1,179 +1,133 @@
-# SimpleIPMI
+# ExoAnchor
 
-**[中文文档](README_zh.md)** 
+**[中文文档](README_zh.md)**
 
-An [RCOS](https://rcos.io) Project
+An [RCOS](https://rcos.io) project.
 
-Open-source, low-cost KVM-over-IP solution. Remotely control physical machines — keyboard, mouse, video, and power — through a web browser, similar to commercial IPMI/BMC systems.
+ExoAnchor is an open-source, low-cost, AI-ready bare-metal BMC/KVM project with complete software and hardware design. Its goal is to keep physical machines controllable through a physical control plane when SSH, system networking, or services are unavailable: view the screen, send keyboard/mouse input, enter BIOS, handle boot failures, and recover with power control when available.
 
-## Features
+Hardware repository: [wxffxx/ExoAnchor-Hardware](https://github.com/wxffxx/ExoAnchor-Hardware)
 
-- **Remote Video** — HDMI capture via USB or CSI, streamed as MJPEG
-- **Remote Keyboard & Mouse** — USB HID emulation
-- **Power Control** — Optocoupler/relay-isolated power, reset, and force-off
-- **Web Dashboard** — Browser-based control panel, zero client installation
-- **Flexible Networking** — WiFi AP direct connect, Ethernet LAN, or Tailscale overlay
+The project has two layers:
+
+- **Device layer:** ESP32-P4 and other hardware variants provide video input, USB HID output, Ethernet access, and board-level control signals. This layer includes complete hardware/software design and an easy-to-reproduce DIY path.
+- **Agent layer:** `exoanchor-agent/` provides the service-side runtime for observations, actions, safety confirmation, logs, and recovery playbooks.
+
+## Quick Start: Waveshare ESP32P4 NANO DIY
+
+1. Read the hardware guide first: [BuildGuide.md](device/ESP32P4/waveshare-nano-diy/BuildGuide.md).
+2. Wire the target host USB HID cable:
+
+| USB signal | ESP32-P4-NANO pin |
+| --- | --- |
+| D+ | GPIO27 |
+| D- | GPIO26 |
+| 5V | 5V |
+| GND | GND |
+
+3. Plug the MS2109 HDMI capture card into the ESP32-P4-NANO USB-A port.
+4. Connect the target host HDMI output to the capture card.
+5. Connect RJ45 Ethernet.
+6. Build and flash the shared firmware.
+
+## Current Focus
+
+The latest hardware is the ESP32-P4 KVM platform under [device/ESP32P4](device/ESP32P4/).
+
+The world's first design to complete a full KVM task with an MCU.
+
+| Path | Status | Use case |
+| --- | --- | --- |
+| [device/ESP32P4/waveshare-nano-diy](device/ESP32P4/waveshare-nano-diy/) | Active bring-up | No custom PCB, no soldering, quick video + keyboard/mouse + Ethernet |
+| [device/ESP32P4/waveshare-nano-expansion](device/ESP32P4/waveshare-nano-expansion/) | Prototype | Waveshare NANO + expansion board |
+| [device/ESP32P4/exoanchor-esp32p4x](device/ESP32P4/exoanchor-esp32p4x/) | Custom board | Full video, HID, power control, and power-state detection |
+
+The fastest path to a working device is the Waveshare ESP32-P4-NANO DIY build:
+
+- Waveshare ESP32-P4-NANO
+- MS2109 HDMI USB capture card
+- RJ45 Ethernet
+- USB 2.0 HID wiring on GPIO26/GPIO27
+- Shared ESP-IDF firmware from [device/ESP32P4/firmware](device/ESP32P4/firmware/)
+
+Assembly guide: [device/ESP32P4/waveshare-nano-diy/BuildGuide.md](device/ESP32P4/waveshare-nano-diy/BuildGuide.md).
+
+## What The DIY Build Can Do
+
+| Feature | Status |
+| --- | --- |
+| HDMI video capture | Supported through an MS2109-class UVC capture card on the ESP32-P4 USB-A host port |
+| Keyboard/mouse | Supported through USB HID on GPIO26/GPIO27 |
+| Ethernet | Supported through the Waveshare NANO RJ45/IP101GRI path |
+| Web UI | Supported by the shared ESP32-P4 firmware |
+| OTA/update UI | Present in firmware, still being validated |
+| ATX power control | Not supported by the DIY build |
+| 12V / 3V3AUX power-state detection | Not supported by the DIY build |
+
+The DIY build is intentionally simple. It is good for validating video, keyboard/mouse, networking, and firmware flow. It cannot press the target host power button or detect standby rails. If remote boot is needed, use Wake-on-LAN, manual operation, or a future expansion/custom board.
 
 ## Architecture
 
-The project supports three distinct host architectures:
+### ESP32-P4 NANO DIY KVM
 
-### MCU Host — ESP32-S3 (Available)
-
-Lightweight standalone solution. The ESP32-S3 handles everything in a single chip: WiFi AP (or Ethernet via optional W5500), web server (SPIFFS), and native USB HID. No Linux, no capture card — minimal BOM, single-host control.
-
-```
-                          ┌─────────────────────────────────────────┐
-                          │            ESP32-S3                     │
-                          │                                         │
-User ── WiFi AP ─────────→│  AsyncWebServer + WebSocket (SPIFFS)   │
-  or                      │         │              │                │
-User ── W5500 Ethernet* ─→│    GPIO Control    USB HID (OTG)       │
-         (optional)       │     ┌────┴────┐    ┌───┴────┐          │
-                          │     │Optocoupler│   │Keyboard│          │
-                          │     │PWR  │ RST │   │ Mouse  │          │
-                          │     └──┬──┴──┬──┘   └───┬────┘          │
-                          └────────┼─────┼──────────┼───────────────┘
-                                   │     │          │
-                              PWR_BTN RST_BTN    USB ──→ Target Machine
-
-* W5500 SPI Ethernet is optional. Without it, the ESP32-S3 operates
-  as a WiFi AP at 192.168.4.1. With W5500, it joins the LAN via DHCP.
+```text
+                         ┌────────────────────────────────┐
+User browser ─ Ethernet →│ RJ45 + IP101GRI PHY            │
+                         │ ESP32-P4 + firmware + Web UI   │
+                         │                                │
+                         │  USB-A host ─────┐             │
+                         │  GPIO27 D+  ─┐   │             │
+                         │  GPIO26 D-  ─┼───┼──────────┐  │
+                         │  5V / GND   ─┘   │          │  │
+                         └──────────────────┼──────────┼──┘
+                                            │          │
+                                      ┌─────▼─────┐    │
+                                      │ MS2109    │    │
+                                      │ HDMI UVC  │    │
+                                      └─────┬─────┘    │
+                                            │          │
+Target machine HDMI out ────────────────────┘          │
+Target machine USB-A  ◀────────────────────────────────┘
 ```
 
-### ARM Linux Host (Available)
+In the DIY version, the ESP32-P4-NANO is the whole KVM device:
 
-Full-featured KVM solution based on ARM Linux SBCs (CM4, OrangePi). The SBC runs a Python (FastAPI) server with modular subsystems for video, HID, power, terminal, and firmware management.
+- video enters through the MS2109 capture card on the USB-A host port
+- keyboard and mouse leave through the GPIO26/GPIO27 USB HID wiring
+- users connect through the onboard IP101GRI PHY to access the dashboard over Ethernet
+- after bring-up, USB-C is only used for flashing and serial logs
 
-Two HID modes are supported: UART serial bridge to an external ESP32-S3 (CM4 variant), or native USB OTG gadget (OrangePi variant).
+This wiring has no ATX power-control path. The target host must be powered manually, through Wake-on-LAN, or by another external controller.
 
-```
-                     ┌──────────────────────────────────────────────────┐
-                     │               ARM Linux SBC                     │
-                     │          FastAPI + WebSocket Server              │
-                     │                                                  │
-User (Browser) ─────→│  ┌───────────┐ ┌───────────┐ ┌──────────────┐  │
-   Ethernet/WiFi     │  │  Video    │ │  HID Mgr  │ │  GPIO Ctrl   │  │
-                     │  │  Capture  │ │           │ │              │  │
-                     │  │ (OpenCV)  │ │ Mode A:   │ │  PWR_BTN     │  │
-                     │  │           │ │  UART ──────────→ ESP32-S3  │  │
-                     │  │           │ │  (serial   │ │  RST_BTN     │  │
-                     │  │           │ │  protocol) │ │  12V Detect  │  │
-                     │  │           │ │           │ │              │  │
-                     │  │           │ │ Mode B:   │ └──────┬───────┘  │
-                     │  │           │ │  USB OTG  │        │          │
-                     │  │           │ │ (/dev/hidg)│        │          │
-                     │  └─────┬─────┘ └─────┬─────┘        │          │
-                     │  ┌─────┴─────┐ ┌─────┴─────┐        │          │
-                     │  │ Terminal  │ │ ESP32 OTA │        │          │
-                     │  │ (pty/ssh) │ │ Flasher   │        │          │
-                     │  └───────────┘ └───────────┘        │          │
-                     └────────┼───────────┼────────────────┼──────────┘
-                              │           │                │
-                         USB Capture   USB HID       Optocoupler/Relay
-                         (MS2109)    (KB + Mouse)    (PWR / RST / 12V)
-                              │           │                │
-                         HDMI out ←── Target Machine ──→ Motherboard
+## Repository Layout
+
+```text
+ExoAnchor/
+├── device/
+│   ├── ESP32P4/
+│   │   ├── firmware/                  # Shared ESP-IDF firmware
+│   │   ├── waveshare-nano-diy/        # No-PCB Waveshare NANO build
+│   │   ├── waveshare-nano-expansion/  # Expansion-board prototype
+│   │   └── exoanchor-esp32p4x/        # Full custom board target
+│   ├── ArmLinux/                      # ARM Linux device path
+│   ├── ESP32S3/                       # ESP32-S3 control/reference path
+│   ├── STM32F103/                     # UART/control bridge path
+│   └── ESP32C6/                       # Lightweight remote-switch path
+├── exoanchor-agent/                   # Python agent runtime and dashboard integration
+└── docs/                              # Project direction, architecture, process, research, and references
 ```
 
-### Composite Host (WIP)
+## Documentation
 
-Central management server running on Ubuntu (x86/ARM). Manages multiple KVM hosts and USB capture cards simultaneously, providing a unified web panel for multi-target-machine control.
+Start with these documents:
 
-## Repository Structure
-
-```
-simpleipmi/
-├── hosts/                            # KVM host firmware & software
-│   ├── esphost-esp32s3/              #   ESP32-S3 MCU host (WiFi AP + HID)
-│   ├── armhost-cm4/                  #   CM4 ARM Linux host (Ethernet + HID Bridge)
-│   ├── armhost-orangepi4/            #   OrangePi CM4 host (USB OTG HID)
-│   ├── stmhost-f103/                 #   STM32F103 MCU host (WIP)
-│   └── esphost-esp32c3(switch_only)/ #   ESP32-C3 power-switch only (WIP)
-│
-├── hardware/                         # PCB / schematic / BOM design files
-│   ├── km/                           #   Keyboard-Mouse HID modules
-│   ├── kvm-carrier/                  #   KVM carrier boards
-│   ├── coreboard/                    #   SoC core modules
-│   └── accessories/                  #   Video capture, relay, etc.
-│
-├── exoanchor/                           # KVM Agent framework (vision + auto-remediation)
-│   ├── core/                         #   Passive monitor + semi-active executor
-│   ├── vision/                       #   Screen analysis (local + LLM API)
-│   ├── action/                       #   HID/SSH action driver
-│   ├── skills/                       #   Skill system (YAML + Python)
-│   └── dashboard/                    #   Agent web UI
-│
-├── composite/                        # Multi-host management system (WIP)
-│   └── server/
-│
-├── shared/                           # Cross-device shared resources
-│   └── protocol/                     #   Communication protocol (protocol.h)
-│
-└── docs/                             # Documentation & manuals
-```
-
-## Host Platform Comparison
-
-| | ESP32-S3 | ARM CM4 | OrangePi CM4 | STM32F103 |
-|---|---|---|---|---|
-| **Architecture** | MCU | ARM Linux | ARM Linux | MCU |
-| **Cost** | TBD | TBD | TBD | TBD |
-| **Video Capture** | None | USB capture card | USB capture card | None |
-| **HID** | Native USB OTG | ESP32-S3 serial bridge | Native USB OTG | Native USB |
-| **Networking** | WiFi AP / W5500 Ethernet | Ethernet / WiFi | Ethernet / WiFi | External |
-| **Web Panel** | Built-in (SPIFFS) | FastAPI server | FastAPI server | None |
-| **Status** | Available | Available | Available | WIP |
-
-## Quick Start
-
-### ARM CM4 Host
-
-**Requirements:** CM4-compatible SBC, ESP32-S3 (HID bridge), USB capture card
-
-```bash
-# Deploy server on CM4
-cd hosts/armhost-cm4/server
-pip install -r requirements.txt
-python main.py
-
-# Flash ESP32-S3 HID bridge firmware
-cd hosts/armhost-cm4/firmware
-pio run -t upload
-```
-
-See [hosts/armhost-cm4/docs/DEVELOPMENT.md](hosts/armhost-cm4/docs/DEVELOPMENT.md)
-
-## Hardware Designs
-
-All PCB and schematic files are under `hardware/`, organized by function:
-
-| Category | Description |
-|----------|-------------|
-| `km/` | Keyboard-mouse HID modules (ESP32-S2, XIAO-ESP32S3, STM32F103) |
-| `kvm-carrier/` | KVM carrier boards (PCIe CM4 v1/v2, T113) |
-| `coreboard/` | SoC core modules (H616, ARM Linux full-module) |
-| `accessories/` | HDMI capture (Toshiba TC358743, MS2109), relay module |
-
-See [hardware/README.md](hardware/README.md)
-
-## Roadmap
-
-**Completed**
-- ESP32-S3 standalone MCU host (WiFi AP + optional W5500 Ethernet)
-- ARM CM4 KVM host with ESP32-S3 HID bridge
-- OrangePi CM4 KVM host with native USB OTG
-- Web dashboard (KVM view, terminal, system info)
-
-**TODO**
-- STM32F103 low-cost MCU host
-- Composite multi-host management system
-- H616 coreboard completion
-
-## About RCOS
-
-This project is developed under the [Rensselaer Center for Open Source](https://rcos.io) (RCOS), an organization at Rensselaer Polytechnic Institute that supports student-driven open source software serving the greater good.
+- [device/README.md](device/README.md): device family overview
+- [device/ESP32P4/README.md](device/ESP32P4/README.md): ESP32-P4 platform overview
+- [device/ESP32P4/waveshare-nano-diy/BuildGuide.md](device/ESP32P4/waveshare-nano-diy/BuildGuide.md): no-PCB assembly guide
+- [device/ESP32P4/firmware/README.md](device/ESP32P4/firmware/README.md): shared firmware build/flash guide
+- [exoanchor-agent/README.md](exoanchor-agent/README.md): agent runtime overview
+- [docs/README.md](docs/README.md): project documentation map
 
 ## License
 
-MIT
+[MIT](LICENSE)

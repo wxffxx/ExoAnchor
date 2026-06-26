@@ -1,0 +1,52 @@
+{
+  "mode": "manual",
+  "target": {
+    "ip": "192.168.1.100",
+    "ssh": {
+      "backend": "system",
+      "port": 22,
+      "username": "admin",
+      "password": "",
+      "key_file": ""
+    }
+  },
+  "passive": {
+    "poll_interval": 10,
+    "services": {}
+  },
+  "safety": {
+    "max_steps": 200,
+    "max_duration": 600,
+    "require_confirmation": true
+  },
+  "nlp": {
+    "mode": "api",
+    "api_provider": "deepseek",
+    "api_key": "",
+    "model": "deepseek-v4-pro",
+    "endpoint": "",
+    "ollama_url": "http://localhost:11434",
+    "ollama_model": "",
+    "allowed_models": [
+      {
+        "id": "deepseek-v4-pro",
+        "name": "DeepSeek V4 Pro"
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "name": "DeepSeek V4 Flash"
+      },
+      {
+        "id": "gemini-2.5-flash",
+        "name": "Gemini 2.5 Flash"
+      },
+      {
+        "id": "gpt-4o",
+        "name": "OpenAI GPT-4o"
+      }
+    ]
+  },
+  "vision": {
+    "backend": "local"
+  }
+}
