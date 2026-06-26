@@ -1,6 +1,0 @@
-out
-RST=GPIO1_A1
-PWR=GPIO4_A6
-
-in
-12Vdetect=GPIO4_C0

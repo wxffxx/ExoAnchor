@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor ESP32-P4</title>
+<style>
+:root{color-scheme:dark;--bg:#101114;--panel:#191b20;--panel2:#20232a;--line:#30343d;--text:#eef2f6;--muted:#96a0ad;--green:#2dd4bf;--red:#f87171;--yellow:#fbbf24}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:flex-start;gap:22px;padding:0 22px;background:#15171b;position:sticky;top:0;z-index:2}.brand{display:flex;align-items:center;gap:12px}.logo{width:32px;height:32px;border:1px solid #4b5563;border-radius:6px;display:grid;place-items:center;font-weight:800;background:#20242c}.title{font-weight:700}.sub{font-size:12px;color:var(--muted);margin-top:-2px}.nav{display:flex;align-items:center;gap:8px}.nav a{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}.nav a.active,.nav a:hover{background:var(--panel2);color:var(--text)}.version-pill{color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:7px 0}.status-strip{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-left:auto}.badge{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:6px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}.badge.ok{color:var(--green);border-color:#1f766d}.badge.bad{color:var(--red);border-color:#7f2d2d}.badge.warn{color:var(--yellow);border-color:#7c5d16}.wrap{max-width:1280px;margin:0 auto;padding:22px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.preview-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(260px,2fr);gap:14px;margin-top:14px}.equal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}.card h2{font-size:14px;margin:0 0 12px;color:#d7dce3}.label{color:var(--muted);font-size:12px}.value{font:700 24px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;min-width:0;overflow-wrap:anywhere}.value.name{font-size:19px;line-height:1.2}.value.state{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.small{font-size:12px;color:var(--muted);margin-top:8px;word-break:break-word}.rows{display:grid;gap:9px}.row{display:flex;justify-content:space-between;gap:14px;padding:9px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:6px}.row b{font-weight:600}.dot{width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;margin-right:7px}.dot.ok{background:var(--green)}.dot.idle{background:var(--muted)}button{border:1px solid var(--line);background:#242832;color:var(--text);border-radius:6px;padding:10px 12px;cursor:pointer;font-weight:650}button:hover{border-color:#59606d;background:#2a303b}button.active{color:var(--green);border-color:#1f766d;background:#17302f}button:disabled{opacity:.45;cursor:not-allowed}.preview{display:block;width:100%;aspect-ratio:16/9;background:#050506;border:1px solid var(--line);border-radius:6px;object-fit:contain}.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}.power-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.power-actions button:first-child{grid-column:1/-1}.switch-control{display:inline-flex;align-items:center;gap:8px;min-height:34px;color:var(--text);font-weight:650;cursor:pointer;user-select:none}.switch-control input{position:absolute;opacity:0;pointer-events:none}.switch-track{position:relative;width:48px;height:28px;border:1px solid #3b414c;border-radius:999px;background:#30343d;transition:background .18s,border-color .18s}.switch-thumb{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#d8dee8;box-shadow:0 3px 8px rgba(0,0,0,.35);transition:transform .18s,background .18s}.switch-control input:checked+.switch-track{background:#17302f;border-color:#1f766d}.switch-control input:checked+.switch-track .switch-thumb{transform:translateX(20px);background:var(--green)}.switch-control input:focus-visible+.switch-track{outline:2px solid rgba(45,212,191,.45);outline-offset:2px}.switch-control input:disabled+.switch-track{opacity:.45}.switch-text{font-size:13px;color:var(--muted);min-width:52px}.log{height:230px;overflow:auto;background:#0c0d10;border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.log div{display:grid;grid-template-columns:62px 58px 1fr;gap:8px;border-bottom:1px solid #1c1f25;padding:4px 0}.linkcard{display:block;color:inherit;text-decoration:none}.linkcard:hover{border-color:#59606d}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}.metric{min-width:0;padding:10px;background:#171a20;border:1px solid var(--line);border-radius:6px}.metric .value{font-size:20px}.metric .small{margin-top:5px}.modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,6,8,.72);z-index:20;padding:18px}.modal.show{display:grid}.dialog{width:min(430px,100%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45)}.dialog h2{font-size:16px;margin:0 0 6px}.dialog p{margin:0 0 14px;color:var(--muted)}.dialog .field{display:grid;gap:6px;margin-bottom:10px}.dialog label{font-size:12px;color:var(--muted)}.dialog input{width:100%;border:1px solid var(--line);background:#0e1014;color:var(--text);border-radius:6px;padding:11px 12px;font:15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.dialog input:focus{outline:2px solid rgba(45,212,191,.35);border-color:#1f766d}.dialog .msg{min-height:20px;color:var(--muted);margin-top:10px}.dialog .msg.bad{color:var(--red)}.dialog .msg.ok{color:var(--green)}@media(max-width:900px){.grid,.preview-grid,.equal-grid,.metrics{grid-template-columns:1fr}.top{height:auto;align-items:flex-start;gap:12px;padding:14px;flex-direction:column}.status-strip{justify-content:flex-start;margin-left:0}}
+</style>
+</head>
+<body>
+<nav class="top">
+  <div class="brand"><div class="logo">EA</div><div><div class="title">ExoAnchor ESP32-P4</div><div id="deviceLabelText" class="sub">ESP32-P4</div></div></div>
+  <div class="nav"><a class="active" href="/">Dashboard</a><a href="/kvm">KVM</a><a href="/settings">Settings</a><span class="version-pill">v0.84</span></div>
+  <div class="status-strip" aria-label="设备概要">
+    <span id="badgeVideo" class="badge">VIDEO --</span>
+    <span id="badgeUsb" class="badge">USB --</span>
+    <span id="badgePwr" class="badge bad">Power OFF</span>
+    <span id="badgeStandby" class="badge bad">Power Standby OFF</span>
+  </div>
+</nav>
+<main class="wrap">
+  <section class="grid">
+    <div class="card"><div class="label">运行时间</div><div id="uptimeValue" class="value">--</div><div id="uptimeMeta" class="small">系统启动后经过时间</div></div>
+    <div class="card"><div class="label">IP 地址</div><div id="ipValue" class="value">--</div><div id="ipMeta" class="small">--</div></div>
+    <div class="card"><div class="label">标注名</div><div id="nameValue" class="value name">--</div><div id="nameMeta" class="small"></div></div>
+  </section>
+  <section class="card" style="margin-top:14px">
+    <h2>ESP32-P4 性能</h2>
+    <div class="metrics">
+      <div class="metric"><div class="label">CPU 占用</div><div id="perfCpu" class="value">--</div><div id="perfCpuMeta" class="small">--</div></div>
+      <div class="metric"><div class="label">RAM 可用</div><div id="perfHeap" class="value">--</div><div id="perfHeapMeta" class="small">--</div></div>
+      <div class="metric"><div class="label">PSRAM 可用</div><div id="perfPsram" class="value">--</div><div id="perfPsramMeta" class="small">--</div></div>
+      <div class="metric"><div class="label">实时 FPS</div><div id="perfFps" class="value">--</div><div id="perfFpsMeta" class="small">--</div></div>
+      <div class="metric"><div class="label">MJPEG 码率</div><div id="perfBitrate" class="value">--</div><div id="perfBitrateMeta" class="small">--</div></div>
+    </div>
+    <div class="rows" id="performance"></div>
+  </section>
+  <section class="preview-grid">
+    <div class="card">
+      <h2>画面预览</h2>
+      <img id="preview" class="preview" alt="">
+      <div id="previewMeta" class="small">预览关闭</div>
+      <div class="actions"><label class="switch-control"><input id="previewToggle" type="checkbox" role="switch" aria-label="画面预览"><span class="switch-track"><span class="switch-thumb"></span></span><span id="previewToggleText" class="switch-text">预览关闭</span></label><button id="refreshShot">Refresh</button></div>
+    </div>
+    <div class="card">
+      <h2>电源控制</h2>
+      <div class="power-actions"><button disabled>Power</button><button disabled>Reset</button><button disabled>Force Off</button></div>
+      <div class="rows">
+        <div class="row"><b><span class="dot idle"></span>Power</b><span>reserved</span></div>
+        <div class="row"><b><span class="dot idle"></span>Power Standby</b><span>reserved</span></div>
+        <div class="row"><b><span class="dot idle"></span>Control</b><span>reserved</span></div>
+      </div>
+    </div>
+  </section>
+  <section class="equal-grid">
+    <div class="card">
+      <h2>网络</h2>
+      <div class="rows" id="network"></div>
+    </div>
+    <div class="card">
+      <h2>视频流</h2>
+      <div class="rows" id="stream"></div>
+    </div>
+  </section>
+  <section class="equal-grid">
+    <div class="card">
+      <h2>USB 详情</h2>
+      <div class="rows" id="usbDetails"></div>
+    </div>
+    <div class="card">
+      <h2>GPIO 状态</h2>
+      <div class="rows" id="gpioStatus"></div>
+    </div>
+  </section>
+  <section class="card" style="margin-top:14px">
+    <h2>日志</h2>
+    <div id="logs" class="log"></div>
+  </section>
+</main>
+<div id="authModal" class="modal" role="dialog" aria-modal="true">
+  <form id="authForm" class="dialog">
+    <h2 id="authTitle">本地账户</h2>
+    <p id="authHint">请输入本地账户凭据。</p>
+    <div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>
+    <div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div>
+    <div id="authNewFields">
+      <div class="field"><label for="authNewUsername">新用户名</label><input id="authNewUsername" type="text" autocomplete="username" maxlength="32"></div>
+      <div class="field"><label for="authNewPassword">新密码</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="4" maxlength="64"></div>
+      <div class="field"><label for="authConfirmPassword">确认新密码</label><input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="4" maxlength="64"></div>
+    </div>
+    <div class="actions"><button id="authSubmit" class="active" type="submit">保存并继续</button></div>
+    <div id="authMsg" class="msg"></div>
+  </form>
+</div>
+<script>
+const API={token:localStorage.getItem("si_token")||"",username:localStorage.getItem("si_username")||"admin",headers(){const h={"Content-Type":"application/json"};if(this.token)h.Authorization="Bearer "+this.token;return h},setSession(t,u){this.token=t||"";this.username=u||this.username||"admin";if(this.token){localStorage.setItem("si_token",this.token);localStorage.setItem("si_auth_last_active",String(Date.now()))}else{localStorage.removeItem("si_token");localStorage.removeItem("si_auth_last_active")}if(this.username)localStorage.setItem("si_username",this.username)},async login(username,password){const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});if(!r.ok)throw new Error(await r.text());const j=await r.json();this.setSession(j.token,j.username||username);return j},async req(method,path,body){if(!Session.active())throw new Error("login required");const r=await fetch(path,{method,headers:this.headers(),body:body?JSON.stringify(body):undefined});if(r.status===401){if(await AuthUI.requireLogin())return this.req(method,path,body);throw new Error("login required")}if(!r.ok)throw new Error(await r.text());return r.json()},get(p){return this.req("GET",p)},post(p,b){return this.req("POST",p,b)}};
+const Session={enabled(){return localStorage.getItem("si_auto_logout_enabled")==="1"},minutes(){return Math.max(1,Math.min(1440,Number(localStorage.getItem("si_auto_logout_minutes")||15)))},touch(){if(API.token)localStorage.setItem("si_auth_last_active",String(Date.now()))},active(){if(!this.enabled()||!API.token)return true;const last=Number(localStorage.getItem("si_auth_last_active")||Date.now());if(Date.now()-last>this.minutes()*60000){API.setSession("",API.username);AuthUI.requireLogin();return false}return true},start(){["click","keydown","pointerdown","touchstart"].forEach(ev=>document.addEventListener(ev,()=>this.touch(),{passive:true,capture:true}));setInterval(()=>this.active(),10000)}};
+const AuthUI={mode:"change",pending:null,auth:null,show(mode,auth){this.mode=mode;this.auth=auth||{};authModal.classList.add("show");authNewFields.style.display=mode==="login"?"none":"block";authTitle.textContent=mode==="login"?"登录本地账户":"请修改默认账户";authHint.textContent=mode==="login"?"需要登录后才能继续。":"当前仍在使用默认 admin/admin，请保存新的本地账户。";authSubmit.textContent=mode==="login"?"登录":"保存并继续";authMsg.textContent="";authMsg.className="msg";authCurrentUsername.value=this.auth.username||this.auth.default_username||API.username||"admin";authNewUsername.value=this.auth.username||API.username||"admin";authCurrentPassword.value="";authNewPassword.value="";authConfirmPassword.value="";setTimeout(()=>authCurrentPassword.focus(),0)},hide(ok){authModal.classList.remove("show");if(this.pending){this.pending(ok);this.pending=null}},requireLogin(){this.show("login",{});return new Promise(resolve=>{this.pending=resolve})},requireChange(auth){this.show("change",auth);return new Promise(resolve=>{this.pending=resolve})},async checkRequired(){try{const r=await fetch("/api/auth/status",{headers:API.headers()});if(!r.ok){await this.requireLogin();return false}const a=await r.json();if(a.enabled&&!a.token_valid){await this.requireLogin();return false}if(a.must_change_credentials){await this.requireChange(a);return false}return true}catch(e){await this.requireLogin();return false}}};
+authForm.onsubmit=async e=>{e.preventDefault();authMsg.textContent="";authMsg.className="msg";const currentUsername=authCurrentUsername.value.trim();const currentPassword=authCurrentPassword.value;if(AuthUI.mode==="login"){try{const r=await API.login(currentUsername,currentPassword);if(r.must_change_credentials){AuthUI.show("change",r);return}AuthUI.hide(true);update()}catch(err){authMsg.textContent=err.message||"登录失败";authMsg.className="msg bad"}return}const username=authNewUsername.value.trim();const next=authNewPassword.value,confirm=authConfirmPassword.value;if(!username){authMsg.textContent="用户名不能为空";authMsg.className="msg bad";return}if(next!==confirm){authMsg.textContent="两次密码不一致";authMsg.className="msg bad";return}try{if(!API.token)await API.login(currentUsername,currentPassword);const r=await API.post("/api/settings/account",{current_username:currentUsername,current_password:currentPassword,username,new_password:next});API.setSession(r.token,r.username||username);authMsg.textContent="账户已保存";authMsg.className="msg ok";AuthUI.hide(true);update()}catch(err){authMsg.textContent=err.message||"保存失败";authMsg.className="msg bad"}};
+function row(name,value,ok){const dot=ok===null?"idle":ok?"ok":"";return `<div class="row"><b><span class="dot ${dot}"></span>${name}</b><span>${value}</span></div>`}
+function fmtBytes(n){if(!n)return"--";if(n>1048576)return Math.round(n/1048576)+" MB";return Math.round(n/1024)+" KB"}
+function fmtMbps(n){return n>0?`${Number(n).toFixed(n>=10?1:2)} Mbps`:"--"}
+function fmtPercent(n){return `${Number(n||0).toFixed(1)}%`}
+function fmtMs(n){return n>0?`${Math.round(Number(n))} ms`:"--"}
+const DEFAULT_DEVICE_LABEL="ESP32-P4";
+function deviceLabelValue(info){const label=String(info?.device_label||info?.label||localStorage.getItem("si_device_label")||DEFAULT_DEVICE_LABEL).trim();return label||DEFAULT_DEVICE_LABEL}
+function applyDeviceLabel(label){const value=String(label||DEFAULT_DEVICE_LABEL).trim()||DEFAULT_DEVICE_LABEL;localStorage.setItem("si_device_label",value);deviceLabelText.textContent=value}
+function netPhy(net,eth){return net.phy||eth.phy||"IP101GRI"}
+function netSpeed(net,eth){const mbps=Number(net.speed_mbps||eth.speed_mbps||0);return mbps>0?`${mbps}M`:"--M"}
+function netDuplex(net,eth){if(net.full_duplex===true||eth.full_duplex===true)return"full duplex";if(net.full_duplex===false||eth.full_duplex===false)return"half duplex";return"--"}
+function netWorkState(net,eth){return net.link_up?`${netDuplex(net,eth)} ${netSpeed(net,eth)}`:"link down"}
+function setBadge(el,label,state,kind){el.textContent=`${label} ${state}`;el.className=`badge ${kind||""}`.trim()}
+function modeCount(video){return Array.isArray(video.modes)?video.modes.length:Number(video.modes_count??video.mode_count??video.modes??0)}
+function renderTopBadges(status){const video=status.video||{},hid=status.hid||{};if(video.connected)setBadge(badgeVideo,"VIDEO","ONLINE","ok");else if(modeCount(video)>0)setBadge(badgeVideo,"VIDEO","STANDBY","warn");else setBadge(badgeVideo,"VIDEO","OFFLINE","bad");if(hid.hid_ready||hid.ready)setBadge(badgeUsb,"USB","ONLINE","ok");else if(hid.connected||hid.mounted||hid.initialized||hid.enabled)setBadge(badgeUsb,"USB","STANDBY","warn");else setBadge(badgeUsb,"USB","OFFLINE","bad");setBadge(badgePwr,"Power","OFF","bad");setBadge(badgeStandby,"Power Standby","OFF","bad")}
+let previewEnabled=false,previewTimer=0;
+function authUrl(path){return path+(path.includes("?")?"&":"?")+"auth="+encodeURIComponent(API.token||"")}
+function refreshSnapshot(){if(previewEnabled)preview.src=authUrl("/api/snapshot?t="+Date.now())}
+function setPreviewLoop(on){if(on){if(!previewTimer){refreshSnapshot();previewTimer=setInterval(refreshSnapshot,1000)}}else{if(previewTimer){clearInterval(previewTimer);previewTimer=0}preview.removeAttribute("src")}}
+async function setPreviewEnabled(on){await API.post("/api/video/lease",{owner:"preview",enabled:on});await update()}
+async function update(){
+  try{
+    const [info,status,logData]=await Promise.all([API.get("/api/system/info"),API.get("/api/status"),API.get("/api/system/logs?n=60")]);
+    const video=status.video||{},hid=status.hid||{},pins=hid.pins||{};
+    renderTopBadges(status);
+    const vctl=video.control||{};
+    const net=status.network||{},eth=info.network?.ethernet||{};
+    const perf=status.performance||{},pmem=perf.memory||{},pvideo=perf.video||{};
+    const pcpu=perf.cpu||{};
+    const heap=pmem.heap||{},internal=pmem.internal||{},psram=pmem.psram||{};
+    const label=deviceLabelValue(info);
+    applyDeviceLabel(label);
+    const ip=net.ip||eth.ipv4||"No IP";
+    const phy=netPhy(net,eth),speed=netSpeed(net,eth),workState=netWorkState(net,eth);
+    const hidReady=!!hid.hid_ready;
+    const hidPort=hid.port||((pins.dm_gpio!=null&&pins.dp_gpio!=null)?`GPIO${pins.dm_gpio}/${pins.dp_gpio}`:"GPIO26/27");
+    uptimeValue.textContent=info.uptime?.formatted||"--";
+    uptimeMeta.textContent=`登录次数 ${Number(info.auth?.login_count||0)}`;
+    ipValue.textContent=ip;
+    ipMeta.textContent=net.link_up?`${phy} · ${speed}`:`${phy} · link down`;
+    nameValue.textContent=label;
+    nameMeta.textContent="";
+    const owner=video.capture_owner||vctl.active_owner||"off";
+    const ownerText=owner==="preview"?"预览":owner==="kvm"?"KVM":"关闭";
+    previewEnabled=!!vctl.preview_enabled;
+    previewToggle.checked=previewEnabled;
+    previewToggleText.textContent=previewEnabled?"预览开启":"预览关闭";
+    refreshShot.disabled=!previewEnabled;
+    previewMeta.textContent=previewEnabled?`720p@1fps · 当前 ${ownerText}${vctl.kvm_active?` · KVM保护 ${Math.ceil((vctl.kvm_grace_remaining_ms||0)/1000)}s`:""}`:"预览关闭";
+    setPreviewLoop(previewEnabled);
+    network.innerHTML=row("Interface",net.interface||"ethernet",net.configured)+row("PHY",phy,true)+row("工作状态",workState,net.link_up)+row("DHCP",net.connected?"leased":"waiting",net.connected)+row("IP",ip,net.connected)+row("Gateway",net.gateway||eth.gateway||"--",net.connected)+row("MAC",net.mac||eth.mac||"--",true);
+    stream.innerHTML=row("Stream",video.streaming?"running":"waiting",video.streaming)+row("Owner",ownerText,video.capture_enabled)+row("Resolution",video.resolution||"--",video.connected)+row("Target",`${video.target_resolution||"--"} @ ${Number(video.target_fps||0).toFixed(1)}fps`,video.capture_enabled)+row("FPS",Number(video.fps||0).toFixed(1),video.connected)+row("Dropped",video.frames_dropped??"--",video.connected);
+    usbDetails.innerHTML=row("UVC camera",video.connected?`${video.frames_encoded} frames`:modeCount(video)>0?"standby":"offline",video.connected||modeCount(video)>0)+row("Capture",video.capture_enabled?ownerText:"off",video.capture_enabled)+row("HID USB",hidReady?"ready":hid.connected?"mounted":hid.initialized?"waiting":"off",hidReady)+row("HID port",hidPort,!!hid.port);
+    gpioStatus.innerHTML=row("HID D-",pins.dm_gpio!=null?`GPIO${pins.dm_gpio}`:"GPIO26",true)+row("HID D+",pins.dp_gpio!=null?`GPIO${pins.dp_gpio}`:"GPIO27",true)+row("Power detect","reserved",null)+row("Power Standby detect","reserved",null);
+    perfCpu.textContent=pcpu.valid?fmtPercent(pcpu.usage_percent):"--";
+    perfCpuMeta.textContent=pcpu.valid?`${pcpu.cores||2} cores RISC-V`:"warming up";
+    perfFps.textContent=Number(pvideo.fps??video.fps??0).toFixed(1);
+    perfFpsMeta.textContent=`target ${Number(pvideo.target_fps??video.target_fps??0).toFixed(1)}fps · ${fmtMs(pvideo.frame_interval_ms)}`;
+    perfBitrate.textContent=fmtMbps(pvideo.estimated_mbps);
+    perfBitrateMeta.textContent=`${fmtBytes(pvideo.last_jpeg_size||video.last_jpeg_size)} / frame`;
+    perfHeap.textContent=fmtBytes(heap.free_bytes);
+    perfHeapMeta.textContent=`${fmtPercent(heap.usage_percent)} used`;
+    perfPsram.textContent=psram.total_bytes?fmtBytes(psram.free_bytes):"N/A";
+    perfPsramMeta.textContent=psram.total_bytes?`${fmtPercent(psram.usage_percent)} used`:"not detected";
+    performance.innerHTML=row("CPU",pcpu.valid?`${pcpu.cores||2} cores RISC-V`:"warming up",!!pcpu.valid)+row("Internal RAM",`${fmtBytes(internal.free_bytes)} free`,(internal.free_bytes||0)>65536)+row("RAM low watermark",fmtBytes(heap.minimum_free_bytes),(heap.minimum_free_bytes||0)>131072)+row("PSRAM low watermark",psram.total_bytes?fmtBytes(psram.minimum_free_bytes):"N/A",!psram.total_bytes||(psram.minimum_free_bytes||0)>524288)+row("视频帧间隔",`${fmtMs(pvideo.frame_interval_ms)} / expected ${fmtMs(pvideo.expected_frame_interval_ms)}`,video.connected)+row("Drop rate",fmtPercent(pvideo.drop_percent),(pvideo.drop_percent||0)<1)+row("Tasks / clients",`${perf.task_count??"--"} tasks · ${perf.active_connections??status.active_connections??"--"} clients`,true);
+    const logs=logData.logs||[];document.getElementById("logs").innerHTML=logs.map(l=>`<div><span>${l.time}</span><span>${l.level}</span><span>${l.message}</span></div>`).join("");
+  }catch(e){console.error(e)}
+}
+previewToggle.onchange=()=>setPreviewEnabled(previewToggle.checked);refreshShot.onclick=refreshSnapshot;
+preview.onerror=()=>{preview.removeAttribute("src")};
+async function boot(){Session.start();if(await AuthUI.checkRequired())await update();setInterval(()=>{if(!authModal.classList.contains("show"))update()},2000);setInterval(()=>{if(!authModal.classList.contains("show"))AuthUI.checkRequired()},5000)}
+boot();
+</script>
+</body>
+</html>

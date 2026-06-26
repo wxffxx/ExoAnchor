@@ -1,0 +1,149 @@
+menu "SI ESP32-P4 Host Configuration"
+
+    config SI_ETH_ENABLE
+        bool "Enable RJ45 Ethernet"
+        default y
+        select ETH_USE_ESP32_EMAC
+        help
+            Use the Waveshare ESP32-P4-NANO onboard 100M RJ45 Ethernet.
+            The board schematic uses an IP101GRI PHY connected to ESP32-P4 EMAC.
+
+    config SI_ETH_MDC_GPIO
+        int "Ethernet SMI MDC GPIO"
+        default 31
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_MDIO_GPIO
+        int "Ethernet SMI MDIO GPIO"
+        default 52
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_PHY_RST_GPIO
+        int "Ethernet PHY reset GPIO"
+        default 51
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_PHY_ADDR
+        int "Ethernet PHY address"
+        default 1
+        range -1 31
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_WAIT_IP_TIMEOUT_MS
+        int "Ethernet DHCP wait timeout"
+        default 15000
+        range 0 120000
+        depends on SI_ETH_ENABLE
+
+    config SI_AUTH_USERNAME
+        string "Default web/API username"
+        default "admin"
+        help
+            Default local username used before the first account change.
+
+    config SI_AUTH_PASSWORD
+        string "Default web/API password"
+        default "admin"
+        help
+            Empty string disables write API auth. Change the default credential on first login.
+
+    menu "USB HID device"
+
+        config SI_HID_USB_ENABLE
+            bool "Enable USB HID on GPIO26/GPIO27"
+            default y
+            help
+                Expose keyboard and mouse as a TinyUSB device through the
+                ESP32-P4 Full-Speed USB controller. The internal FS PHY is
+                wired to GPIO26 as DM and GPIO27 as DP, leaving the HS USB host
+                controller available for the UVC camera.
+
+        config SI_HID_USB_DM_GPIO
+            int "USB HID DM GPIO"
+            default 26
+            range 0 54
+            depends on SI_HID_USB_ENABLE
+
+        config SI_HID_USB_DP_GPIO
+            int "USB HID DP GPIO"
+            default 27
+            range 0 54
+            depends on SI_HID_USB_ENABLE
+
+    endmenu
+
+    menu "USB UVC video input"
+
+        config SI_VIDEO_ENABLE
+            bool "Enable USB UVC video input"
+            default y
+            help
+                Enable the USB camera path for the web UI. On ESP32-P4 the
+                High-Speed USB controller is used for the UVC camera, while the
+                Full-Speed USB controller can still expose HID on GPIO26/27.
+
+        config SI_VIDEO_WIDTH
+            int "USB UVC MJPEG width"
+            default 1280
+            range 160 3840
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_HEIGHT
+            int "USB UVC MJPEG height"
+            default 720
+            range 120 2160
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_FPS
+            int "USB UVC MJPEG FPS"
+            default 30
+            range 1 60
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_FRAME_BUFFERS
+            int "USB UVC frame buffers"
+            default 3 if SPIRAM
+            default 2
+            range 2 6
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_URBS
+            int "USB UVC URB count"
+            default 4
+            range 2 8
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_URB_SIZE
+            int "USB UVC URB size"
+            default 16384
+            range 4096 65536
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_JPEG_BUFFER_SIZE
+            int "USB UVC latest JPEG buffer size"
+            default 1048576
+            range 65536 2097152
+            depends on SI_VIDEO_ENABLE
+            help
+                Largest MJPEG frame copied out of the UVC driver for HTTP
+                snapshot and MJPEG streaming.
+
+        config SI_VIDEO_JPEG_QUALITY
+            int "Reported MJPEG/JPEG quality"
+            default 75
+            range 1 100
+            depends on SI_VIDEO_ENABLE
+            help
+                UVC cameras usually produce MJPEG internally. This value is
+                retained for the web API and future cameras that expose quality
+                controls.
+
+        config SI_VIDEO_STREAM_DELAY_MS
+            int "MJPEG frame delay"
+            default 33
+            range 10 1000
+            depends on SI_VIDEO_ENABLE
+
+    endmenu
+
+endmenu

@@ -1,7 +1,0 @@
-1 * W5500 module
-1 * Seeed Studio Xiao ESP32S3
-4 * G3VM-61D1
-
-Cable Parts:
-2 * 8pin_F_panel wire
-1 * USB_C

@@ -1,10 +1,13 @@
 # ── Secrets & Runtime Data ──────────────────
 cortex_config.json
 cortex_conversations.json
+exoanchor_config.json
+exoanchor_conversations.json
 *.secret
 *.key
 .env
 .env.*
+.local/
 
 # ── Python ──────────────────────────────────
 __pycache__/
@@ -14,6 +17,7 @@ __pycache__/
 *.egg
 dist/
 build/
+build-*/
 .venv/
 venv/
 env/
@@ -34,3 +38,9 @@ Thumbs.db
 *.hex
 *.map
 .pio/
+
+# ── Local backups ───────────────────────────
+backups/
+
+# ── Local reference material ────────────────
+docs/ref/MacroSilicon/

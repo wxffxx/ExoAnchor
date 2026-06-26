@@ -1,8 +1,0 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.0
-opencv-python-headless==4.10.0.84
-python-jose[cryptography]==3.3.0
-pyyaml==6.0.2
-python-multipart==0.0.9
-psutil==6.0.0
-aiofiles==24.1.0
