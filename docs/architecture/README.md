@@ -1,6 +1,6 @@
 # Architecture
 
-Architecture documents describe boundaries between hardware, firmware, dashboard, and agent runtime. Hardware-specific details stay in `device/`; agent internals stay in `exoanchor-agent/`.
+Architecture documents describe boundaries between hardware, firmware, dashboard, the embedded Agent, and external clients. Hardware and embedded-Agent details stay in `device/`; external adapters stay in `integrations/`.
 
 ## Documents
 
@@ -16,9 +16,9 @@ Target machine
   <-> HDMI / USB / power signals
 ESP32-P4 device firmware
   <-> dashboard / API / status
-exoanchor-agent
+embedded Agent / bounded device API
   <-> observations / actions / safety / logs / playbooks
-Human operator
+Human operator / optional MCP client
 ```
 
 The device layer should report real capabilities. The agent layer may choose actions, but it must not assume power control or power-state detection exists on hardware variants that do not expose those signals.

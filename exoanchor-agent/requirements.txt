@@ -1,8 +1,0 @@
-# KVM Agent Framework Dependencies
-asyncssh>=2.14.0
-httpx>=0.25.0
-pyyaml>=6.0
-pydantic>=2.0
-numpy>=1.24.0
-opencv-python-headless>=4.8.0; platform_machine != 'armv7l'
-Pillow>=10.0

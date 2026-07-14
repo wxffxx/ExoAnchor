@@ -8,10 +8,10 @@ ExoAnchor is an open-source, low-cost, AI-ready bare-metal BMC/KVM project with 
 
 Hardware repository: [wxffxx/ExoAnchor-Hardware](https://github.com/wxffxx/ExoAnchor-Hardware)
 
-The project has two layers:
+The project has two control surfaces:
 
 - **Device layer:** ESP32-P4 and other hardware variants provide video input, USB HID output, Ethernet access, and board-level control signals. This layer includes complete hardware/software design and an easy-to-reproduce DIY path.
-- **Agent layer:** `exoanchor-agent/` provides the service-side runtime for observations, actions, safety confirmation, logs, and recovery playbooks.
+- **Automation boundary:** Agent execution belongs in the ESP32-P4 firmware. The optional [`integrations/exoanchor-mcp/`](integrations/exoanchor-mcp/) adapter lets external MCP clients use the device API without introducing a second host-side Agent runtime.
 
 ## Quick Start: Waveshare ESP32P4 NANO DIY
 
@@ -113,7 +113,7 @@ ExoAnchor/
 │   ├── ESP32S3/                       # ESP32-S3 control/reference path
 │   ├── STM32F103/                     # UART/control bridge path
 │   └── ESP32C6/                       # Lightweight remote-switch path
-├── exoanchor-agent/                   # Python agent runtime and dashboard integration
+├── integrations/exoanchor-mcp/        # Optional external MCP adapter
 └── docs/                              # Project direction, architecture, process, research, and references
 ```
 
@@ -125,9 +125,9 @@ Start with these documents:
 - [device/ESP32P4/README.md](device/ESP32P4/README.md): ESP32-P4 platform overview
 - [device/ESP32P4/waveshare-nano-diy/BuildGuide.md](device/ESP32P4/waveshare-nano-diy/BuildGuide.md): no-PCB assembly guide
 - [device/ESP32P4/firmware/README.md](device/ESP32P4/firmware/README.md): shared firmware build/flash guide
-- [exoanchor-agent/README.md](exoanchor-agent/README.md): agent runtime overview
+- [integrations/exoanchor-mcp/README.md](integrations/exoanchor-mcp/README.md): MCP adapter, permissions, and validation
 - [docs/README.md](docs/README.md): project documentation map
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). See [LICENSE_SCOPE.md](LICENSE_SCOPE.md) for the repository and third-party boundary.

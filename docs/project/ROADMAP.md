@@ -1,13 +1,13 @@
 # Project Roadmap
 
-This roadmap is scoped to the whole ExoAnchor project. Agent-runtime internals are tracked in [../../exoanchor-agent/ROADMAP.md](../../exoanchor-agent/ROADMAP.md).
+This roadmap is scoped to the whole ExoAnchor project. Embedded-Agent internals belong beside the ESP32-P4 firmware; the optional external MCP adapter has its own roadmap under `integrations/exoanchor-mcp/docs/`.
 
 ## Phase 0: Re-baseline The Repository
 
 Goal: make the current repository shape understandable after the old docs and legacy directories were removed.
 
 - Keep `device/` as the device-family root.
-- Keep `exoanchor-agent/` as the agent-runtime root.
+- Keep embedded-Agent implementation in the ESP32-P4 firmware and external adapters under `integrations/`.
 - Keep `docs/` for cross-cutting direction, architecture, process, research, and reference material.
 - Fix broken documentation links from root README and agent README.
 - Remove local metadata such as `.DS_Store` from docs.
@@ -61,10 +61,10 @@ Acceptance:
 
 ## Phase 4: Agent Runtime Closure
 
-Goal: move from front-end-driven plans toward a service-side runtime.
+Goal: move from front-end-driven plans toward a bounded embedded runtime.
 
 - Stabilize structured observations and run logs.
-- Move plan execution to the backend.
+- Move plan execution into the ESP32-P4 firmware runtime.
 - Unify plan, skill, and tool-call execution.
 - Add persistent run state, safety gates, and audit logs.
 

@@ -8,10 +8,10 @@ ExoAnchor 是一个开源、低成本、包含完全软硬件设计、面向 AI 
 
 硬件仓库：[wxffxx/ExoAnchor-Hardware](https://github.com/wxffxx/ExoAnchor-Hardware)
 
-项目分成两层：
+项目有两个控制面：
 
 - **Device 层:** ESP32-P4 等硬件形态提供视频输入、USB HID 输出、以太网接入和板级控制信号。包含完整的软硬件设计，并且有易复刻的DIY方案。
-- **Agent 层:** `exoanchor-agent/` 提供服务端 runtime，负责 observation、action、安全确认、日志和恢复 playbook。
+- **自动化边界:** Agent 只运行在 ESP32-P4 固件内。可选的 [`integrations/exoanchor-mcp/`](integrations/exoanchor-mcp/) 让外部 MCP 客户端调用设备 API，不再维护第二套上位机 Agent runtime。
 
 ## 快速开始：微雪电子 ESP32P4 NANO DIY
 
@@ -113,7 +113,7 @@ ExoAnchor/
 │   ├── ESP32S3/                       # ESP32-S3 控制/参考路径
 │   ├── STM32F103/                     # UART/control bridge 路径
 │   └── ESP32C6/                       # 轻量远程开关路径
-├── exoanchor-agent/                   # Python agent runtime 和 dashboard 集成
+├── integrations/exoanchor-mcp/        # 可选外部 MCP 适配器
 └── docs/                              # 项目方向、架构、流程、研究和参考资料
 ```
 
@@ -125,10 +125,10 @@ ExoAnchor/
 - [device/ESP32P4/README.md](device/ESP32P4/README.md)：ESP32-P4 平台总览
 - [device/ESP32P4/waveshare-nano-diy/BuildGuide.md](device/ESP32P4/waveshare-nano-diy/BuildGuide.md)：无 PCB 装配指南
 - [device/ESP32P4/firmware/README.md](device/ESP32P4/firmware/README.md)：共享固件构建/烧录说明
-- [exoanchor-agent/README.md](exoanchor-agent/README.md)：Agent runtime 总览
+- [integrations/exoanchor-mcp/README.md](integrations/exoanchor-mcp/README.md)：MCP 适配器、权限与验收说明
 - [docs/README_zh.md](docs/README_zh.md)：项目文档地图
 
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE)。仓库内容和第三方边界见 [LICENSE_SCOPE.md](LICENSE_SCOPE.md)。

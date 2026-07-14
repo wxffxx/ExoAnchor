@@ -5,7 +5,7 @@ This directory defines how documentation should be maintained after the reposito
 ## Documentation Rules
 
 - Put runnable bring-up steps beside the hardware or firmware they operate on.
-- Put agent runtime internals inside `exoanchor-agent/`.
+- Put embedded Agent internals beside the ESP32-P4 firmware and external adapters under `integrations/`.
 - Put cross-cutting project direction, architecture, roadmap, and research here.
 - Put raw datasheets, schematics, extracted text, and vendor bundles under `docs/ref/`.
 - Do not put generated build output, `.DS_Store`, SDK caches, or personal machine paths in tracked docs.

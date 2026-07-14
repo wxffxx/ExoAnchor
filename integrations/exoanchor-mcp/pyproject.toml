@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exoanchor-mcp"
+version = "0.4.0"
+description = "MCP stdio controller for ExoAnchor ESP32-P4 KVM devices"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+exoanchor-mcp = "exoanchor_mcp.server:main"
+
+[tool.setuptools]
+packages = ["exoanchor_mcp"]

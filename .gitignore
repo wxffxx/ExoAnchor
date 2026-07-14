@@ -44,3 +44,8 @@ backups/
 
 # ── Local reference material ────────────────
 docs/ref/MacroSilicon/
+device/ESP32P4/firmware/*/docs/development/*.local.md
+device/ESP32P4/firmware/*/docs/development/*.draft.md
+
+# Local MCP acceptance captures can contain private addresses and device fingerprints.
+integrations/exoanchor-mcp/docs/acceptance/*.json
