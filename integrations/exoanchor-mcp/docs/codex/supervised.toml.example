@@ -1,0 +1,39 @@
+# Use only after the read-only profile passes on the intended device.
+# Mutating tools prompt because default_tools_approval_mode is "writes".
+[mcp_servers.exoanchor]
+command = "python3"
+args = ["-m", "exoanchor_mcp.server"]
+cwd = "/absolute/path/to/ExoAnchor/integrations/exoanchor-mcp"
+required = true
+startup_timeout_sec = 15
+tool_timeout_sec = 90
+default_tools_approval_mode = "writes"
+enabled_tools = [
+  "exoanchor_capabilities",
+  "exoanchor_status",
+  "exoanchor_snapshot",
+  "exoanchor_logs",
+  "exoanchor_observation_get",
+  "exoanchor_wait_for_status",
+  "exoanchor_wait_for_frame_change",
+  "exoanchor_open_kvm",
+  "exoanchor_click_pixel",
+  "exoanchor_type_text",
+  "exoanchor_execute_and_observe",
+  "exoanchor_ssh_job_start",
+  "exoanchor_ssh_job_status",
+  "exoanchor_ssh_job_cancel",
+  "exoanchor_ssh_job_result",
+]
+
+[mcp_servers.exoanchor.env]
+EXOANCHOR_BASE_URL = "http://<device-ip>"
+EXOANCHOR_DEVICE_ID = "prototype0"
+EXOANCHOR_USERNAME = "<device-user>"
+EXOANCHOR_PASSWORD_FILE = "/absolute/private/path/exoanchor-password.secret"
+EXOANCHOR_ALLOW_WRITE = "1"
+EXOANCHOR_STATE_DIR = "/absolute/private/path/exoanchor-mcp-state"
+# Keep both exceptions disabled unless the exact supervised task requires them.
+EXOANCHOR_ALLOW_UNVERIFIED_SSH_HOST = "0"
+EXOANCHOR_ALLOW_ARBITRARY_SSH = "0"
+EXOANCHOR_PERSIST_JOB_OUTPUT = "0"
