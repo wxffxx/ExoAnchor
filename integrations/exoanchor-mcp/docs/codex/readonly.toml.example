@@ -1,0 +1,27 @@
+# Copy this table into the trusted repository's .codex/config.toml.
+# Keep the password/token in an ignored file outside the repository.
+[mcp_servers.exoanchor]
+command = "python3"
+args = ["-m", "exoanchor_mcp.server"]
+cwd = "/absolute/path/to/ExoAnchor/integrations/exoanchor-mcp"
+required = true
+startup_timeout_sec = 15
+tool_timeout_sec = 90
+default_tools_approval_mode = "writes"
+enabled_tools = [
+  "exoanchor_capabilities",
+  "exoanchor_status",
+  "exoanchor_snapshot",
+  "exoanchor_logs",
+  "exoanchor_observation_get",
+  "exoanchor_wait_for_status",
+  "exoanchor_wait_for_frame_change",
+  "exoanchor_open_kvm",
+]
+
+[mcp_servers.exoanchor.env]
+EXOANCHOR_BASE_URL = "http://<device-ip>"
+EXOANCHOR_DEVICE_ID = "prototype0"
+EXOANCHOR_USERNAME = "<device-user>"
+EXOANCHOR_PASSWORD_FILE = "/absolute/private/path/exoanchor-password.secret"
+EXOANCHOR_ALLOW_WRITE = "0"
