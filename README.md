@@ -181,8 +181,7 @@ ExoAnchor/
 ├── docs/
 │   ├── reproduction/                # Manufacturing and reproduction
 │   ├── guides/                      # Practical guides
-│   ├── ROADMAP_zh.md                # Reviewed public roadmap
-│   └── LICENSE_SCOPE.md             # License scope
+│   └── ROADMAP_zh.md                # Reviewed public roadmap
 ├── integrations/exoanchor-mcp/      # Optional external MCP controller
 └── LICENSE
 ```
@@ -194,5 +193,12 @@ Browse the [documentation map](docs/README.md).
 Original ExoAnchor software, firmware and documentation are licensed under the
 [MIT License](LICENSE). Original hardware designs use the same policy, including
 permission to manufacture and sell hardware from covered design files.
-Third-party material, trademark, patent and compliance boundaries are described
-in the [license scope](docs/LICENSE_SCOPE.md).
+
+Unless a file or directory carries a different notice, that license covers
+original software, firmware, scripts, tests, configuration, documentation,
+specifications, diagrams, media assets and hardware design files that ExoAnchor
+contributors have the right to license. Third-party material remains under its
+own terms, and file-specific notices take precedence. The MIT License does not
+grant rights to the ExoAnchor name, logos or other trademarks, does not include
+an express patent license, and does not imply regulatory approval, safety
+certification or fitness for a particular hardware application.

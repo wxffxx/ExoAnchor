@@ -169,8 +169,7 @@ ExoAnchor/
 ├── docs/
 │   ├── reproduction/                # 制造与复刻
 │   ├── guides/                      # 实用指南
-│   ├── ROADMAP_zh.md                # 经审阅的公开路线
-│   └── LICENSE_SCOPE_zh.md          # 许可证适用范围
+│   └── ROADMAP_zh.md                # 经审阅的公开路线
 ├── integrations/exoanchor-mcp/      # 可选外部 MCP 控制器
 └── LICENSE
 ```
@@ -180,4 +179,9 @@ ExoAnchor/
 ## 许可证
 
 ExoAnchor 原创软件、固件和文档采用 [MIT License](LICENSE)。原创硬件设计也采用MIT，包括依据授权范围内设计文件制造和销售硬件的许可。
-详情见[许可范围说明](docs/LICENSE_SCOPE_zh.md)。
+
+除非文件或目录另有声明，上述 MIT License 适用于 ExoAnchor 贡献者有权授权的
+原创软件、固件、脚本、测试、配置、文档、规范、图表、媒体资源和硬件设计文件；
+第三方资料仍遵循各权利人的条款，文件级声明优先。MIT License 不授予 ExoAnchor
+名称、Logo 或其他商标权，不包含明确的专利授权，也不代表监管批准、安全认证或
+特定硬件用途适用性。
