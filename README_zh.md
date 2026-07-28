@@ -45,6 +45,15 @@ ExoAnchor 是一个完全采用 [MIT License](LICENSE) 开源的全功能KVM，�
 | 3 | ExoAnchor Prototype0 | 较完整真机验证参考 |
 | 4 | ExoAnchor PrototypeV2.3 | b4 标识实物使用 b6 映射；bring-up 已验证，尚非量产定稿 |
 
+### PrototypeV2.4A6 预览
+
+<p align="center">
+  <img src="assets/readme/exoanchor-prototype-v2.4a6-installed.jpg" alt="安装在台式机机箱内的 ExoAnchor PrototypeV2.4A6" width="49%">
+  <img src="assets/readme/exoanchor-prototype-v2.4a6-board-render.png" alt="ExoAnchor PrototypeV2.4A6 板卡渲染图" width="49%">
+</p>
+
+<p align="center"><sub>PrototypeV2.4A6 机箱内安装实拍（左）与板卡渲染图（右）。</sub></p>
+
 各板型对应的固件配置、ESP32-P4 芯片版本和验证状态见
 [ESP32-P4 板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)。
 

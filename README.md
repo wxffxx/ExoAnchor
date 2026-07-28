@@ -50,6 +50,15 @@ schematic, or test from another board is not hardware evidence.
 | 3 | ExoAnchor Prototype0 | Broad hardware-verified reference |
 | 4 | ExoAnchor PrototypeV2.3 | b4-labelled assembly using b6 mapping; bring-up verified, not production-final |
 
+### PrototypeV2.4A6 preview
+
+<p align="center">
+  <img src="assets/readme/exoanchor-prototype-v2.4a6-installed.jpg" alt="ExoAnchor PrototypeV2.4A6 installed inside a desktop chassis" width="49%">
+  <img src="assets/readme/exoanchor-prototype-v2.4a6-board-render.png" alt="ExoAnchor PrototypeV2.4A6 board render" width="49%">
+</p>
+
+<p align="center"><sub>PrototypeV2.4A6 installed in a desktop chassis (left) and board render (right).</sub></p>
+
 See the
 [ESP32-P4 implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
 for each board's firmware profile, ESP32-P4 revision, and validation status.
