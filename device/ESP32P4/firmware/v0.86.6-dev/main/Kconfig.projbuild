@@ -41,12 +41,6 @@ menu "SI ESP32-P4 Host Configuration"
         config SI_BOARD_EXOANCHOR_ESP32P4X
             bool "Legacy ExoAnchor ESP32-P4x (frozen)"
 
-        config SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC
-            bool "ExoAnchor Production TypeC (ESP32-P4 rev1, DP83825I)"
-
-        config SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
-            bool "ExoAnchor TypeW W0.1 local (P461, ESP32-P4 rev3, DP83825I)"
-
         config SI_BOARD_EXOANCHOR_PROTOTYPE0
             bool "ExoAnchor PrototypeV0 (ESP32-P4 rev3, IP101GRI)"
 
@@ -65,18 +59,16 @@ menu "SI ESP32-P4 Host Configuration"
 
     config SI_BOARD_EXOANCHOR_LAYOUT
         bool
-        default y if SI_BOARD_EXOANCHOR_ESP32P4X || SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC || SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW || SI_BOARD_EXOANCHOR_PROTOTYPE0 || SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
+        default y if SI_BOARD_EXOANCHOR_ESP32P4X || SI_BOARD_EXOANCHOR_PROTOTYPE0 || SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
 
     config SI_BOARD_REQUIRES_REV3
         bool
-        default y if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW || SI_BOARD_EXOANCHOR_PROTOTYPE0 || SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
+        default y if SI_BOARD_EXOANCHOR_PROTOTYPE0 || SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
 
     config SI_BOARD_ID
         string
         default "waveshare-p4-nano" if SI_BOARD_WAVESHARE_P4_NANO
         default "exoanchor-esp32p4x" if SI_BOARD_EXOANCHOR_ESP32P4X
-        default "exoanchor-production-typec" if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC
-        default "exoanchor-production-typew-local" if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
         default "exoanchor-prototype0" if SI_BOARD_EXOANCHOR_PROTOTYPE0
         default "exoanchor-prototype-v2.1" if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
         default "exoanchor-prototype-v2.3" if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
@@ -87,8 +79,6 @@ menu "SI ESP32-P4 Host Configuration"
         string
         default "Waveshare ESP32-P4-NANO" if SI_BOARD_WAVESHARE_P4_NANO
         default "ExoAnchor ESP32-P4x" if SI_BOARD_EXOANCHOR_ESP32P4X
-        default "ExoAnchor Production TypeC" if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC
-        default "ExoAnchor TypeW W0.1 Local" if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
         default "ExoAnchor PrototypeV0" if SI_BOARD_EXOANCHOR_PROTOTYPE0
         default "ExoAnchor PrototypeV2.1" if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
         default "ExoAnchor PrototypeV2.3" if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
@@ -99,8 +89,6 @@ menu "SI ESP32-P4 Host Configuration"
         string
         default "si-bmc-p4" if SI_BOARD_WAVESHARE_P4_NANO
         default "exoanchor-p4x" if SI_BOARD_EXOANCHOR_ESP32P4X
-        default "exoanchor-typec" if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC
-        default "exoanchor-typew" if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
         default "exoanchor-p0" if SI_BOARD_EXOANCHOR_PROTOTYPE0
         default "exoanchor-v21" if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
         default "exoanchor-v23" if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
@@ -114,7 +102,7 @@ menu "SI ESP32-P4 Host Configuration"
 
     config SI_ETH_PHY_DP83825
         bool
-        default y if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC || SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW || SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
+        default y if SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
 
     config SI_ETH_PHY_NAME
         string
@@ -164,7 +152,7 @@ menu "SI ESP32-P4 Host Configuration"
 
     config SI_MS2109_POWER_ENABLE
         bool "Enable production MS2109 power sequencing"
-        default y if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC || SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW || SI_BOARD_EXOANCHOR_PROTOTYPE_V24
+        default y if SI_BOARD_EXOANCHOR_PROTOTYPE_V24
         default n
         help
             At boot, enable the switched 3V3_MS rail first and then the
@@ -185,8 +173,6 @@ menu "SI ESP32-P4 Host Configuration"
 
     config SI_MS2109_SWITCH_GPIO
         int "MS2109 TPS22918 ON GPIO"
-        default 22 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
-        default 17 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC
         default 13 if SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
         default -1
         range -1 54
@@ -199,8 +185,6 @@ menu "SI ESP32-P4 Host Configuration"
 
     config SI_MS2109_CORE_ENABLE_GPIO
         int "MS2109 1.2 V regulator enable GPIO"
-        default 23 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
-        default 18 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC
         default 18 if SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
         default -1
         range -1 54
@@ -246,14 +230,13 @@ menu "SI ESP32-P4 Host Configuration"
         help
             Use the selected board's RMII PHY through ESP32-P4 EMAC.
             Prototype0 uses IP101GRI through ESP-IDF's IP101 backend.
-            Production TypeC, PrototypeV2.1, PrototypeV2.3 and PrototypeV2.4
-            use DP83825I through ESP-IDF's generic IEEE 802.3 PHY backend.
+            PrototypeV2.1, PrototypeV2.3 and PrototypeV2.4 use DP83825I
+            through ESP-IDF's generic IEEE 802.3 PHY backend.
             Other frozen v1.x profiles use the IP101 backend. PrototypeV2.3
             also exposes USB Serial/JTAG on GPIO24/GPIO25 for bring-up logging.
 
     config SI_ETH_MDC_GPIO
         int "Ethernet SMI MDC GPIO"
-        default 10 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
         default 20 if SI_BOARD_EXOANCHOR_LAYOUT
         default 31
         range 0 54
@@ -261,7 +244,6 @@ menu "SI ESP32-P4 Host Configuration"
 
     config SI_ETH_MDIO_GPIO
         int "Ethernet SMI MDIO GPIO"
-        default 11 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
         default 21 if SI_BOARD_EXOANCHOR_LAYOUT
         default 52
         range 0 54
@@ -269,7 +251,6 @@ menu "SI ESP32-P4 Host Configuration"
 
     config SI_ETH_PHY_RST_GPIO
         int "Ethernet PHY reset GPIO"
-        default 20 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
         default 22 if SI_BOARD_EXOANCHOR_LAYOUT
         default 51
         range -1 54
@@ -357,7 +338,6 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_POWER_BUTTON_GPIO
             int "Power button GPIO"
-            default 50 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
             default 5 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
             default 4 if SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
             default 1
@@ -366,7 +346,6 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_RESET_BUTTON_GPIO
             int "Reset button GPIO"
-            default 49 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
             default 4 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
             default 5 if SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
             default 2
@@ -396,7 +375,6 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_POWER_DETECT_GPIO
             int "Power detect GPIO"
-            default 51 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
             default 0 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
             default 4 if SI_BOARD_EXOANCHOR_LAYOUT
             default -1
@@ -412,7 +390,6 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_STANDBY_DETECT_GPIO
             int "Standby detect GPIO"
-            default 52 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
             default 1 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
             default 5 if SI_BOARD_EXOANCHOR_LAYOUT
             default -1
@@ -428,7 +405,6 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_POWER_LOCATOR_GPIO
             int "Locator LED GPIO"
-            default 21 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
             default 15 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
             default 17 if SI_BOARD_EXOANCHOR_PROTOTYPE_V23 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24 || SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
             default 3 if SI_BOARD_EXOANCHOR_LAYOUT
@@ -445,7 +421,6 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_POWER_LOCATOR_RETURN_GPIO
             int "Locator LED secondary/return GPIO (-1 for single-ended)"
-            default 46 if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
             default -1
             range -1 54
             depends on SI_POWER_ENABLE
@@ -506,14 +481,12 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_TF_SDMMC_LOW_SPEED_FALLBACK
             bool "Retry TF card in low-speed 1-bit mode"
-            default y if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
             default n
             help
                 Retry SDMMC with a 1-bit bus and the configured fallback
                 frequency when the standard-width initialization fails with a
-                transport error. This is enabled for TypeW W0.1 because that
-                PCB revision crosses the physical DAT2/DAT3 lanes. Formal W
-                repairs the PCB and must use the canonical D2/D3 mapping.
+                transport error. Board profiles may opt in when their verified
+                hardware requires this recovery path.
 
         config SI_TF_SDMMC_LOW_SPEED_FREQ_KHZ
             int "TF low-speed fallback frequency (kHz)"
@@ -599,8 +572,6 @@ menu "SI ESP32-P4 Host Configuration"
             default "ExoAnchor PrototypeV2.3 HID" if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
             default "ExoAnchor PrototypeV2.4 HID" if SI_BOARD_EXOANCHOR_PROTOTYPE_V24
             default "ExoAnchor PrototypeV2.4 MS Test HID" if SI_BOARD_EXOANCHOR_PROTOTYPE_V24_MS_TEST
-            default "ExoAnchor Production TypeC HID" if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC
-            default "ExoAnchor TypeW W0.1 HID" if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW
             default "ExoAnchor ESP32-P4x HID" if SI_BOARD_EXOANCHOR_ESP32P4X
             default "ESP32-P4 USB HID"
             depends on SI_HID_USB_ENABLE

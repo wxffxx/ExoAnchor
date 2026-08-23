@@ -84,7 +84,7 @@ class IdentityGateTests(unittest.TestCase):
             credential = load_board_identity_credential(path, "prototype-test")
 
         with self.assertRaisesRegex(ToolkitError, "firmware profile"):
-            verify_package_profile("exoanchor-production-typec-local", credential)
+            verify_package_profile("different-board-profile", credential)
         with self.assertRaisesRegex(ToolkitError, "eFuse base MAC"):
             verify_chip_identity(
                 ChipIdentity("02:00:00:00:00:00", "3.2"),

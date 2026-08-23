@@ -116,8 +116,7 @@ idf.py -B build-exoanchor-prototype-v2.4-rev3 build
 产品 profile 配置 DP83825I、MS2109 正常两级上电、PWR/RST、12V/3V3AUX、
 Locator、TF、目标 UART1 和 HID；它强制关闭 EEPROM 测试驱动与模拟器，不开放
 EEPROM UART/HTTP 写入面。`exoanchor-prototype-v2.4-ms-test` 是另一个包含破坏性
-EEPROM 维护接口的硬件验证镜像，不能用于普通 Dev 产品构建，也不能替代
-Production TypeC 或 TypeW profile。
+EEPROM 维护接口的硬件验证镜像，不能用于普通 Dev 产品构建。
 
 本入口当前只建立可复现的配置契约，不表示 V2.4/V2.4a6 已烧录、完成 HIL 或
 可以量产。没有操作者确认的实物型号和匹配的板卡身份记录时，只允许构建与只读
@@ -149,8 +148,8 @@ idf.py -B build-waveshare-p4-nano build
 
 本地配置使用 `idf.py -B <build-dir> menuconfig`，不要直接修改公共默认配置来保存个人环境差异。
 
-PrototypeV2.4、量产 TypeC / TypeW 的逐板身份和 bring-up 证据只保存在受控开发
-工作区；正式仓库仅记录可公开复现的 profile 契约。任何烧录都必须重新核对物理
+逐板身份和 bring-up 证据只保存在受控开发工作区；正式仓库仅记录可公开复现的
+profile 契约。任何烧录都必须重新核对物理
 型号、CH343 serial、eFuse MAC、silicon revision 与目标 profile，不能从端口、
 IP 或现有固件推断身份。
 

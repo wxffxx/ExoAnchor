@@ -17,24 +17,29 @@ storage = (ROOT / "main/drivers/storage_manager.c").read_text(encoding="utf-8")
 observation = (ROOT / "main/application/device_observation_service.c").read_text(encoding="utf-8")
 device_http = (ROOT / "main/services/device_http.c").read_text(encoding="utf-8")
 diag = (ROOT / "main/services/diag_cli.c").read_text(encoding="utf-8")
-typew = (ROOT / "configs/boards/sdkconfig.defaults.exoanchor-production-typew-local").read_text(encoding="utf-8")
-build_script = (ROOT / "tools/build-firmware.sh").read_text(encoding="utf-8")
+
+fallback_marker = "config SI_TF_SDMMC_LOW_SPEED_FALLBACK"
+frequency_marker = "config SI_TF_SDMMC_LOW_SPEED_FREQ_KHZ"
+fallback_parts = kconfig.split(fallback_marker, 1)
+if len(fallback_parts) != 2:
+    raise AssertionError(f"Kconfig TF fallback: missing {fallback_marker!r}")
+fallback_parts = fallback_parts[1].split(frequency_marker, 1)
+if len(fallback_parts) != 2:
+    raise AssertionError(f"Kconfig TF fallback: missing {frequency_marker!r}")
+fallback_block = fallback_parts[0]
+for fragment in (
+    'bool "Retry TF card in low-speed 1-bit mode"',
+    "default n",
+):
+    require(fallback_block, fragment, "Kconfig TF fallback")
 
 for fragment in (
-    "config SI_TF_SDMMC_LOW_SPEED_FALLBACK",
-    "default y if SI_BOARD_EXOANCHOR_PRODUCTION_TYPEW",
-    "config SI_TF_SDMMC_LOW_SPEED_FREQ_KHZ",
+    frequency_marker,
     "default 10000",
 ):
     require(kconfig, fragment, "Kconfig TF fallback")
 
 require(board_config, "SI_CFG_TF_SDMMC_LOW_SPEED_FALLBACK 1", "board fallback feature macro")
-require(typew, "CONFIG_SI_TF_SDMMC_LOW_SPEED_FALLBACK=y", "TypeW fallback default")
-require(typew, "CONFIG_SI_TF_SDMMC_LOW_SPEED_FREQ_KHZ=10000", "TypeW fallback rate")
-require(typew, "CONFIG_SI_TF_SDMMC_D2_GPIO=42", "TypeW crossed DAT2 route")
-require(typew, "CONFIG_SI_TF_SDMMC_D3_GPIO=41", "TypeW crossed DAT3 route")
-require(typew, "TypeW W0.1 profile", "W0.1 hardware revision boundary")
-require(typew, "Formal W repairs DAT2/DAT3", "formal W canonical mapping boundary")
 
 for fragment in (
     "tf_transport_error_allows_low_speed",
@@ -55,6 +60,5 @@ for fragment in ("degraded_mode", "bus_frequency_khz", "bus_width", "bus_mode", 
     require(device_http, f'"{fragment}"', "TF HTTP status")
 
 require(diag, 'tf mode=%s degraded=%d width=%u freq=%', "TF diagnostic status")
-require(build_script, "exoanchor-production-typew-local (legacy ID; local-only TypeW W0.1 profile)", "TypeW deterministic build support")
 
 print("TF low-speed fallback contract: PASS")

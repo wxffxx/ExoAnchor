@@ -39,9 +39,6 @@ def main() -> int:
     v24_product = (
         ROOT / "configs/boards/sdkconfig.defaults.exoanchor-prototype-v2.4"
     ).read_text(encoding="utf-8")
-    typec = (
-        ROOT / "configs/boards/sdkconfig.defaults.exoanchor-production-typec"
-    ).read_text(encoding="utf-8")
 
     base_sources = cmake.split("if(CONFIG_SI_MS2109_EEPROM_EMULATOR_ENABLE)", 1)[0]
     for source in (
@@ -119,7 +116,6 @@ def main() -> int:
         "CONFIG_SI_MS2109_POWER_ENABLE=y",
         "# CONFIG_SI_MS2109_TEST_ENABLE is not set",
     ):
-        require(typec, setting, "TypeC product defaults", failures)
         require(v24_product, setting, "V2.4 product defaults", failures)
     require(
         v24_product,

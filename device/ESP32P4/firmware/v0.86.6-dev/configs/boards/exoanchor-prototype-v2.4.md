@@ -57,8 +57,6 @@ UART 写入命令、HTTP 写入接口或 EEPROM 模拟器。物理 AT24C16 的�
 - `exoanchor-prototype-v2.4`：普通 Dev 产品构建入口；不含破坏性 EEPROM 功能。
 - `exoanchor-prototype-v2.4-ms-test`：独立硬件验证镜像，可以控制 MS2109 电源并
   读写 EEPROM；不得用于普通产品构建、发布或替代本 profile。
-- `exoanchor-production-typec`：rev1 TypeC 产品映射，GPIO 和 EEPROM 边界不同。
-- Production TypeW：独立板型，不能从 V2.4、TypeC 或测试镜像推断 profile。
 
 任何烧录前仍须由操作人员确认实物型号，并让精确 CH343 serial、eFuse MAC、
 silicon revision、目标 profile 和显式空闲端口与板卡身份记录全部匹配。当前

@@ -125,8 +125,6 @@ Factory App。
 - 板型通过 `CONFIG_SI_POWER_LOCATOR_RETURN_GPIO` 声明第二输出；未声明时 API 返回不支持，前端不开放反转控件。
 - 关闭时两路均拉低；开启时只有一路为高，反转会交换高电平所在 GPIO，并立即应用到当前点灯状态。
 - 反转选择使用 `si_power/loc_rev` 持久化，设置失败时回滚输出方向；GPIO 映射重置同时恢复正向。
-- TypeW 2026-08-19 网表记录为 GPIO21→R19→U22.1 与 GPIO46→U22.2，U22.3/U22.4 接地；该本地板型以 GPIO21/GPIO46 配置双 GPIO 模式。
-- `0.87.4-TypeW-local` Stable 组合已完成编译，并在身份登记表中精确核验的 TypeW 实机上通过四段串口写入校验、启动身份、32 MiB PSRAM、GPIO21/GPIO46 配置、MS2109 上电时序、Ethernet、HTTP 与 UDP Discovery 验收；逐板 CH343 serial 与 eFuse MAC 仅保存在不入库的受控身份记录中。应用 SHA-256 为 `ee01f8278993e8bdc8380b8cbaf0b077c92ce802e3c5599e29d2c685080c4bd2`。Locator 灯色反转电气效果及其余板卡仍需单独验证。
 
 #### 0.87.4 KVM 恢复与操作能力范围
 

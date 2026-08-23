@@ -278,17 +278,18 @@ class DeviceHttpTests(unittest.TestCase):
             with self.assertRaisesRegex(ToolkitError, "does not match"):
                 NetworkOtaUpdater(FakeOtaClient("other-board")).update(package)
 
-            for board in (
-                "exoanchor-production-typew-local",
-                "ExoAnchorProductionTypeWLocal",
+            for blocked_board in (
+                "retired-board-profile",
+                "exoanchor-prototype-v2.4-ms-test",
             ):
-                with self.subTest(board=board):
-                    typew = replace(package, board=board)
+                with self.subTest(blocked_board=blocked_board):
+                    blocked = replace(package, board=blocked_board)
                     blocked_client = mock.Mock()
-                    with self.assertRaisesRegex(ToolkitError, "HTTPS manifest"):
-                        NetworkOtaUpdater(blocked_client).update(typew)
+                    with self.assertRaisesRegex(
+                        ToolkitError, "unsupported board profile"
+                    ):
+                        NetworkOtaUpdater(blocked_client).update(blocked)
                     blocked_client.get_json.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()

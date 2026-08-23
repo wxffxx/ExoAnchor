@@ -98,8 +98,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 
 项目方确认 V2.4a6 的 `a6` 只表示 PCB 层数，原理图与 ESP32-P4 映射和 V2.4
 相同；两者共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合。独立的
-`exoanchor-prototype-v2.4-ms-test` 含破坏性 EEPROM 测试能力，不是产品固件；
-Production TypeC 和 TypeW 也不能与 V2.4 profile 混用。
+`exoanchor-prototype-v2.4-ms-test` 含破坏性 EEPROM 测试能力，不是产品固件。
 
 ## 从选型到烧录
 

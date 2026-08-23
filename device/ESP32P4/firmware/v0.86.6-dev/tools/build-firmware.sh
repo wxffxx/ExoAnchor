@@ -21,8 +21,6 @@ Boards:
   exoanchor-prototype-v2.3 (default)
   exoanchor-prototype-v2.4 (V2.4 product profile, ESP32-P4 rev3)
   exoanchor-prototype-v2.4-ms-test (dedicated MS2109 hardware test)
-  exoanchor-production-typew-local (legacy ID; local-only TypeW W0.1 profile)
-  exoanchor-production-typec (production single-P4 module)
   exoanchor-prototype-v2.1
   exoanchor-prototype0
   exoanchor-esp32p4x
@@ -83,10 +81,10 @@ case "$PROFILE" in
 esac
 
 case "$BOARD" in
-  exoanchor-production-typew-local|exoanchor-prototype-v2.4|exoanchor-prototype-v2.4-ms-test|exoanchor-prototype-v2.3|exoanchor-prototype-v2.1|exoanchor-prototype0)
+  exoanchor-prototype-v2.4|exoanchor-prototype-v2.4-ms-test|exoanchor-prototype-v2.3|exoanchor-prototype-v2.1|exoanchor-prototype0)
     SILICON="esp32p4-rev3"
     ;;
-  exoanchor-production-typec|exoanchor-esp32p4x|waveshare-p4-nano)
+  exoanchor-esp32p4x|waveshare-p4-nano)
     SILICON="esp32p4-rev1"
     ;;
   *)
@@ -361,27 +359,6 @@ if [[ "$BOARD" == "exoanchor-prototype-v2.4" ]]; then
     fi
   done
 fi
-if [[ "$BOARD" == "exoanchor-production-typec" ]]; then
-  if ! grep -qx "CONFIG_SI_MS2109_POWER_ENABLE=y" "$SDKCONFIG"; then
-    echo "[build-firmware] Production TypeC build is missing MS2109 power sequencing" >&2
-    exit 70
-  fi
-  if grep -qx "CONFIG_SI_MS2109_TEST_ENABLE=y" "$SDKCONFIG" ||
-     grep -qx "CONFIG_SI_MS2109_EEPROM_EMULATOR_ENABLE=y" "$SDKCONFIG"; then
-    echo "[build-firmware] refusing Production TypeC build with MS2109 EEPROM test/emulator enabled" >&2
-    exit 70
-  fi
-  for expected_gpio in \
-    'CONFIG_SI_MS2109_SWITCH_GPIO=17' \
-    'CONFIG_SI_MS2109_CORE_ENABLE_GPIO=18' \
-    'CONFIG_SI_MS2109_EEPROM_WP_GPIO=-1'; do
-    if ! grep -qx "$expected_gpio" "$SDKCONFIG"; then
-      echo "[build-firmware] Production TypeC MS power mismatch: expected $expected_gpio" >&2
-      exit 70
-    fi
-  done
-fi
-
 PROJECT_DESCRIPTION="$BUILD_DIR_PATH/project_description.json"
 if [[ ! -f "$PROJECT_DESCRIPTION" ]]; then
   echo "[build-firmware] missing project description: $PROJECT_DESCRIPTION" >&2

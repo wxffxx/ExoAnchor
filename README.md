@@ -89,8 +89,7 @@ The project confirms that `a6` identifies the V2.4 PCB layer count only; V2.4
 and V2.4a6 have the same schematic/GPIO mapping and use
 `exoanchor-prototype-v2.4 + esp32p4-rev3`. The separate
 `exoanchor-prototype-v2.4-ms-test` profile exposes destructive EEPROM test
-controls and is not a product image. Production TypeC and TypeW remain separate
-board identities and profiles.
+controls and is not a product image.
 
 ## From hardware selection to flashing
 

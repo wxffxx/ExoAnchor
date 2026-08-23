@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the production TypeC MS2109 boot-power contract."""
+"""Guard the PrototypeV2.4 MS2109 boot-power contract."""
 
 from pathlib import Path
 
@@ -13,7 +13,7 @@ def require(text: str, fragment: str, label: str) -> None:
 
 
 defaults = (
-    ROOT / "configs/boards/sdkconfig.defaults.exoanchor-production-typec"
+    ROOT / "configs/boards/sdkconfig.defaults.exoanchor-prototype-v2.4"
 ).read_text(encoding="utf-8")
 driver = (ROOT / "main/drivers/ms2109_power.c").read_text(encoding="utf-8")
 header = (ROOT / "main/drivers/ms2109_power.h").read_text(encoding="utf-8")
@@ -26,18 +26,18 @@ web_server = (ROOT / "main/services/web_server.c").read_text(encoding="utf-8")
 device_http = (ROOT / "main/services/device_http.c").read_text(encoding="utf-8")
 
 for setting in (
-    "CONFIG_SI_BOARD_EXOANCHOR_PRODUCTION_TYPEC=y",
+    "CONFIG_SI_BOARD_EXOANCHOR_PROTOTYPE_V24=y",
     "CONFIG_SI_MS2109_POWER_ENABLE=y",
-    "CONFIG_SI_MS2109_SWITCH_GPIO=17",
+    "CONFIG_SI_MS2109_SWITCH_GPIO=13",
     "CONFIG_SI_MS2109_CORE_ENABLE_GPIO=18",
     "CONFIG_SI_MS2109_POWER_SEQUENCE_DELAY_MS=10",
-    "CONFIG_SI_MS2109_EEPROM_WP_GPIO=-1",
-    "CONFIG_SI_POWER_LOCATOR_GPIO=19",
+    "CONFIG_SI_MS2109_EEPROM_WP_GPIO=16",
+    "CONFIG_SI_POWER_LOCATOR_GPIO=17",
     "CONFIG_SI_POWER_LOCATOR_ACTIVE_HIGH=y",
     "# CONFIG_SI_MS2109_TEST_ENABLE is not set",
     "# CONFIG_SI_MS2109_EEPROM_EMULATOR_ENABLE is not set",
 ):
-    require(defaults, setting, "TypeC defaults")
+    require(defaults, setting, "V2.4 product defaults")
 
 power_sequence = driver.split("static esp_err_t set_power_locked", 1)[-1]
 power_sequence = power_sequence.split("esp_err_t si_ms2109_power_init", 1)[0]
@@ -77,8 +77,8 @@ for marker in (
 ):
     require(driver, marker, "thread-safe production power control")
 require(app, "si_ms2109_power_init()", "composition root")
-require(build, "Production TypeC build is missing MS2109 power sequencing", "build gate")
-require(build, "CONFIG_SI_MS2109_EEPROM_WP_GPIO=-1", "EEPROM exclusion gate")
+require(build, "PrototypeV2.4 product build is missing MS2109 power sequencing", "build gate")
+require(build, "CONFIG_SI_MS2109_EEPROM_WP_GPIO=16", "EEPROM ownership gate")
 
 require(
     http,
@@ -119,4 +119,4 @@ for marker in (
 ):
     require(device_http, marker, "production power capability")
 
-print("Production TypeC MS2109 power contract: PASS")
+print("PrototypeV2.4 MS2109 power contract: PASS")

@@ -20,6 +20,18 @@ from .network import (
 )
 
 
+NETWORK_OTA_BOARD_ALLOWLIST = frozenset(
+    {
+        "waveshare-p4-nano",
+        "exoanchor-esp32p4x",
+        "exoanchor-prototype0",
+        "exoanchor-prototype-v2.1",
+        "exoanchor-prototype-v2.3",
+        "exoanchor-prototype-v2.4",
+    }
+)
+
+
 MAX_JSON_RESPONSE_BYTES = 2 * 1024 * 1024
 LOGIN_TIMEOUT_SECONDS = 30.0
 DIRECT_HTTP_OPENER = urllib.request.build_opener(
@@ -463,8 +475,8 @@ class NetworkOtaUpdater:
 
 
 def ensure_network_ota_allowed(package: FirmwarePackage) -> None:
-    if "typew" in package.board.casefold():
+    if package.board not in NETWORK_OTA_BOARD_ALLOWLIST:
         raise ToolkitError(
-            "TypeW full/chunked OTA is disabled; use the controlled HTTPS "
-            "manifest path with an exact board ID and SHA-256"
+            "network OTA is unavailable for unsupported board profile: "
+            f"{package.board}"
         )

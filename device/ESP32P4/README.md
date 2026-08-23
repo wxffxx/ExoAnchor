@@ -36,7 +36,7 @@ Hardware 仓库中的对应目录。
 物理实现。
 
 `exoanchor-prototype-v2.4-ms-test` 是独立的 MS2109/EEPROM 硬件验证镜像，不是
-上述 V2.4 产品 profile；Production TypeC 和 TypeW 也各自使用独立映射。
+上述 V2.4 产品 profile。
 
 ## 当前能力边界
 
