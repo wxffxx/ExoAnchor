@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure UART CLI"
+  short_description: "Configure and verify an Ubuntu login CLI over target UART"
+  default_prompt: "Use $configure-uart-cli to configure and verify an Ubuntu UART login console."

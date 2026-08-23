@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" role="img" aria-label="ExoAnchor logo">
+<g transform="translate(312 32) scale(.78125)">
+  <polygon points="287.6,41.5 235.2,59 225.7,147.7 274.2,111.4" fill="#111318"/>
+  <polygon points="287.6,130.2 236.5,165.2 247.3,267.4 266.1,280.9 310.5,205.6" fill="#111318"/>
+  <polygon points="112.8,227.1 149.1,299.7 206.9,337.4 206.9,283.6 174.6,237.8" fill="#111318"/>
+  <polygon points="404.6,233.8 357.5,237.8 329.3,271.5 350.8,294.3 383.1,275.5" fill="#111318"/>
+  <polygon points="315.8,306.4 297,294.3 266.1,297 252.6,307.8 256.7,334.7 280.9,342.7" fill="#111318"/>
+  <polygon points="24,317.2 92.6,396.5 184,401.9 120.8,334.7" fill="#111318"/>
+  <polygon points="488,318.5 375,342.7 319.9,400.6 418.1,397.9" fill="#111318"/>
+  <polygon points="139.7,423.4 236.5,470.5 209.6,435.5 182.7,416.7" fill="#111318"/>
+  <polygon points="365.6,423.4 322.6,416.7 301.1,428.8 267.4,470.5" fill="#111318"/>
+  <polygon points="254,362.9 278.2,387.1 254,411.3 229.8,387.1" fill="#5966D8"/>
+</g>
+<polyline points="202,596.2 161.08,596.2 161.08,683 202,683" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="161.08,639.6 194.56,639.6" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="241.06,596.2 284.46,683" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="284.46,596.2 241.06,683" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="337.16,596.2 357.62,596.2 368.78,607.36 368.78,671.84 357.62,683 337.16,683 326,671.84 326,607.36 337.16,596.2" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="407.22,683 428.92,596.2 450.62,683" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="415.28,652 442.56,652" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="492.16,683 492.16,596.2 533.08,683 533.08,596.2" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="618.02,601.16 608.1,596.2 586.4,596.2 575.24,607.36 575.24,671.84 586.4,683 608.1,683 618.02,678.04" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="658.32,596.2 658.32,683" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="699.24,596.2 699.24,683" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="658.32,639.6 699.24,639.6" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="752.56,596.2 773.02,596.2 784.18,607.36 784.18,671.84 773.02,683 752.56,683 741.4,671.84 741.4,607.36 752.56,596.2" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="824.48,683 824.48,596.2 854.24,596.2 866.64,608.6 866.64,633.4 854.24,645.8 824.48,645.8" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+<polyline points="850.52,645.8 867.88,683" fill="none" stroke="#111318" stroke-width="6.82" stroke-linecap="square" stroke-linejoin="bevel"/>
+</svg>

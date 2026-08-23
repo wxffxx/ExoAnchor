@@ -1,0 +1,40 @@
+# Project-scoped DeepSeek Harness overlay for the canonical ExoAnchor MCP.
+# Values come from the launcher environment; credentials remain in a private
+# file and are never embedded in this patch.
+
+- id: skill-filesystem
+  config:
+    includeDefaultRoots: true
+    customSkillDirs:
+      - !!js process.env.EXOANCHOR_SKILL_ROOT
+    watch: true
+
+- insert:
+    - id: mcp-exoanchor
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: exoanchor
+        transport: stdio
+        command: python3
+        args: ['-m', 'exoanchor_mcp.server']
+        cwd: !!js process.env.EXOANCHOR_MCP_ROOT
+        env:
+          EXOANCHOR_BASE_URL: !!js process.env.EXOANCHOR_BASE_URL
+          EXOANCHOR_USERNAME: !!js process.env.EXOANCHOR_USERNAME
+          EXOANCHOR_PASSWORD_FILE: !!js process.env.EXOANCHOR_PASSWORD_FILE
+          EXOANCHOR_ALLOW_WRITE: !!js process.env.EXOANCHOR_ALLOW_WRITE
+          EXOANCHOR_CONTROL_OWNER: mcp
+          EXOANCHOR_DEVICE_ID: !!js process.env.EXOANCHOR_DEVICE_ID
+          EXOANCHOR_STATE_DIR: !!js process.env.EXOANCHOR_STATE_DIR
+          EXOANCHOR_TIMEOUT: '75'
+          EXOANCHOR_ALLOW_ARBITRARY_SSH: '0'
+          EXOANCHOR_ALLOW_UNVERIFIED_SSH_HOST: '0'
+          EXOANCHOR_PERSIST_JOB_OUTPUT: '0'
+          PYTHONUNBUFFERED: '1'
+        toolCallTimeoutMs: 90000
+        failOnStartupError: true
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 5000
+          maxAttempts: 3

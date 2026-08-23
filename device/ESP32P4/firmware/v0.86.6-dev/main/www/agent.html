@@ -1,0 +1,1316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor Agent Workspace</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{color-scheme:dark;--bg:#080a0d;--rail:#101319;--panel:#15191f;--panel2:#1b2028;--line:#2b333e;--line2:#222832;--text:#f4f7fa;--muted:#8d98a7;--green:#54d6bd;--red:#ff7b7f;--yellow:#f2be63;--blue:#8ab4ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;overflow:hidden}button,input,select,textarea{font:inherit}button{border:1px solid var(--line);background:#242a33;color:var(--text);border-radius:8px;padding:9px 11px;cursor:pointer;font-weight:700}button:hover{border-color:#55606f;background:#2b323d}button.primary{border-color:#24675d;background:#12312d;color:var(--green)}button:disabled{opacity:.48;cursor:not-allowed}.data-state{display:inline-flex;align-items:center;gap:6px;min-height:27px;padding:5px 9px;border:1px solid #3b4654;border-radius:999px;color:var(--muted);font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.data-state:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.data-state.ok{color:var(--green);border-color:#24675d;background:#102c296b}.data-state.warn{color:var(--yellow);border-color:#705720;background:#3226106b}.data-state.bad{color:var(--red);border-color:#78383d;background:#35181c6b}.data-state.info{color:var(--blue);border-color:#365886;background:#17253a}.workspace-shell{height:calc(100vh - 64px);display:grid;grid-template-columns:196px minmax(0,1fr);min-height:0}.workspace-rail{display:flex;flex-direction:column;min-height:0;padding:18px 12px;background:var(--rail);border-right:1px solid var(--line)}.workspace-brand{padding:0 8px 16px;border-bottom:1px solid var(--line)}.workspace-brand b{display:block;font-size:16px;letter-spacing:-.02em}.workspace-brand span{display:block;margin-top:3px;color:var(--muted);font-size:11px}.workspace-nav{display:grid;gap:5px;padding:14px 0}.workspace-nav button{width:100%;display:flex;align-items:center;gap:10px;padding:10px;border-color:transparent;background:transparent;color:var(--muted);text-align:left}.workspace-nav button:before{content:"";width:7px;height:7px;border-radius:50%;background:#46505e}.workspace-nav button:hover,.workspace-nav button.active{background:var(--panel2);color:var(--text)}.workspace-nav button.active:before{background:var(--green);box-shadow:0 0 0 4px rgba(84,214,189,.1)}.workspace-rail-foot{margin-top:auto;display:grid;gap:9px;padding:12px 8px 2px;border-top:1px solid var(--line)}.workspace-rail-foot a{color:var(--muted);text-decoration:none;font-weight:700}.workspace-rail-foot a:hover{color:var(--text)}.workspace-main{min-width:0;min-height:0;overflow:hidden}.workspace-view{display:none;height:100%;min-height:0;overflow:auto}.workspace-view.active{display:block}.page-view{padding:24px}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}.page-head h1{margin:0;font-size:24px;letter-spacing:-.03em}.page-head p{margin:6px 0 0;color:var(--muted);max-width:760px}.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.panel{background:var(--panel);border:1px solid var(--line);border-radius:11px;min-width:0}.panel-head{min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 13px;border-bottom:1px solid var(--line)}.panel-head h2,.panel-head h3{margin:0;font-size:13px}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.summary-card{padding:14px}.summary-card span{display:block;color:var(--muted);font-size:11px}.summary-card b{display:block;margin-top:7px;font:800 22px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace}.summary-card small{display:block;margin-top:7px;color:var(--muted)}.dashboard-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:12px;margin-top:12px}.dashboard-stack{display:grid;gap:12px}.list{display:grid}.list-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:12px 14px;border-top:1px solid var(--line2);min-width:0}.list-row:first-child{border-top:0}.list-row b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.list-row small{display:block;margin-top:2px;color:var(--muted)}.empty-state{min-height:260px;display:grid;place-items:center;padding:30px;text-align:center}.empty-state b{display:block;font-size:17px}.empty-state p{max-width:520px;margin:7px auto 0;color:var(--muted)}.thread-layout{height:100%;display:grid;grid-template-columns:220px minmax(360px,1fr) 330px;min-height:0}.thread-history{display:flex;flex-direction:column;min-height:0;background:#11151b;border-right:1px solid var(--line)}.thread-history-head{display:grid;gap:9px;padding:12px;border-bottom:1px solid var(--line)}.thread-history-head>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.thread-history-head b{font-size:13px}.thread-history-head button{padding:7px 9px}.thread-search{width:100%;border:1px solid var(--line);background:#0d1014;color:var(--text);border-radius:8px;padding:8px 9px}.sessions{flex:1;min-height:0;padding:8px;overflow:auto;display:grid;align-content:start;gap:5px}.session-entry{position:relative;min-width:0}.session-item{width:100%;display:grid;gap:2px;text-align:left;padding:9px 38px 9px 9px;border-radius:8px;background:transparent;border:1px solid transparent;color:var(--muted)}.session-item.active{background:#12312d;border-color:#286c62;color:var(--text)}.session-title{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.session-meta{font:11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}.session-delete{position:absolute;right:6px;top:50%;width:28px;height:28px;margin:0;padding:0;display:grid;place-items:center;border-color:transparent;background:#171b22;color:var(--muted);opacity:0;pointer-events:none;transform:translateY(-50%) scale(.94);transition:opacity .14s,transform .14s,color .14s,border-color .14s,background .14s}.session-delete svg{width:14px;height:14px;pointer-events:none}.session-entry:hover .session-delete,.session-entry:focus-within .session-delete{opacity:1;pointer-events:auto;transform:translateY(-50%) scale(1)}.session-delete:hover,.session-delete:focus-visible{color:var(--red);border-color:#7f2d2d;background:#35181c}.chat-pane{display:flex;flex-direction:column;min-width:0;min-height:0;background:#0d1014}.chat-head{min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 15px;border-bottom:1px solid var(--line)}.chat-head b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.chat{flex:1;min-height:0;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:12px}.bubble{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#151920;white-space:pre-wrap;word-break:break-word}.bubble.user{align-self:flex-end;background:#12312d;border-color:#286c62;max-width:84%}.bubble.agent{align-self:flex-start;max-width:90%}.bubble.system{align-self:center;color:var(--muted);font-size:12px;background:#11141a;max-width:90%}.composer{border-top:1px solid var(--line);padding:12px 14px;background:#11151b}.composer textarea{width:100%;height:82px;resize:none;border:1px solid var(--line);background:#0b0e12;color:var(--text);border-radius:9px;padding:11px 12px;font-family:inherit}.composer-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}.composer-hint{color:var(--muted);font-size:11px}.thread-context{display:flex;flex-direction:column;min-width:0;min-height:0;background:#11151b;border-left:1px solid var(--line)}.context-head{padding:10px 12px;border-bottom:1px solid var(--line)}.context-head-row{display:flex;align-items:center;justify-content:space-between;gap:8px}.context-head h2{font-size:13px;margin:0}.view-tabs{display:flex;gap:3px;margin-top:9px;padding:3px;border:1px solid var(--line);border-radius:8px;background:#0d1014}.view-tabs button{flex:1;padding:6px 5px;border:0;background:transparent;color:var(--muted);font-size:11px}.view-tabs button.active{background:#17302f;color:var(--green)}.context-pane{flex:1;min-height:0;overflow:auto}.context-config{padding:12px;display:grid;gap:12px}.context-section{display:grid;gap:9px;padding-bottom:12px;border-bottom:1px solid var(--line)}.context-section:last-child{border-bottom:0}.context-section h3{margin:0;color:#dfe5ec;font-size:12px}.llm-grid{display:grid;gap:8px}.field{display:grid;gap:5px;min-width:0}.field label{font-size:10px;color:var(--muted)}.field select{width:100%;border:1px solid var(--line);background:#0d1014;color:var(--text);border-radius:7px;padding:8px;font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace}.switch-row{display:grid;gap:8px}.switch-row .ui-switch{justify-content:space-between}.context-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}.row{background:var(--panel2);border:1px solid var(--line2);border-radius:7px;padding:8px;min-width:0}.row span{display:block;color:var(--muted);font-size:10px}.row b{display:block;margin-top:3px;font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.screen{position:relative;min-height:100%;display:grid;place-items:center;background:#030405;overflow:hidden}.screen img{width:100%;height:100%;object-fit:contain}.nosignal{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);background:#050506}.nosignal.hide{display:none}.nosignal b{display:block;color:var(--text);font-size:22px;margin-bottom:4px}.screen-toolbar{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;z-index:2}.screen-toolbar button{padding:7px 8px;font-size:11px;background:rgba(24,29,36,.9);backdrop-filter:blur(8px)}.terminal-view{height:100%;min-height:0;background:#050607;overflow:hidden}.terminal-log{height:100%;overflow:auto;padding:12px;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#d9f99d;white-space:pre-wrap}.term-line{display:grid;grid-template-columns:66px minmax(0,1fr);gap:8px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.035)}.term-time{color:#5eead4}.term-body{min-width:0;overflow-wrap:anywhere}.term-info{color:#dbeafe}.term-cmd{color:#fef3c7}.term-ok{color:#bbf7d0}.term-warn{color:#fde68a}.term-bad{color:#fecaca}.term-progress{color:#bfdbfe}.pane-hidden{display:none!important}.log-progress{display:block;position:relative;width:min(240px,100%);height:3px;margin-top:5px;border-radius:999px;background:#18202c;overflow:hidden}.log-progress:before{content:"";position:absolute;inset:0;width:42%;border-radius:999px;background:linear-gradient(90deg,#2dd4bf,#60a5fa);animation:logrun 1.15s ease-in-out infinite}@keyframes logrun{0%{transform:translateX(-115%)}100%{transform:translateX(250%)}}.run-bubble{padding:0;overflow:hidden;max-width:94%;background:#11151c;border-color:#303b49}.run-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);background:#151a22}.run-title{font-weight:760}.run-state{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--green);border:1px solid #1f766d;border-radius:999px;padding:4px 7px}.run-state.warn{color:var(--yellow);border-color:#7c5d16}.run-state.bad{color:var(--red);border-color:#7f2d2d}.run-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:9px 12px;color:var(--muted);font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;border-bottom:1px solid rgba(255,255,255,.06)}.run-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.run-detail{padding:8px 12px;color:#cbd5e1;font-size:12px;border-bottom:1px solid rgba(255,255,255,.06)}.run-steps{display:grid;padding:5px 0;max-height:260px;overflow:auto}.run-step{display:grid;grid-template-columns:58px minmax(0,1fr);gap:8px;padding:5px 12px;color:#cbd5e1;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;border-top:1px solid rgba(255,255,255,.035)}.run-step:first-child{border-top:0}.run-step b{font:inherit;color:var(--muted)}.run-step.cmd b{color:#fef3c7}.run-step.ok b{color:#bbf7d0}.run-step.bad b{color:#fecaca}.run-step.warn b{color:#fde68a}.run-step.progress b{color:#bfdbfe}.run-step span{min-width:0;overflow-wrap:anywhere}.run-tail{height:3px;background:#101722;overflow:hidden}.run-tail:before{content:"";display:block;height:100%;width:42%;background:linear-gradient(90deg,#2dd4bf,#60a5fa);animation:logrun 1.15s ease-in-out infinite}.run-bubble.done .run-tail:before{animation:none;width:100%;background:#1f766d}.run-bubble.failed .run-tail:before{animation:none;width:100%;background:#7f2d2d}.registry-list{display:grid;gap:8px}.registry-row{display:grid;grid-template-columns:42px minmax(170px,.7fr) minmax(150px,.7fr) 100px minmax(220px,1.2fr);gap:10px;align-items:center;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:var(--panel);min-width:0}.registry-mark{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;color:var(--green);font:800 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.registry-row b,.registry-row small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.registry-row small{color:var(--muted);margin-top:2px}.registry-copy{color:var(--muted);font-size:12px}.registry-groups{display:grid;gap:18px}.registry-group h2{margin:0 0 8px;font-size:15px}.run-layout{display:grid;grid-template-columns:minmax(320px,.75fr) minmax(0,1.25fr);gap:12px}.run-summary{padding:15px}.run-kv{display:grid;gap:8px;margin-top:12px}.run-kv .row{display:flex;align-items:center;justify-content:space-between;gap:10px}.run-events{max-height:calc(100vh - 225px);overflow:auto}.run-event{display:grid;grid-template-columns:72px 78px minmax(0,1fr);gap:10px;padding:10px 13px;border-top:1px solid var(--line2);font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}.run-event:first-child{border-top:0}.run-event time,.run-event span{color:var(--muted)}
+@media(max-width:1180px){.thread-layout{grid-template-columns:200px minmax(360px,1fr) 290px}.summary-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:920px){body{overflow:auto}.workspace-shell{height:auto;display:block}.workspace-rail{position:sticky;top:0;z-index:3;display:flex;flex-direction:row;align-items:center;overflow:auto;padding:8px;border-right:0;border-bottom:1px solid var(--line)}.workspace-brand,.workspace-rail-foot{display:none}.workspace-nav{display:flex;padding:0}.workspace-nav button{white-space:nowrap}.workspace-main,.workspace-view{height:auto}.thread-layout{height:auto;display:flex;flex-direction:column}.thread-history{min-height:160px;border-right:0;border-bottom:1px solid var(--line)}.sessions{max-height:180px}.chat-pane{min-height:680px}.thread-context{min-height:460px;border-left:0;border-top:1px solid var(--line)}.page-view{padding:16px}.dashboard-grid,.run-layout{grid-template-columns:1fr}.registry-row{grid-template-columns:42px minmax(0,1fr) auto}.registry-row>:nth-child(3),.registry-copy{display:none}}
+@media(hover:none){.session-delete{opacity:1;pointer-events:auto;transform:translateY(-50%) scale(1)}}
+</style>
+<style>.registry-row{grid-template-columns:42px minmax(180px,.8fr) 110px minmax(220px,1.2fr)}.workspace-action{display:inline-flex;align-items:center;min-height:38px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:#242a33;color:var(--text);text-decoration:none;font-weight:700}.workspace-action:hover{border-color:#55606f;background:#2b323d}.thread-layout{--thread-list-width:220px;--thread-context-width:330px;grid-template-columns:var(--thread-list-width) 6px minmax(300px,1fr) 6px var(--thread-context-width)}.column-resizer{position:relative;z-index:2;width:6px;min-width:6px;cursor:col-resize;background:#0d1014;touch-action:none;outline:0}.column-resizer:before{content:"";position:absolute;top:0;bottom:0;left:2px;width:1px;background:var(--line);transition:width .14s,left .14s,background .14s}.column-resizer:hover:before,.column-resizer:focus-visible:before,.column-resizer.dragging:before{left:1px;width:3px;background:var(--green)}body.column-resizing{cursor:col-resize;user-select:none}body.column-resizing iframe,body.column-resizing img{pointer-events:none}@media(max-width:920px){.registry-row{grid-template-columns:42px minmax(0,1fr) auto}.registry-copy{grid-column:2/-1}.column-resizer{display:none}}</style>
+<style>.composer-settings{display:grid;grid-template-columns:minmax(300px,.9fr) minmax(0,1.35fr);gap:10px;margin-top:9px}.composer-models{display:grid;grid-template-columns:minmax(105px,.7fr) minmax(150px,1fr) auto;gap:7px;align-items:end}.composer-models .field{gap:3px}.composer-models .field label{font-size:9px;text-transform:uppercase;letter-spacing:.05em}.composer-models button{min-height:35px;padding:7px 9px;font-size:11px}.composer-permission-stack{display:grid;align-content:end;justify-items:end;gap:2px;min-width:0}.composer-permissions{display:flex;align-items:flex-end;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:0}.composer-permissions .ui-switch{gap:5px;font-size:11px;white-space:nowrap}.composer-permissions .ui-switch-track{transform:scale(.82);transform-origin:center}.composer-authority{color:var(--muted);font-size:10px;text-align:right}.screen-toolbar{top:10px;bottom:auto;justify-content:flex-end}.screen-preview-switch{padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:rgba(24,29,36,.9);backdrop-filter:blur(8px)}@media(max-width:1280px){.composer-settings{grid-template-columns:1fr}.composer-permission-stack{justify-items:start}.composer-permissions{justify-content:flex-start}.composer-authority{text-align:left}}@media(max-width:720px){.composer-models{grid-template-columns:1fr}.composer-permissions{display:grid;grid-template-columns:1fr 1fr}}</style>
+<style>.chat.blank{justify-content:center;align-items:center}.new-thread-state{width:min(520px,100%);padding:28px;text-align:center}.new-thread-mark{width:46px;height:46px;margin:0 auto 14px;display:grid;place-items:center;border:1px solid #286c62;border-radius:13px;background:#12312d}.new-thread-mark img{display:block;width:34px;height:34px}.new-thread-state h2{margin:0;font-size:23px;letter-spacing:-.025em}.new-thread-state p{margin:8px auto 0;max-width:430px;color:var(--muted)}.new-thread-suggestions{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:18px}.new-thread-suggestions span{padding:6px 9px;border:1px solid var(--line);border-radius:999px;background:#11151b;color:#b8c1cc;font-size:11px}.thread-history-actions{display:flex;gap:5px}.thread-history-actions .clear-agent-data{border-color:#6f3035;color:#fecaca;background:#25171a}.thread-history-actions .clear-agent-data:hover,.thread-history-actions .clear-agent-data:focus-visible{border-color:#a9444d;background:#35181c}.session-item.history-pending .session-meta,.session-item.history-saved-waiting .session-meta{color:var(--yellow)}.session-item.history-unsaved .session-meta{color:var(--red)}.session-list-error{border:1px solid #78383d;border-radius:8px;background:#35181c6b;color:#fecaca}.session-list-error small{white-space:normal;overflow-wrap:anywhere}.bubble.history-save-notice{padding:8px 10px;border-left-color:var(--yellow);color:#f8d99e;background:#211b10}.bubble.history-save-notice.unsaved{border-left-color:var(--red);color:#fecaca;background:#25171a}</style>
+<style>.host-display-plan{grid-column:1/-1}.host-display-body{padding:14px}.host-display-copy{margin:0 0 11px;color:var(--muted);font-size:12px}.agent-request-response{display:block;width:100%;min-height:78px;margin-top:11px;resize:vertical;border:1px solid var(--line);background:#0d1014;color:var(--text);border-radius:8px;padding:10px}.host-display-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:11px}</style>
+<style>
+.thread-agent-request{margin:0 14px 10px;padding:11px 12px;border:1px solid #705720;border-left:3px solid var(--yellow);border-radius:9px;background:#211b10;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.thread-agent-request[hidden]{display:none}
+.thread-agent-request-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}
+.thread-agent-request-copy{display:grid;gap:3px;min-width:0}
+.thread-agent-request-copy>span{color:var(--yellow);font:800 10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.05em}
+.thread-agent-request-copy>b{overflow-wrap:anywhere}
+.thread-agent-request-copy>small{color:#b9b0a0;overflow-wrap:anywhere}
+.thread-agent-request-actions{display:flex;align-items:center;gap:7px}
+.thread-agent-request-meta{margin-top:7px;color:#9f9687;font:10px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
+.thread-agent-request textarea{display:block;width:100%;min-height:62px;margin-top:9px;resize:vertical;border:1px solid #705720;background:#0d1014;color:var(--text);border-radius:8px;padding:9px 10px}
+.thread-agent-request details{margin-top:7px;color:var(--muted);font-size:11px}
+.thread-agent-request textarea[hidden],.thread-agent-request details[hidden]{display:none}
+.thread-agent-request pre{max-height:150px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:720px){.thread-agent-request-main{grid-template-columns:1fr}.thread-agent-request-actions{justify-content:flex-end}}
+</style>
+<style>.boot-key-plan{grid-column:1/-1}.boot-key-form{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px;margin-bottom:12px}.boot-key-form input,.boot-key-form select{width:100%;border:1px solid var(--line);background:#0d1014;color:var(--text);border-radius:7px;padding:8px}.boot-key-form .field label{font-size:10px;color:var(--muted)}@media(max-width:920px){.boot-key-form{grid-template-columns:1fr 1fr}}@media(max-width:560px){.boot-key-form{grid-template-columns:1fr}}</style>
+<style>
+.chat{gap:18px}
+.bubble{border:0;border-radius:0;background:transparent;padding:0;line-height:1.65}
+.bubble.agent{align-self:stretch;max-width:100%;padding:0 2px}
+.bubble.system{align-self:stretch;max-width:100%;padding:2px 10px;border-left:2px solid #394351;background:transparent;color:var(--muted)}
+.bubble.user{max-width:84%;padding:9px 12px;border:1px solid #286c62;border-radius:12px;background:#12312d}
+.run-bubble{max-width:100%;overflow:visible;background:transparent;border:0}
+.agent-stream-head{display:flex;align-items:center;gap:7px;min-height:24px;color:var(--muted);font-size:12px}
+.agent-stream-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(84,214,189,.1);animation:agentpulse 1.2s ease-in-out infinite}
+.agent-stream-label{color:#cbd5e1;font-weight:700}
+.agent-stream-elapsed{color:var(--muted);font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace}
+.agent-stream-commentary{display:grid;gap:4px;margin:6px 0 10px;padding:0;max-height:none;overflow:visible}
+.agent-stream-commentary .run-step{display:block;padding:0 0 0 14px;border:0;color:var(--muted);font-size:12px;line-height:1.55;position:relative}
+.agent-stream-commentary .run-step:before{content:"";position:absolute;left:2px;top:.72em;width:4px;height:4px;border-radius:50%;background:#586474}
+.agent-stream-commentary .run-step.ok:before{background:var(--green)}
+.agent-stream-commentary .run-step.bad:before{background:var(--red)}
+.agent-stream-commentary .run-step.warn:before{background:var(--yellow)}
+.agent-stream-answer{color:var(--text);font-size:14px;line-height:1.72;white-space:pre-wrap;overflow-wrap:anywhere}
+.agent-stream-answer:empty{display:none}
+.agent-stream-answer.streaming:after{content:"";display:inline-block;width:7px;height:1.05em;margin-left:2px;vertical-align:-.14em;background:var(--green);animation:agentcursor .8s step-end infinite}
+.agent-stream-turn.done .agent-stream-dot{animation:none;background:var(--green);box-shadow:none}
+.agent-stream-turn.failed .agent-stream-dot{animation:none;background:var(--red);box-shadow:none}
+.agent-stream-turn.paused .agent-stream-dot{animation:none;background:var(--yellow)}
+@keyframes agentpulse{0%,100%{opacity:.35;transform:scale(.78)}50%{opacity:1;transform:scale(1)}}
+@keyframes agentcursor{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.agent-stream-dot,.agent-stream-answer.streaming:after{animation:none}}
+</style>
+<link rel="stylesheet" href="/assets/ui-core.css">
+<link rel="stylesheet" href="/assets/ui-shell.css">
+<script src="/assets/ui-core.js"></script>
+<script src="/assets/ui-shell.js"></script>
+</head>
+<body>
+<div id="appShell"></div><script>ExoAnchorShell.mount("agent")</script>
+<main class="workspace-shell">
+  <aside class="workspace-rail">
+    <div class="workspace-brand"><b><span id="workspaceAgentName">Agent</span> Workspace</b><span>设备端 Agent 的任务与能力中心</span></div>
+    <nav class="workspace-nav" aria-label="Agent Workspace">
+      <button type="button" data-workspace-view="dashboard">Dashboard</button>
+      <button type="button" class="active" data-workspace-view="threads">Threads</button>
+      <button type="button" data-workspace-view="capabilities">Capabilities</button>
+      <button type="button" data-workspace-view="runs">Runs</button>
+    </nav>
+    <div class="workspace-rail-foot"><span id="badgeAgent" class="data-state">AGENT --</span><a href="/settings#agent">Workspace Settings</a></div>
+  </aside>
+  <section class="workspace-main">
+    <section id="workspace-dashboard" class="workspace-view page-view">
+      <header class="page-head"><div><h1><span id="dashboardAgentName">Agent</span> Workspace</h1><p>统一查看设备端 Agent 的对话、当前执行、能力与持久化上下文。</p></div><button type="button" data-open-view="threads">Open Threads</button></header>
+      <div class="summary-grid">
+        <article class="panel summary-card"><span>Threads</span><b id="dashThreadCount">--</b><small id="dashThreadCopy">等待会话列表</small></article>
+        <article class="panel summary-card"><span>Current Run</span><b id="dashRunState">--</b><small id="dashRunCopy">等待运行状态</small></article>
+        <article class="panel summary-card"><span>Capabilities</span><b id="dashCapabilityCount">--</b><small id="dashCapabilityCopy">等待能力契约</small></article>
+        <article class="panel summary-card"><span>Working Memory</span><b id="dashMemoryCount">--</b><small id="dashMemoryCopy">等待 TF 状态</small></article>
+      </div>
+      <div class="dashboard-grid">
+        <div class="dashboard-stack">
+          <article class="panel"><div class="panel-head"><h2>Recent Threads</h2><button type="button" data-open-view="threads">View all</button></div><div id="dashboardThreads" class="list"></div></article>
+          <article class="panel"><div class="panel-head"><h2>Current Device Run</h2><button type="button" data-open-view="runs">Inspect</button></div><div id="dashboardRun" class="list"></div></article>
+        </div>
+        <div class="dashboard-stack">
+          <article class="panel"><div class="panel-head"><h2>Capability Health</h2><button type="button" data-open-view="capabilities">Registry</button></div><div id="dashboardCapabilities" class="list"></div></article>
+        </div>
+      </div>
+    </section>
+    <section id="workspace-threads" class="workspace-view active">
+      <div id="threadWorkspace" class="thread-layout">
+        <aside class="thread-history">
+          <div class="thread-history-head"><div><b>Threads</b><span class="thread-history-actions"><button id="clearAgentData" class="clear-agent-data" type="button">Clear all</button><button id="newThread" type="button">New</button></span></div><input id="threadSearch" class="thread-search" type="search" placeholder="搜索对话" autocomplete="off"></div>
+          <div id="sessionList" class="sessions"></div>
+        </aside>
+        <div id="threadListResizer" class="column-resizer" role="separator" aria-orientation="vertical" aria-label="调整对话列表宽度" tabindex="0"></div>
+        <section class="chat-pane">
+          <div class="chat-head"><b id="activeThreadTitle">新对话</b><span id="activeThreadMeta" class="data-state info">DRAFT</span></div>
+          <div id="chatLog" class="chat"></div>
+          <section id="threadAgentRequest" class="thread-agent-request" aria-label="Agent 批准请求" aria-live="assertive" hidden>
+            <div class="thread-agent-request-main">
+              <div class="thread-agent-request-copy">
+                <span id="threadAgentRequestState">需要你的决定</span>
+                <b id="threadAgentRequestResource">Agent 请求</b>
+                <small id="threadAgentRequestCopy">Agent 正在等待一次性批准。</small>
+              </div>
+              <div class="thread-agent-request-actions">
+                <button id="threadAgentRequestCancel" type="button">拒绝</button>
+                <button id="threadAgentRequestApprove" class="primary" type="button">允许一次</button>
+              </div>
+            </div>
+            <div id="threadAgentRequestMeta" class="thread-agent-request-meta"></div>
+            <textarea id="threadAgentRequestResponse" maxlength="512" placeholder="输入给 Agent 的回答" hidden></textarea>
+            <details id="threadAgentRequestDetails" hidden><summary>查看精确参数</summary><pre id="threadAgentRequestParameters"></pre></details>
+          </section>
+          <div class="composer">
+            <textarea id="prompt" placeholder="给 Agent 发送消息；Cmd/Ctrl + Enter 发送"></textarea>
+            <div class="composer-settings">
+              <div class="composer-models"><div class="field"><label for="agentProfile">API Profile</label><select id="agentProfile"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="kimi">Kimi K3</option><option value="custom">Custom</option></select></div><div class="field"><label for="agentModel">Model</label><select id="agentModel"><option value="deepseek-v4-pro">deepseek-v4-pro</option></select></div><button id="refreshModels" type="button">Models</button></div>
+              <div class="composer-permission-stack">
+                <div class="composer-permissions" aria-label="本次任务权限">
+                  <label class="ui-switch" title="允许新任务读取并附加当前 KVM 画面；仍需全局 Agent 工具策略放行">
+                    <input id="agentKvmPermission" type="checkbox" role="switch" aria-label="允许本次任务访问 KVM 画面">
+                    <span class="ui-switch-track"><span class="ui-switch-thumb"></span></span>
+                    <span>KVM 画面</span><span id="agentKvmPermissionText" class="ui-switch-state">关闭</span>
+                  </label>
+                  <label class="ui-switch" title="允许新任务调用联网搜索；仍需联网配置和全局 Agent 工具策略放行">
+                    <input id="agentWebPermission" type="checkbox" role="switch" aria-label="允许本次任务联网搜索">
+                    <span class="ui-switch-track"><span class="ui-switch-thumb"></span></span>
+                    <span>联网搜索</span><span id="agentWebPermissionText" class="ui-switch-state">关闭</span>
+                  </label>
+                </div>
+                <div class="composer-authority">手动权限只作用于新任务，且不能越过全局工具策略。</div>
+              </div>
+            </div>
+            <div class="composer-foot"><span class="composer-hint">消息保存在当前 Thread；执行对象会同步到 Workspace。</span><div class="actions"><button id="attachContext" type="button">Context</button><button id="sendPrompt" class="primary" type="button">Send</button></div></div>
+          </div>
+        </section>
+        <div id="threadContextResizer" class="column-resizer" role="separator" aria-orientation="vertical" aria-label="调整 Run Log 与 Context 宽度" tabindex="0"></div>
+        <aside class="thread-context">
+          <div class="context-head"><div class="context-head-row"><h2 id="leftPaneTitle">Thread Context</h2><button id="openAgent" type="button">Settings</button></div><div class="view-tabs"><button id="viewContext" class="active" type="button">Context</button><button id="viewScreen" type="button">Screen</button><button id="viewTerminal" type="button">Run Log</button></div></div>
+          <div id="contextView" class="context-pane context-config">
+            <section class="context-section"><h3>Runtime</h3><div class="context-stats"><div class="row"><span>Preview</span><b id="videoState">--</b></div><div class="row"><span>Input</span><b id="hidState">--</b></div><div class="row"><span>Lease</span><b id="leaseState">--</b></div><div class="row"><span>Screenshot</span><b id="shotState">off</b></div></div></section>
+            <section class="context-section"><h3>Target host</h3><div id="threadTargetProfile" class="list"><div class="list-row"><span><b>Loading</b><small>读取被控端背景资料</small></span></div></div></section>
+            <section class="context-section"><h3>Persistent memory</h3><div id="threadMemory" class="list"><div class="list-row"><span><b>Loading</b><small>读取 TF 工作记忆</small></span></div></div></section>
+          </div>
+          <div id="screenView" class="context-pane screen pane-hidden"><img id="preview" alt="Agent 画面预览"><div id="nosignal" class="nosignal"><div><b>Screen Off</b><span id="videoText">preview off</span></div></div><div class="screen-toolbar"><label class="ui-switch screen-preview-switch"><input id="togglePreview" type="checkbox" role="switch" aria-label="打开 Agent 画面预览"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span>画面预览</span><span id="togglePreviewText" class="ui-switch-state">关闭</span></label><button id="refreshShot" type="button">Reload</button><button id="openKvm" type="button">Open KVM</button></div></div>
+          <div id="terminalView" class="context-pane terminal-view pane-hidden"><div id="agentTerminal" class="terminal-log"></div></div>
+        </aside>
+      </div>
+    </section>
+    <section id="workspace-capabilities" class="workspace-view page-view"><header class="page-head"><div><h1>Capabilities</h1><p>设备端已配置的 MCP 入口、API Profiles、Tools、Skills 与执行策略。</p></div><a class="workspace-action" href="/settings#agent">Manage Settings</a></header><div id="capabilityRegistry" class="registry-groups"><article class="panel empty-state"><div><b>Loading registry</b><p>正在读取设备端能力契约。</p></div></article></div></section>
+    <section id="workspace-runs" class="workspace-view page-view"><header class="page-head"><div><h1>Tasks</h1><p>查看当前任务、活动时间线和需要你决定的精确请求。</p></div><div class="actions"><button id="runsPause" type="button" disabled>Pause</button><button id="runsResume" type="button" disabled>Resume</button><button id="runsAbort" type="button" disabled>Cancel task</button><button type="button" data-open-view="threads">Open Thread</button></div></header><div class="run-layout"><article class="panel run-summary"><div class="panel-head"><h2>Task Summary</h2><span id="runsState" class="data-state">IDLE</span></div><div id="runsSummary" class="run-kv"></div></article><article class="panel"><div class="panel-head"><h2>Activity</h2><span id="runsEventCount" class="data-meta">0 events</span></div><div id="runsEvents" class="run-events"></div></article><article id="hostDisplayRequestCard" class="panel host-display-plan" hidden><div class="panel-head"><h2>显示配置请求</h2><span id="hostDisplayState" class="data-state">无请求</span></div><div class="host-display-body"><p id="hostDisplayCopy" class="host-display-copy">当前没有显示配置请求。</p><div id="hostDisplaySummary" class="run-kv"></div><div class="host-display-actions"><button id="hostDisplayCancel" type="button" disabled>拒绝</button><button id="hostDisplayApprove" class="primary" type="button" disabled>批准精确请求</button></div></div></article><article id="bootKeyRequestCard" class="panel boot-key-plan"><div class="panel-head"><h2>固件按键请求</h2><span id="bootKeyState" class="data-state">无请求</span></div><div class="host-display-body"><p id="bootKeyCopy" class="host-display-copy">当前没有固件按键请求。</p><details class="developer-details"><summary>手动创建请求</summary><div class="boot-key-form"><div class="field"><label for="bootKeyTarget">目标</label><select id="bootKeyTarget"><option value="bios_setup">BIOS Setup</option><option value="boot_menu">Boot Menu</option></select></div><div class="field"><label for="bootKeyCode">按键</label><select id="bootKeyCode"><option value="Delete">Delete</option><option value="F2">F2</option><option value="F11">F11</option><option value="F12">F12</option><option value="Escape">Escape</option></select></div><div class="field"><label for="bootKeyTrigger">触发</label><select id="bootKeyTrigger"><option value="none">不触发电源动作</option><option value="reset">Reset Host</option></select></div><div class="field"><label for="bootKeyProfile">Host profile</label><input id="bootKeyProfile" value="default-host" maxlength="31"></div></div><button id="bootKeyCreate" type="button">创建精确请求</button></details><div id="bootKeySummary" class="run-kv"></div><div class="host-display-actions"><button id="bootKeyCancel" type="button" disabled>拒绝 / 取消</button><button id="bootKeyApprove" type="button" disabled>批准精确请求</button><button id="bootKeyStart" class="primary" type="button" disabled>开始序列</button><a class="workspace-action" href="/kvm">Open KVM</a></div></div></article></div></section>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const promptBox=$("prompt");
+$("sendPrompt").insertAdjacentHTML("beforebegin",'<button id="stopPrompt" class="danger" type="button" hidden>Stop task</button>');
+const stopPrompt=$("stopPrompt");
+const clearAgentDataButton=$("clearAgentData");
+const agentKvmPermission=$("agentKvmPermission"),agentKvmPermissionText=$("agentKvmPermissionText");
+const agentWebPermission=$("agentWebPermission"),agentWebPermissionText=$("agentWebPermissionText");
+const UI=window.ExoAnchorUI,API=UI.api,Session=UI.session,AuthUI=UI.auth;
+let workspaceAgentDisplayName=String(localStorage.getItem("ea_agent_display_name")||"Agent").trim()||"Agent";
+function applyWorkspaceAgentName(value){
+  workspaceAgentDisplayName=String(value||"").trim().slice(0,32)||"Agent";
+  localStorage.setItem("ea_agent_display_name",workspaceAgentDisplayName);
+  [$("workspaceAgentName"),$("dashboardAgentName")].forEach(el=>{if(el)el.textContent=workspaceAgentDisplayName});
+  document.title=`${workspaceAgentDisplayName} Workspace · ExoAnchor`;
+}
+async function refreshAgentIdentity(){
+  try{const cfg=await API.get("/api/settings/device");applyWorkspaceAgentName(cfg.agent_name||cfg.default_agent_name);return cfg}
+  catch(error){applyWorkspaceAgentName(workspaceAgentDisplayName);return null}
+}
+applyWorkspaceAgentName(workspaceAgentDisplayName);
+window.addEventListener("exoanchor:agent-name-changed",event=>applyWorkspaceAgentName(event.detail?.name));
+AuthUI.bindForm(async()=>{
+  workspaceState.ready=true;
+  await Session.load();
+  await UI.status.refresh().catch(()=>{});
+  if(!workspaceState.booted){
+    await bootAgentPage();
+    return;
+  }
+  await Promise.all([loadAgentToolSettings().catch(()=>null),loadWorkspaceData()]);
+  if(activeLeftView==="screen")startAgentStream();
+});
+let streamTimer=0,agentStreamActive=false,agentPageLeaving=false;
+let agentStreamRequest=0;
+const agentDocumentReady=document.readyState==="complete"?Promise.resolve():new Promise(resolve=>window.addEventListener("load",resolve,{once:true}));
+let previewEnabled=localStorage.getItem("ea_agent_preview_enabled")==="1";
+let activeLeftView=localStorage.getItem("ea_agent_left_view")||"context";
+let attachPageContext=false;
+function authUrl(path){return path}
+function streamUrl(){return authUrl("/api/stream?owner=agent&t="+Date.now())}
+function setBadge(el,label,state,kind){el.textContent=`${label} ${state}`;el.className=`data-state ${kind||""}`.trim()}
+const workspaceState={ready:false,booted:false,capabilities:null,toolSettings:null,mcp:null,memory:null,targetProfile:null,run:null,requestQueue:null,displayPlan:null,bootKeyPlan:null,api:null};
+$("hostDisplayRequestCard").insertAdjacentHTML("beforebegin",'<article id="agentRequestCard" class="panel host-display-plan" hidden><div class="panel-head"><h2>Agent 请求</h2><span id="agentRequestState" class="data-state">无请求</span></div><div class="host-display-body"><p id="agentRequestCopy" class="host-display-copy">当前没有 Agent 请求。</p><div id="agentRequestSummary" class="run-kv"></div><textarea id="agentRequestResponse" class="agent-request-response" maxlength="512" placeholder="输入给 Agent 的回答" hidden></textarea><details id="agentRequestDetails" class="developer-details" hidden><summary>精确参数</summary><pre id="agentRequestParameters"></pre></details><div class="host-display-actions"><button id="agentRequestCancel" type="button" disabled>拒绝</button><button id="agentRequestApprove" class="primary" type="button" disabled>允许一次</button></div></div></article>');
+const agentRequestCard=$("agentRequestCard"),agentRequestState=$("agentRequestState"),agentRequestCopy=$("agentRequestCopy"),agentRequestSummary=$("agentRequestSummary"),agentRequestResponse=$("agentRequestResponse"),agentRequestDetails=$("agentRequestDetails"),agentRequestParameters=$("agentRequestParameters"),agentRequestCancel=$("agentRequestCancel"),agentRequestApprove=$("agentRequestApprove");
+const threadAgentRequest=$("threadAgentRequest"),threadAgentRequestState=$("threadAgentRequestState"),threadAgentRequestResource=$("threadAgentRequestResource"),threadAgentRequestCopy=$("threadAgentRequestCopy"),threadAgentRequestMeta=$("threadAgentRequestMeta"),threadAgentRequestResponse=$("threadAgentRequestResponse"),threadAgentRequestDetails=$("threadAgentRequestDetails"),threadAgentRequestParameters=$("threadAgentRequestParameters"),threadAgentRequestCancel=$("threadAgentRequestCancel"),threadAgentRequestApprove=$("threadAgentRequestApprove");
+const bootKeyDeveloperPanel=bootKeyRequestCard.querySelector(".developer-details");
+bootKeyDeveloperPanel.id="bootKeyDeveloperPanel";bootKeyDeveloperPanel.classList.add("panel","boot-key-developer");bootKeyDeveloperPanel.querySelector("summary").textContent="Developer · 创建固件按键请求";bootKeyRequestCard.before(bootKeyDeveloperPanel);bootKeyRequestCard.hidden=true;
+const WORKSPACE_VIEWS=new Set(["dashboard","threads","capabilities","runs"]);
+function html(value){return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]))}
+function isPendingApprovalState(state){const value=String(state);return value.startsWith("PLAN")&&value.endsWith("NED")}
+function displayState(state){if(isPendingApprovalState(state))return"等待批准";return({EMPTY:"无请求",APPROVED:"已批准",APPLYING:"执行中",VERIFYING:"验证中",ROLLING_BACK:"回滚中",VERIFIED:"已验证",FAILED:"失败",TIMED_OUT:"已超时",STARTING:"启动中",WAITING_HID:"等待 HID",WAITING_START:"等待开始",RUNNING:"运行中",AWAITING_VERIFICATION:"等待人工验证",IDLE:"空闲",DONE:"完成",ABORTED:"已取消",PAUSED:"已暂停"})[String(state)]||String(state)}
+function workspaceView(name,save=true){
+  const next=WORKSPACE_VIEWS.has(name)?name:"threads";
+  document.querySelectorAll(".workspace-view").forEach(el=>el.classList.toggle("active",el.id===`workspace-${next}`));
+  document.querySelectorAll("[data-workspace-view]").forEach(el=>el.classList.toggle("active",el.dataset.workspaceView===next));
+  if(save){localStorage.setItem("ea_agent_workspace_view",next);history.replaceState(null,"",next==="threads"?location.pathname:`#${next}`)}
+  if(next!=="threads"&&agentStreamActive)stopAgentStream();
+  if(workspaceState.ready&&next==="threads"&&activeLeftView==="screen"&&previewEnabled&&!agentPageLeaving)startAgentStream();
+}
+function agentPageContextSnapshot(){
+  const activeWorkspace=document.querySelector("[data-workspace-view].active")?.dataset.workspaceView||"threads";
+  return UI.pageContext.build({
+    page:"agent",
+    summary:`Agent Workspace / ${activeWorkspace}`,
+    items:[
+      {kind:"selection",label:"Workspace view",value:activeWorkspace},
+      {kind:"selection",label:"Thread context pane",value:activeLeftView},
+      {kind:"status",label:"Session",value:activeSessionId||"draft"},
+      {kind:"setting",label:"Execution policy",value:"supervised device policy"},
+    ],
+  });
+}
+function currentPageContext(){return attachPageContext?agentPageContextSnapshot():undefined}
+UI.pageContext.register("agent",agentPageContextSnapshot);
+function updateContextAttachment(){
+  attachContext.classList.toggle("active",attachPageContext);
+  attachContext.textContent=attachPageContext?"Context attached":"Context";
+  attachContext.setAttribute("aria-pressed",attachPageContext?"true":"false");
+  attachContext.title=attachPageContext?
+    "发送时附加当前 Agent Workspace 的结构化状态；不包含 DOM、认证信息或完整日志。":
+    "附加当前页面的结构化状态";
+}
+function statusBadge(text,kind=""){return `<span class="data-state ${html(kind)}">${html(text)}</span>`}
+function listRow(title,copy,state="",kind=""){return `<div class="list-row"><span><b>${html(title)}</b><small>${html(copy)}</small></span>${state?statusBadge(state,kind):""}</div>`}
+function renderDashboardThreads(){
+  const count=agentSessions.length;
+  const provisionalCount=agentSessions.filter(item=>item.provisional).length;
+  const storedMessages=agentSessions.filter(item=>!item.provisional).reduce((sum,item)=>sum+Number(item.message_count||0),0);
+  dashThreadCount.textContent=String(count);
+  dashThreadCopy.textContent=count?`${storedMessages} messages stored on TF${provisionalCount?` · ${provisionalCount} local pending`:""}`:"No stored conversations";
+  dashboardThreads.innerHTML=count?agentSessions.slice(0,5).map(item=>listRow(item.title||"新会话",`${Number(item.message_count||0)} messages`,(item.session_id||item.id)===activeSessionId?"ACTIVE":"","ok")).join(""):listRow("No Threads","Start a conversation from Threads");
+}
+function renderDashboardCapabilities(){
+  const tools=(workspaceState.capabilities?.agent_tools?.tools||[]).filter(item=>item.runtime_callable===true);
+  const available=tools.filter(item=>item.implemented!==false&&item.available!==false).length;
+  dashCapabilityCount.textContent=tools.length?`${available}/${tools.length}`:"--";
+  dashCapabilityCopy.textContent=tools.length?"available Agent runtime tools":"Capability contract unavailable";
+  const rows=[];
+  if(workspaceState.mcp)rows.push(listRow("External MCP",workspaceState.mcp.scope||"external controller",workspaceState.mcp.enabled?"ENABLED":"OFF",workspaceState.mcp.enabled?"ok":"warn"));
+  rows.push(listRow("Runtime tools",tools.length?`${tools.length} callable tools/actions`:"not loaded",tools.length?`${available} AVAILABLE`:"WAIT",tools.length?"":"warn"));
+  const skills=Array.isArray(workspaceState.toolSettings?.skills)?workspaceState.toolSettings.skills:[];
+  rows.push(listRow("Skill registry",`${skills.length} configured skills`,skills.length?"CONFIGURED":"EMPTY",skills.length?"":"warn"));
+  dashboardCapabilities.innerHTML=rows.join("");
+}
+function memoryRecordText(record){return String(record?.content||record?.text||record?.summary||"").trim()}
+function renderWorkspaceMemory(){
+  const memory=workspaceState.memory||{},records=Array.isArray(memory.records)?memory.records:[];
+  const count=Number(memory.record_count??records.length);
+  dashMemoryCount.textContent=memory.supported===false?"OFF":String(count);
+  dashMemoryCopy.textContent=memory.supported===false?"TF working memory unavailable":`${Number(memory.used_bytes||0)} bytes on TF`;
+  threadMemory.innerHTML=records.length?records.slice(-4).reverse().map(item=>listRow(item.type||item.scope||"memory",memoryRecordText(item)||"Stored record")).join(""):listRow(memory.supported===false?"Memory unavailable":"No memory records",memory.error||"Agent will add durable notes when needed");
+}
+function renderTargetProfile(){
+  const profile=workspaceState.targetProfile||{},labels={name:"名称",device_type:"类型",operating_system:"系统",environment:"环境",location:"位置",configuration:"配置",purpose:"作用",notes:"备注"};
+  const values=Object.entries(labels).map(([key,label])=>[label,String(profile[key]||"").trim()]).filter(([,value])=>value&&value!=="unknown");
+  threadTargetProfile.innerHTML=values.length?values.map(([label,value])=>`<div class="list-row"><span><b>${html(label)}</b><small>${html(value)}</small></span></div>`).join(""):'<div class="list-row"><span><b>尚未配置</b><small>前往 Settings → 被控端设置填写</small></span></div>';
+}
+function renderWorkspaceRun(status={}){
+  const previous=workspaceState.run;
+  if(previous?.job_id&&previous.job_id===status.job_id){
+    const merged=new Map();
+    (Array.isArray(previous.events)?previous.events:[]).forEach(event=>merged.set(Number(event.seq||0),event));
+    (Array.isArray(status.events)?status.events:[]).forEach(event=>merged.set(Number(event.seq||0),event));
+    status.events=Array.from(merged.values()).sort((a,b)=>Number(a.seq||0)-Number(b.seq||0));
+  }
+  workspaceState.run=status;
+  updateAgentManualPermissions();
+  if(status.request)renderAgentRequestQueue({items:[status.request],pending_count:status.request.status==="waiting_user"?1:0});
+  const state=String(status.state||"idle").toUpperCase(),running=!!status.running,busy=!!status.busy;
+  const kind=state==="FAILED"||state==="ABORTED"?"bad":busy?"warn":state==="DONE"?"ok":"";
+  dashRunState.textContent=state;
+  dashRunCopy.textContent=status.job_id?`${status.job_id} · ${status.stage||"no stage"}`:"No device run has been started";
+  dashboardRun.innerHTML=status.job_id?listRow(status.stage||"Agent run",`${status.job_id} · ${formatRunElapsed(status.elapsed_ms||0)}`,state,kind):listRow("No current run","The device keeps one current/recent run slot","IDLE","");
+  runsState.textContent=state;runsState.className=`data-state ${kind}`.trim();
+  runsPause.disabled=!busy||state==="PAUSED";runsResume.disabled=state!=="PAUSED";runsAbort.disabled=!busy;
+  const step=Array.isArray(status.plan?.steps)?status.plan.steps[0]:null;
+  const rows=[["Goal",status.goal||status.turn?.goal||"--"],["Thread",status.thread_id||status.session_id||"--"],["Turn",status.turn_id||"--"],["Run",status.run_id||status.job_id||"--"],["Current step",step?.title||status.stage||"--"],["Plan",status.plan_version?`v${status.plan_version} · intent r${status.intent_revision||1}`:"--"],["Elapsed",formatRunElapsed(status.elapsed_ms||0)],["Mode",status.dry_run===false?"policy":"dry-run"]];
+  runsSummary.innerHTML=rows.map(([key,value])=>`<div class="row"><span>${html(key)}</span><b>${html(value)}</b></div>`).join("");
+  const events=Array.isArray(status.events)?status.events:[];
+  runsEventCount.textContent=`${events.length} EVENTS`;
+  runsEvents.innerHTML=events.length?events.map(event=>`<div class="run-event"><time>#${html(event.seq||0)}</time><span>${html(event.kind||"info")}</span><b>${html(event.text||"")}</b></div>`).join(""):'<div class="empty-state"><div><b>No run events</b><p>事件会随设备端 Agent Run 实时出现。</p></div></div>';
+}
+function renderAgentRequestQueue(queue={}){
+  workspaceState.requestQueue=queue;
+  const items=Array.isArray(queue.items)?queue.items:[],request=items.find(item=>item?.status==="waiting_user")||items[0]||null;
+  const pending=request?.status==="waiting_user";
+  agentRequestCard.hidden=!request||(!pending&&!["granted","failed"].includes(request.status));
+  threadAgentRequest.hidden=!pending;
+  if(!request){
+    agentRequestState.textContent="无请求";agentRequestSummary.innerHTML="";agentRequestResponse.hidden=true;agentRequestResponse.value="";
+    agentRequestApprove.disabled=true;agentRequestCancel.disabled=true;
+    threadAgentRequest.dataset.requestId="";threadAgentRequestResponse.hidden=true;threadAgentRequestResponse.value="";
+    threadAgentRequestDetails.hidden=true;threadAgentRequestParameters.textContent="";
+    threadAgentRequestApprove.disabled=true;threadAgentRequestCancel.disabled=true;
+    return;
+  }
+  agentRequestState.textContent=pending?"等待决定":request.status==="granted"?"已批准":request.status==="failed"?"失败":request.status;
+  agentRequestState.className=`data-state ${request.status==="failed"?"bad":pending?"warn":request.status==="granted"?"ok":""}`.trim();
+  agentRequestCopy.textContent=request.reason||"Agent 需要一个精确、一次性的授权。";
+  const remaining=Math.max(0,Math.ceil(Number(request.remaining_ms||0)/1000));
+  const rows=[["Resource",request.resource||"--"],["Risk",request.risk||"--"],["Scope",request.grant_scope||"once"],["Expires",pending?`${remaining}s`:"--"],["Expected",request.expected_effect||"--"],["Verification",request.verification||"--"],["Argument hash",request.argument_hash||"--"]];
+  agentRequestSummary.innerHTML=rows.map(([key,value])=>`<div class="row"><span>${html(key)}</span><b>${html(value)}</b></div>`).join("");
+  agentRequestDetails.hidden=!request.parameters;
+  agentRequestParameters.textContent=request.parameters?JSON.stringify(request.parameters,null,2):"";
+  const asksAnswer=pending&&request.kind==="context"&&request.resource==="ask_user";
+  agentRequestResponse.hidden=!asksAnswer;
+  agentRequestApprove.textContent=asksAnswer?"发送回答":"允许一次";
+  agentRequestCancel.textContent=asksAnswer?"跳过":"拒绝";
+  agentRequestApprove.disabled=!pending;agentRequestCancel.disabled=!pending;
+  if(threadAgentRequest.dataset.requestId!==String(request.request_id||"")){
+    threadAgentRequest.dataset.requestId=String(request.request_id||"");
+    threadAgentRequestResponse.value="";
+  }
+  threadAgentRequestState.textContent=asksAnswer?"需要你的回答":"需要你的批准";
+  threadAgentRequestResource.textContent=request.resource||"Agent 请求";
+  threadAgentRequestCopy.textContent=request.reason||"Agent 正在等待一个精确、一次性的决定。";
+  threadAgentRequestMeta.textContent=`风险 ${String(request.risk||"--").toUpperCase()} · ${request.grant_scope||"once"} · ${pending?`${remaining}s 后过期`:"已结束"}${request.argument_hash?` · ${request.argument_hash}`:""}`;
+  threadAgentRequestResponse.hidden=!asksAnswer;
+  threadAgentRequestDetails.hidden=!request.parameters;
+  threadAgentRequestParameters.textContent=request.parameters?JSON.stringify(request.parameters,null,2):"";
+  threadAgentRequestApprove.textContent=asksAnswer?"发送回答":"允许一次";
+  threadAgentRequestCancel.textContent=asksAnswer?"跳过":"拒绝";
+  threadAgentRequestApprove.disabled=!pending;threadAgentRequestCancel.disabled=!pending;
+}
+function renderHostDisplayPlan(status={}){
+  workspaceState.displayPlan=status;
+  const state=String(status.state||"empty").toUpperCase();
+  hostDisplayRequestCard.hidden=state==="EMPTY";
+  const pending=isPendingApprovalState(state);
+  const kind=state==="VERIFIED"||state==="ROLLED_BACK"?"ok":state==="FAILED"?"bad":pending||["APPROVED","APPLYING","VERIFYING","ROLLING_BACK"].includes(state)?"warn":"";
+  hostDisplayState.textContent=displayState(state);hostDisplayState.className=`data-state ${kind}`.trim();
+  const target=status.target||{};
+  const mode=target.connector?`${target.connector} · ${target.width||0}×${target.height||0}@${Number(target.refresh_hz||0)}Hz`:"--";
+  hostDisplayCopy.textContent=state==="EMPTY"?"当前没有显示配置请求。":pending?"请核对 connector、模式和持久化范围；批准只绑定当前浏览器会话。":state==="APPROVED"?"请求已批准，Agent 可以执行；重启仍需单独明确请求。":state==="APPLIED"?"配置已写入；重启 Host 后必须验证并检查 KVM 画面。":state==="VERIFIED"?"Host cmdline 与 framebuffer 已读回匹配；仍应保留 KVM 画面证据。":status.error||"请求状态由设备端持有。";
+  const rows=[["Plan",status.plan_id||"--"],["Target",mode],["Scope",target.persistent?"persistent GRUB drop-in":"temporary (unsupported)"],["Approval",status.approved?`approved · ${status.approved_by_session||"session"}`:"required"],["Reboot",status.reboot_required?"required after apply":"no"]];
+  hostDisplaySummary.innerHTML=rows.map(([key,value])=>`<div class="row"><span>${html(key)}</span><b>${html(value)}</b></div>`).join("");
+  hostDisplayApprove.disabled=!pending;
+  hostDisplayCancel.disabled=!(pending||state==="APPROVED");
+}
+function renderBootKeyPlan(status={}){
+  workspaceState.bootKeyPlan=status;
+  const state=String(status.state||"empty").toUpperCase(),profile=status.profile||{};
+  bootKeyRequestCard.hidden=state==="EMPTY";
+  bootKeyDeveloperPanel.hidden=state!=="EMPTY";
+  bootKeySummary.hidden=state==="EMPTY";
+  const pending=isPendingApprovalState(state);
+  const kind=state==="VERIFIED"?"ok":["FAILED","TIMED_OUT"].includes(state)?"bad":pending||["APPROVED","STARTING","WAITING_HID","WAITING_START","RUNNING","AWAITING_VERIFICATION"].includes(state)?"warn":"";
+  bootKeyState.textContent=displayState(state);bootKeyState.className=`data-state ${kind}`.trim();
+  bootKeyCopy.textContent=state==="EMPTY"?"当前没有固件按键请求。":pending?"核对完整请求后由当前浏览器会话精确批准。":state==="APPROVED"?"请求已批准；开始后才会触发 Reset（如选择）并发送按键。":state==="AWAITING_VERIFICATION"?"发键已结束，但尚未证明进入目标界面；请打开 KVM 人工确认。":state==="VERIFIED"?"KVM 人工证据已记录。":status.error||"人工 KVM 输入、取消、租约撤销或超时会立即停止。";
+  const rows=[["Plan",status.plan_id||"--"],["Target",profile.target||"--"],["Key",profile.key_code||"--"],["Trigger",profile.trigger||"--"],["Timing",profile.max_attempts?`${profile.start_delay_ms}ms + ${profile.max_attempts} × ${profile.interval_ms}ms / timeout ${profile.total_timeout_ms}ms`:"--"],["Progress",`${status.attempts_sent||0} / ${profile.max_attempts||0}`],["Approval",status.approved?`approved · ${status.approved_by_session||"session"}`:"required"],["Verification",status.evidence||status.verification_mode||"human_kvm"]];
+  bootKeySummary.innerHTML=rows.map(([key,value])=>`<div class="row"><span>${html(key)}</span><b>${html(value)}</b></div>`).join("");
+  bootKeyCreate.disabled=["STARTING","WAITING_HID","WAITING_START","RUNNING"].includes(state);
+  bootKeyApprove.disabled=!pending;
+  bootKeyStart.disabled=state!=="APPROVED";
+  bootKeyCancel.disabled=!(pending||["APPROVED","STARTING","WAITING_HID","WAITING_START","RUNNING","AWAITING_VERIFICATION"].includes(state));
+}
+function registryRow(mark,title,meta,state,kind,copy){return `<div class="registry-row"><span class="registry-mark">${html(mark)}</span><span><b>${html(title)}</b><small>${html(meta)}</small></span><span>${statusBadge(state,kind)}</span><span class="registry-copy">${html(copy)}</span></div>`}
+function registryGroup(title,rows){return `<section class="registry-group"><h2>${html(title)}</h2><div class="registry-list">${rows.join("")}</div></section>`}
+function renderCapabilityRegistry(){
+  const groups=[];
+  const mcp=workspaceState.mcp;
+  groups.push(registryGroup("MCP",[mcp?registryRow("MCP","External MCP Controller",mcp.scope||"device API",mcp.enabled?"ENABLED":"OFF",mcp.enabled?"ok":"warn",`${mcp.control_owner||"mcp"} · ${mcp.client_header||"client header"}`):registryRow("MCP","External MCP Controller","/api/settings/mcp","UNAVAILABLE","bad","Settings endpoint did not respond")]));
+  const profiles=agentProfiles.map(item=>registryRow("API",item.label||item.id,item.endpoint||item.provider||"OpenAI compatible",item.api_key_configured?"CONFIGURED":"NEEDS KEY",item.api_key_configured?"":"warn",item.model||"No model selected"));
+  groups.push(registryGroup("API Profiles",profiles.length?profiles:[registryRow("API","No profiles","/api/settings/agent-api","EMPTY","warn","No configured provider profiles")]));
+  const catalog=workspaceState.capabilities?.agent_tools?.tools||[];
+  const tools=catalog.filter(item=>item.runtime_callable===true);
+  const implementedTools=tools.filter(item=>item.implemented!==false);
+  groups.push(registryGroup("Runtime Tools",implementedTools.map(item=>registryRow("TOOL",item.name,item.runtime_surface||"tool_call",item.available===false?"UNAVAILABLE":"AVAILABLE",item.available===false?"warn":"",`${item.permission||"observe"} · ${item.risk||"low"} · ${item.description||""}`))));
+  const attachments=catalog.filter(item=>item.runtime_surface==="context_attachment");
+  if(attachments.length)groups.push(registryGroup("Context Attachments",attachments.map(item=>registryRow("CTX",item.name,"attached by runtime",item.available===false?"UNAVAILABLE":"AVAILABLE",item.available===false?"warn":"",item.description||"Runtime-provided context"))));
+  const manual=catalog.filter(item=>item.runtime_surface==="manual");
+  if(manual.length)groups.push(registryGroup("Manual Surfaces",manual.map(item=>registryRow("UI",item.name,`${item.method||""} ${item.endpoint||""}`.trim(),item.available===false?"UNAVAILABLE":"MANUAL",item.available===false?"warn":"",item.description||"Human-operated interface"))));
+  const skills=Array.isArray(workspaceState.toolSettings?.skills)?workspaceState.toolSettings.skills:[];
+  groups.push(registryGroup("Skills",skills.length?skills.map(item=>registryRow("SKILL",item.name||item.id||"Unnamed skill",item.version||"device registry",item.enabled===false?"DISABLED":"ENABLED",item.enabled===false?"warn":"ok",item.description||item.summary||"Configured reusable workflow")):[registryRow("SKILL","No registered skills","device registry","EMPTY","warn","Add Skills JSON from Settings")]));
+  const policy=workspaceState.toolSettings?.policy||{};
+  groups.push(registryGroup("Execution Policy",[registryRow("POL",workspaceState.toolSettings?.default_mode||policy.default_mode||"observe","device default mode","ACTIVE","info",`${Object.keys(policy.tools||{}).length} tool overrides · secrets never exposed`)]));
+  capabilityRegistry.innerHTML=groups.join("");
+  renderDashboardCapabilities();
+}
+async function loadWorkspaceData(){
+  const results=await Promise.allSettled([API.get("/api/capabilities"),API.get("/api/settings/mcp"),API.get("/api/agent/memory"),API.get("/api/host/display"),API.get("/api/host/boot-key"),API.get("/api/agent/requests"),API.get("/api/settings/target-profile")]);
+  if(results[0].status==="fulfilled")workspaceState.capabilities=results[0].value;
+  if(results[1].status==="fulfilled")workspaceState.mcp=results[1].value;
+  workspaceState.memory=results[2].status==="fulfilled"?results[2].value:{supported:false,error:results[2].reason?.message||"memory unavailable",records:[]};
+  renderHostDisplayPlan(results[3].status==="fulfilled"?results[3].value:{state:"empty",error:results[3].reason?.message||"display plan unavailable"});
+  renderBootKeyPlan(results[4].status==="fulfilled"?results[4].value:{state:"empty",error:results[4].reason?.message||"boot-key plan unavailable"});
+  renderAgentRequestQueue(results[5].status==="fulfilled"?results[5].value:{items:[],error:results[5].reason?.message||"Agent request queue unavailable"});
+  workspaceState.targetProfile=results[6].status==="fulfilled"?results[6].value:null;
+  renderTargetProfile();renderWorkspaceMemory();renderCapabilityRegistry();updateAgentManualPermissions();
+}
+document.querySelectorAll("[data-workspace-view]").forEach(el=>el.onclick=()=>workspaceView(el.dataset.workspaceView));
+document.querySelectorAll("[data-open-view]").forEach(el=>el.onclick=()=>workspaceView(el.dataset.openView));
+const initialWorkspaceView=location.hash&&WORKSPACE_VIEWS.has(location.hash.slice(1))?location.hash.slice(1):"threads";
+workspaceView(initialWorkspaceView,false);
+window.addEventListener("hashchange",()=>workspaceView(location.hash.slice(1)||"threads",false));
+const THREAD_LIST_MIN=168,THREAD_LIST_MAX=420,THREAD_CONTEXT_MIN=260,THREAD_CONTEXT_MAX=1200,THREAD_CENTER_MIN=300;
+let threadListWidth=Number(localStorage.getItem("ea_agent_thread_list_width")||220);
+let threadContextWidth=Number(localStorage.getItem("ea_agent_thread_context_width")||330);
+function clampNumber(value,min,max){return Math.max(min,Math.min(max,Number(value)||min))}
+function applyThreadColumns(listWidth=threadListWidth,contextWidth=threadContextWidth){
+  const total=threadWorkspace.clientWidth||window.innerWidth;
+  const maxSides=Math.max(THREAD_LIST_MIN+THREAD_CONTEXT_MIN,total-THREAD_CENTER_MIN-12);
+  let list=clampNumber(listWidth,THREAD_LIST_MIN,THREAD_LIST_MAX);
+  let context=clampNumber(contextWidth,THREAD_CONTEXT_MIN,THREAD_CONTEXT_MAX);
+  let overflow=list+context-maxSides;
+  if(overflow>0){const contextRoom=context-THREAD_CONTEXT_MIN,cut=Math.min(contextRoom,overflow);context-=cut;overflow-=cut}
+  if(overflow>0)list=Math.max(THREAD_LIST_MIN,list-overflow);
+  threadListWidth=Math.round(list);threadContextWidth=Math.round(context);
+  threadWorkspace.style.setProperty("--thread-list-width",`${threadListWidth}px`);
+  threadWorkspace.style.setProperty("--thread-context-width",`${threadContextWidth}px`);
+  threadListResizer.setAttribute("aria-valuemin",String(THREAD_LIST_MIN));threadListResizer.setAttribute("aria-valuemax",String(THREAD_LIST_MAX));threadListResizer.setAttribute("aria-valuenow",String(threadListWidth));
+  threadContextResizer.setAttribute("aria-valuemin",String(THREAD_CONTEXT_MIN));threadContextResizer.setAttribute("aria-valuemax",String(THREAD_CONTEXT_MAX));threadContextResizer.setAttribute("aria-valuenow",String(threadContextWidth));
+}
+function saveThreadColumns(){localStorage.setItem("ea_agent_thread_list_width",String(threadListWidth));localStorage.setItem("ea_agent_thread_context_width",String(threadContextWidth))}
+function bindColumnResizer(handle,side){
+  handle.addEventListener("pointerdown",event=>{
+    if(event.button!==0)return;
+    const startX=event.clientX,startList=threadListWidth,startContext=threadContextWidth;
+    handle.classList.add("dragging");document.body.classList.add("column-resizing");handle.setPointerCapture(event.pointerId);
+    const move=moveEvent=>{const dx=moveEvent.clientX-startX;if(side==="list")applyThreadColumns(startList+dx,startContext);else applyThreadColumns(startList,startContext-dx)};
+    const finish=()=>{handle.classList.remove("dragging");document.body.classList.remove("column-resizing");handle.removeEventListener("pointermove",move);handle.removeEventListener("pointerup",finish);handle.removeEventListener("pointercancel",finish);saveThreadColumns()};
+    handle.addEventListener("pointermove",move);handle.addEventListener("pointerup",finish);handle.addEventListener("pointercancel",finish);
+  });
+  handle.addEventListener("keydown",event=>{
+    if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+    event.preventDefault();const direction=side==="list"?1:-1;
+    if(event.key==="Home"){if(side==="list")applyThreadColumns(THREAD_LIST_MIN,threadContextWidth);else applyThreadColumns(threadListWidth,THREAD_CONTEXT_MIN)}
+    else if(event.key==="End"){if(side==="list")applyThreadColumns(THREAD_LIST_MAX,threadContextWidth);else applyThreadColumns(threadListWidth,THREAD_CONTEXT_MAX)}
+    else{const delta=(event.key==="ArrowRight"?12:-12)*direction;if(side==="list")applyThreadColumns(threadListWidth+delta,threadContextWidth);else applyThreadColumns(threadListWidth,threadContextWidth+delta)}
+    saveThreadColumns();
+  });
+  if(side==="context")handle.addEventListener("dblclick",()=>{applyThreadColumns(threadListWidth,threadContextWidth>420?330:THREAD_CONTEXT_MAX);saveThreadColumns()});
+}
+bindColumnResizer(threadListResizer,"list");bindColumnResizer(threadContextResizer,"context");applyThreadColumns();
+window.addEventListener("resize",()=>applyThreadColumns());
+function modeCount(video){return Array.isArray(video.modes)?video.modes.length:Number(video.modes_count??video.mode_count??video.modes??0)}
+function renderAgentStatus(status){if(!status)return;const v=status.video||{},h=status.hid||{},vc=v.control||{};videoState.textContent=v.frame_ready?`${v.resolution||"--"} ${Number(v.fps||0).toFixed(1)}fps`:((v.device_connected||modeCount(v)>0)?"standby":"offline");hidState.textContent=(h.hid_ready||h.ready)?"ready":h.connected?"mounted":h.initialized?"waiting":"off";leaseState.textContent=vc.agent_takeover?"agent takeover":vc.active_owner||"off";if(!preview.getAttribute("src"))videoText.textContent=previewEnabled?(v.last_error||"waiting for stream"):"preview off"}
+function refreshStatus(){return UI.status.refresh()}
+UI.status.subscribe(renderAgentStatus);
+async function sendAgentVideoLease(active){try{const headers={"Content-Type":"application/json"};if(API.token)headers.Authorization="Bearer "+API.token;const response=await fetch("/api/video/lease",{method:"POST",headers,body:JSON.stringify({owner:"agent",active,takeover:false}),keepalive:!active});return response.ok}catch(e){return false}}
+function updatePreviewButton(){togglePreview.checked=previewEnabled;togglePreviewText.textContent=previewEnabled?"开启":"关闭";togglePreview.setAttribute("aria-label",previewEnabled?"关闭 Agent 画面预览":"打开 Agent 画面预览");refreshShot.disabled=!previewEnabled;if(!previewEnabled&&!preview.getAttribute("src"))videoText.textContent="preview off"}
+async function startAgentStream(delay=0){if(!previewEnabled||agentPageLeaving){videoText.textContent=previewEnabled?"leaving page":"preview off";return}const request=++agentStreamRequest;clearTimeout(streamTimer);agentStreamActive=true;await Promise.all([sendAgentVideoLease(true),agentDocumentReady]);if(request!==agentStreamRequest||agentPageLeaving||!agentStreamActive)return;streamTimer=setTimeout(()=>{if(request!==agentStreamRequest||agentPageLeaving||!agentStreamActive)return;preview.src=streamUrl();videoText.textContent="streaming"},delay)}
+function stopAgentStream(leaving=false){if(leaving)agentPageLeaving=true;agentStreamRequest++;clearTimeout(streamTimer);const release=agentStreamActive||preview.hasAttribute("src");agentStreamActive=false;preview.removeAttribute("src");if(release)sendAgentVideoLease(false)}
+function setPreviewEnabled(active){previewEnabled=!!active;localStorage.setItem("ea_agent_preview_enabled",previewEnabled?"1":"0");updatePreviewButton();if(previewEnabled&&activeLeftView==="screen"){nosignal.classList.remove("hide");startAgentStream(0)}else{stopAgentStream();nosignal.classList.remove("hide");videoText.textContent="preview off"}}
+function setLeftView(view){
+  activeLeftView=["context","screen","terminal"].includes(view)?view:"context";
+  localStorage.setItem("ea_agent_left_view",activeLeftView);
+  contextView.classList.toggle("pane-hidden",activeLeftView!=="context");
+  screenView.classList.toggle("pane-hidden",activeLeftView!=="screen");
+  terminalView.classList.toggle("pane-hidden",activeLeftView!=="terminal");
+  viewContext.classList.toggle("active",activeLeftView==="context");
+  viewScreen.classList.toggle("active",activeLeftView==="screen");
+  viewTerminal.classList.toggle("active",activeLeftView==="terminal");
+  leftPaneTitle.textContent=activeLeftView==="terminal"?"Run Log":activeLeftView==="screen"?"Screen":"Thread Context";
+  if(activeLeftView==="terminal")renderTerminal();
+  if(workspaceState.ready&&activeLeftView==="screen"&&previewEnabled&&!agentPageLeaving)startAgentStream();else if(agentStreamActive)stopAgentStream();
+}
+function applyAgentAuthority(){shotState.textContent="按需请求";setBadge(badgeAgent,"AGENT","SUPERVISED","ok")}
+preview.onload=()=>{nosignal.classList.add("hide");videoText.textContent="streaming"};
+preview.onerror=()=>{nosignal.classList.remove("hide");if(previewEnabled&&agentStreamActive&&!agentPageLeaving){videoText.textContent="stream reconnecting";startAgentStream(1000)}else videoText.textContent=agentPageLeaving?"leaving page":"preview off"};
+applyAgentAuthority();
+togglePreview.onchange=()=>setPreviewEnabled(togglePreview.checked);
+viewContext.onclick=()=>setLeftView("context");
+viewScreen.onclick=()=>setLeftView("screen");
+viewTerminal.onclick=()=>setLeftView("terminal");
+refreshShot.onclick=()=>{if(!previewEnabled)return;nosignal.classList.remove("hide");startAgentStream(0)};openKvm.onclick=()=>{stopAgentStream(true);location.href="/kvm"};document.addEventListener("exoanchor:navigate",()=>stopAgentStream(true));
+attachContext.onclick=()=>setLeftView("context");
+let agentProfiles=[];
+let agentSessions=[];
+let agentSessionsLoadError="";
+const provisionalAgentSessions=new Map();
+let activeSessionId=optionalSessionId(localStorage.getItem("ea_agent_session"));
+const AGENT_PROFILE_LABELS={deepseek:"DeepSeek",openai:"OpenAI",qwen:"阿里云百炼 Qwen",kimi:"Kimi K3",custom:"Custom"};
+const AGENT_MODEL_DEFAULTS={deepseek:"deepseek-v4-pro",openai:"gpt-4o",qwen:"qwen3-vl-flash",kimi:"kimi-k3",custom:"gpt-4o"};
+let agentModelRequestSeq=0;
+function agentModelStorageKey(profile){return `ea_agent_model_${String(profile||"deepseek").replace(/[^a-zA-Z0-9_-]/g,"")}`}
+function setAgentProfileOptions(active){const seen=new Set();agentProfile.innerHTML="";agentProfiles.forEach(p=>{if(!p||seen.has(p.id))return;seen.add(p.id);const opt=document.createElement("option");opt.value=p.id;opt.textContent=p.label||AGENT_PROFILE_LABELS[p.id]||p.id;agentProfile.appendChild(opt)});["deepseek","openai","qwen","kimi","custom"].forEach(id=>{if(seen.has(id))return;const opt=document.createElement("option");opt.value=id;opt.textContent=AGENT_PROFILE_LABELS[id]||id;agentProfile.appendChild(opt)});const requested=active||localStorage.getItem("ea_agent_profile")||"deepseek";agentProfile.value=Array.from(agentProfile.options).some(opt=>opt.value===requested)?requested:(agentProfile.options[0]?.value||"deepseek")}
+function configuredAgentModel(profile){const stored=localStorage.getItem(agentModelStorageKey(profile));const configured=agentProfiles.find(item=>item.id===profile)?.model;return stored||configured||AGENT_MODEL_DEFAULTS[profile]||"gpt-4o"}
+function setAgentModels(models,selected){const values=[...new Set((Array.isArray(models)?models:[]).map(value=>String(value||"").trim()).filter(Boolean))];const fallback=String(selected||"").trim();agentModel.innerHTML="";if(fallback&&!values.includes(fallback))values.unshift(fallback);if(!values.length)values.push("gpt-4o");values.forEach(id=>{const opt=document.createElement("option");opt.value=id;opt.textContent=id;agentModel.appendChild(opt)});agentModel.value=fallback&&values.includes(fallback)?fallback:values[0];agentModel.disabled=false;return agentModel.value}
+function setAgentModelFallback(profile){const selected=configuredAgentModel(profile);setAgentModels([],selected);agentModel.title="当前使用已保存的配置模型";return selected}
+async function refreshAgentModels(){const profile=agentProfile.value||localStorage.getItem("ea_agent_profile")||"deepseek";const requestSeq=++agentModelRequestSeq;const fallback=setAgentModelFallback(profile);refreshModels.disabled=true;refreshModels.textContent="Models...";try{const r=await API.get(`/api/settings/agent-api/models?profile=${encodeURIComponent(profile)}`);if(requestSeq!==agentModelRequestSeq||agentProfile.value!==profile)return null;const selected=localStorage.getItem(agentModelStorageKey(profile))||r.selected_model||fallback;setAgentModels(r.models||[],selected);agentModel.title=`${r.source||"configured"} · ${agentModel.options.length} models`;setBadge(badgeAgent,"AGENT","MODELS","ok");return r}catch(e){if(requestSeq===agentModelRequestSeq){setAgentModels([],fallback);agentModel.title=e.message||"模型列表不可用，使用配置模型";setBadge(badgeAgent,"AGENT","MODEL FALLBACK","warn")}return null}finally{if(requestSeq===agentModelRequestSeq){refreshModels.disabled=false;refreshModels.textContent="Models"}}}
+async function refreshAgentConfig(){try{const cfg=await API.get("/api/settings/agent-api");workspaceState.api=cfg;agentProfiles=Array.isArray(cfg.profiles)?cfg.profiles:[{id:cfg.active_profile||"deepseek",label:cfg.provider||"DeepSeek",provider:cfg.provider,endpoint:cfg.endpoint,model:cfg.model,api_key_configured:cfg.api_key_configured}];const savedProfile=localStorage.getItem("ea_agent_profile"),active=agentProfiles.some(item=>item.id===savedProfile)?savedProfile:(cfg.active_profile||agentProfiles[0]?.id||"deepseek");setAgentProfileOptions(active);const current=agentProfiles.find(p=>p.id===agentProfile.value)||agentProfiles[0]||{};setAgentModelFallback(agentProfile.value);setBadge(badgeAgent,"AGENT",current.api_key_configured||cfg.api_key_configured?"CONFIGURED":"NEEDS KEY",current.api_key_configured||cfg.api_key_configured?"":"warn");renderCapabilityRegistry();return cfg}catch(e){setAgentProfileOptions(localStorage.getItem("ea_agent_profile")||"deepseek");setAgentModelFallback(agentProfile.value);agentModel.title=e.message||"配置读取失败，使用默认模型";setBadge(badgeAgent,"AGENT","CONFIG UNKNOWN","warn");renderCapabilityRegistry();return null}}
+setAgentProfileOptions(localStorage.getItem("ea_agent_profile")||"deepseek");setAgentModelFallback(agentProfile.value);
+agentProfile.onchange=()=>{localStorage.setItem("ea_agent_profile",agentProfile.value);agentModelRequestSeq++;setAgentModelFallback(agentProfile.value)};
+agentModel.onchange=()=>{localStorage.setItem(agentModelStorageKey(agentProfile.value),agentModel.value);localStorage.setItem("ea_agent_model",agentModel.value)};
+refreshModels.onclick=()=>refreshAgentModels();
+function addBubble(kind,text){chatLog.classList.remove("blank");chatLog.querySelector(".new-thread-state")?.remove();if(activeSessionId)chatLog.dataset.sessionId=activeSessionId;const el=document.createElement("div");el.className=`bubble ${kind}`;el.textContent=text;chatLog.appendChild(el);chatLog.scrollTop=chatLog.scrollHeight;return el}
+function addRunBubble(text){chatLog.classList.remove("blank");chatLog.querySelector(".new-thread-state")?.remove();const el=document.createElement("div");el.className="bubble agent run-bubble agent-stream-turn";el.dataset.runBubble="1";el.innerHTML='<div class="agent-stream-head"><span class="agent-stream-dot" aria-hidden="true"></span><span class="agent-stream-label">正在处理</span><span class="agent-stream-elapsed"></span></div><div class="run-steps agent-stream-commentary" aria-live="polite"></div><div class="agent-stream-answer" aria-live="polite"></div>';chatLog.appendChild(el);appendRunStep(el,"info",text||"正在连接设备端任务");chatLog.scrollTop=chatLog.scrollHeight;return el}
+function runKindLabel(kind){const k=String(kind||"info");if(k==="cmd")return"执行";if(k==="ok")return"完成";if(k==="bad")return"问题";if(k==="warn")return"注意";if(k==="progress")return"等待";return"进展"}
+function runKindClass(kind){const k=String(kind||"info");return["cmd","ok","bad","warn","progress"].includes(k)?k:"info"}
+function runVisibleEvent(kind,text){const s=String(text||"").trim();if(!s)return"";if(/tool\[\d+\] output ·/.test(s))return"";if(s.length>260)return compactTerminalText(s,260);return s}
+function appendRunStep(el,kind,text){if(!el||!el.dataset?.runBubble)return;const visible=runVisibleEvent(kind,text);if(!visible)return;const list=el.querySelector(".run-steps");if(!list)return;const previous=list.lastElementChild;if(previous?.textContent===visible)return;const row=document.createElement("div");row.className=`run-step ${runKindClass(kind)}`;row.textContent=visible;list.appendChild(row);while(list.children.length>8)list.removeChild(list.firstElementChild);chatLog.scrollTop=chatLog.scrollHeight}
+function updateRunBubble(el,status,ctx){if(!el||!el.isConnected||!el.dataset?.runBubble)return;const stage=status?.stage||status?.state||"运行中";const label=el.querySelector(".agent-stream-label");const elapsed=el.querySelector(".agent-stream-elapsed");const failed=["failed","aborted"].includes(status?.state),paused=status?.state==="paused",done=status?.state==="done";el.classList.toggle("done",done&&!failed);el.classList.toggle("failed",failed);el.classList.toggle("paused",paused);if(label)label.textContent=status?.cancel_requested?"正在停止":failed?"任务结束，需要检查":paused?"已暂停":done?"已完成":stage;if(elapsed)elapsed.textContent=done||failed?"":formatRunElapsed(status?.elapsed_ms||0)}
+function streamTextInto(node,text){const value=String(text||"");if(!node)return Promise.resolve();if(document.hidden||matchMedia("(prefers-reduced-motion: reduce)").matches||value.length<2){node.textContent=value;return Promise.resolve()}node.textContent="";node.classList.add("streaming");let offset=0;return new Promise(resolve=>{const step=()=>{const remaining=value.length-offset;const size=remaining>240?6:remaining>80?3:1;node.textContent+=value.slice(offset,offset+size);offset+=size;chatLog.scrollTop=chatLog.scrollHeight;if(offset<value.length){requestAnimationFrame(step)}else{node.classList.remove("streaming");resolve()}};requestAnimationFrame(step)})}
+async function finishRunBubble(el,ok,text){if(!el||!el.dataset?.runBubble)return;el.classList.toggle("done",!!ok);el.classList.toggle("failed",!ok);el.classList.remove("paused");const label=el.querySelector(".agent-stream-label");const elapsed=el.querySelector(".agent-stream-elapsed");if(label)label.textContent=ok?"已完成":"任务结束，需要检查";if(elapsed)elapsed.textContent="";await streamTextInto(el.querySelector(".agent-stream-answer"),text)}
+function safeSessionId(id){return String(id||"default").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,24)||"default"}
+function optionalSessionId(id){const raw=String(id||"").trim();return raw?safeSessionId(raw):""}
+function setActiveSession(id){activeSessionId=optionalSessionId(id);if(activeSessionId)localStorage.setItem("ea_agent_session",activeSessionId);else localStorage.removeItem("ea_agent_session");return activeSessionId}
+function agentSessionId(session){return optionalSessionId(session?.session_id||session?.id)}
+function agentHistoryPersistenceState(run={}){if(run.history_saved===true)return"saved";if(run.history_pending===true||run.history?.pending===true)return"pending";if(run.history_saved===false)return"unsaved";return"pending"}
+function agentHistoryStateLabel(state){if(state==="unsaved")return"未保存";if(state==="saved")return"已保存，列表同步中";return"保存中"}
+function ensureProvisionalAgentSession(id,title=""){
+  const sessionId=optionalSessionId(id);
+  if(!sessionId)return null;
+  let draft=provisionalAgentSessions.get(sessionId);
+  if(draft)return draft;
+  const existing=agentSessions.find(item=>agentSessionId(item)===sessionId);
+  draft={
+    id:sessionId,
+    session_id:sessionId,
+    title:title||existing?.title||"当前会话",
+    message_count:Number(existing?.message_count||0),
+    base_message_count:Number(existing?.message_count||0),
+    provisional:true,
+    history_state:"pending",
+    history_confirmed:false,
+    history_error:"",
+    server_present:!!existing&&!existing.provisional,
+    turns:[]
+  };
+  provisionalAgentSessions.set(sessionId,draft);
+  return draft;
+}
+function rememberProvisionalAgentTurn(id,role,text){
+  const content=String(text||"").trim();
+  const draft=ensureProvisionalAgentSession(id);
+  if(!draft||!content)return draft;
+  draft.turns.push({role,content});
+  draft.message_count=Number(draft.base_message_count||0)+draft.turns.length;
+  return draft;
+}
+function setProvisionalAgentHistoryState(id,state,error=""){
+  const draft=ensureProvisionalAgentSession(id);
+  if(!draft)return null;
+  const next=["pending","saved","unsaved"].includes(state)?state:"pending";
+  const keepUnsaved=draft.history_confirmed&&draft.history_state==="unsaved"&&next!=="unsaved";
+  const keepPending=draft.history_confirmed&&draft.history_state==="pending"&&next==="saved";
+  if(!keepUnsaved&&!keepPending){draft.history_state=next;draft.history_error=String(error||"").trim()}
+  draft.history_confirmed=true;
+  return draft;
+}
+function projectAgentSessions(remoteSessions,authoritative=false){
+  const projected=(Array.isArray(remoteSessions)?remoteSessions:[]).map(item=>Object.assign({},item));
+  for(const [id,draft] of provisionalAgentSessions){
+    const index=projected.findIndex(item=>agentSessionId(item)===id);
+    const remoteCount=index>=0?Number(projected[index]?.message_count||0):0;
+    const remoteCaughtUp=remoteCount>=Number(draft.message_count||0);
+    if(authoritative&&index>=0&&draft.history_state!=="unsaved"&&remoteCaughtUp){
+      provisionalAgentSessions.delete(id);
+      continue;
+    }
+    const remote=index>=0?projected[index]:null;
+    if(remote)draft.server_present=true;
+    const local=Object.assign({},remote||{},draft,{
+      id,
+      session_id:id,
+      title:remote?.title||draft.title||"当前会话",
+      message_count:Math.max(Number(remote?.message_count||0),Number(draft.message_count||0)),
+      provisional:true,
+      server_present:!!draft.server_present
+    });
+    if(index>=0)projected[index]=local;else projected.unshift(local);
+  }
+  return projected;
+}
+function agentSessionListEmptyState(){
+  if(agentSessionsLoadError)return{title:"会话列表读取失败",copy:agentSessionsLoadError,error:true};
+  if(agentSessions.length)return{title:"没有匹配的 Thread",copy:"尝试其他关键词",error:false};
+  return{title:"还没有对话",copy:"发送第一条消息后自动创建",error:false};
+}
+function agentHistoryNoticeText(session){
+  if(!session?.provisional)return"";
+  const error=session.history_error?` 原因：${session.history_error}`:"";
+  if(session.history_state==="unsaved")return`未保存：本次对话仅保留在当前页面，刷新页面后可能丢失。${error}`;
+  if(session.history_state==="saved")return"对话已保存，正在同步设备会话列表；当前页面会继续保留本轮内容。";
+  return"保存中：设备仍在后台写入对话记录；当前页面会继续保留本轮内容。";
+}
+function showAgentHistoryNotice(id){
+  if(activeSessionId!==optionalSessionId(id))return;
+  const draft=provisionalAgentSessions.get(activeSessionId);
+  const text=agentHistoryNoticeText(draft);
+  let notice=chatLog.querySelector(".history-save-notice");
+  if(!text){notice?.remove();return}
+  if(!notice){notice=addBubble("system",text);notice.classList.add("history-save-notice")}else{notice.textContent=text;chatLog.appendChild(notice)}
+  notice.classList.toggle("unsaved",draft.history_state==="unsaved");
+  chatLog.scrollTop=chatLog.scrollHeight;
+}
+function terminalSessionId(id){const value=id===undefined?activeSessionId:id;return optionalSessionId(value)||"__draft"}
+const terminalLogs={};
+let terminalFollowTail=true;
+let terminalRenderedSession="";
+function terminalTime(){return new Date().toLocaleTimeString("zh-CN",{hour12:false})}
+function terminalStorageKey(id){return `ea_agent_terminal_${terminalSessionId(id)}`}
+function terminalBuffer(sessionId){const id=terminalSessionId(sessionId);if(!terminalLogs[id]){if(id==="__draft"){terminalLogs[id]=[]}else{try{const saved=JSON.parse(localStorage.getItem(terminalStorageKey(id))||"[]");terminalLogs[id]=Array.isArray(saved)?saved.slice(-240):[]}catch(e){terminalLogs[id]=[]}}}return terminalLogs[id]}
+function persistTerminalBuffer(sessionId){const id=terminalSessionId(sessionId);if(id==="__draft")return;try{localStorage.setItem(terminalStorageKey(id),JSON.stringify(terminalBuffer(id).slice(-240)))}catch(e){}}
+function appendTerminalDom(line){const row=document.createElement("div");row.className=`term-line term-${line.kind||"info"}`;const time=document.createElement("span");time.className="term-time";time.textContent=line.time||terminalTime();const body=document.createElement("span");body.className="term-body";const text=document.createElement("span");text.textContent=line.text||"";body.appendChild(text);if(line.progress_active===true){const bar=document.createElement("span");bar.className="log-progress";body.appendChild(bar)}row.appendChild(time);row.appendChild(body);agentTerminal.appendChild(row)}
+function terminalNearBottom(){return agentTerminal.scrollHeight-agentTerminal.scrollTop-agentTerminal.clientHeight<=36}
+function renderTerminal(forceBottom=false){const sessionId=terminalSessionId(activeSessionId);const sessionChanged=terminalRenderedSession!==sessionId;const previousTop=agentTerminal.scrollTop;const followTail=forceBottom||sessionChanged||terminalFollowTail||!agentTerminal.childElementCount;agentTerminal.innerHTML="";const lines=terminalBuffer(sessionId);if(!lines.length)lines.push({kind:"info",time:terminalTime(),text:sessionId==="__draft"?"发送第一条消息后创建 Thread":"执行日志就绪，等待 Agent run"});lines.forEach(appendTerminalDom);terminalRenderedSession=sessionId;if(followTail){agentTerminal.scrollTop=agentTerminal.scrollHeight;terminalFollowTail=true}else{agentTerminal.scrollTop=previousTop}}
+agentTerminal.addEventListener("scroll",()=>{terminalFollowTail=terminalNearBottom()},{passive:true});
+function terminalProgressKey(text){const match=String(text||"").match(/^tool\[(\d+)\]/);return match?`tool:${match[1]}`:""}
+function terminalProgressIsRunning(kind,text){return kind==="progress"&&/^tool\[\d+\]\s+.*\brunning\b/.test(String(text||""))}
+function settleTerminalProgress(sessionId,progressKey=""){const id=terminalSessionId(sessionId);const lines=terminalBuffer(id);let changed=false;lines.forEach(line=>{if(line.progress_active===true&&(!progressKey||line.progress_key===progressKey)){line.progress_active=false;changed=true}});if(changed){persistTerminalBuffer(id);if(id===terminalSessionId(activeSessionId))renderTerminal()}return changed}
+function terminalLine(kind,text,sessionId){const id=terminalSessionId(sessionId);const lines=terminalBuffer(id);const eventKind=kind||"info";const eventText=String(text||"");const progressKey=terminalProgressKey(eventText);const progressActive=terminalProgressIsRunning(eventKind,eventText);if(progressKey&&(progressActive||eventKind==="ok"||eventKind==="bad")){lines.forEach(line=>{if(line.progress_active===true&&line.progress_key===progressKey)line.progress_active=false})}const line={kind:eventKind,time:terminalTime(),text:eventText};if(progressActive){line.progress_active=true;line.progress_key=progressKey}lines.push(line);while(lines.length>240)lines.shift();persistTerminalBuffer(id);if(id===terminalSessionId(activeSessionId))renderTerminal()}
+function compactTerminalText(text,max=180){const s=String(text||"").replace(/\s+/g," ").trim();return s.length>max?s.slice(0,max-1)+"...":s}
+function formatRunElapsed(ms){const s=Math.max(0,Math.floor(Number(ms||0)/1000));return s<60?`${s}s`:`${Math.floor(s/60)}m ${String(s%60).padStart(2,"0")}s`}
+function runModeText(dryRun,screenshot){return `${dryRun?"dry-run":"execute"} · screenshot=${screenshot?"on":"off"}`}
+function startRunProgress({pending,sessionId,profile,model,dryRun,screenshot,userText}){
+  const started=Date.now();
+  const marks=[5,10,20,30,45,60,90,120,180];
+  let markIndex=0;
+  let stage="准备请求";
+  let detail="正在收集会话、模型和本地开关状态";
+  const safeProfile=profile||"-",safeModel=model||"(default)";
+  const render=()=>{
+    const elapsed=Date.now()-started;
+    if(pending&&pending.isConnected){
+      pending.textContent=[
+    "ESP32 Agent 正在运行...",
+        `阶段: ${stage}`,
+        `已等待: ${formatRunElapsed(elapsed)}`,
+        `Profile: ${safeProfile}`,
+        `Model: ${safeModel}`,
+        `模式: ${runModeText(dryRun,screenshot)}`,
+        `输入: ${compactTerminalText(userText,120)}`,
+        detail?`详情: ${detail}`:""
+      ].filter(Boolean).join("\n");
+    }
+    const seconds=Math.floor(elapsed/1000);
+    while(markIndex<marks.length&&seconds>=marks[markIndex]){
+      const kind=seconds>=45?"warn":"info";
+      terminalLine(kind,`still running · ${stage} · elapsed=${formatRunElapsed(elapsed)}`,sessionId);
+      markIndex++;
+    }
+  };
+  const timer=UI.lifecycle.interval(render,1000);
+  render();
+  return {
+    set(nextStage,nextDetail){stage=nextStage||stage;detail=nextDetail||"";terminalLine("info",`stage: ${stage}${detail?` · ${detail}`:""}`,sessionId);render()},
+    stop(finalStage){if(finalStage){stage=finalStage;detail="";render()}UI.lifecycle.clearTimer(timer)}
+  };
+}
+function describeAction(action,index){const a=action||{};const type=String(a.type||a.action||a.tool||"action");const parts=[`action[${index}]`,type];if(a.key||a.keys)parts.push(`keys=${a.keys||a.key}`);if(a.text)parts.push(`text=${compactTerminalText(a.text,60)}`);if(Number.isFinite(Number(a.x))&&Number.isFinite(Number(a.y)))parts.push(`xy=${Number(a.x)},${Number(a.y)}`);if(a.button)parts.push(`button=${a.button}`);return parts.join(" ")}
+function toolArgs(call){return call?.args||call?.arguments||call?.input||call?.parameters||call||{}}
+function toolCommand(call){const a=toolArgs(call);return a.command||a.cmd||a.input||call?.command||call?.cmd||""}
+function describeToolCall(call,index){const tool=call?.tool||call?.name||call?.type||call?.action||"tool";const command=toolCommand(call);return `tool[${index}] ${tool}${command?` $ ${compactTerminalText(command,140)}`:""}`}
+function compactToolOutput(text,max=1200){const s=String(text||"").replace(/\r/g,"").trim();return s.length>max?s.slice(0,max-1)+"...":s}
+function describeToolResult(result,index){const r=result||{};const target=r.host?`${r.username||"-"}@${r.host}:${r.port||22}`:"target=-";const status=r.dry_run?"dry-run":`exit=${Number.isFinite(Number(r.exit_status))?r.exit_status:"?"}`;return `tool_result[${index}] ${r.tool||"tool"} ${r.ok?"ok":"failed"} · ${target} · ${status}${r.elapsed_ms?` · ${r.elapsed_ms}ms`:""}${r.error?` · ${r.error}`:""}`}
+function logRunResult(run,model,profile,sessionId){
+  const ok=!!run.ok;
+  const toolResults=Array.isArray(run.tool_results)?run.tool_results:[];
+  const toolFailed=toolResults.some(r=>!r.ok);
+  const statusText=ok?"ok":(toolFailed?"tool failed":"failed");
+  terminalLine(ok?"ok":"bad",`agent run ${statusText} · cloud=${run.cloud_status??"-"} · profile=${run.profile||profile||"-"} · model=${run.model||model||"-"}`,sessionId);
+  if(run.message)terminalLine("info",`assistant: ${compactTerminalText(run.message,260)}`,sessionId);
+  const trace=Array.isArray(run.trace)?run.trace:[];
+  trace.slice(0,10).forEach((t,i)=>terminalLine("info",`trace[${i+1}] ${compactTerminalText(typeof t==="string"?t:JSON.stringify(t),220)}`,sessionId));
+  if(trace.length>10)terminalLine("warn",`trace list truncated · total=${trace.length}`,sessionId);
+  if(run.screenshot?.error)terminalLine("warn",`screenshot: ${run.screenshot.error}`,sessionId);
+  else if(run.screenshot?.included)terminalLine("info","screenshot attached",sessionId);
+  const toolCalls=Array.isArray(run.tool_calls)?run.tool_calls:[];
+  toolCalls.slice(0,8).forEach((c,i)=>terminalLine("cmd",describeToolCall(c,i+1),sessionId));
+  if(toolCalls.length>8)terminalLine("warn",`tool call list truncated · total=${toolCalls.length}`,sessionId);
+  toolResults.slice(0,8).forEach((r,i)=>{
+    terminalLine(r.ok?"ok":"bad",describeToolResult(r,i+1),sessionId);
+    if(r.output)terminalLine("info",compactToolOutput(r.output),sessionId);
+  });
+  const actions=Array.isArray(run.actions)?run.actions:[];
+  actions.slice(0,12).forEach((a,i)=>terminalLine("cmd",describeAction(a,i+1),sessionId));
+  if(actions.length>12)terminalLine("warn",`action list truncated · total=${actions.length}`,sessionId);
+  terminalLine(run.dry_run?"warn":"ok",`${run.dry_run?"dry-run":"executed"} · tools=${toolCalls.length}/${Number(run.tool_executed||0)} · hid=${actions.length}/${Number((run.hid_executed??run.executed)||0)}`,sessionId);
+  if(run.history_pending===true||run.history?.pending===true){
+    terminalLine("warn","对话记录仍在后台保存",sessionId);
+  }else if(run.history_saved===false){
+    const h=run.history||{};
+    const detail=h.error?`: ${h.error}`:"";
+    terminalLine("warn",`对话记录保存失败${detail}`,sessionId);
+  }
+  if(!ok&&run.error)terminalLine("bad",run.error,sessionId);
+}
+updatePreviewButton();setLeftView(activeLeftView);
+let agentWebSearchSettings={enabled:false,profile:"qwen",endpoint:"",model:"qwen-plus",strategy:"agent",available:false};
+const AGENT_KVM_PERMISSION_KEY="ea_agent_allow_kvm";
+const AGENT_WEB_PERMISSION_KEY="ea_agent_allow_web_search";
+function agentToolAvailable(name){
+  const catalog=workspaceState.capabilities?.agent_tools?.tools;
+  if(!Array.isArray(catalog))return false;
+  const tool=catalog.find(item=>item.name===name);
+  return !!tool&&tool.implemented!==false&&tool.available!==false&&tool.agent_callable!==false&&tool.agent_enabled!==false;
+}
+function updateAgentManualPermissions(){
+  const recoveryCandidate=workspaceState.run?.admission_scope==="full_cap_browser_only";
+  const kvmAvailable=!recoveryCandidate&&agentToolAvailable("observe_screenshot");
+  const webAvailable=agentToolAvailable("web_search")&&!!agentWebSearchSettings.enabled&&!!agentWebSearchSettings.available;
+  agentKvmPermission.disabled=!kvmAvailable;
+  agentWebPermission.disabled=!webAvailable;
+  agentKvmPermission.checked=kvmAvailable&&localStorage.getItem(AGENT_KVM_PERMISSION_KEY)==="1";
+  agentWebPermission.checked=webAvailable&&localStorage.getItem(AGENT_WEB_PERMISSION_KEY)==="1";
+  agentKvmPermissionText.textContent=kvmAvailable?(agentKvmPermission.checked?"开启":"关闭"):"不可用";
+  agentWebPermissionText.textContent=webAvailable?(agentWebPermission.checked?"开启":"关闭"):"不可用";
+}
+function applyAgentWebSearchSwitch(ws={}){
+  agentWebSearchSettings=Object.assign({},agentWebSearchSettings,ws||{});
+  updateAgentManualPermissions();
+}
+async function loadAgentToolSettings(){
+  try{
+    const cfg=await API.get("/api/settings/agent-tools");
+    workspaceState.toolSettings=cfg;
+    applyAgentWebSearchSwitch(cfg.web_search||{});
+    renderCapabilityRegistry();
+    return cfg;
+  }catch(e){
+    applyAgentWebSearchSwitch({enabled:false,available:false});
+    terminalLine("warn",`联网搜索设置暂不可用: ${e.message||e}`,activeSessionId);
+    return null;
+  }
+}
+function renderSessions(){
+  sessionList.innerHTML="";
+  const query=threadSearch.value.trim().toLowerCase();
+  let visible=0;
+  if(agentSessionsLoadError){
+    const error=document.createElement("div");
+    error.className="list-row session-list-error";
+    const copy=document.createElement("span");
+    const title=document.createElement("b");
+    const detail=document.createElement("small");
+    title.textContent="会话列表读取失败";
+    detail.textContent=agentSessionsLoadError;
+    copy.appendChild(title);copy.appendChild(detail);error.appendChild(copy);sessionList.appendChild(error);
+  }
+  agentSessions.forEach(s=>{
+    const id=s.session_id||s.id||"default",title=s.title||"新会话";
+    if(query&&!`${title} ${id}`.toLowerCase().includes(query))return;
+    visible++;
+    const wrap=document.createElement("div");
+    wrap.className="session-entry";
+    const btn=document.createElement("button");
+    btn.type="button";
+    const historyState=s.provisional?(s.history_state||"pending"):"";
+    btn.className=`session-item ${id===activeSessionId?"active":""} ${historyState?`history-${historyState}${historyState==="saved"?"-waiting":""}`:""}`.trim();
+    btn.innerHTML=`<span class="session-title"></span><span class="session-meta"></span>`;
+    btn.querySelector(".session-title").textContent=title;
+    btn.querySelector(".session-meta").textContent=`${Number(s.message_count||0)} msgs${historyState?` · ${agentHistoryStateLabel(historyState)}`:""}`;
+    btn.onclick=()=>switchSession(id);
+    wrap.appendChild(btn);
+    const del=document.createElement("button");
+    del.type="button";
+    del.className="session-delete";
+    del.title="删除会话";
+    del.setAttribute("aria-label",`删除会话：${title}`);
+    del.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    del.onclick=e=>{e.stopPropagation();deleteSession(id)};
+    wrap.appendChild(del);
+    sessionList.appendChild(wrap);
+  });
+  if(!visible&&!agentSessionsLoadError){const state=agentSessionListEmptyState();const empty=document.createElement("div");empty.className="list-row";empty.innerHTML=`<span><b>${state.title}</b><small>${state.copy}</small></span>`;sessionList.appendChild(empty)}
+  const active=agentSessions.find(s=>(s.session_id||s.id)===activeSessionId);
+  activeThreadTitle.textContent=active?.title||(activeSessionId?"当前会话":"新对话");
+  activeThreadMeta.textContent=activeSessionId?`${Number(active?.message_count||0)} MSGS${active?.provisional?` · ${agentHistoryStateLabel(active.history_state||"pending")}`:""}`:"DRAFT";
+  renderDashboardThreads();
+}
+threadSearch.addEventListener("input",renderSessions);
+function renderBlankThread(){chatLog.className="chat blank";delete chatLog.dataset.sessionId;chatLog.innerHTML='<div class="new-thread-state"><div class="new-thread-mark" aria-hidden="true"><img src="/assets/exoanchor-ui-mark.svg" alt=""></div><h2>开始新对话</h2><p>描述你希望设备检查、规划或执行的任务。发送第一条消息时才会创建 Thread。</p><div class="new-thread-suggestions"><span>检查系统状态</span><span>规划安装任务</span><span>分析当前画面</span></div></div>';activeThreadTitle.textContent="新对话";activeThreadMeta.textContent="DRAFT"}
+async function loadAgentSessions(){
+  try{
+    const r=await API.get("/api/agent/sessions");
+    agentSessionsLoadError=r.supported===false?String(r.error||r.status||"设备历史存储当前不可用"):"";
+    agentSessions=projectAgentSessions(Array.isArray(r.sessions)?r.sessions:[],true);
+    if(activeSessionId&&!agentSessions.some(item=>agentSessionId(item)===activeSessionId)){
+      const retained=ensureProvisionalAgentSession(activeSessionId,"当前 RAM 会话");
+      retained.history_state=r.supported===false?"unsaved":retained.history_state;
+      if(r.supported===false&&!retained.history_error)retained.history_error=r.error||"设备历史存储当前不可用";
+      agentSessions=projectAgentSessions(agentSessions);
+    }
+    renderSessions();
+    if(chatLog.dataset.sessionId===activeSessionId)showAgentHistoryNotice(activeSessionId);
+    if(!activeSessionId)renderBlankThread();
+    return r;
+  }catch(e){
+    agentSessionsLoadError=String(e?.message||e||"unknown error");
+    agentSessions=projectAgentSessions(agentSessions);
+    renderSessions();
+    if(chatLog.dataset.sessionId===activeSessionId)showAgentHistoryNotice(activeSessionId);
+    if(!activeSessionId)renderBlankThread();
+    return null;
+  }
+}
+async function switchSession(id){setActiveSession(id);renderSessions();renderTerminal(true);await loadAgentHistory()}
+function createSession(){threadSearch.value="";promptBox.value="";setActiveSession("");terminalLogs.__draft=[];renderSessions();renderBlankThread();renderTerminal(true);promptBox.focus()}
+function sessionTitleFromPrompt(text){const compact=String(text||"").replace(/\s+/g," ").trim();return compact.slice(0,32)||"新对话"}
+function newSessionId(){const random=globalThis.crypto?.randomUUID?.().replaceAll("-","").slice(0,16)||(Date.now().toString(16)+Math.random().toString(16).slice(2)).slice(0,16);return optionalSessionId("s"+random)}
+function materializeSession(text){const id=newSessionId();if(!id)throw new Error("无法生成有效的 Thread ID");setActiveSession(id);chatLog.className="chat";chatLog.innerHTML="";terminalLogs.__draft=[];ensureProvisionalAgentSession(id,sessionTitleFromPrompt(text));agentSessions=projectAgentSessions(agentSessions);renderSessions();renderTerminal(true);return id}
+async function deleteSession(id){if(!(await UI.confirmAction({title:"删除 Agent 会话？",message:"该 Thread 将从设备会话列表移除。删除后可以保留空白工作区，发送消息时再创建新对话。",confirmLabel:"删除"})))return;try{const deletingActive=id===activeSessionId;const draft=provisionalAgentSessions.get(id);const localOnly=!!draft&&!draft.server_present;if(!localOnly)await API.post("/api/agent/sessions/delete",{session_id:id});provisionalAgentSessions.delete(id);agentSessions=agentSessions.filter(item=>agentSessionId(item)!==id);delete terminalLogs[id];localStorage.removeItem(terminalStorageKey(id));if(deletingActive)setActiveSession("");if(!localOnly)await loadAgentSessions();else renderSessions();if(deletingActive){terminalLogs.__draft=[];renderBlankThread();renderTerminal(true);promptBox.focus()}}catch(e){addBubble("system",e.message||"删除会话失败")}}
+function clearLocalAgentConversationState(){
+  Object.keys(localStorage).filter(key=>key.startsWith("ea_agent_terminal_")).forEach(key=>localStorage.removeItem(key));
+  localStorage.removeItem("ea_agent_session");
+  localStorage.removeItem("ea_assistant_last_job");
+  localStorage.setItem("ea_agent_data_clear_generation",String(Date.now()));
+  Object.keys(terminalLogs).forEach(key=>delete terminalLogs[key]);
+  terminalLogs.__draft=[];
+  setActiveSession("");
+  agentSessions=[];
+  agentSessionsLoadError="";
+  provisionalAgentSessions.clear();
+  workspaceState.memory=null;
+  workspaceState.run=null;
+  workspaceState.requestQueue=null;
+  deviceAgentLastMarker="";
+  document.dispatchEvent(new CustomEvent("exoanchor:agent-data-cleared"));
+}
+async function clearAllAgentData(){
+  if(activeAgentJob){addBubble("system","请先停止当前 Agent 任务，再清空所有对话和记忆。");return}
+  if(!(await UI.confirmAction({title:"永久清空所有 Agent 数据？",message:"设备上的全部 Thread、对话消息、Run 审计记录和持久记忆都会被删除。API、SSH、工具策略和设备设置不会改变。此操作不能撤销。",confirmLabel:"永久清空"})))return;
+  clearAgentDataButton.disabled=true;
+  clearAgentDataButton.textContent="Clearing";
+  try{
+    const result=await API.post("/api/agent/data/clear",{confirm:"DELETE_ALL_AGENT_DATA"});
+    if(!result.ok||!result.history_cleared||!result.memory_cleared)throw new Error(result.status||"设备没有确认完整清理");
+    clearLocalAgentConversationState();
+    renderSessions();
+    renderBlankThread();
+    renderTerminal(true);
+    renderWorkspaceMemory();
+    renderWorkspaceRun({});
+    await Promise.all([loadAgentSessions(),loadWorkspaceData()]);
+    promptBox.focus();
+  }catch(e){
+    addBubble("system",`清空失败：${e.message||e}`);
+  }finally{
+    clearAgentDataButton.disabled=false;
+    clearAgentDataButton.textContent="Clear all";
+  }
+}
+function cleanAgentText(text){return String(text||"").split("\n").filter(line=>!/^(dry-run|executed) · actions=\d+ · hid=\d+$/.test(line.trim())).join("\n").trim()}
+function summarizeRun(run){const actions=Array.isArray(run.actions)?run.actions:[];const toolCalls=Array.isArray(run.tool_calls)?run.tool_calls:[];const toolResults=Array.isArray(run.tool_results)?run.tool_results:[];const lines=[];const report=run.final_report&&typeof run.final_report==="object"?run.final_report:null;const message=(report?.message||run.message||"").trim();if(message)lines.push(message);if(report&&Array.isArray(report.next_steps)&&report.next_steps.length)lines.push("下一步："+report.next_steps.filter(Boolean).slice(0,3).join("；"));const toolFailed=toolResults.some(r=>!r.ok);const hasToolStatus=toolCalls.length>0||toolResults.length>0||actions.length>0||Number(run.tool_executed||0)>0||Number(run.executed||0)>0;if(hasToolStatus&&!message){lines.push(`${run.dry_run?"dry-run":"executed"} · tools=${toolCalls.length}/${Number(run.tool_executed||0)} · hid=${actions.length}/${Number((run.hid_executed??run.executed)||0)}`)}else if(hasToolStatus&&toolFailed){lines.push(`工具执行存在失败项，完整输出见左侧执行日志。`)}if(run.screenshot?.error)lines.push(`snapshot: ${run.screenshot.error}`);if(!run.ok&&run.error)lines.push(run.error);return lines.join("\n")||"没有收到可显示的回复。"}
+function renderHistoryRecord(record){const role=String(record?.role||record?.kind||"system").toLowerCase();const kind=role==="user"?"user":(role==="agent"||role==="assistant")?"agent":"system";let text=record?.content||record?.text||record?.message||"";if(!text){try{text=JSON.stringify(record)}catch(e){text=""}}if(kind==="agent")text=cleanAgentText(text);if(text)addBubble(kind,text)}
+function agentHistoryRecordRole(record){const role=String(record?.role||record?.kind||"system").toLowerCase();return role==="agent"?"assistant":role}
+function agentHistoryRecordContent(record){return String(record?.content||record?.text||record?.message||"").trim()}
+function projectAgentHistory(records,draft){
+  const projected=Array.isArray(records)?records.slice():[];
+  if(!draft||!Array.isArray(draft.turns)||!draft.turns.length)return projected;
+  const available=new Map();
+  projected.forEach(record=>{const key=`${agentHistoryRecordRole(record)}\u0000${agentHistoryRecordContent(record)}`;available.set(key,(available.get(key)||0)+1)});
+  draft.turns.forEach(turn=>{const key=`${agentHistoryRecordRole(turn)}\u0000${agentHistoryRecordContent(turn)}`;const count=available.get(key)||0;if(count>0)available.set(key,count-1);else projected.push(turn)});
+  return projected;
+}
+async function loadAgentHistory(){
+  if(!activeSessionId){renderBlankThread();return null}
+  const sessionId=activeSessionId;
+  try{
+    const h=await API.get(`/api/agent/history?session_id=${encodeURIComponent(sessionId)}`);
+    if(activeSessionId!==sessionId)return h;
+    const records=projectAgentHistory(Array.isArray(h.records)?h.records:[],provisionalAgentSessions.get(sessionId));
+    chatLog.className="chat";chatLog.dataset.sessionId=sessionId;chatLog.innerHTML="";
+    records.forEach(renderHistoryRecord);
+    if(!records.length)addBubble("system","此会话还没有消息。");
+    showAgentHistoryNotice(sessionId);
+    setBadge(badgeAgent,"AGENT",h.supported?"IDLE":"LIMITED",h.supported?"":"warn");
+    if(!h.supported&&h.error)terminalLine("warn",`历史记录暂不可用: ${h.error}`,sessionId);
+    return h;
+  }catch(e){
+    if(activeSessionId!==sessionId)return null;
+    const reason=String(e?.message||e||"unknown");
+    if(chatLog.dataset.sessionId!==sessionId){
+      chatLog.className="chat";chatLog.dataset.sessionId=sessionId;chatLog.innerHTML="";
+      projectAgentHistory([],provisionalAgentSessions.get(sessionId)).forEach(renderHistoryRecord);
+    }
+    let notice=chatLog.querySelector(".history-read-error");
+    if(!notice){notice=addBubble("system","");notice.classList.add("history-read-error")}
+    notice.textContent=`历史记录暂不可用：${reason}。当前页面中的对话未被清除。`;
+    showAgentHistoryNotice(sessionId);
+    terminalLine("warn",`历史记录暂不可用: ${reason}`,sessionId);
+    return null;
+  }
+}
+let activeAgentJob=null;
+let activeAgentPoll=null;
+let activeAgentPollBusy=false;
+let activeAgentPending=null;
+let activeAgentContext=null;
+let activeAgentLastStage="";
+let activeAgentLastEventSeq=0;
+let activeAgentHeartbeats=new Set();
+const AGENT_RUN_HEARTBEATS=[5,10,20,30,45,60,90,120,180,240,300];
+async function postAgentRun(payload){return API.durablePost("/api/agent/run",payload)}
+async function getAgentRunStatus(){const status=await API.getShared("/api/agent/run/status",{timeoutMs:5000});if(status?.state==="unavailable")throw new Error("agent run snapshot temporarily unavailable");return status}
+async function getAgentRunEvents(jobId,afterSeq=0){return API.get(`/api/agent/run/events?job_id=${encodeURIComponent(jobId||"")}&after_seq=${Number(afterSeq)||0}`,{timeoutMs:5000})}
+async function controlAgentRun(action){const routes={pause:"/api/agent/run/pause",resume:"/api/agent/run/resume",abort:"/api/agent/run/abort"};if(!routes[action])throw new Error("invalid run control");if(!activeAgentJob)throw new Error("no exact run selected");return API.post(routes[action],{run_id:activeAgentJob})}
+async function loadHostDisplayPlan(){const status=await API.getShared("/api/host/display",{timeoutMs:5000});renderHostDisplayPlan(status);return status}
+async function loadBootKeyPlan(){const status=await API.getShared("/api/host/boot-key",{timeoutMs:5000});renderBootKeyPlan(status);return status}
+async function refreshAgentRequestQueue(){const queue=await API.getShared("/api/agent/requests",{timeoutMs:5000});renderAgentRequestQueue(queue);return queue}
+async function resolveAgentRequest(approved,responseInput=agentRequestResponse){
+  const requestItems=Array.isArray(workspaceState.requestQueue?.items)?workspaceState.requestQueue.items:[];
+  const request=requestItems.find(item=>item?.status==="waiting_user")||workspaceState.run?.request;
+  if(!request||request.status!=="waiting_user")return;
+  const asksAnswer=request.kind==="context"&&request.resource==="ask_user";
+  const response=asksAnswer?String(responseInput?.value||"").trim():"";
+  if(approved&&asksAnswer&&!response){responseInput?.focus();return}
+  if(approved&&!asksAnswer&&!(await UI.confirmAction({title:"允许这一次 Agent 请求？",message:`${request.resource}\n风险：${request.risk}\n原因：${request.reason}\n参数 hash：${request.argument_hash}\n\n授权仅绑定当前 request ID，参数变化或过期后自动失效。`,confirmLabel:"允许一次"})))return;
+  const endpoint=approved?"/api/agent/requests/decision":"/api/agent/requests/cancel";
+  const payload=approved?{request_id:request.request_id,decision:"allow_once",...(response?{response}:{})}:{request_id:request.request_id};
+  agentRequestApprove.disabled=true;agentRequestCancel.disabled=true;threadAgentRequestApprove.disabled=true;threadAgentRequestCancel.disabled=true;
+  try{
+    const updated=await API.durablePost(endpoint,payload);
+    renderAgentRequestQueue({items:[updated],pending_count:0});
+    document.dispatchEvent(new CustomEvent("exoanchor:agent-request-changed",{detail:{source:"workspace",request_id:request.request_id}}));
+    terminalLine(approved?"ok":"warn",`Agent request ${asksAnswer&&approved?"answered":approved?"approved once":"cancelled"} · ${request.request_id}`,activeSessionId);
+  }catch(error){
+    renderAgentRequestQueue(workspaceState.requestQueue||{items:[request]});
+    throw error;
+  }
+}
+async function approveHostDisplayPlan(){
+  const status=workspaceState.displayPlan||{},target=status.target||{};
+  if(status.state!=="planned"||!status.plan_id)return;
+  const exact=`${target.connector||"--"} ${target.width||0}×${target.height||0}@${Number(target.refresh_hz||0)}Hz`;
+  if(!(await UI.confirmAction({title:"批准 Host 显示计划？",message:`Plan ${status.plan_id}\n目标 ${exact}\n范围 ${target.persistent?"持久 GRUB drop-in":"临时"}\n\n批准只授权写入并生成回滚备份；Host 重启仍需单独明确请求。`,confirmLabel:"批准精确计划"})))return;
+  const updated=await API.durablePost("/api/host/display",{action:"approve",plan_id:status.plan_id,approved:true});
+  renderHostDisplayPlan(updated);terminalLine("ok",`Host display plan approved · ${status.plan_id}`,activeSessionId);
+}
+async function cancelHostDisplayPlan(){
+  const status=workspaceState.displayPlan||{};
+  if(!["planned","approved"].includes(status.state)||!status.plan_id)return;
+  const updated=await API.durablePost("/api/host/display",{action:"cancel",plan_id:status.plan_id});
+  renderHostDisplayPlan(updated);terminalLine("warn",`Host display plan cancelled · ${status.plan_id}`,activeSessionId);
+}
+async function createBootKeyPlan(){
+  const payload={action:"plan",profile_id:bootKeyProfile.value.trim()||"default-host",target:bootKeyTarget.value,key_code:bootKeyCode.value,trigger:bootKeyTrigger.value,start_delay_ms:500,interval_ms:250,max_attempts:8,total_timeout_ms:5000};
+  const updated=await API.post("/api/host/boot-key",payload);
+  renderBootKeyPlan(updated);terminalLine("info",`Boot-key plan created · ${updated.plan_id}`,activeSessionId);
+}
+async function approveBootKeyPlan(){
+  const status=workspaceState.bootKeyPlan||{},p=status.profile||{};
+  if(status.state!=="planned"||!status.plan_id)return;
+  const message=`Plan ${status.plan_id}\nTarget ${p.target}\nKey ${p.key_code}\nTrigger ${p.trigger}\nWindow ${p.start_delay_ms}ms + ${p.max_attempts} × ${p.interval_ms}ms, timeout ${p.total_timeout_ms}ms\n\n发完按键只会进入等待验证，不会自动宣称成功。`;
+  if(!(await UI.confirmAction({title:"批准 BIOS / Boot Menu 计划？",message,confirmLabel:"批准精确计划"})))return;
+  const updated=await API.durablePost("/api/host/boot-key",{action:"approve",plan_id:status.plan_id,approved:true});
+  renderBootKeyPlan(updated);terminalLine("ok",`Boot-key plan approved · ${status.plan_id}`,activeSessionId);
+}
+async function startBootKeyPlan(){
+  const status=workspaceState.bootKeyPlan||{},p=status.profile||{};
+  if(status.state!=="approved"||!status.plan_id)return;
+  if(!(await UI.confirmAction({title:"启动固件按键序列？",message:`Plan ${status.plan_id}\n${p.trigger==="reset"?"将先 Reset Host。":"不会触发电源动作。"}\n随后有界发送 ${p.key_code}，人工 KVM 输入将立即中止。`,confirmLabel:"Start sequence"})))return;
+  const updated=await API.durablePost("/api/host/boot-key",{action:"start",plan_id:status.plan_id,start:true});
+  renderBootKeyPlan(updated);terminalLine("cmd",`Boot-key sequence started · ${status.plan_id}`,activeSessionId);
+}
+async function cancelBootKeyPlan(){
+  const status=workspaceState.bootKeyPlan||{};
+  if(!status.plan_id)return;
+  const updated=await API.durablePost("/api/host/boot-key",{action:"cancel",plan_id:status.plan_id});
+  renderBootKeyPlan(updated);terminalLine("warn",`Boot-key sequence cancel requested · ${status.plan_id}`,activeSessionId);
+}
+async function cancelAgentRun(){return controlAgentRun("abort")}
+function agentStatusFinished(status){return status&&["done","failed","aborted"].includes(status.state)}
+function clearAgentPoll(){if(activeAgentPoll){UI.lifecycle.clearTimer(activeAgentPoll);activeAgentPoll=null}activeAgentPollBusy=false}
+function setAgentButtonRunning(running){sendPrompt.disabled=false;sendPrompt.textContent=running?"Send update":"Send";stopPrompt.hidden=!running}
+function renderAgentEvents(status,sessionId){
+  const events=Array.isArray(status?.events)?status.events:[];
+  events.forEach(ev=>{
+    const seq=Number(ev?.seq||0);
+    if(seq&&seq<=activeAgentLastEventSeq)return;
+    const text=String(ev?.text||"").trim();
+    if(text)terminalLine(ev?.kind||"info",text,sessionId);
+    if(text&&activeAgentPending)appendRunStep(activeAgentPending,ev?.kind||"info",text);
+    if(seq>activeAgentLastEventSeq)activeAgentLastEventSeq=seq;
+  });
+}
+function renderAgentRunStatus(status,pending,context){
+  const ctx=context||activeAgentContext||{};
+  const sessionId=safeSessionId(status.session_id||ctx.sessionId||activeSessionId);
+  const profile=status.profile||ctx.profile||agentProfile.value||"-";
+  const model=status.model||ctx.model||agentModel.value||"(default)";
+  const dryRun=typeof status.dry_run==="boolean"?status.dry_run:!!ctx.dryRun;
+  const includeScreenshot=typeof status.include_screenshot==="boolean"?status.include_screenshot:!!ctx.includeScreenshot;
+  const includeWebSearch=typeof status.include_web_search==="boolean"?status.include_web_search:!!ctx.includeWebSearch;
+  const elapsed=Number(status.elapsed_ms||0);
+  const stage=status.stage||status.state||"运行中";
+  const detail=status.detail||"";
+  renderWorkspaceRun(status);
+  renderAgentEvents(status,sessionId);
+  if(pending&&pending.dataset?.runBubble){
+    updateRunBubble(pending,status,ctx);
+  }else if(pending&&pending.isConnected){
+    pending.textContent=[
+      status.cancel_requested?"ESP32 Agent 正在停止...":"ESP32 Agent 正在运行...",
+      `阶段: ${stage}`,
+      `已等待: ${formatRunElapsed(elapsed)}`,
+      `Profile: ${profile||"-"}`,
+      `Model: ${model||"(default)"}`,
+      `模式: ${runModeText(dryRun,includeScreenshot)}`,
+      `联网搜索: ${includeWebSearch?"开启":"关闭"}`,
+      ctx.userText?`输入: ${compactTerminalText(ctx.userText,120)}`:"",
+      detail?`详情: ${detail}`:"",
+      status.error?`错误: ${status.error}`:""
+    ].filter(Boolean).join("\n");
+  }
+  if(stage&&stage!==activeAgentLastStage){
+    activeAgentLastStage=stage;
+    const stateKind=["failed","aborted"].includes(status.state)?"bad":status.state==="paused"?"warn":"info";
+    terminalLine(stateKind,`stage: ${stage}${detail?` · ${detail}`:""}`,sessionId);
+    if(pending)appendRunStep(pending,stateKind,`阶段: ${stage}${detail?` · ${detail}`:""}`);
+  }
+  const seconds=Math.floor(elapsed/1000);
+  AGENT_RUN_HEARTBEATS.forEach(mark=>{
+    if(seconds>=mark&&!activeAgentHeartbeats.has(mark)){
+      activeAgentHeartbeats.add(mark);
+      terminalLine(mark>=45?"warn":"info",`still running · ${stage} · elapsed=${formatRunElapsed(elapsed)}`,sessionId);
+    }
+  });
+}
+function runFromStatus(status,context){
+  const ctx=context||activeAgentContext||{};
+  const result=status&&status.result&&typeof status.result==="object"?status.result:{
+    ok:status?.state==="done"&&!status?.error,
+    session_id:status?.session_id||ctx.sessionId||activeSessionId,
+    profile:status?.profile||ctx.profile||agentProfile.value||"-",
+    model:status?.model||ctx.model||agentModel.value||"",
+    dry_run:typeof status?.dry_run==="boolean"?status.dry_run:!!ctx.dryRun,
+    message:"",
+    error:status?.error||"agent run failed",
+    trace:[],
+    tool_calls:[],
+    actions:[],
+    tool_results:[],
+    results:[]
+  };
+  if(!result.session_id)result.session_id=status?.session_id||ctx.sessionId||activeSessionId;
+  if(!result.profile)result.profile=status?.profile||ctx.profile||agentProfile.value||"-";
+  if(!result.model)result.model=status?.model||ctx.model||agentModel.value||"";
+  return result;
+}
+async function finishAgentJob(status){
+  const context=activeAgentContext||{};
+  const sessionId=safeSessionId(status.session_id||context.sessionId||activeSessionId);
+  const run=runFromStatus(status,context);
+  const finalText=summarizeRun(run);
+  clearAgentPoll();
+  renderAgentRunStatus(status,activeAgentPending,context);
+  logRunResult(run,run.model||context.model,run.profile||context.profile,sessionId);
+  settleTerminalProgress(sessionId);
+  if(activeSessionId===sessionId){
+    if(activeAgentPending&&activeAgentPending.isConnected)await finishRunBubble(activeAgentPending,!!run.ok,finalText);
+    else addBubble("agent",finalText);
+  }
+  rememberProvisionalAgentTurn(sessionId,"assistant",finalText);
+  const historyState=agentHistoryPersistenceState(run);
+  const historyError=run.history?.error||run.history_error||"";
+  setProvisionalAgentHistoryState(sessionId,historyState,historyError);
+  agentSessions=projectAgentSessions(agentSessions);
+  renderSessions();
+  activeAgentJob=null;
+  activeAgentPending=null;
+  activeAgentContext=null;
+  activeAgentLastStage="";
+  activeAgentLastEventSeq=0;
+  activeAgentHeartbeats=new Set();
+  setAgentButtonRunning(false);
+  await loadAgentSessions();
+  showAgentHistoryNotice(sessionId);
+  setBadge(badgeAgent,"AGENT",run.ok?(run.dry_run?"DRY-RUN":"DONE"):"CHECK",run.ok?(run.dry_run?"warn":"ok"):"bad");
+  refreshStatus().catch(()=>{});
+}
+async function pollAgentRun(){
+  if(!activeAgentJob||activeAgentPollBusy)return;
+  activeAgentPollBusy=true;
+  try{
+    const status=await getAgentRunStatus();
+    if(!status.job_id||status.job_id!==activeAgentJob){
+      const sessionId=activeAgentContext?.sessionId||activeSessionId;
+      terminalLine("warn","agent run status changed; current job is no longer active",sessionId);
+      settleTerminalProgress(sessionId);
+      clearAgentPoll();
+      activeAgentJob=null;
+      activeAgentPending=null;
+      activeAgentContext=null;
+      activeAgentLastEventSeq=0;
+      setAgentButtonRunning(false);
+      return;
+    }
+    try{
+      const replay=await getAgentRunEvents(activeAgentJob,activeAgentLastEventSeq);
+      if(Array.isArray(replay.events))status.events=replay.events;
+      if(replay.history_lost)terminalLine("warn","部分早期 Run 事件已从内存 ring 淘汰",activeAgentContext?.sessionId||activeSessionId);
+    }catch(e){}
+    renderAgentRunStatus(status,activeAgentPending,activeAgentContext);
+    if(!status.request&&(status.waiting_request||status.state==="waiting_request"))refreshAgentRequestQueue().catch(()=>{});
+    loadHostDisplayPlan().catch(()=>{});loadBootKeyPlan().catch(()=>{});
+    if(agentStatusFinished(status))await finishAgentJob(status);
+  }catch(e){
+    terminalLine("warn",`status poll failed: ${e.message||e}`,activeAgentContext?.sessionId||activeSessionId);
+  }finally{
+    activeAgentPollBusy=false;
+  }
+}
+async function attachAgentJob(status,context){
+  const sessionId=safeSessionId(status.session_id||context?.sessionId||activeSessionId);
+  const nextJob=status.job_id||activeAgentJob;
+  if(nextJob!==activeAgentJob)activeAgentLastEventSeq=0;
+  activeAgentJob=nextJob;
+  activeAgentContext=Object.assign({},context||{},{
+    sessionId,
+    profile:status.profile||context?.profile||agentProfile.value||"-",
+    model:status.model||context?.model||agentModel.value||"",
+    dryRun:typeof status.dry_run==="boolean"?status.dry_run:!!context?.dryRun,
+    includeScreenshot:typeof status.include_screenshot==="boolean"?status.include_screenshot:!!context?.includeScreenshot,
+    includeWebSearch:typeof status.include_web_search==="boolean"?status.include_web_search:!!context?.includeWebSearch
+  });
+  activeAgentPending=context?.pending||activeAgentPending||addRunBubble("正在恢复设备端 Agent run...");
+  activeAgentLastStage="";
+  activeAgentHeartbeats=new Set();
+  setAgentButtonRunning(true);
+  renderAgentRunStatus(status,activeAgentPending,activeAgentContext);
+  if(agentStatusFinished(status)){
+    await finishAgentJob(status);
+    return;
+  }
+  clearAgentPoll();
+  activeAgentPoll=UI.lifecycle.interval(pollAgentRun,1000);
+  pollAgentRun();
+}
+let deviceAgentSyncBusy=false;
+let deviceAgentLastMarker="";
+let deviceAgentLastSessionSync=0;
+function agentJobMarker(status){if(!status||!status.job_id)return"";return[status.job_id||"",status.state||"",status.session_id||"",status.finished_ms||0,status.updated_ms||0,status.event_seq||0].join(":")}
+function promptHasDraft(){return document.activeElement===promptBox&&!!promptBox.value.trim()}
+async function showAgentSession(sessionId){
+  const id=safeSessionId(sessionId||activeSessionId);
+  let sessionChanged=false;
+  if(id&&id!==activeSessionId&&!promptHasDraft()){
+    setActiveSession(id);
+    sessionChanged=true;
+  }
+  await loadAgentSessions();
+  if(sessionChanged)renderTerminal(true);
+  if(activeSessionId===id)await loadAgentHistory();
+}
+async function syncDeviceAgentState(force=false){
+  if(activeAgentJob||deviceAgentSyncBusy)return;
+  deviceAgentSyncBusy=true;
+  try{
+    const status=await getAgentRunStatus();
+    renderWorkspaceRun(status);
+    if(!status.request&&(force||status.waiting_request||status.state==="waiting_request"))refreshAgentRequestQueue().catch(()=>{});
+    loadHostDisplayPlan().catch(()=>{});loadBootKeyPlan().catch(()=>{});
+    const sessionId=safeSessionId(status.session_id||activeSessionId);
+    if(status.busy&&status.job_id){
+      await showAgentSession(sessionId);
+      terminalLine("info",`following device agent run · ${status.job_id}`,sessionId);
+      const pending=addRunBubble("检测到设备端 Agent run，正在同步显示...");
+      await attachAgentJob(status,{pending,sessionId,userText:"(设备端任务)"});
+      return;
+    }
+    settleTerminalProgress(sessionId);
+    const marker=agentJobMarker(status);
+    if(marker&&(force||marker!==deviceAgentLastMarker)){
+      deviceAgentLastMarker=marker;
+      if(activeSessionId===sessionId)terminalLine(["failed","aborted"].includes(status.state)?"bad":"info",`synced device agent run · ${status.job_id} · ${status.state||"idle"}`,sessionId);
+      return;
+    }
+    const now=Date.now();
+    if(force||now-deviceAgentLastSessionSync>12000){
+      deviceAgentLastSessionSync=now;
+      await loadAgentSessions();
+    }
+  }catch(e){
+    if(force)terminalLine("warn",`设备端 Agent 同步暂不可用: ${e.message||e}`,activeSessionId);
+  }finally{
+    deviceAgentSyncBusy=false;
+  }
+}
+async function stopAgentRun(){
+  if(!activeAgentJob)return;
+  terminalLine("warn","cancel requested; device will stop after current provider call returns",activeAgentContext?.sessionId||activeSessionId);
+  try{
+    const status=await cancelAgentRun();
+    renderAgentRunStatus(status,activeAgentPending,activeAgentContext);
+  }catch(e){
+    terminalLine("bad",`cancel failed: ${e.message||e}`,activeAgentContext?.sessionId||activeSessionId);
+  }
+}
+async function requestRunControl(action){
+  try{
+    const status=await controlAgentRun(action);
+    renderAgentRunStatus(status,activeAgentPending,activeAgentContext);
+    terminalLine(action==="abort"?"warn":"info",`${action} ${status.accepted?"accepted":"ignored"} · ${status.job_id||"--"}`,status.session_id||activeSessionId);
+  }catch(e){
+    terminalLine("bad",`${action} failed: ${e.message||e}`,activeAgentContext?.sessionId||activeSessionId);
+  }
+}
+function looksLikeAgentPageDump(text){
+  const s=String(text||"");
+  if(s.length<180)return false;
+  const markers=["VIDEO STANDBY","USB STANDBY","AGENT IDLE","AGENT DRY-RUN","执行日志","Agent 对话","Open KVM","Video Off","Reload","Agent Shot","API Profile","Model"];
+  let hits=0;
+  markers.forEach(m=>{if(s.includes(m))hits++});
+  return hits>=5;
+}
+function validateOutgoingPrompt(text){
+  if(!looksLikeAgentPageDump(text))return true;
+  terminalLine("warn","prompt looks like copied page/log text; not sent",activeSessionId);
+  addBubble("system","看起来你把整个页面/执行日志文本粘进了输入框，本次没有发送。请只保留真正想让 Agent 执行的任务描述。");
+  return false;
+}
+async function sendAgentMessage(){
+  const text=promptBox.value.trim();
+  if(!text)return;
+  if(!validateOutgoingPrompt(text))return;
+  if(activeAgentJob){
+    sendPrompt.disabled=true;
+    try{
+      const steered=await API.post("/api/agent/run/steer",{run_id:activeAgentJob,message:text});
+      if(!steered.accepted)throw new Error("当前任务没有接受补充要求");
+      addBubble("user",text);promptBox.value="";
+      terminalLine("info",`steer accepted · intent revision ${steered.intent_revision||"--"}`,activeAgentContext?.sessionId||activeSessionId);
+      renderWorkspaceRun(steered);
+    }catch(e){
+      terminalLine("bad",e.message||"补充要求发送失败",activeAgentContext?.sessionId||activeSessionId);
+      addBubble("system",`补充要求未送达：${e.message||e}`);
+    }finally{sendPrompt.disabled=false}
+    return;
+  }
+  let sessionId=activeSessionId;
+  const profile=agentProfile.value||"-";
+  const model=agentModel.value||localStorage.getItem("ea_agent_model")||"";
+  const dryRun=false;
+  const includeScreenshot=!agentKvmPermission.disabled&&agentKvmPermission.checked;
+  const includeWebSearch=!agentWebPermission.disabled&&agentWebPermission.checked;
+  sendPrompt.disabled=true;
+  sendPrompt.textContent="Starting";
+  if(model)localStorage.setItem("ea_agent_model",model);
+  try{
+    if(!sessionId)sessionId=materializeSession(text);
+    terminalLine("cmd",`agent run --session ${sessionId} --profile ${profile} --model ${model||"(default)"} ${dryRun?"--dry-run":"--execute"}${includeScreenshot?" --screenshot":""}${includeWebSearch?" --web-search":""}`,sessionId);
+    terminalLine("info",`user: ${compactTerminalText(text,260)}`,sessionId);
+    const started=await postAgentRun({session_id:sessionId,message:text,profile,model,authority_mode:"policy",dry_run:dryRun,include_screenshot:includeScreenshot,include_web_search:includeWebSearch,page_context:currentPageContext()});
+    if(started.busy&&!started.accepted){
+      terminalLine("warn","device already has an active agent run; attaching to it",sessionId);
+      await attachAgentJob(started,{sessionId,profile,model,dryRun,includeScreenshot,includeWebSearch,userText:"(已有后台任务)"});
+      return;
+    }
+    if(!started.accepted)throw new Error(started.error||"agent run was not accepted");
+    chatLog.querySelectorAll(".bubble.system").forEach(el=>{if(el.textContent.startsWith("此会话还没有消息"))el.remove()});
+    addBubble("user",text);
+    rememberProvisionalAgentTurn(sessionId,"user",text);
+    agentSessions=projectAgentSessions(agentSessions);renderSessions();
+    promptBox.value="";
+    const pending=addRunBubble("ESP32 Agent 已进入设备后台运行...");
+    terminalLine("info","agent run accepted by device; polling status",sessionId);
+    await attachAgentJob(started,{pending,sessionId,profile,model,dryRun,includeScreenshot,includeWebSearch,userText:text});
+  }catch(e){
+    const msg=e.message||"Agent request failed";
+    terminalLine("bad",msg,sessionId);
+    addBubble("system",`Agent 启动失败\n原因: ${msg}`);
+    await loadAgentSessions();
+    setBadge(badgeAgent,"AGENT","ERROR","bad");
+  }finally{
+    if(!activeAgentJob)setAgentButtonRunning(false);
+  }
+}
+async function resumeAgentJob(){
+  try{
+    const status=await getAgentRunStatus();
+    if(status.busy&&status.job_id){
+      const sessionId=safeSessionId(status.session_id||activeSessionId);
+      if(sessionId!==activeSessionId){
+        setActiveSession(sessionId);
+        await loadAgentSessions();
+        await loadAgentHistory();
+      }
+      terminalLine("info",`resuming background agent run · ${status.job_id}`,sessionId);
+      const pending=addRunBubble("检测到设备端后台 Agent run，正在恢复显示...");
+      await attachAgentJob(status,{pending,sessionId,userText:"(页面恢复)"});
+    }
+  }catch(e){
+    terminalLine("warn",`后台任务状态暂不可用: ${e.message||e}`,activeSessionId);
+  }
+}
+sendPrompt.onclick=()=>sendAgentMessage();stopPrompt.onclick=()=>stopAgentRun();clearAgentDataButton.onclick=()=>clearAllAgentData();agentRequestApprove.onclick=()=>resolveAgentRequest(true,agentRequestResponse).catch(e=>terminalLine("bad",e.message||"Agent request approval failed",activeSessionId));agentRequestCancel.onclick=()=>resolveAgentRequest(false,agentRequestResponse).catch(e=>terminalLine("bad",e.message||"Agent request cancellation failed",activeSessionId));threadAgentRequestApprove.onclick=()=>resolveAgentRequest(true,threadAgentRequestResponse).catch(e=>terminalLine("bad",e.message||"Agent request approval failed",activeSessionId));threadAgentRequestCancel.onclick=()=>resolveAgentRequest(false,threadAgentRequestResponse).catch(e=>terminalLine("bad",e.message||"Agent request cancellation failed",activeSessionId));runsPause.onclick=()=>requestRunControl("pause");runsResume.onclick=()=>requestRunControl("resume");runsAbort.onclick=()=>requestRunControl("abort");hostDisplayApprove.onclick=()=>approveHostDisplayPlan().catch(e=>terminalLine("bad",e.message||"Host display approval failed",activeSessionId));hostDisplayCancel.onclick=()=>cancelHostDisplayPlan().catch(e=>terminalLine("bad",e.message||"Host display cancel failed",activeSessionId));bootKeyCreate.onclick=()=>createBootKeyPlan().catch(e=>terminalLine("bad",e.message||"Boot-key plan create failed",activeSessionId));bootKeyApprove.onclick=()=>approveBootKeyPlan().catch(e=>terminalLine("bad",e.message||"Boot-key approval failed",activeSessionId));bootKeyStart.onclick=()=>startBootKeyPlan().catch(e=>terminalLine("bad",e.message||"Boot-key start failed",activeSessionId));bootKeyCancel.onclick=()=>cancelBootKeyPlan().catch(e=>terminalLine("bad",e.message||"Boot-key cancel failed",activeSessionId));promptBox.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))sendAgentMessage()});newThread.onclick=createSession;openAgent.onclick=()=>location.href="/settings#agent";attachContext.onclick=()=>{attachPageContext=!attachPageContext;updateContextAttachment()};updateContextAttachment();
+agentKvmPermission.onchange=()=>{localStorage.setItem(AGENT_KVM_PERMISSION_KEY,agentKvmPermission.checked?"1":"0");updateAgentManualPermissions()};
+agentWebPermission.onchange=()=>{localStorage.setItem(AGENT_WEB_PERMISSION_KEY,agentWebPermission.checked?"1":"0");updateAgentManualPermissions()};
+updateAgentManualPermissions();
+document.addEventListener("exoanchor:logout",()=>stopAgentStream(true));
+document.addEventListener("exoanchor:agent-request-changed",event=>{if(event.detail?.source!=="workspace")refreshAgentRequestQueue().catch(()=>{})});
+UI.lifecycle.addCleanup(()=>{stopAgentStream(true);clearAgentPoll()});
+async function bootAgentPage(){if(!await API.ensure())return;workspaceState.ready=true;await Promise.all([refreshAgentConfig(),refreshAgentIdentity()]);await Promise.all([loadAgentToolSettings().catch(()=>null),loadAgentSessions().catch(e=>{terminalLine("warn",`会话列表读取失败: ${e.message||e}`);return null}),loadWorkspaceData()]);await loadAgentHistory().catch(e=>terminalLine("warn",`历史记录读取失败: ${e.message||e}`));await resumeAgentJob();await syncDeviceAgentState(true);refreshStatus();workspaceState.booted=true;if(activeLeftView==="screen"&&previewEnabled)startAgentStream();UI.lifecycle.interval(syncDeviceAgentState,4000)}
+bootAgentPage().catch(e=>{setAgentModelFallback(agentProfile.value);setBadge(badgeAgent,"AGENT","STARTUP FALLBACK","warn");terminalLine("warn",`Agent 页面初始化失败: ${e.message||e}`)});
+</script>
+</body>
+</html>

@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor Toolkit</title>
+<style nonce="{{CSP_NONCE}}">
+:root{color-scheme:dark;--bg:#0b0d10;--top:#111419;--panel:#15191f;--panel2:#1b2028;--line:#2b333e;--line2:#222832;--text:#f4f7fa;--muted:#8d98a7;--soft:#cbd3dd;--green:#54d6bd;--red:#ff7b7f;--yellow:#f2be63;--blue:#8ab8ff;--control:#262b34;--radius:12px}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+button,input,select{font:inherit}
+button{border:1px solid var(--line);background:var(--control);color:var(--text);border-radius:8px;padding:9px 12px;cursor:pointer;font-weight:680;white-space:nowrap}
+button:hover{border-color:#59687a;background:#2c323d}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid rgba(84,214,189,.42);outline-offset:2px}
+button:disabled{opacity:.42;cursor:not-allowed}
+button.primary{color:var(--green);border-color:#1f766d;background:#17302f}
+button.primary:hover{border-color:#2a8f82;background:#1c3b38}
+button.danger{color:#fecaca;border-color:#7f2d2d;background:#27171a}
+button.danger:hover{background:#3a171b}
+input,select{width:100%;border:1px solid var(--line);border-radius:7px;background:#0d1014;color:var(--text);padding:9px 10px;outline:none}
+label{display:grid;gap:6px;color:var(--muted);font-size:12px}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.top{height:64px;padding:0 20px;display:flex;align-items:center;gap:18px;border-bottom:1px solid var(--line);background:rgba(17,20,25,.96);position:sticky;top:0;z-index:10}
+.brand{display:flex;align-items:center;gap:11px;min-width:max-content}
+.logo{width:34px;height:34px;border:1px solid #4b5563;border-radius:9px;background:linear-gradient(145deg,#252c36,#171b21);display:grid;place-items:center;padding:5px}
+.logo svg{width:100%;height:100%;display:block}
+.title{font-weight:760}.sub{margin-top:-2px;color:var(--muted);font-size:11px}
+.nav{display:flex;align-items:center;gap:5px}
+.nav button{padding:8px 11px;border-color:transparent;background:transparent;color:var(--muted);white-space:nowrap}
+.nav button.active,.nav button:hover{border-color:#3b4654;background:var(--panel2);color:var(--text)}
+.version{padding-left:13px;border-left:1px solid var(--line);color:#9ca7b5;font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+.runtime-state{margin-left:auto;display:inline-flex;align-items:center;gap:7px;color:var(--green);font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+.runtime-state:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(84,214,189,.12)}
+.runtime-state.busy{color:var(--yellow)}.runtime-state.bad{color:var(--red)}
+.activity-toggle{padding:5px 8px;border-color:transparent;background:transparent;color:var(--muted);font-size:11px}
+.activity-toggle:hover,.activity-toggle[aria-expanded="true"]{border-color:var(--line);background:var(--panel2);color:var(--text)}
+.wrap{max-width:1280px;margin:0 auto;padding:22px}
+.device-bar{display:flex;gap:14px;align-items:end;margin-bottom:16px;padding:15px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.transport-fields{min-width:0;flex:1;display:grid;grid-template-columns:minmax(220px,1fr) minmax(120px,.45fr) minmax(140px,.55fr);gap:10px;align-items:end}
+.transport-fields.uart-fields{grid-template-columns:minmax(260px,1fr) auto auto}
+.device-controls{display:flex;align-items:flex-end;gap:8px}
+.device-controls label{min-width:120px}
+.segmented{display:flex;padding:3px;border:1px solid var(--line);border-radius:8px;background:#0d1014}
+.segmented button{min-width:72px;padding:6px 9px;border:0;background:transparent;color:var(--muted)}
+.segmented button.active{background:#17302f;color:var(--green)}
+.page{display:none}.page.active{display:block}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}
+.page-head h1{margin:0;font-size:24px;line-height:1.2}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card{min-width:0;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.card h2{margin:0 0 12px;font-size:14px;color:#dce3eb}
+.network-stack{display:grid;gap:12px}
+.network-mode{width:max-content;margin-bottom:14px}
+.network-mode button{min-width:104px}
+.inline-status{min-height:21px;margin:12px 0 0;color:var(--muted);font-size:12px}
+.inline-status.ok{color:var(--green)}.inline-status.bad{color:var(--red)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.form-grid .wide{grid-column:1/-1}
+.table-shell{overflow:auto;border:1px solid var(--line);border-radius:9px;background:#0d1014}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line2)}
+th{color:var(--muted);background:var(--panel2);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+td{color:var(--soft);font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+tbody tr{cursor:pointer}tbody tr:hover{background:#151b20}tbody tr.selected{background:#17302f}tbody tr:last-child td{border-bottom:0}
+.empty{padding:42px 18px!important;text-align:center!important;color:var(--muted)!important;font-family:inherit!important}
+.activity{margin-top:14px}
+.activity-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.activity-head h2{margin:0;font-size:14px}
+.activity-head button{padding:5px 8px;color:var(--muted);background:transparent}
+.log{height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px;background:#0c0e12;padding:8px 11px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.log-line{display:grid;grid-template-columns:72px 56px minmax(0,1fr);gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.035)}
+.log-line:last-child{border-bottom:0}.log-time,.log-kind{color:var(--muted)}.log-line.ok .log-kind{color:var(--green)}.log-line.bad .log-kind{color:var(--red)}.log-line.warn .log-kind{color:var(--yellow)}
+.summary{display:grid;gap:8px}
+.summary-row{display:flex;justify-content:space-between;gap:16px;padding:9px 10px;background:var(--panel2);border:1px solid var(--line2);border-radius:8px}
+.summary-row span{color:var(--muted)}.summary-row b{font:650 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;text-align:right;overflow-wrap:anywhere}
+.mt12{margin-top:12px}.mb12{margin-bottom:12px}.push-right{margin-left:auto}.no-wrap{flex-wrap:nowrap}.selected-editor{display:flex;align-items:end;gap:8px;margin-top:12px}.selected-editor label{flex:1}
+.no-wrap input,.no-wrap select{min-width:0;flex:1}
+.modal{position:fixed;inset:0;display:none;place-items:center;padding:18px;background:rgba(5,6,8,.72);z-index:30}
+.modal.show{display:grid}.dialog{width:min(440px,100%);padding:18px;border:1px solid var(--line);border-radius:10px;background:var(--panel);box-shadow:0 18px 60px rgba(0,0,0,.45)}
+.dialog h2{margin:0 0 6px;font-size:17px}.dialog p{margin:0;color:var(--muted);white-space:pre-line}.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.spinner{display:none;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}.busy .spinner{display:inline-block}@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:900px){.top{height:auto;min-height:64px;align-items:flex-start;gap:10px;padding:12px;flex-wrap:wrap}.nav{order:3;width:100%;overflow:auto}.version{margin-left:auto}.runtime-state{margin-left:0}.wrap{padding:14px}.device-bar{align-items:stretch;flex-direction:column}.transport-fields,.transport-fields.uart-fields{grid-template-columns:1fr}.device-controls{flex-wrap:wrap}.grid-2,.grid-3,.form-grid{grid-template-columns:1fr}.form-grid .wide{grid-column:auto}.page-head{align-items:flex-start;flex-direction:column}.selected-editor{align-items:stretch;flex-direction:column}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 512 512">
+        <g fill="#F7F9FC">
+          <polygon points="287.6,41.5 235.2,59 225.7,147.7 274.2,111.4"/>
+          <polygon points="287.6,130.2 236.5,165.2 247.3,267.4 266.1,280.9 310.5,205.6"/>
+          <polygon points="112.8,227.1 149.1,299.7 206.9,337.4 206.9,283.6 174.6,237.8"/>
+          <polygon points="404.6,233.8 357.5,237.8 329.3,271.5 350.8,294.3 383.1,275.5"/>
+          <polygon points="315.8,306.4 297,294.3 266.1,297 252.6,307.8 256.7,334.7 280.9,342.7"/>
+          <polygon points="24,317.2 92.6,396.5 184,401.9 120.8,334.7"/>
+          <polygon points="488,318.5 375,342.7 319.9,400.6 418.1,397.9"/>
+          <polygon points="139.7,423.4 236.5,470.5 209.6,435.5 182.7,416.7"/>
+          <polygon points="365.6,423.4 322.6,416.7 301.1,428.8 267.4,470.5"/>
+        </g>
+        <polygon points="254,362.9 278.2,387.1 254,411.3 229.8,387.1" fill="#7480F0"/>
+      </svg>
+    </div>
+    <div><div class="title">ExoAnchor</div><div class="sub">Provisioning Toolkit</div></div>
+  </div>
+  <nav class="nav" aria-label="Toolkit">
+    <button class="active" data-page="discover">设备发现</button>
+    <button data-page="network">网络配置</button>
+    <button data-page="firmware">固件</button>
+  </nav>
+  <div class="version">Toolkit v{{TOOLKIT_VERSION}}</div>
+  <div id="runtimeState" class="runtime-state"><span class="spinner"></span><span>READY</span></div>
+  <button id="toggleActivity" class="activity-toggle" aria-expanded="false">活动记录</button>
+</header>
+
+<main class="wrap">
+  <section class="device-bar">
+    <label>操作通道
+      <div id="transportMode" class="segmented">
+        <button class="active" data-value="network">网络</button>
+        <button data-value="uart">UART</button>
+      </div>
+    </label>
+    <div id="networkTargetFields" class="transport-fields">
+      <label>设备 IP
+        <div class="actions no-wrap">
+          <input id="deviceTarget" inputmode="decimal" list="deviceTargetOptions" placeholder="输入设备 IP">
+          <datalist id="deviceTargetOptions"></datalist>
+          <button id="scanTargetIp">扫描 IP</button>
+        </div>
+      </label>
+      <label>设备用户名
+        <input id="deviceUsername" autocomplete="username" placeholder="输入设备用户名">
+      </label>
+      <label>设备密码
+        <input id="devicePassword" type="password" autocomplete="current-password" placeholder="输入设备密码">
+      </label>
+    </div>
+    <div id="uartTargetFields" class="transport-fields uart-fields" hidden>
+      <label>诊断串口 UART0
+        <select id="portSelect"><option value="auto">自动选择</option></select>
+      </label>
+      <label>UART 波特率
+        <div id="serialBaud" class="segmented">
+          <button class="active" data-value="115200">115200</button>
+          <button data-value="9600">9600</button>
+        </div>
+      </label>
+      <button id="refreshPorts">刷新串口</button>
+    </div>
+    <button id="connectDevice" class="primary">连接设备</button>
+  </section>
+
+  <section id="page-discover" class="page active">
+    <div class="page-head">
+      <h1>设备发现</h1>
+      <div class="actions"><button id="openDevice" disabled>打开设备页面</button><button id="scanDevices" class="primary">扫描局域网</button></div>
+    </div>
+    <div class="card">
+      <div id="discoveryNetworkOptions" class="grid-2 mb12">
+        <label>扫描时长（秒）<input id="discoveryTimeout" type="number" min=".1" max="30" step=".1" placeholder="输入扫描时长"></label>
+        <label>指定网段（可选）<input id="discoverySubnet" placeholder="输入网段"></label>
+      </div>
+      <div class="table-shell">
+        <table>
+          <thead><tr><th>设备标注名</th><th>IP</th><th>Hostname</th><th>Device ID</th><th>Board</th><th>Firmware</th><th>通道</th></tr></thead>
+          <tbody id="deviceRows"><tr><td class="empty" colspan="7">尚未扫描</td></tr></tbody>
+        </table>
+      </div>
+      <div class="selected-editor">
+        <label>所选设备标注名<input id="deviceLabel" maxlength="48" placeholder="输入设备标注名" disabled></label>
+        <button id="saveDeviceLabel" disabled>保存设备标注名</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="page-network" class="page">
+    <div class="page-head">
+      <div><h1>网络配置</h1></div>
+    </div>
+    <div class="network-stack">
+      <div class="card">
+        <h2>当前状态</h2>
+        <div id="networkSummary" class="summary"><div class="summary-row"><span>状态</span><b>等待连接设备</b></div></div>
+      </div>
+      <div class="card">
+        <h2>配网</h2>
+        <label class="mb12">设备名称
+          <input id="hostname" maxlength="63" placeholder="输入设备名称">
+        </label>
+        <label>地址模式
+          <div id="networkMode" class="segmented network-mode">
+            <button class="active" data-value="dhcp">DHCP</button>
+            <button data-value="static">静态 IPv4</button>
+          </div>
+        </label>
+        <div id="staticNetworkFields" class="form-grid" hidden>
+          <label>IP 地址<input id="address" inputmode="decimal" placeholder="输入 IPv4 地址"></label>
+          <label>子网掩码<input id="netmask" inputmode="decimal" placeholder="输入子网掩码"></label>
+          <label>网关（可选）<input id="gateway" inputmode="decimal" placeholder="输入网关地址"></label>
+          <label>首选 DNS（可选）<input id="dnsPrimary" inputmode="decimal" placeholder="输入 DNS 地址"></label>
+          <label>备用 DNS（可选）<input id="dnsSecondary" inputmode="decimal" placeholder="输入备用 DNS 地址"></label>
+        </div>
+        <div class="actions mt12"><button id="saveNetworkConfig" class="primary" disabled>保存并应用</button></div>
+        <p id="networkFeedback" class="inline-status" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="page-firmware" class="page">
+    <div class="page-head">
+      <h1>固件</h1>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h2>预编译固件包</h2>
+        <label>GitHub 固件版本
+          <div class="actions no-wrap"><select id="releaseVersion"><option value="">选择固件版本</option></select><button id="refreshVersions">刷新版本</button></div>
+        </label>
+        <label class="mt12">本地固件包
+          <div class="actions no-wrap"><input id="packagePath" class="mono" placeholder="选择固件包"><button id="choosePackage">选择…</button></div>
+        </label>
+        <label id="flashBaudField" class="mt12" hidden>烧录波特率
+          <select id="flashBaud"><option>115200</option><option selected>460800</option><option>921600</option></select>
+        </label>
+        <div id="flashIdentityFields" class="form-grid mt12" hidden>
+          <label>板卡身份登记表<input id="identityRegistry" class="mono" placeholder="BOARD_IDENTITY_REGISTRY.toml 的本地路径"></label>
+          <label>实物登记记录<input id="boardRecord" class="mono" placeholder="操作者确认的 record_id"></label>
+        </div>
+        <div class="actions mt12"><button id="downloadFirmware">获取所选版本</button><button id="verifyFirmware">校验</button><button id="flashFirmware" class="primary">网络更新…</button></div>
+      </div>
+      <div class="card">
+        <h2>固件包信息</h2>
+        <div id="firmwareSummary" class="summary"><div class="summary-row"><span>状态</span><b>尚未校验</b></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="activityPanel" class="card activity" hidden>
+    <div class="activity-head"><h2>活动记录</h2><button id="clearLog">清空</button></div>
+    <div id="activityLog" class="log" aria-live="polite"></div>
+  </section>
+</main>
+
+<div id="confirmModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="dialog">
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText"></p>
+    <div class="dialog-actions"><button id="confirmCancel">取消</button><button id="confirmAccept" class="danger">确认</button></div>
+  </div>
+</div>
+
+<script nonce="{{CSP_NONCE}}">
+const token=new URLSearchParams(location.search).get("token")||"";
+const $=id=>document.getElementById(id);
+const state={busy:false,transport:"network",serialBaud:115200,networkMode:"dhcp",networkConnected:false,devices:[],selectedDevice:null,releases:[],versionsLoaded:false};
+const apiButtons=()=>[...document.querySelectorAll("button")].filter(button=>!button.closest(".nav")&&!button.closest(".segmented"));
+
+function log(message,kind="info"){
+  const row=document.createElement("div");row.className=`log-line ${kind}`;
+  const time=document.createElement("span");time.className="log-time";time.textContent=new Date().toLocaleTimeString("zh-CN",{hour12:false});
+  const type=document.createElement("span");type.className="log-kind";type.textContent=kind==="bad"?"ERROR":kind==="ok"?"OK":kind==="warn"?"WARN":"INFO";
+  const body=document.createElement("span");body.textContent=String(message);
+  row.append(time,type,body);$("activityLog").append(row);$("activityLog").scrollTop=$("activityLog").scrollHeight;
+}
+function syncControlState(){
+  if(state.busy)return;
+  $("openDevice").disabled=!state.selectedDevice||!state.selectedDevice.web_url;
+  const canEditDeviceLabel=!!state.selectedDevice&&state.transport==="network";
+  $("deviceLabel").disabled=!canEditDeviceLabel;
+  $("saveDeviceLabel").disabled=!canEditDeviceLabel;
+  $("saveNetworkConfig").disabled=!state.networkConnected;
+  $("downloadFirmware").disabled=!state.releases.length;
+}
+function setBusy(value,label="READY"){
+  state.busy=value;
+  const status=$("runtimeState");status.classList.toggle("busy",value);status.classList.remove("bad");
+  status.lastElementChild.textContent=value?label:"READY";
+  apiButtons().forEach(button=>button.disabled=value);
+  document.querySelectorAll("#transportMode button").forEach(button=>button.disabled=value);
+  if(!value)syncControlState();
+}
+function setFailure(){
+  const status=$("runtimeState");status.classList.remove("busy");status.classList.add("bad");status.lastElementChild.textContent="ERROR";
+  setTimeout(()=>{if(!state.busy){status.classList.remove("bad");status.lastElementChild.textContent="READY"}},2200);
+}
+async function callApi(path,payload={},label="WORKING"){
+  setBusy(true,label);
+  try{
+    const response=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","X-ExoAnchor-Token":token},body:JSON.stringify(payload)});
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw new Error(result.error||`HTTP ${response.status}`);
+    setBusy(false);return result;
+  }catch(error){
+    state.busy=false;apiButtons().forEach(button=>button.disabled=false);document.querySelectorAll("#transportMode button").forEach(button=>button.disabled=false);syncControlState();
+    setFailure();log(error.message||error,"bad");throw error;
+  }
+}
+function selectedPort(){return $("portSelect").value||"auto"}
+function transportPayload(){
+  return{transport:state.transport,target:$("deviceTarget").value,username:$("deviceUsername").value||"admin",password:$("devicePassword").value,port:selectedPort(),baud:state.serialBaud};
+}
+function networkPayload(action){
+  return{...transportPayload(),action,mode:state.networkMode,hostname:$("hostname").value,address:$("address").value,netmask:$("netmask").value,gateway:$("gateway").value||"-",dns_primary:$("dnsPrimary").value||"-",dns_secondary:$("dnsSecondary").value||"-"};
+}
+function valueRow(label,value){
+  const row=document.createElement("div");row.className="summary-row";
+  const key=document.createElement("span");key.textContent=label;
+  const body=document.createElement("b");body.textContent=value||"—";
+  row.append(key,body);return row;
+}
+function showSummary(target,entries){
+  target.replaceChildren(...entries.map(([label,value])=>valueRow(label,String(value??"—"))));
+}
+function setTransport(transport){
+  const changed=state.transport!==transport;
+  state.transport=transport;
+  document.querySelectorAll("#transportMode button").forEach(button=>button.classList.toggle("active",button.dataset.value===transport));
+  $("networkTargetFields").hidden=transport!=="network";
+  $("uartTargetFields").hidden=transport!=="uart";
+  $("discoveryNetworkOptions").hidden=transport!=="network";
+  $("scanDevices").textContent=transport==="network"?"扫描局域网":"识别 UART 设备";
+  $("flashBaudField").hidden=transport!=="uart";
+  $("flashIdentityFields").hidden=transport!=="uart";
+  $("flashFirmware").textContent=transport==="network"?"网络更新…":"UART 烧录…";
+  $("connectDevice").textContent=transport==="network"?"连接设备":"读取设备";
+  if(changed)resetNetworkConnection();
+  syncControlState();
+}
+function setNetworkMode(mode){
+  state.networkMode=mode;
+  document.querySelectorAll("#networkMode button").forEach(button=>button.classList.toggle("active",button.dataset.value===mode));
+  $("staticNetworkFields").hidden=mode!=="static";
+}
+async function refreshPorts(){
+  try{
+    const result=await callApi("/api/ports",{},"READING PORTS");
+    const select=$("portSelect"),previous=select.value;select.replaceChildren();
+    const automatic=document.createElement("option");automatic.value="auto";automatic.textContent="自动选择";select.append(automatic);
+    result.ports.forEach(port=>{const option=document.createElement("option");option.value=port.device;option.textContent=`${port.device} · ${port.likely_exoanchor?"ExoAnchor":"Serial"} · ${port.description||""}`;select.append(option)});
+    const likely=result.ports.filter(port=>port.likely_exoanchor);
+    if([...select.options].some(item=>item.value===previous))select.value=previous;else if(likely.length===1)select.value=likely[0].device;
+    log(`检测到 ${result.ports.length} 个串口`,"ok");
+  }catch(_){}
+}
+function renderDevices(){
+  const tbody=$("deviceRows");tbody.replaceChildren();
+  if(!state.devices.length){const row=document.createElement("tr"),cell=document.createElement("td");cell.colSpan=7;cell.className="empty";cell.textContent="未发现 ExoAnchor";row.append(cell);tbody.append(row);return}
+  state.devices.forEach(device=>{
+    const row=document.createElement("tr");
+    const labelFallback={authentication_required:"需认证",error:"读取失败",empty:"未设置",unavailable:"不可用"};
+    const labelCell=document.createElement("td");labelCell.textContent=device.device_label||labelFallback[device.device_label_status]||"—";
+    if(device.device_label_error)labelCell.title=device.device_label_error;
+    row.append(labelCell);
+    [device.source_ip,device.hostname,device.device_id,device.board,device.firmware,device.transport==="uart"?"UART":"网络"].forEach(value=>{const cell=document.createElement("td");cell.textContent=value||"—";row.append(cell)});
+    if(state.selectedDevice?.device_id===device.device_id)row.classList.add("selected");
+    row.addEventListener("click",()=>selectDevice(device,row));
+    row.addEventListener("dblclick",()=>{if(device.web_url)window.open(device.web_url,"_blank","noopener")});
+    tbody.append(row);
+  });
+}
+function renderTargetOptions(){
+  const options=$("deviceTargetOptions");options.replaceChildren();
+  state.devices.filter(device=>device.source_ip).forEach(device=>{
+    const option=document.createElement("option");
+    option.value=device.source_ip+(device.http_port&&device.http_port!==80?`:${device.http_port}`:"");
+    option.label=[device.device_label,device.hostname,device.device_id].filter(Boolean).join(" · ");
+    options.append(option);
+  });
+}
+function selectDevice(device,row){
+  $("deviceRows").querySelectorAll("tr").forEach(item=>item.classList.remove("selected"));if(row)row.classList.add("selected");
+  state.selectedDevice=device;$("deviceLabel").value=device.device_label||"";
+  if(device.source_ip){
+    const target=device.source_ip+(device.http_port&&device.http_port!==80?`:${device.http_port}`:"");
+    if($("deviceTarget").value!==target){$("deviceTarget").value=target;resetNetworkConnection()}
+  }
+  syncControlState();
+}
+function selectTargetDevice(){
+  const target=$("deviceTarget").value.trim().replace(/^https?:\/\//,"").split("/")[0];
+  const device=state.devices.find(item=>{
+    const value=item.source_ip+(item.http_port&&item.http_port!==80?`:${item.http_port}`:"");
+    return value===target;
+  });
+  if(device)selectDevice(device,null);
+}
+async function scanDevices(){
+  state.selectedDevice=null;
+  $("deviceLabel").value="";syncControlState();
+  try{
+    const result=await callApi("/api/discover",{...transportPayload(),timeout:$("discoveryTimeout").value||2,subnet:$("discoverySubnet").value},state.transport==="network"?"SCANNING LAN":"READING UART");
+    state.devices=result.devices;renderDevices();if(state.transport==="network")renderTargetOptions();log(`${state.transport==="network"?"局域网扫描":"UART 识别"}完成：发现 ${result.devices.length} 台 ExoAnchor`,"ok");
+    const authRequired=result.devices.filter(device=>device.device_label_status==="authentication_required");
+    if(authRequired.length)log(`有 ${authRequired.length} 台设备的标注名需要认证；请在顶部输入设备密码后重新扫描。`,"warn");
+    result.devices.filter(device=>device.device_label_status==="error").forEach(device=>log(`${device.source_ip||device.device_id||"设备"} 标注名读取失败：${device.device_label_error||"未知错误"}`,"bad"));
+  }catch(_){}
+}
+async function scanTargetIp(){
+  try{
+    const result=await callApi("/api/discover",{...transportPayload(),transport:"network",timeout:2,subnet:$("discoverySubnet").value},"SCANNING IP");
+    state.devices=result.devices;renderDevices();renderTargetOptions();
+    if(result.devices.length===1){
+      selectDevice(result.devices[0],$("deviceRows").firstElementChild);
+      log(`已发现并选择 ${$("deviceTarget").value}`,"ok");
+    }else if(result.devices.length>1){
+      selectTargetDevice();
+      log(`发现 ${result.devices.length} 台设备，请在设备 IP 中选择`,"ok");
+    }else{
+      log("未扫描到 ExoAnchor，仍可手动输入设备 IP","warn");
+    }
+  }catch(_){}
+}
+async function saveDeviceLabel(){
+  if(!state.selectedDevice)return;
+  try{
+    const result=await callApi("/api/device/label",{...transportPayload(),device_id:state.selectedDevice.device_id,label:$("deviceLabel").value},"SAVING DEVICE LABEL");
+    state.selectedDevice.device_label=result.label;const match=state.devices.find(device=>device.device_id===result.device_id);if(match)match.device_label=result.label;renderDevices();renderTargetOptions();log(`已写入设备标注名：${result.label}`,"ok");
+  }catch(_){}
+}
+function renderNetwork(snapshot){
+  const runtime=snapshot.runtime||{},active=snapshot.active||{},identity=snapshot.identity||{};
+  const link=String(runtime.link_up??runtime.link??"").toLowerCase();
+  const source=runtime.address_source||runtime.source||active.mode||"";
+  const modeLabel=source==="static"?"静态 IPv4":source==="dhcp"?"DHCP":source==="autoip"?"AutoIP":source;
+  const linkLabel=["1","true","yes"].includes(link)?"已连接":["0","false","no"].includes(link)?"未连接":link;
+  showSummary($("networkSummary"),[["运行 IP",runtime.ipv4||runtime.ip],["链路",linkLabel],["地址模式",modeLabel],["设备名称",identity.hostname],["Device ID",identity.device_id]]);
+}
+function resetNetworkConnection(){
+  state.networkConnected=false;
+  showSummary($("networkSummary"),[["状态","等待连接设备"]]);
+  setNetworkFeedback(state.transport==="network"?"输入设备 IP 和凭据后，点击“连接设备”。":"选择诊断串口后，点击“读取设备”。");
+  syncControlState();
+}
+function optionalAddress(value){
+  const normalized=String(value??"").trim();
+  return !normalized||normalized==="-"||normalized.toLowerCase()==="none"?"":normalized;
+}
+function populateNetworkForm(snapshot){
+  const runtime=snapshot.runtime||{},active=snapshot.active||{},identity=snapshot.identity||{};
+  $("hostname").value=identity.hostname||active.hostname||"";
+  setNetworkMode((active.mode||runtime.mode)==="static"?"static":"dhcp");
+  $("address").value=active.address||runtime.ipv4||runtime.ip||"";
+  $("netmask").value=active.netmask||runtime.netmask||"255.255.255.0";
+  $("gateway").value=optionalAddress(active.gateway||runtime.gateway);
+  $("dnsPrimary").value=optionalAddress(active.dns_primary||active.dns1||runtime.dns_primary);
+  $("dnsSecondary").value=optionalAddress(active.dns_secondary||active.dns2||runtime.dns_secondary);
+}
+function setNetworkFeedback(message,kind=""){
+  const target=$("networkFeedback");target.textContent=message;target.className=`inline-status ${kind}`.trim();
+}
+async function readNetworkState(){
+  if(state.busy)return;
+  if(state.transport==="network"&&!$("deviceTarget").value.trim()){
+    setNetworkFeedback("先选择或输入设备 IP。");return;
+  }
+  try{
+    state.networkConnected=false;syncControlState();
+    showSummary($("networkSummary"),[["状态","正在连接设备…"]]);
+    setNetworkFeedback("正在读取当前状态…");
+    const result=await callApi("/api/network",networkPayload("show"),"READING NETWORK");
+    renderNetwork(result.snapshot);populateNetworkForm(result.snapshot);
+    state.networkConnected=true;syncControlState();
+    setNetworkFeedback("已读取当前配置。","ok");
+    log(`${state.transport==="network"?"网络":"UART"}通道已读取设备状态`,"ok");
+  }catch(error){
+    state.networkConnected=false;syncControlState();
+    showSummary($("networkSummary"),[["状态","连接失败"]]);
+    setNetworkFeedback(error.message||String(error),"bad");
+  }
+}
+async function saveNetworkConfiguration(){
+  if(state.transport==="network"&&!$("deviceTarget").value.trim()){
+    setNetworkFeedback("先选择或输入设备 IP。","bad");return;
+  }
+  try{
+    setNetworkFeedback("正在应用配置并确认设备可达…");
+    const result=await callApi("/api/network",networkPayload("configure"),"APPLYING NETWORK");
+    renderNetwork(result.snapshot);populateNetworkForm(result.snapshot);
+    state.networkConnected=true;syncControlState();
+    if(state.transport==="network"&&result.target){
+      $("deviceTarget").value=String(result.target).replace(/^https?:\/\//,"").replace(/\/$/,"");
+    }
+    setNetworkFeedback("配置已生效并保存。","ok");
+    log(`网络配置已通过${state.transport==="network"?"网络":"UART"}应用并确认`,"ok");
+  }catch(error){setNetworkFeedback(error.message||String(error),"bad")}
+}
+function confirmAction(title,text,buttonText="确认"){
+  return new Promise(resolve=>{
+    const modal=$("confirmModal");$("confirmTitle").textContent=title;$("confirmText").textContent=text;$("confirmAccept").textContent=buttonText;modal.classList.add("show");
+    const finish=value=>{modal.classList.remove("show");$("confirmAccept").onclick=null;$("confirmCancel").onclick=null;resolve(value)};
+    $("confirmAccept").onclick=()=>finish(true);$("confirmCancel").onclick=()=>finish(false);
+  });
+}
+async function choosePackage(){
+  try{const result=await callApi("/api/firmware/choose",{},"SELECTING FILE");$("packagePath").value=result.path;log("已选择固件清单","ok")}catch(_){}
+}
+function renderFirmwareVersions(releases,previous=""){
+  const select=$("releaseVersion");select.replaceChildren();
+  releases.forEach((release,index)=>{
+    const option=document.createElement("option");option.value=release.tag;
+    const channel=release.prerelease?"预发布":"稳定版";
+    option.textContent=`${index===0?"最新 · ":""}${release.name} · ${channel}`;
+    select.append(option);
+  });
+  if(previous&&releases.some(release=>release.tag===previous))select.value=previous;
+  if(!releases.length){const option=document.createElement("option");option.value="";option.textContent="没有可用的固件版本";select.append(option)}
+  $("downloadFirmware").disabled=!releases.length;
+}
+async function loadFirmwareVersions(force=false){
+  if(state.versionsLoaded&&!force)return;
+  const previous=$("releaseVersion").value;
+  try{
+    const result=await callApi("/api/firmware/releases",{repository:"wxffxx/ExoAnchor"},"READING RELEASES");
+    state.releases=result.releases||[];state.versionsLoaded=true;renderFirmwareVersions(state.releases,previous);
+    log(`已读取 ${state.releases.length} 个可用固件版本`,"ok");
+  }catch(_){state.versionsLoaded=false;renderFirmwareVersions([],previous)}
+}
+async function downloadFirmware(){
+  const tag=$("releaseVersion").value;if(!tag){log("请先读取并选择固件版本","warn");return}
+  try{
+    const result=await callApi("/api/firmware/download",{repository:"wxffxx/ExoAnchor",tag},"DOWNLOADING");
+    const downloaded=result.download;$("packagePath").value=downloaded.directory;renderFirmware(downloaded.package);
+    log(`${downloaded.cached?"已使用缓存":"已下载"} GitHub Release ${downloaded.release.tag}，完整性校验通过`,"ok");
+  }catch(_){}
+}
+function renderFirmware(packageInfo){
+  showSummary($("firmwareSummary"),[["状态","校验通过"],["Version",packageInfo.version],["Board",packageInfo.board],["Chip",packageInfo.chip],["Flash",`${packageInfo.flash_size} · ${packageInfo.flash_mode}/${packageInfo.flash_frequency}`],["Segments",packageInfo.segments.length]]);
+}
+async function verifyFirmware(){
+  try{const result=await callApi("/api/firmware/verify",{package:$("packagePath").value},"VERIFYING");renderFirmware(result.package);log(`固件包校验通过：${result.package.board} ${result.package.version}`,"ok")}catch(_){}
+}
+async function flashFirmware(){
+  const path=$("packagePath").value.trim();if(!path){log("请先选择固件包","warn");return}
+  const network=state.transport==="network";
+  const description=network?"将上传已校验的应用镜像到设备 OTA 分区，完成后设备会自动重启。":"只写入固件清单中的分段，不执行整片擦除。";
+  const accepted=await confirmAction(network?"网络更新固件":"UART 烧录固件",`目标：${network?$("deviceTarget").value:selectedPort()}\n固件：${path}\n\n${description}`,network?"上传并重启":"开始烧录");if(!accepted)return;
+  try{const result=await callApi("/api/firmware/flash",{...transportPayload(),package:path,baud:$("flashBaud").value,identity_registry:$("identityRegistry").value,board_record:$("boardRecord").value,reboot:true},network?"UPLOADING OTA":"FLASHING UART");renderFirmware(result.package);(result.output||[]).forEach(line=>log(line));log(`${network?"网络更新":"UART 烧录"}完成：${result.package.version}`,"ok")}catch(_){}
+}
+
+document.querySelectorAll(".nav button").forEach(button=>button.addEventListener("click",()=>{
+  document.querySelectorAll(".nav button").forEach(item=>item.classList.toggle("active",item===button));
+  document.querySelectorAll(".page").forEach(page=>page.classList.toggle("active",page.id===`page-${button.dataset.page}`));
+  if(button.dataset.page==="firmware")loadFirmwareVersions();
+  if(button.dataset.page==="network"&&!state.networkConnected)resetNetworkConnection();
+}));
+document.querySelectorAll("#serialBaud button").forEach(button=>button.addEventListener("click",()=>{
+  document.querySelectorAll("#serialBaud button").forEach(item=>item.classList.toggle("active",item===button));state.serialBaud=Number(button.dataset.value);resetNetworkConnection();
+}));
+document.querySelectorAll("#transportMode button").forEach(button=>button.addEventListener("click",()=>setTransport(button.dataset.value)));
+document.querySelectorAll("#networkMode button").forEach(button=>button.addEventListener("click",()=>setNetworkMode(button.dataset.value)));
+$("refreshPorts").addEventListener("click",refreshPorts);
+$("scanDevices").addEventListener("click",scanDevices);
+$("scanTargetIp").addEventListener("click",scanTargetIp);
+$("deviceTarget").addEventListener("change",()=>{selectTargetDevice();resetNetworkConnection()});
+$("deviceUsername").addEventListener("change",resetNetworkConnection);
+$("devicePassword").addEventListener("change",resetNetworkConnection);
+$("portSelect").addEventListener("change",resetNetworkConnection);
+$("connectDevice").addEventListener("click",readNetworkState);
+$("saveNetworkConfig").addEventListener("click",saveNetworkConfiguration);
+$("saveDeviceLabel").addEventListener("click",saveDeviceLabel);
+$("openDevice").addEventListener("click",()=>{if(state.selectedDevice)window.open(state.selectedDevice.web_url,"_blank","noopener")});
+$("choosePackage").addEventListener("click",choosePackage);
+$("refreshVersions").addEventListener("click",()=>loadFirmwareVersions(true));
+$("downloadFirmware").addEventListener("click",downloadFirmware);
+$("verifyFirmware").addEventListener("click",verifyFirmware);
+$("flashFirmware").addEventListener("click",flashFirmware);
+$("clearLog").addEventListener("click",()=>$("activityLog").replaceChildren());
+$("toggleActivity").addEventListener("click",()=>{
+  const panel=$("activityPanel"),show=panel.hidden;
+  panel.hidden=!show;$("toggleActivity").setAttribute("aria-expanded",String(show));$("toggleActivity").textContent=show?"隐藏记录":"活动记录";
+});
+log("Toolkit 已就绪","ok");
+setTransport("network");
+setNetworkMode("dhcp");
+refreshPorts();
+</script>
+</body>
+</html>

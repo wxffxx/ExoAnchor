@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bridge UART and SSH Access"
+  short_description: "Use an existing UART or SSH path to establish the other"
+  default_prompt: "Use $bridge-uart-ssh-access to establish and verify the missing UART or SSH access path."

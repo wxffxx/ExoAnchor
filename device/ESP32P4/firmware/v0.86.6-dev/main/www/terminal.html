@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor Terminal</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/xterm/xterm.css">
+<style>
+:root{color-scheme:dark;--bg:#0b0c0f;--top:#15171b;--panel:#191b20;--panel2:#20242c;--line:#30343d;--text:#eef2f6;--muted:#96a0ad;--green:#2dd4bf;--red:#f87171;--yellow:#fbbf24;--term:#030405}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;display:flex;flex-direction:column;min-width:320px}
+.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:22px;padding:0 22px;background:var(--top);position:sticky;top:0;z-index:5;flex:0 0 auto}.brand{display:flex;align-items:center;gap:12px;min-width:0}.logo{width:32px;height:32px;border:1px solid #4b5563;border-radius:6px;display:grid;place-items:center;font-weight:800;background:#20242c;flex:0 0 auto}.title{font-weight:700;white-space:nowrap}.sub{font-size:12px;color:var(--muted);margin-top:-2px}
+.nav{display:flex;align-items:center;gap:8px;flex:0 0 auto}.nav a,.nav button{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}.nav a.active,.nav a:hover,.nav button:hover{background:var(--panel2);color:var(--text)}.nav button{border:0;background:transparent;font:inherit;cursor:pointer}.version-pill{color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:7px 0}
+.status-strip{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-left:auto}.data-state{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:6px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}.data-state.ok{color:var(--green);border-color:#1f766d}.data-state.bad{color:var(--red);border-color:#7f2d2d}.data-state.warn{color:var(--yellow);border-color:#7c5d16}
+.page{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px;gap:10px}.session{border:1px solid var(--line);background:var(--panel);border-radius:8px;overflow:hidden;flex:0 0 auto}.session-head{min-height:58px;display:grid;grid-template-columns:auto auto minmax(190px,1fr) auto;align-items:center;gap:12px;padding:10px 12px}.session-status{display:flex;align-items:center;gap:6px}.target{font:13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;color:#dbe3ea;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.target.muted{color:var(--muted)}.session-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+button,.button-link{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#242832;color:var(--text);border-radius:6px;padding:9px 11px;cursor:pointer;font-weight:650;text-decoration:none;white-space:nowrap}button:hover,.button-link:hover{border-color:#59606d;background:#2a303b}button.primary{border-color:#1f766d;background:#17302f;color:var(--green)}button.danger{border-color:#7f2d2d;color:#fecaca}button:disabled{opacity:.48;cursor:not-allowed}.button-link.settings{color:#bfdbfe;border-color:#365886;background:#17253a}.button-link[hidden]{display:none}
+.session-feedback{border-top:1px solid var(--line);padding:0 12px}.session-feedback .msg:empty{display:none}.channel-tabs{display:flex;gap:4px;padding:3px;border:1px solid var(--line);border-radius:8px;background:#090c10}.channel-tab{border:0;background:transparent;color:var(--muted);padding:7px 10px;border-radius:6px;font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.channel-tab.active{background:#222832;color:var(--green);box-shadow:inset 0 0 0 1px #3b4654}.uart-mode-row{display:flex;align-items:center;gap:9px;margin:0;color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.uart-mode-row.hide{display:none}.uart-mode-controls{display:flex;gap:4px;padding:3px;border:1px solid var(--line);border-radius:8px;background:#090c10}.uart-mode-controls button{border:0;background:transparent;color:var(--muted);padding:7px 10px;border-radius:6px;font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.uart-mode-controls button.active{background:#222832;color:var(--green);box-shadow:inset 0 0 0 1px #3b4654}
+.access-mode-row{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.access-mode-row select{min-height:36px;border:1px solid var(--line);background:#242832;color:var(--text);border-radius:6px;padding:7px 28px 7px 9px;font:650 12px/1 inherit}.access-mode-row select:disabled{opacity:.48}.access-mode-detail{display:none}
+.automation-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 12px;border-top:1px solid #705720;background:#322610b8;color:var(--yellow)}.automation-banner[hidden]{display:none}.automation-copy{display:grid;gap:4px;min-width:0}.automation-copy b{font:750 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em}.automation-copy span{color:#dccb9d;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.automation-banner.stopping{border-color:#78383d;background:#35181cb8;color:var(--red)}.terminal.manual-locked{border-color:#705720;box-shadow:inset 0 0 0 2px rgba(242,190,99,.13)}
+.terminal{position:relative;flex:1;min-height:0;border:1px solid var(--line);border-radius:8px;background:var(--term);overflow:hidden}.terminal .xterm{height:100%;padding:10px}.terminal .xterm-viewport{background:var(--term)!important}.msg{min-height:18px;color:var(--muted);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:10px}.msg.bad{color:var(--red)}.msg.ok{color:var(--green)}
+.agent-mirror{position:absolute;top:10px;right:22px;z-index:4;width:min(720px,calc(100% - 44px));max-height:42%;overflow:hidden;border:1px solid #365886;border-radius:9px;background:rgba(10,16,25,.94);box-shadow:0 14px 38px rgba(0,0,0,.38);pointer-events:none;opacity:0;transform:translateY(-5px);transition:opacity .18s,transform .18s}.agent-mirror.show{opacity:1;transform:none}.agent-mirror-head{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-bottom:1px solid #26384f;color:#93c5fd;font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.agent-mirror-columns,.agent-mirror-line{display:grid;grid-template-columns:92px 104px minmax(0,1fr) 82px;gap:10px;align-items:center}.agent-mirror-columns{padding:5px 10px 4px;color:#63748a;font:700 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}.agent-mirror-lines{display:grid;padding:0 10px 7px;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.agent-mirror-line{min-width:0;padding:5px 0;border-top:1px solid rgba(147,197,253,.08)}.agent-mirror-time{color:#7f8ea1;white-space:nowrap}.agent-mirror-type{color:#7dd3fc;font-weight:700;white-space:nowrap}.agent-mirror-action{min-width:0;color:#dbeafe;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.agent-mirror-result{color:#9aa8b9;text-align:right;font-weight:700;white-space:nowrap}.agent-mirror-line.bad .agent-mirror-result{color:#fecaca}.agent-mirror-line.ok .agent-mirror-result{color:#bbf7d0}.agent-mirror-line.redacted .agent-mirror-action{color:#fde68a}
+.modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,6,8,.72);z-index:20;padding:18px}.modal.show{display:grid}.dialog{width:min(430px,100%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45)}.dialog h2{font-size:16px;margin:0 0 6px}.dialog p{margin:0 0 14px;color:var(--muted)}.dialog .field{margin-bottom:10px}.dialog label{display:block;margin-bottom:6px;color:var(--muted);font-size:12px}.dialog input{width:100%;border:1px solid var(--line);border-radius:6px;background:#090c10;color:var(--text);padding:10px 11px;font:15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;outline:none}.dialog input:focus{border-color:#2f8f81;box-shadow:0 0 0 3px rgba(84,214,189,.12)}.dialog .privacy-note{font-size:12px;color:var(--green)}.dialog .privacy-note.warn{margin-top:6px;color:var(--yellow)}.dialog .dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+@media(max-width:1120px){.top{height:auto;align-items:flex-start;flex-direction:column;padding:14px;gap:10px}.status-strip{justify-content:flex-start;margin-left:0}.page{padding:10px}.session-head{grid-template-columns:auto 1fr}.session-status{justify-content:flex-end}.target{grid-column:1/-1}.session-actions{grid-column:1/-1;justify-content:flex-start}.terminal .xterm{padding:8px}}
+/* Control Center terminal workspace */
+:root{--bg:#0b0d10;--top:#111419;--panel:#15191f;--panel2:#1b2028;--line:#2b333e;--text:#f4f7fa;--muted:#8d98a7;--green:#54d6bd;--red:#ff7b7f;--yellow:#f2be63}
+.top{height:64px;padding:0 20px;gap:18px;background:rgba(17,20,25,.95);backdrop-filter:blur(18px)}.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(145deg,#252c36,#171b21)}.nav{gap:5px;overflow:auto;scrollbar-width:none}.nav a,.nav button{padding:8px 11px;border-radius:8px;font-weight:650;white-space:nowrap}.version-pill{display:none}.data-state{display:inline-flex;align-items:center;gap:6px;min-height:27px;padding:5px 9px;border-color:#3b4654;font-weight:700}.data-state:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.data-state.ok{color:var(--green);border-color:#24675d;background:#102c296b}.data-state.warn{color:var(--yellow);border-color:#705720;background:#3226106b}.data-state.bad{color:var(--red);border-color:#78383d;background:#35181c6b}.page{padding:14px;gap:12px;background:#080a0d}.terminal{border-color:#26322f;border-radius:11px;box-shadow:inset 0 0 0 3px rgba(84,214,189,.025),0 22px 70px rgba(0,0,0,.28)}.session{border-radius:11px;background:#101319}.terminal .xterm{padding:14px}
+@media(max-width:720px){.top{height:auto}.nav{width:100%}.session-head{display:flex;align-items:stretch;flex-direction:column}.session-status{justify-content:flex-start}.target{white-space:normal;overflow-wrap:anywhere}.session-actions{display:grid;grid-template-columns:1fr 1fr}.session-actions>*{min-width:0}.terminal{min-height:58vh}}
+</style>
+<link rel="stylesheet" href="/assets/ui-core.css">
+<link rel="stylesheet" href="/assets/ui-shell.css">
+<script src="/assets/ui-core.js"></script>
+<script src="/assets/ui-shell.js"></script>
+</head>
+<body>
+<div id="appShell"></div><script>ExoAnchorShell.mount("terminal")</script>
+<main class="page">
+  <section class="session">
+    <div class="session-head">
+      <div class="channel-tabs" aria-label="终端通道"><button id="sshChannel" class="channel-tab active" type="button">SSH</button><button id="uartChannel" class="channel-tab" type="button">UART</button></div>
+      <div class="session-status"><span id="sshBadge" class="data-meta">SSH --</span><span id="runBadge" class="data-state neutral">DISCONNECTED</span></div>
+      <div id="targetText" class="target muted">Settings 中尚未配置 SSH 目标</div>
+      <div class="session-actions">
+        <label class="access-mode-row" for="accessModeSelect"><span>权限</span><select id="accessModeSelect"><option value="manual">手动授权</option><option value="assisted">替我审批</option><option value="full">完全访问</option></select><span id="accessModeDetail" class="access-mode-detail"></span></label>
+        <a id="sshSettings" class="button-link settings" href="/settings#target">SSH Settings</a>
+        <div id="uartNote" class="uart-mode-row hide">
+          <span>Baud</span>
+          <div class="uart-mode-controls" role="group" aria-label="UART baud rate">
+            <button id="uartFastBtn" type="button">115200</button>
+            <button id="uartFallbackBtn" type="button">9600</button>
+          </div>
+        </div>
+        <button id="connectBtn" class="primary" type="button">Connect</button>
+        <button id="disconnectBtn" class="danger" type="button">Disconnect</button>
+        <button id="quickBtn" type="button">Quick Check</button>
+        <button id="clearBtn" type="button">Clear</button>
+      </div>
+    </div>
+    <div id="automationBanner" class="automation-banner" aria-live="assertive" hidden><span class="automation-copy"><b id="automationTitle">AGENT 正在操作 SSH</b><span id="automationDetail">人工输入已暂停 · 输出实时同步</span></span><button id="stopAutomation" class="danger" type="button">立即终止</button></div>
+    <div class="session-feedback">
+      <div id="msg" class="msg"></div>
+    </div>
+  </section>
+  <section id="terminal" class="terminal"><aside id="agentMirror" class="agent-mirror" aria-live="polite" aria-label="Agent action replay"><div class="agent-mirror-head"><span>AGENT ACTION REPLAY</span><span id="agentMirrorState">HISTORY</span></div><div class="agent-mirror-columns" aria-hidden="true"><span>TIME</span><span>TYPE</span><span>ACTION</span><span>RESULT</span></div><div id="agentMirrorLines" class="agent-mirror-lines"></div></aside></section>
+</main>
+<div id="sessionPasswordModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sessionPasswordTitle">
+  <form id="sessionPasswordForm" class="dialog">
+    <h2 id="sessionPasswordTitle">输入本次 SSH 密码 / Session password</h2>
+    <p>目标主机没有保存密码。此密码只用于当前 SSH 连接，不会写入设备设置或 NVS。</p>
+    <div class="field">
+      <label for="sessionPasswordInput">SSH 密码 / Password</label>
+      <input id="sessionPasswordInput" name="session-password" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="127">
+    </div>
+    <div class="privacy-note">仅本次连接 · 不保存 / Use once · Never saved</div>
+    <div id="sessionPasswordTransport" class="privacy-note warn"></div>
+    <div id="sessionPasswordMsg" class="msg"></div>
+    <div class="dialog-actions">
+      <button id="sessionPasswordCancel" type="button">取消</button>
+      <button class="primary" type="submit">连接一次 / Connect once</button>
+    </div>
+  </form>
+</div>
+<script src="/assets/xterm/xterm.js"></script>
+<script src="/assets/xterm/addon-fit.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const els={targetText:$("targetText"),sshSettings:$("sshSettings"),accessModeSelect:$("accessModeSelect"),accessModeDetail:$("accessModeDetail"),connectBtn:$("connectBtn"),disconnectBtn:$("disconnectBtn"),quickBtn:$("quickBtn"),clearBtn:$("clearBtn"),msg:$("msg"),sshBadge:$("sshBadge"),runBadge:$("runBadge"),terminal:$("terminal"),sshChannel:$("sshChannel"),uartChannel:$("uartChannel"),uartNote:$("uartNote"),uartFastBtn:$("uartFastBtn"),uartFallbackBtn:$("uartFallbackBtn"),agentMirror:$("agentMirror"),agentMirrorState:$("agentMirrorState"),agentMirrorLines:$("agentMirrorLines"),automationBanner:$("automationBanner"),automationTitle:$("automationTitle"),automationDetail:$("automationDetail"),stopAutomation:$("stopAutomation"),sessionPasswordModal:$("sessionPasswordModal"),sessionPasswordForm:$("sessionPasswordForm"),sessionPasswordInput:$("sessionPasswordInput"),sessionPasswordMsg:$("sessionPasswordMsg"),sessionPasswordCancel:$("sessionPasswordCancel"),sessionPasswordTransport:$("sessionPasswordTransport")};
+const term=new Terminal({cursorBlink:true,convertEol:false,scrollback:8000,fontFamily:"SFMono-Regular, Menlo, Consolas, monospace",fontSize:13,lineHeight:1.1,theme:{background:"#030405",foreground:"#eef2f6",cursor:"#2dd4bf",selectionBackground:"#24413e",black:"#000000",red:"#f87171",green:"#2dd4bf",yellow:"#fbbf24",blue:"#60a5fa",magenta:"#c084fc",cyan:"#22d3ee",white:"#e5e7eb",brightBlack:"#6b7280",brightRed:"#fb7185",brightGreen:"#5eead4",brightYellow:"#fde68a",brightBlue:"#93c5fd",brightMagenta:"#d8b4fe",brightCyan:"#67e8f9",brightWhite:"#ffffff"}});
+const fitAddon=new FitAddon.FitAddon();
+term.loadAddon(fitAddon);
+term.open(els.terminal);
+function fitTerm(){try{fitAddon.fit()}catch(e){}}
+fitTerm();
+window.addEventListener("resize",()=>setTimeout(fitTerm,30));
+const UI=window.ExoAnchorUI,API=UI.api,Session=UI.session,AuthUI=UI.auth;
+UI.lifecycle.addCleanup(UI.accessMode.bind(
+  els.accessModeSelect, els.accessModeDetail,
+  error=>UI.message(els.msg,error?.message||"权限模式保存失败","bad")
+));
+const UART_TERMINAL_ENABLED=window.ExoAnchorBuild?.uartTerminal===true;
+const TERMINAL_CHANNEL_STORAGE_KEY="ea_terminal_channel";
+const UART_WS_READY_TIMEOUT_MS=4000;
+const SSH_WS_READY_GRACE_MS=3000;
+let ws=null,decoder=new TextDecoder(),activeChannel=UART_TERMINAL_ENABLED&&localStorage.getItem(TERMINAL_CHANNEL_STORAGE_KEY)==="uart"?"uart":"ssh",uartReplay=null,uartReplayBytesPending=0,suppressTerminalResponses=0;
+let uartHandshakeTimer=0,uartHandshakeReady=false,uartCloseReason="";
+let sshHandshakeTimer=0,sshHandshakeReady=false,sshCloseReason="";
+let sshTarget={configured:false,host:"",port:22,username:"",auth_method:"auto",timeout_ms:30000,password_configured:false,private_key_configured:false};
+let uartStatus={supported:false,initialized:false,port:1,rx_gpio:50,tx_gpio:51,baud_rate:115200,default_baud_rate:115200,fallback_baud_rate:9600,baud_mode:"fast",format:"8N1"};
+const terminalControls={ssh:{active:false,generation:0,actor:"none"},uart:{active:false,generation:0,actor:"none"}};
+const UART_KEY_REPEAT_DELAY_MS=400,UART_KEY_REPEAT_INTERVAL_MS=45;
+let uartHeldKey=null,uartRepeatDelay=0,uartRepeatInterval=0;
+let passwordPromptResolve=null;
+const mirroredAgentEvents=[];
+function formatActionReplayTimestamp(value){
+  const ms=Math.max(0,Number(value)||0),total=Math.floor(ms/1000),days=Math.floor(total/86400),hours=Math.floor(total/3600)%24,minutes=Math.floor(total/60)%60,seconds=total%60;
+  return `T+${days?days+"d ":""}${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`;
+}
+function actionReplayResult(phase){
+  return ({planned:"PLANNED",waiting_approval:"WAITING",started:"RUNNING",input_sent:"SENT",output_received:"OUTPUT",verifying:"VERIFYING",succeeded:"SUCCEEDED",failed:"FAILED",cancelled:"CANCELLED"})[phase]||"RECORDED";
+}
+function cleanActionReplayText(value){
+  return String(value||"").replace(/^tool\[\d+\]\s+/i,"").replace(/\s*·\s*cursor=\d+\b/ig,"").replace(/\s*·\s*ready\b/ig,"").replace(/\s*·\s*/g," · ").trim();
+}
+function describeAgentTerminalAction(event){
+  const channel=String(event?.channel||"agent").toUpperCase(),phase=String(event?.phase||event?.kind||"event"),raw=String(event?.text||"");
+  if(event?.redacted)return{type:`${channel} INPUT`,action:"Protected input was used; content is hidden",result:actionReplayResult(phase),kind:"redacted"};
+  let match;
+  if((match=/\buart_status\b.*?\bUART(\d+)\s+(\d+)\s+(8N1)\b/i.exec(raw)))return{type:"UART STATUS",action:`Checked UART${match[1]} · ${match[2]} ${match[3]}`,result:actionReplayResult(phase)};
+  if((match=/\buart_read\b\s*·\s*(\d+)\s+bytes\b/i.exec(raw)))return{type:"UART READ",action:`Read UART output · ${match[1]} bytes`,result:actionReplayResult(phase)};
+  if(/\buart_write\b/i.test(raw)){
+    if((match=/\bwrote=(\d+)\s+response=(\d+)/i.exec(raw)))return{type:"UART WRITE",action:`Wrote ${match[1]} bytes · received ${match[2]} bytes`,result:actionReplayResult(phase)};
+    const payload=raw.replace(/^tool\[\d+\]\s+uart_write(?:\s+dry-run)?\s*·\s*/i,"").replace(/\s+\+\s+ENTER$/i," + Enter");
+    return{type:"UART WRITE",action:payload?`Sent ${payload}`:"Sent data to UART",result:actionReplayResult(phase)};
+  }
+  if((match=/\buart_baud\b(?:\s+\w+)?\s*·\s*(\d+)/i.exec(raw)))return{type:"UART CONFIG",action:`Set baud rate to ${match[1]}`,result:actionReplayResult(phase)};
+  if(/\bssh_exec\b/i.test(raw)){
+    if((match=/\bssh_exec(?:\s+dry-run)?\s+\$\s*(.+)$/i.exec(raw)))return{type:"SSH COMMAND",action:`Ran ${match[1]}`,result:actionReplayResult(phase)};
+    if((match=/\bexit=(-?\d+)\s*·\s*(\d+)ms\b/i.exec(raw)))return{type:"SSH COMMAND",action:`Command finished · exit ${match[1]} · ${match[2]} ms`,result:actionReplayResult(phase)};
+    return{type:"SSH COMMAND",action:"Executed command on the configured host",result:actionReplayResult(phase)};
+  }
+  if(channel==="SSH"&&/\brunning\b/i.test(raw)){
+    match=/\btimeout=(\d+)ms\b/i.exec(raw);
+    return{type:"SSH COMMAND",action:match?`Executing command · ${match[1]} ms timeout`:"Executing command",result:actionReplayResult(phase)};
+  }
+  const action=cleanActionReplayText(raw).replace(/^(uart_status|uart_read|uart_write|uart_baud|ssh_exec)\b\s*/i,"").trim();
+  return{type:`${channel} ACTION`,action:action||"Action recorded",result:actionReplayResult(phase)};
+}
+function mirrorAgentTerminalEvent(event,status){
+  if(localStorage.getItem("si_agent_action_visualization")==="0")return;
+  if(event?.channel!=="ssh"&&event?.channel!=="uart")return;
+  mirroredAgentEvents.push(event);
+  if(mirroredAgentEvents.length>6)mirroredAgentEvents.shift();
+  els.agentMirrorState.textContent=status?.running?"LIVE":"HISTORY";
+  els.agentMirrorLines.replaceChildren(...mirroredAgentEvents.map(item=>{
+    const description=describeAgentTerminalAction(item),phase=String(item?.phase||item?.kind||"event");
+    const kind=description.kind||(phase==="failed"?"bad":phase==="succeeded"?"ok":"");
+    const line=document.createElement("div");
+    line.className=`agent-mirror-line ${kind}`;
+    const time=document.createElement("time"),type=document.createElement("span"),action=document.createElement("span"),result=document.createElement("span");
+    time.className="agent-mirror-time";time.textContent=formatActionReplayTimestamp(item?.ms);time.title=`Device monotonic timestamp: ${Number(item?.ms)||0} ms`;
+    type.className="agent-mirror-type";type.textContent=description.type;
+    action.className="agent-mirror-action";action.textContent=description.action;action.title=description.action;
+    result.className="agent-mirror-result";result.textContent=description.result;
+    line.append(time,type,action,result);
+    return line;
+  }));
+  els.agentMirror.classList.add("show");
+}
+function setMsg(text,kind){els.msg.textContent=text||"";els.msg.className="msg "+(kind||"")}
+function setState(text,kind){els.runBadge.textContent=text;els.runBadge.className="data-state "+(kind||"neutral")}
+function manualInputLocked(channel=activeChannel){return terminalControls[channel]?.active===true}
+function renderTerminalControl(){
+  const control=terminalControls[activeChannel]||{},active=control.active===true,actor=String(control.actor||"agent").toUpperCase(),stopping=control.cancel_requested===true;
+  els.automationBanner.hidden=!active;els.automationBanner.classList.toggle("stopping",stopping);els.terminal.classList.toggle("manual-locked",active);term.options.disableStdin=active;
+  if(active){stopUartKeyRepeat();els.automationTitle.textContent=`${actor} 正在操作 ${activeChannel.toUpperCase()}`;els.automationDetail.textContent=`${control.label||"执行终端任务"} · 人工输入已暂停 · 输入/输出实时同步${stopping?" · 正在终止":""}`;els.stopAutomation.disabled=stopping;setState(stopping?"STOPPING":`${actor} CONTROL`,stopping?"bad":"warn")}
+  els.quickBtn.disabled=active||!sshTarget.configured||activeChannel!=="ssh";renderUartMode();
+  if(!active&&connected())setState(activeChannel==="uart"?"LIVE":"SHELL","ok");
+}
+function applyTerminalControl(control){if(!control||!['ssh','uart'].includes(control.channel))return false;const previous=terminalControls[control.channel]||{};if(Number(control.generation||0)<Number(previous.generation||0))return false;terminalControls[control.channel]=Object.assign({},previous,control);if(control.channel===activeChannel)renderTerminalControl();return true}
+function safeTerminalInputText(value){return String(value||"").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x1b]/g,ch=>`\\x${ch.charCodeAt(0).toString(16).padStart(2,"0")}`).replace(/\r?\n/g," ↵\r\n")}
+function mirrorTerminalInput(control){const actor=String(terminalControls[control.channel]?.actor||"agent").toUpperCase(),text=control.redacted?"[受保护输入已发送，内容已隐藏]":safeTerminalInputText(control.text);writeShellData(`\r\n\x1b[36m[${actor} ${control.channel.toUpperCase()} INPUT]\x1b[0m ${text}${control.append_enter?"\r\n":""}`,true)}
+async function stopTerminalAutomation(){const control=Object.assign({},terminalControls[activeChannel]);if(!control.active||!control.generation)return;els.stopAutomation.disabled=true;try{await API.post("/api/terminal/control/stop",{channel:activeChannel,generation:Number(control.generation)});if(control.actor==="agent"&&control.run_id){try{await API.post("/api/agent/run/abort",{run_id:control.run_id})}catch(error){}}setMsg(`${String(control.actor||"Agent").toUpperCase()} 终止请求已发送，等待安全检查点释放输入` ,"warn")}catch(error){els.stopAutomation.disabled=false;setMsg(error.message||"终止自动操作失败","bad")}}
+function needsSessionPassword(){const auth=sshTarget.auth_method==="key"?"key":sshTarget.auth_method==="password"?"password":"auto";if(sshTarget.password_configured)return false;if(auth==="password")return true;if(auth==="auto")return !sshTarget.private_key_configured;return false}
+function updateTarget(){const configured=!!sshTarget.configured&&!!sshTarget.host&&!!sshTarget.username;const auth=sshTarget.auth_method==="key"?"key":sshTarget.auth_method==="password"?"password":"auto";const sessionAuth=configured&&needsSessionPassword()?" · session password":"";els.targetText.textContent=configured?`Settings · ssh ${sshTarget.username}@${sshTarget.host}:${sshTarget.port||22} · ${auth}${sessionAuth}`:"Settings 中尚未配置 SSH 目标";els.targetText.className="target "+(configured?"":"muted");els.connectBtn.disabled=!configured||activeChannel!=="ssh";els.quickBtn.disabled=manualInputLocked()||!configured||activeChannel!=="ssh"}
+async function loadTarget(){try{const cfg=await API.get("/api/settings/ssh-target");sshTarget=Object.assign(sshTarget,cfg||{});updateTarget();if(!sshTarget.configured)setMsg("请先前往 Settings → 被控端 SSH 配置目标主机","warn");return cfg}catch(e){sshTarget.configured=false;updateTarget();setMsg(e.message||"SSH 目标读取失败","bad");return null}}
+function connected(){return ws&&ws.readyState===WebSocket.OPEN&&(activeChannel==="uart"?uartHandshakeReady:sshHandshakeReady)}
+function clearUartHandshakeTimer(){if(uartHandshakeTimer)UI.lifecycle.clearTimer(uartHandshakeTimer);uartHandshakeTimer=0}
+function clearSshHandshakeTimer(){if(sshHandshakeTimer)UI.lifecycle.clearTimer(sshHandshakeTimer);sshHandshakeTimer=0}
+function sshReadyTimeoutMs(){return Math.max(5000,Math.min(Number(sshTarget.timeout_ms||30000)+SSH_WS_READY_GRACE_MS,63000))}
+function sshSessionFailureReason(text){const value=String(text||"");if(/\[ssh:\s*host key changed\]/i.test(value))return"SSH 主机密钥已变化；请核对目标主机后再重新信任";const hostKey=/\[ssh:\s*host key verification failed(?::\s*([^\]]+))?\]/i.exec(value);if(hostKey)return`SSH 主机身份校验失败${hostKey[1]?` · ${hostKey[1]}`:""}；尚未进入密码认证`;if(/\[ssh:\s*password auth failed/i.test(value))return"SSH 密码认证失败；请检查 Settings 中保存的密码";if(/\[ssh:\s*public key auth failed/i.test(value))return"SSH Key 认证失败；请检查 Settings 中的私钥";if(/\[ssh:\s*auth timeout/i.test(value))return"SSH 认证超时";const generic=/\[ssh:\s*([^\]]+)\]/i.exec(value);if(!generic)return"";const detail=generic[1].trim();return/^(?:connecting|connected|session closed)$/i.test(detail)?"":`SSH 连接失败 · ${detail}`}
+function wsUrl(channel){const proto=location.protocol==="https:"?"wss:":"ws:";const path=channel==="uart"?"/api/ws/uart":"/api/ws/ssh";return proto+"//"+location.host+path}
+function renderChannelBadge(){els.sshBadge.className="data-meta";els.sshBadge.hidden=activeChannel==="uart";if(activeChannel==="uart")return;const auth=sshTarget.auth_method==="key"?"key":sshTarget.auth_method==="password"?"password":"auto";let credential="credential required";if(auth==="key")credential=sshTarget.private_key_configured?"key configured":"key required";else if(auth==="password")credential=sshTarget.password_configured?"password configured":"password required";else if(sshTarget.password_configured)credential="password configured";else if(sshTarget.private_key_configured)credential="key configured";els.sshBadge.textContent=sshTarget.pty?`SSH PTY · ${credential}`:`SSH · ${credential}`}
+function renderUartMode(){const fast=Number(uartStatus.default_baud_rate||115200),fallback=Number(uartStatus.fallback_baud_rate||9600),current=Number(uartStatus.baud_rate||fast),locked=manualInputLocked("uart");els.uartFastBtn.textContent=String(fast);els.uartFallbackBtn.textContent=String(fallback);els.uartFastBtn.title=`${fast} 高速`;els.uartFallbackBtn.title=`${fallback} 低速备用`;els.uartFastBtn.classList.toggle("active",current===fast);els.uartFallbackBtn.classList.toggle("active",current===fallback);els.uartFastBtn.setAttribute("aria-pressed",current===fast?"true":"false");els.uartFallbackBtn.setAttribute("aria-pressed",current===fallback?"true":"false");els.uartFastBtn.disabled=locked||!uartStatus.initialized||current===fast;els.uartFallbackBtn.disabled=locked||!uartStatus.initialized||current===fallback}
+async function loadStatus(){const requests=[API.get("/api/ssh/status")];if(UART_TERMINAL_ENABLED)requests.push(API.get("/api/uart/status"));const results=await Promise.allSettled(requests);if(results[0].status==="fulfilled"){const status=results[0].value||{};sshTarget=Object.assign(sshTarget,status.target||{},status);applyTerminalControl(status.automation)}if(UART_TERMINAL_ENABLED&&results[1]?.status==="fulfilled"){uartStatus=Object.assign(uartStatus,results[1].value||{});applyTerminalControl(results[1].value?.automation)}renderChannelBadge();renderUartMode();renderTerminalControl()}
+function closePasswordPrompt(value){els.sessionPasswordModal.classList.remove("show");els.sessionPasswordInput.value="";els.sessionPasswordMsg.textContent="";const resolve=passwordPromptResolve;passwordPromptResolve=null;if(resolve)resolve(value);term.focus()}
+function requestSessionPassword(){if(passwordPromptResolve)return Promise.resolve(null);els.sessionPasswordInput.value="";els.sessionPasswordMsg.textContent="";els.sessionPasswordTransport.textContent=location.protocol==="https:"?"WSS 加密传输 / Encrypted in transit":"当前 HTTP/WS 传输未加密，仅在可信局域网使用";els.sessionPasswordModal.classList.add("show");setState("PASSWORD","warn");setMsg("请输入仅用于本次连接的 SSH 密码；设备不会保存","warn");setTimeout(()=>els.sessionPasswordInput.focus(),0);return new Promise(resolve=>{passwordPromptResolve=resolve})}
+function switchChannel(channel){stopUartKeyRepeat();const previous=activeChannel,next=UART_TERMINAL_ENABLED&&channel==="uart"?"uart":"ssh",switchingFromSsh=previous==="ssh"&&next==="uart",hadSocket=disconnectShell(switchingFromSsh?"switch-to-uart":"channel-switch");activeChannel=next;localStorage.setItem(TERMINAL_CHANNEL_STORAGE_KEY,activeChannel);uartReplay=null;uartReplayBytesPending=0;els.sshChannel.classList.toggle("active",activeChannel==="ssh");els.uartChannel.classList.toggle("active",activeChannel==="uart");els.uartNote.classList.toggle("hide",activeChannel!=="uart");els.sshSettings.toggleAttribute("hidden",activeChannel!=="ssh");renderChannelBadge();renderUartMode();if(activeChannel==="uart"){const available=!!uartStatus.initialized;els.targetText.textContent=`UART${uartStatus.port||1}`;els.targetText.className="target "+(available?"":"muted");els.connectBtn.disabled=!available;els.quickBtn.disabled=true;setState(available?"DISCONNECTED":"UART OFF",available?"":"bad");setMsg(available&&switchingFromSsh&&hadSocket?"SSH 已主动断开；UART 可连接":available?"":(uartStatus.last_error||"UART 初始化失败"),available&&switchingFromSsh&&hadSocket?"ok":available?"":"bad")}else{updateTarget();setState("DISCONNECTED","");setMsg(sshTarget.configured?"":"请先前往 Settings → 被控端 SSH 配置目标主机",sshTarget.configured?"":"warn")}renderTerminalControl();fitTerm();term.focus()}
+async function setUartBaud(baudRate){if(activeChannel!=="uart"||!uartStatus.initialized)return;disconnectShell();setState("SWITCHING","warn");setMsg(`正在切换 UART 到 ${baudRate}...`,"warn");try{const result=await API.post("/api/uart/baud",{baud_rate:baudRate});uartStatus=Object.assign(uartStatus,result||{});switchChannel("uart");setMsg(`UART 已切换为 ${uartStatus.baud_rate} 8N1，请重新 Connect`,"ok")}catch(error){setState("ERROR","bad");setMsg(error.message||"UART 波特率切换失败","bad")}renderUartMode()}
+function writeShellData(data,suppressResponses=false){const text=data instanceof ArrayBuffer?decoder.decode(data,{stream:true}):data;if(!suppressResponses){term.write(text);return}suppressTerminalResponses++;term.write(text,()=>{suppressTerminalResponses=Math.max(0,suppressTerminalResponses-1)})}
+function handleShellFrame(channel,data){if(typeof data==="string"&&data.startsWith("{")){try{const control=JSON.parse(data);if(control.type==="terminal.control"){applyTerminalControl(control);return}if(control.type==="terminal.input"){mirrorTerminalInput(control);return}if(channel==="uart"&&control.type==="uart.replay"){clearUartHandshakeTimer();uartHandshakeReady=true;uartReplay=control;const bytes=Number(control.bytes||0),generation=Number(control.generation||0);uartReplayBytesPending=Math.max(0,bytes);setState("LIVE","ok");setMsg(bytes>0?(control.history_lost?`UART 已连接 · 正在回放最近 ${bytes} bytes（更早内容已截断）`:`UART 已连接 · 正在回放 ${bytes} bytes · generation ${generation}`):`UART 已连接 · 无近期输出 · generation ${generation}`,control.history_lost?"warn":"");renderTerminalControl();return}}catch(error){}}if(channel==="ssh"&&typeof data==="string"){const reason=sshSessionFailureReason(data);if(/\[ssh:\s*connected\]/i.test(data)){clearSshHandshakeTimer();sshHandshakeReady=true;sshCloseReason="";setState("SHELL","ok");setMsg("Connected","");renderTerminalControl()}else if(reason){sshCloseReason=reason;setState("ERROR","bad");setMsg(reason,"bad")}if(/\[ssh:\s*session closed\]/i.test(data)){const wasReady=sshHandshakeReady;clearSshHandshakeTimer();sshHandshakeReady=false;if(!wasReady&&!sshCloseReason)sshCloseReason="SSH 连接在就绪前已关闭";if(sshCloseReason){setState("ERROR","bad");setMsg(sshCloseReason,"bad")}else{setState("DISCONNECTED","");setMsg("SSH session closed","")}const socket=ws;if(socket&&socket.readyState<2)try{socket.close()}catch(error){}}}const byteLength=data instanceof ArrayBuffer?data.byteLength:0,isReplay=channel==="uart"&&uartReplayBytesPending>0;if(isReplay){uartReplayBytesPending=Math.max(0,uartReplayBytesPending-byteLength);if(uartReplayBytesPending===0){const bytes=Number(uartReplay?.bytes||0),generation=Number(uartReplay?.generation||0);setMsg(uartReplay?.history_lost?`UART 已连接 · 已回放最近 ${bytes} bytes（更早内容已截断）`:`UART 已连接 · 已回放 ${bytes} bytes · generation ${generation}`,uartReplay?.history_lost?"warn":"")}}writeShellData(data,isReplay)}
+async function connectShell(){const channel=activeChannel;if(channel==="uart"&&!UART_TERMINAL_ENABLED){switchChannel("ssh");setMsg("UART Terminal 仅在 Dev 固件中提供","warn");return}if(channel==="ssh"&&!sshTarget.configured){setMsg("请先前往 Settings → 被控端 SSH 配置目标主机","bad");return}if(channel==="uart"&&!uartStatus.initialized){setMsg("目标 UART 尚未初始化","bad");return}if(!(await API.ensure()))return;let sessionPassword="";if(channel==="ssh"&&needsSessionPassword()){const entered=await requestSessionPassword();if(entered===null){setState("DISCONNECTED","");setMsg("已取消连接","");return}sessionPassword=entered}if(ws&&ws.readyState<=1)ws.close();clearUartHandshakeTimer();clearSshHandshakeTimer();uartHandshakeReady=false;sshHandshakeReady=false;uartCloseReason="";sshCloseReason="";fitTerm();term.reset();uartReplay=null;uartReplayBytesPending=0;suppressTerminalResponses=0;setState("CONNECTING","warn");setMsg(channel==="uart"?"正在连接 UART 并等待板端确认…":sessionPassword?"一次性密码仅用于当前连接，不会保存":"Connecting with saved credential...",sessionPassword?"warn":"");const socket=ws=new WebSocket(wsUrl(channel));socket.binaryType="arraybuffer";if(channel==="uart"){uartHandshakeTimer=UI.lifecycle.timeout(()=>{uartHandshakeTimer=0;if(ws!==socket||uartHandshakeReady)return;uartCloseReason=socket.readyState===WebSocket.CONNECTING?"UART 连接超时；板端未完成 WebSocket 握手":"UART 同步超时；板端未返回 replay 确认";setState("ERROR","bad");setMsg(uartCloseReason,"bad");try{socket.close()}catch(error){}},UART_WS_READY_TIMEOUT_MS)}else{sshHandshakeTimer=UI.lifecycle.timeout(()=>{sshHandshakeTimer=0;if(ws!==socket||sshHandshakeReady)return;sshCloseReason=socket.readyState===WebSocket.CONNECTING?"SSH WebSocket 连接超时":"SSH 握手或认证超时";setState("ERROR","bad");setMsg(sshCloseReason,"bad");try{socket.close()}catch(error){}},sshReadyTimeoutMs())}socket.onopen=()=>{if(ws!==socket)return;if(channel==="ssh"){const payload={cols:term.cols||120,rows:term.rows||32};if(sessionPassword)payload.password=sessionPassword;socket.send(JSON.stringify(payload));if("password" in payload)payload.password="";setState("CONNECTING","warn");setMsg("SSH WebSocket 已打开，等待握手、主机身份校验与认证…","warn")}else{setState("SYNCING","warn");setMsg("UART WebSocket 已打开，等待板端 replay 确认…","warn")}sessionPassword="";els.sessionPasswordInput.value="";term.focus()};socket.onmessage=e=>{if(ws===socket)handleShellFrame(channel,e.data)};socket.onerror=()=>{if(ws!==socket)return;sessionPassword="";if(channel==="uart")uartCloseReason=uartCloseReason||"UART WebSocket 连接失败";else sshCloseReason=sshCloseReason||"SSH WebSocket 连接失败";const reason=channel==="uart"?uartCloseReason:sshCloseReason;setState("ERROR","bad");setMsg(reason,"bad")};socket.onclose=()=>{if(ws!==socket)return;clearUartHandshakeTimer();clearSshHandshakeTimer();sessionPassword="";ws=null;uartHandshakeReady=false;sshHandshakeReady=false;uartReplayBytesPending=0;suppressTerminalResponses=0;const reason=channel==="uart"?uartCloseReason:sshCloseReason;if(reason){setState("ERROR","bad");setMsg(reason,"bad")}else{setState("DISCONNECTED","");setMsg("Disconnected","")}term.focus()};}
+function disconnectShell(reason="manual-disconnect"){stopUartKeyRepeat();if(passwordPromptResolve)closePasswordPrompt(null);clearUartHandshakeTimer();clearSshHandshakeTimer();uartHandshakeReady=false;sshHandshakeReady=false;uartCloseReason="";sshCloseReason="";const socket=ws;ws=null;if(socket)try{socket.close(1000,String(reason||"manual-disconnect").slice(0,123))}catch(error){}setState("DISCONNECTED","");setMsg("Disconnected","");term.focus();return!!socket}
+function sendRaw(data){if(manualInputLocked()){setMsg(`${String(terminalControls[activeChannel]?.actor||"Agent").toUpperCase()} 正在操作，人工输入已暂停；可点击“立即终止”取回控制`,"warn");return false}if(!connected()){setMsg(activeChannel==="uart"?"请先连接目标 UART":"请先连接 Settings 中保存的 SSH 目标","warn");return false}ws.send(data);return true}
+function uartKeyData(event){
+  if(event.isComposing||event.metaKey||event.key==="Dead"||event.key==="Process"||event.key==="Unidentified")return null;
+  if(event.ctrlKey&&event.shiftKey&&["c","v"].includes(String(event.key).toLowerCase()))return null;
+  const application=!!term.modes.applicationCursorKeysMode;
+  const special={
+    Enter:"\r",Backspace:"\x7f",Tab:"\t",Escape:"\x1b",
+    ArrowUp:application?"\x1bOA":"\x1b[A",
+    ArrowDown:application?"\x1bOB":"\x1b[B",
+    ArrowRight:application?"\x1bOC":"\x1b[C",
+    ArrowLeft:application?"\x1bOD":"\x1b[D",
+    Home:application?"\x1bOH":"\x1b[H",End:application?"\x1bOF":"\x1b[F",
+    Insert:"\x1b[2~",Delete:"\x1b[3~",PageUp:"\x1b[5~",PageDown:"\x1b[6~",
+    F1:"\x1bOP",F2:"\x1bOQ",F3:"\x1bOR",F4:"\x1bOS",
+    F5:"\x1b[15~",F6:"\x1b[17~",F7:"\x1b[18~",F8:"\x1b[19~",
+    F9:"\x1b[20~",F10:"\x1b[21~",F11:"\x1b[23~",F12:"\x1b[24~"
+  };
+  let data=special[event.key]||null;
+  if(!data&&event.ctrlKey){
+    const key=String(event.key);
+    if(key.length===1){
+      const upper=key.toUpperCase(),code=upper.charCodeAt(0);
+      if(code>=64&&code<=95)data=String.fromCharCode(code-64);
+      else if(key==="?")data="\x7f";
+    }
+  }else if(!data&&!event.ctrlKey&&String(event.key).length===1){
+    data=event.key;
+  }
+  if(data&&event.altKey)data="\x1b"+data;
+  return data;
+}
+function stopUartKeyRepeat(code){
+  if(code&&uartHeldKey&&uartHeldKey.code!==code)return;
+  if(uartRepeatDelay)UI.lifecycle.clearTimer(uartRepeatDelay);
+  if(uartRepeatInterval)UI.lifecycle.clearTimer(uartRepeatInterval);
+  uartRepeatDelay=0;uartRepeatInterval=0;uartHeldKey=null;
+}
+function startUartKeyRepeat(code,data){
+  stopUartKeyRepeat();
+  uartHeldKey={code,data};
+  sendRaw(data);
+  uartRepeatDelay=UI.lifecycle.timeout(()=>{
+    uartRepeatDelay=0;
+    if(!uartHeldKey||activeChannel!=="uart"||!connected())return stopUartKeyRepeat();
+    sendRaw(uartHeldKey.data);
+    uartRepeatInterval=UI.lifecycle.interval(()=>{
+      if(!uartHeldKey||activeChannel!=="uart"||!connected())return stopUartKeyRepeat();
+      sendRaw(uartHeldKey.data);
+    },UART_KEY_REPEAT_INTERVAL_MS);
+  },UART_KEY_REPEAT_DELAY_MS);
+}
+term.attachCustomKeyEventHandler(event=>{
+  if(activeChannel!=="uart"||!connected())return true;
+  const code=event.code||event.key;
+  if(event.type==="keyup"){
+    if(!uartHeldKey||uartHeldKey.code!==code)return true;
+    event.preventDefault();stopUartKeyRepeat(code);return false;
+  }
+  if(event.type!=="keydown")return true;
+  const data=uartKeyData(event);
+  if(data===null)return true;
+  event.preventDefault();
+  if(!event.repeat)startUartKeyRepeat(code,data);
+  return false;
+});
+AuthUI.bindForm(boot);
+document.addEventListener("exoanchor:navigate",disconnectShell);
+document.addEventListener("exoanchor:logout",disconnectShell);
+UI.lifecycle.addCleanup(disconnectShell);
+const stopUartRepeatOnBlur=()=>stopUartKeyRepeat();
+window.addEventListener("blur",stopUartRepeatOnBlur);
+UI.lifecycle.addCleanup(()=>window.removeEventListener("blur",stopUartRepeatOnBlur));
+term.onData(data=>{if(suppressTerminalResponses)return;sendRaw(data)});
+els.sshChannel.onclick=()=>switchChannel("ssh");els.uartChannel.onclick=()=>{if(UART_TERMINAL_ENABLED)switchChannel("uart")};
+els.connectBtn.onclick=connectShell;els.disconnectBtn.onclick=disconnectShell;
+els.stopAutomation.onclick=stopTerminalAutomation;
+els.uartFastBtn.onclick=()=>setUartBaud(Number(uartStatus.default_baud_rate||115200));
+els.uartFallbackBtn.onclick=()=>setUartBaud(Number(uartStatus.fallback_baud_rate||9600));
+els.sessionPasswordForm.onsubmit=e=>{e.preventDefault();const value=els.sessionPasswordInput.value;if(!value){els.sessionPasswordMsg.textContent="请输入密码 / Password required";els.sessionPasswordMsg.className="msg bad";els.sessionPasswordInput.focus();return}closePasswordPrompt(value)};
+els.sessionPasswordCancel.onclick=()=>closePasswordPrompt(null);
+els.sessionPasswordModal.addEventListener("click",e=>{if(e.target===els.sessionPasswordModal)closePasswordPrompt(null)});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&els.sessionPasswordModal.classList.contains("show")){e.preventDefault();closePasswordPrompt(null)}});
+els.quickBtn.onclick=()=>sendRaw("uname -a; echo; uptime; echo; id; echo; df -h | head -8\r");
+els.clearBtn.onclick=()=>{term.clear();term.focus()};
+els.terminal.onclick=()=>term.focus();
+UI.pageContext.register("terminal",()=>{
+  const selected=term.hasSelection()?term.getSelection().slice(-384):"No terminal output selected";
+  return {summary:`Terminal / ${activeChannel.toUpperCase()}`,items:[
+    {kind:"status",label:"Channel",value:activeChannel},
+    {kind:"status",label:"Connection",value:connected()?"connected":"disconnected"},
+    {kind:"setting",label:"Access mode",value:UI.accessMode.mode},
+    ...(UART_TERMINAL_ENABLED?[{kind:"setting",label:"UART",value:`UART${uartStatus.port||1} ${uartStatus.baud_rate||115200} ${uartStatus.format||"8N1"}`}]:[]),
+    ...(activeChannel==="uart"&&uartReplay?[{kind:"status",label:"UART generation",value:String(uartReplay.generation||"")},{kind:"status",label:"Replay bytes",value:String(uartReplay.bytes||0)}]:[]),
+    {kind:"setting",label:"SSH target",value:sshTarget.configured?`${sshTarget.username}@${sshTarget.host}:${sshTarget.port||22}`:"not configured"},
+    {kind:"terminal_excerpt",label:"Explicit terminal selection",value:selected},
+  ]};
+});
+async function boot(){els.uartChannel.hidden=!UART_TERMINAL_ENABLED;els.uartChannel.classList.toggle("hide",!UART_TERMINAL_ENABLED);if(!UART_TERMINAL_ENABLED)localStorage.setItem(TERMINAL_CHANNEL_STORAGE_KEY,"ssh");if(!(await API.ensure()))return;await Promise.all([loadTarget(),loadStatus(),UI.accessMode.load()]);switchChannel(activeChannel);UI.lifecycle.interval(loadStatus,1000)}
+UI.lifecycle.addCleanup(UI.actionMirror.subscribe(mirrorAgentTerminalEvent));
+boot();
+</script>
+</body>
+</html>

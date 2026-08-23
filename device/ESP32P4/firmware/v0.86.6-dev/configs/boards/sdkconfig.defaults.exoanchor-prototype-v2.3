@@ -1,0 +1,32 @@
+# Netlist_SCH_ESP32P4_Prototype_V2.3b6_1_2026-07-25.tel
+# SHA-256: 0ce2340e77fa5e267ef1eb04ab4fb7ea71ba6c3f9917ba7715f6579ec71b85fa
+# Bring-up profile for the connected PrototypeV2.3 board. The operator calls
+# the assembly b4 while the supplied electrical source is named b6; keep the
+# generic V2.3 identity until that manufacturing-version mismatch is resolved.
+CONFIG_SI_BOARD_EXOANCHOR_PROTOTYPE_V23=y
+CONFIG_SI_MS2109_EEPROM_WP_GPIO=16
+# The b6 netlist includes physical AT24C16C U5 on the MS2109 EEPROM bus.
+# Never claim address 0x50 from the ESP32-P4 unless U5 has been depopulated.
+# CONFIG_SI_MS2109_EEPROM_EMULATOR_ENABLE is not set
+CONFIG_SI_POWER_BUTTON_GPIO=4
+CONFIG_SI_RESET_BUTTON_GPIO=5
+CONFIG_SI_POWER_ACTIVE_HIGH=y
+CONFIG_SI_POWER_DETECT_GPIO=0
+CONFIG_SI_POWER_DETECT_ACTIVE_HIGH=y
+CONFIG_SI_STANDBY_DETECT_GPIO=1
+CONFIG_SI_STANDBY_DETECT_ACTIVE_HIGH=y
+CONFIG_SI_POWER_LOCATOR_GPIO=17
+CONFIG_SI_POWER_LOCATOR_ACTIVE_HIGH=y
+CONFIG_SI_TF_CARD_DETECT_GPIO=-1
+CONFIG_SI_TARGET_UART_ENABLE=y
+CONFIG_SI_TARGET_UART_PORT=1
+CONFIG_SI_TARGET_UART_RX_GPIO=50
+CONFIG_SI_TARGET_UART_TX_GPIO=51
+CONFIG_SI_TARGET_UART_BAUD_RATE=115200
+CONFIG_SI_TARGET_UART_FALLBACK_BAUD_RATE=9600
+
+# U23 routes the ESP32-P4 USB Serial/JTAG PHY to GPIO24/GPIO25. Retain UART0
+# on GPIO37/GPIO38 as the primary console and mirror logs to U23 so either
+# development connector can be used during first-board bring-up.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y

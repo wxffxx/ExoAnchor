@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor KVM</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{color-scheme:dark;--bg:#0b0c0f;--panel:#15181e;--panel2:#20242c;--line:#30343d;--text:#eef2f6;--muted:#98a2af;--green:#2dd4bf;--red:#f87171;--yellow:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;overflow:hidden}
+body.touch-capture,body.touch-capture *{cursor:none!important}
+.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:flex-start;gap:22px;padding:0 18px;background:#12151a}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}.logo{width:32px;height:32px;border:1px solid #4b5563;border-radius:6px;display:grid;place-items:center;font-weight:800;background:#20242c;flex:0 0 auto}.title{font-weight:700;white-space:nowrap}.sub{font-size:12px;color:var(--muted);margin-top:-2px}
+.nav{display:flex;align-items:center;gap:8px;flex:0 0 auto}.nav a,.nav button{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}.nav a.active,.nav a:hover,.nav button:hover{background:#20242c;color:var(--text)}.nav button{border:0;background:transparent;font:inherit;cursor:pointer}#logoutNav:hover{background:#3a171b;color:#fecaca;box-shadow:inset 0 0 0 1px #7f2d2d}.version-pill{color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:7px 0}
+.status-strip{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-left:auto}.power-menu{position:relative}.power-menu>button{min-height:30px;padding:6px 9px;border-radius:999px;font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.power-menu-list{position:absolute;right:0;top:calc(100% + 8px);z-index:15;display:grid;gap:6px;min-width:132px;padding:8px;border:1px solid var(--line);border-radius:8px;background:#15181e;box-shadow:0 16px 42px rgba(0,0,0,.45)}.power-menu-list.hide{display:none}.power-menu-list button{width:100%;justify-content:flex-start;text-align:left}.power-menu-list button:disabled,.power-menu>button:disabled{opacity:.45;cursor:not-allowed}
+.lease-banner{position:absolute;top:12px;right:12px;z-index:4;display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #705720;border-radius:9px;background:#322610e8;color:var(--yellow);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 10px 28px rgba(0,0,0,.35)}.lease-banner.hide{display:none}.lease-banner-copy{display:grid;gap:5px}.lease-banner-copy b{font-size:11px;letter-spacing:.08em}.lease-banner-copy span{color:#dccb9d;font-size:10px}.lease-banner button{min-height:30px;padding:7px 9px}
+button,select{border:1px solid var(--line);background:#232732;color:var(--text);border-radius:6px;padding:8px 10px;font-weight:650;line-height:1;min-height:34px}button{cursor:pointer}select{max-width:190px}button:hover,select:hover{border-color:#59606d;background:#2a303b}button.active{color:var(--green);border-color:#1f766d;background:#17302f}button.danger{border-color:#7f2d2d;color:#fecaca}
+.stage{height:calc(100vh - 58px);display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,280px);gap:14px;padding:14px;background:#090a0d}.screen{position:relative;display:grid;place-items:center;overflow:hidden;background:#020203;border:1px solid #252a33;border-radius:8px;box-shadow:0 18px 46px rgba(0,0,0,.42);min-width:0;min-height:0;padding:0}.screen img{position:absolute;left:8px;top:8px;width:calc(100% - 16px);height:calc(100% - 16px);min-width:0;min-height:0;object-fit:contain;object-position:center;display:block}.screen canvas,.screen video{position:absolute;left:8px;top:8px;width:calc(100% - 16px);height:calc(100% - 16px);min-width:0;min-height:0;object-fit:contain;object-position:center;display:block}.screen [hidden]{display:none!important}body.keyboard-capture .screen{border-color:#1f766d;box-shadow:0 0 0 2px rgba(45,212,191,.18),0 18px 46px rgba(0,0,0,.42)}body.kvm-readonly .screen{border-color:#7c5d16;box-shadow:0 0 0 2px rgba(251,191,36,.16),0 18px 46px rgba(0,0,0,.42)}
+.nosignal{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);text-align:center;background:radial-gradient(circle at 50% 46%,rgba(84,214,189,.07),transparent 32%),#050506;pointer-events:none}.nosignal.hide{display:none}.nosignal-content{display:grid;justify-items:center;gap:8px;padding:24px}.nosignal .nosignal-logo{position:static;width:clamp(112px,10vw,152px);height:clamp(112px,10vw,152px);min-width:0;min-height:0;margin:0 0 10px;object-fit:contain;opacity:.82;filter:drop-shadow(0 12px 34px rgba(0,0,0,.52));animation:nosignalPulse 2.2s ease-in-out infinite}.nosignal b{display:block;color:var(--text);font-size:16px;letter-spacing:.02em}.nosignal #videoText{max-width:460px;color:var(--muted);font-size:13px}@keyframes nosignalPulse{0%,100%{opacity:.68;transform:scale(.985)}50%{opacity:.92;transform:scale(1)}}
+.screen-pad{position:absolute;inset:0;cursor:crosshair;outline:none}body.kvm-readonly .screen-pad{pointer-events:none;cursor:default}.cursor{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--green);border:1px solid white;transform:translate(-50%,-50%);pointer-events:none;opacity:0}
+.agent-cursor{position:absolute;z-index:5;width:18px;height:18px;border:2px solid #93c5fd;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;opacity:0;box-shadow:0 0 0 4px rgba(96,165,250,.15),0 0 18px rgba(96,165,250,.65);transition:left .12s linear,top .12s linear,opacity .16s}.agent-cursor.show{opacity:1}.agent-cursor.click{animation:agentClick .42s ease-out}.agent-cursor:after{content:"A";position:absolute;left:13px;top:-11px;padding:3px 5px;border:1px solid #365886;border-radius:5px;background:#17253ae8;color:#bfdbfe;font:800 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace}@keyframes agentClick{0%{box-shadow:0 0 0 0 rgba(96,165,250,.75)}100%{box-shadow:0 0 0 24px rgba(96,165,250,0)}}.agent-action-toast{position:absolute;left:50%;bottom:18px;z-index:5;max-width:min(680px,calc(100% - 36px));padding:8px 11px;border:1px solid #365886;border-radius:8px;background:rgba(23,37,58,.92);color:#dbeafe;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 12px 34px rgba(0,0,0,.4);transform:translate(-50%,8px);opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agent-action-toast.show{opacity:1;transform:translate(-50%,0)}.agent-action-toast.bad{border-color:#78383d;background:rgba(53,24,28,.94);color:#fecaca}
+.side{border-left:1px solid var(--line);background:#121419;padding:10px;display:flex;flex-direction:column;gap:10px;overflow:hidden auto;min-width:0}.panel{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:10px}.panel.hide{display:none}.panel h2{font-size:13px;margin:0 0 10px;color:#dce1e8}.row{display:flex;justify-content:space-between;gap:12px;color:var(--muted);padding:7px 0;border-bottom:1px solid #242832}.row:last-child{border-bottom:0}.row b{color:var(--text);font-weight:650;text-align:right;word-break:break-word}
+.side-field{display:grid;gap:6px;margin-bottom:10px}.side-field[hidden]{display:none!important}.side-field label{font-size:12px;color:var(--muted);font-weight:650}.side select{width:100%;max-width:none}.control-grid,.shortcut-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.shortcut-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.control-grid button,.shortcut-grid button{min-width:0;padding:8px 5px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.shortcut-grid .combo{grid-column:1/-1}.side-hint{margin-top:8px;color:var(--muted);font-size:11px;line-height:1.35}
+.stream-stats{position:absolute;left:18px;top:18px;z-index:4;padding:7px 9px;border:1px solid rgba(84,214,189,.34);border-radius:999px;background:rgba(10,15,18,.78);color:#b9fff2;font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;backdrop-filter:blur(8px);pointer-events:none}.stream-stats.stale{border-color:#3b414c;color:var(--muted)}
+.tool-window{position:fixed;right:18px;bottom:18px;width:min(380px,calc(100vw - 28px));max-height:min(680px,calc(100vh - 120px));z-index:12;border:1px solid var(--line);border-radius:8px;background:#121419;box-shadow:0 18px 60px rgba(0,0,0,.48);display:flex;flex-direction:column;overflow:hidden}.tool-window.hide{display:none}.tool-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);background:#171a20}.tool-head h2{font-size:13px;margin:0;color:#dce1e8}.tool-head button{min-height:30px;padding:7px 9px}.tool-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);background:#121419}.tool-tabs button{min-width:0}.tool-body{padding:12px;overflow:auto}.tool-body.hide{display:none}
+.mouse-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}.mouse-tabs button{min-width:0}.mouse-pane{display:grid;gap:10px}.mouse-pane.hide{display:none}
+.joystick{position:relative;width:min(190px,100%);aspect-ratio:1;margin:0 auto;border:1px solid #3a404b;border-radius:50%;background:#171b21;touch-action:none;outline:none}.joystick:focus-visible,.touchpad:focus-visible,.screen-pad:focus-visible{box-shadow:0 0 0 2px rgba(45,212,191,.55)}
+.joy-axis{position:absolute;inset:18%;border:1px solid #343a44;border-radius:50%;pointer-events:none}.joy-axis:before,.joy-axis:after{content:"";position:absolute;background:#343a44;opacity:.75}.joy-axis:before{left:50%;top:0;bottom:0;width:1px}.joy-axis:after{top:50%;left:0;right:0;height:1px}
+.joy-thumb{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:50%;border:1px solid #6b7280;background:#d8dee8;box-shadow:0 8px 18px rgba(0,0,0,.35);transform:translate(-50%,-50%);pointer-events:none}
+.touchpad{position:relative;height:156px;border:1px solid #3a404b;border-radius:8px;background:#1b2028;touch-action:none;overflow:hidden;outline:none}.touchpad:before{content:"触控板";position:absolute;inset:0;display:grid;place-items:center;color:#687180;font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0}.touchpad.locked{border-color:#1f766d;cursor:none;background:#172522}
+.touch-dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--green);border:1px solid white;transform:translate(-50%,-50%);opacity:0;pointer-events:none}.mouse-speed{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px;color:var(--muted);font-size:12px}input[type=range]{width:100%;accent-color:var(--green)}
+.mouse-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.mouse-buttons.three{grid-template-columns:repeat(3,minmax(0,1fr))}.mouse-buttons button{min-width:0;padding:8px 4px;font-size:12px}
+.capture-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;color:#dce1e8;font-weight:650}.switch-control{display:inline-flex;align-items:center;gap:8px;min-height:34px;color:var(--text);font-weight:650;cursor:pointer;user-select:none}.switch-control input{position:absolute;opacity:0;pointer-events:none}.switch-track{position:relative;width:48px;height:28px;border:1px solid #3b414c;border-radius:999px;background:#30343d;transition:background .18s,border-color .18s}.switch-thumb{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#d8dee8;box-shadow:0 3px 8px rgba(0,0,0,.35);transition:transform .18s,background .18s}.switch-control input:checked+.switch-track{background:#17302f;border-color:#1f766d}.switch-control input:checked+.switch-track .switch-thumb{transform:translateX(20px);background:var(--green)}.switch-control input:focus-visible+.switch-track{outline:2px solid rgba(45,212,191,.45);outline-offset:2px}.switch-text{font-size:13px;color:var(--muted);min-width:34px}.capture-msg{min-height:18px;margin:-2px 0 8px;color:var(--muted);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}.capture-msg.ok{color:var(--green)}.capture-msg.bad{color:var(--red)}.capture-msg.warn{color:var(--yellow)}
+.keys{display:grid;gap:5px;min-width:0}.keyrow{display:flex;gap:5px;min-width:0}.key{flex:1 1 0;min-width:0;height:32px;padding:0 3px;font-size:10px;white-space:nowrap;overflow:hidden}.wide{flex:3 1 0}.modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,6,8,.72);z-index:20;padding:18px}.modal.show{display:grid}.dialog{width:min(430px,100%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45)}.dialog h2{font-size:16px;margin:0 0 6px}.dialog p{margin:0 0 14px;color:var(--muted)}.dialog .field{display:grid;gap:6px;margin-bottom:10px}.dialog label{font-size:12px;color:var(--muted)}.dialog input{width:100%;border:1px solid var(--line);background:#0e1014;color:var(--text);border-radius:6px;padding:11px 12px;font:15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.dialog input:focus{outline:2px solid rgba(45,212,191,.35);border-color:#1f766d}.dialog .msg{min-height:20px;color:var(--muted);margin-top:10px}.dialog .msg.bad{color:var(--red)}.dialog .msg.ok{color:var(--green)}
+@media(max-width:900px){body{overflow:hidden}.top{height:auto;align-items:flex-start;flex-direction:column;padding:12px;gap:10px}.status-strip{justify-content:flex-start;margin-left:0}.stage{height:calc(100vh - 106px);grid-template-columns:1fr;grid-template-rows:minmax(220px,50vh) minmax(0,1fr);gap:12px;padding:12px}.side{border-left:0;border-top:1px solid var(--line);min-height:0}.tool-window{right:8px;bottom:8px;width:calc(100vw - 16px);max-height:calc(100vh - 84px)}}
+/* Control Center workspace */
+:root{--bg:#0b0d10;--panel:#15191f;--panel2:#1b2028;--line:#2b333e;--text:#f4f7fa;--muted:#8d98a7;--green:#54d6bd;--red:#ff7b7f;--yellow:#f2be63}
+.top{height:64px;padding:0 20px;gap:18px;background:rgba(17,20,25,.95);backdrop-filter:blur(18px)}.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(145deg,#252c36,#171b21)}.nav{gap:5px;overflow:auto;scrollbar-width:none}.nav a,.nav button{padding:8px 11px;border-radius:8px;font-weight:650;white-space:nowrap}.version-pill{display:none}.stage{height:calc(100vh - 64px);grid-template-columns:minmax(0,1fr) 300px;padding:14px;gap:14px;background:#080a0d}.screen{border-color:#2a4e48;border-radius:12px;box-shadow:inset 0 0 0 3px rgba(84,214,189,.035),0 22px 70px rgba(0,0,0,.28)}.side{padding:14px;background:#101319}.panel{padding:13px;border-radius:10px}.tool-window{border-radius:11px}
+@media(max-width:900px){.top{height:auto}.nav{width:100%}.stage{height:calc(100vh - 118px);grid-template-rows:minmax(260px,55vh) minmax(0,1fr);overflow:auto}.screen{min-height:260px}.side{overflow:visible}}
+</style>
+<link rel="stylesheet" href="/assets/ui-core.css">
+<link rel="stylesheet" href="/assets/ui-shell.css">
+<script src="/assets/ui-core.js"></script>
+<script src="/assets/ui-shell.js"></script>
+</head>
+<body>
+<div id="appShell"></div><script>ExoAnchorShell.mount("kvm")</script>
+<main class="stage">
+  <section id="screen" class="screen">
+    <div id="agentTakeoverBanner" class="lease-banner hide" aria-live="polite"><span class="lease-banner-copy"><b id="agentPresenceTitle">Agent 正在查看画面</b><span id="agentTakeoverDetail">只读观察 · 视频共享 · 人工输入不受影响</span></span><button id="reclaimKvm" class="danger" type="button" hidden>终止自动控制</button></div>
+    <img id="video" alt="">
+    <canvas id="h264Video" hidden aria-label="H.264 KVM video"></canvas>
+    <video id="h264MseVideo" hidden muted autoplay playsinline aria-label="H.264 KVM video"></video>
+    <div id="nosignal" class="nosignal"><div class="nosignal-content"><img class="nosignal-logo" src="/assets/exoanchor-ui-mark.svg" alt="" aria-hidden="true"><b>ExoAnchor</b><div id="videoText">正在连接视频采集器</div></div></div>
+    <div id="screenPad" class="screen-pad" tabindex="0"></div>
+    <div id="cursor" class="cursor"></div>
+    <div id="agentCursor" class="agent-cursor" aria-hidden="true"></div>
+    <div id="agentActionToast" class="agent-action-toast" aria-live="polite"></div>
+    <div id="streamStats" class="stream-stats stale" aria-live="polite" title="状态接口往返时延（RTT）">STREAM -- FPS · -- Mb/s · RTT -- ms</div>
+  </section>
+  <aside class="side">
+    <div class="panel">
+      <h2>KVM 设置</h2>
+      <div class="side-field"><label for="accessModeSelect">权限模式</label><select id="accessModeSelect"><option value="manual">手动授权</option><option value="assisted">替我审批</option><option value="full">完全访问</option></select><div id="accessModeDetail" class="side-hint">有副作用的动作逐项等待浏览器确认</div></div>
+      <div class="side-field"><label for="resolutionSelect">采集模式</label><select id="resolutionSelect"></select></div>
+      <div id="outputModeField" class="side-field"><label for="outputModeSelect">输出模式</label><select id="outputModeSelect"><option value="mjpeg">MJPEG</option></select></div>
+      <div class="capture-row"><span>键盘直通</span><label class="ui-switch"><input id="keyboardPassthrough" type="checkbox" role="switch" aria-label="键盘直通"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span id="keyboardPassthroughText" class="ui-switch-state">关闭</span></label></div>
+      <div class="capture-row"><span>Direct Click</span><label class="ui-switch"><input id="directClickToggle" type="checkbox" role="switch" aria-label="Direct Click"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span id="directClickText" class="ui-switch-state">关闭</span></label></div>
+      <div class="capture-row"><span>返回时刷新视频</span><label class="ui-switch"><input id="focusRefreshToggle" type="checkbox" role="switch" aria-label="返回页面时自动刷新视频"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span id="focusRefreshText" class="ui-switch-state">开启</span></label></div>
+      <div id="keyboardCaptureMsg" class="capture-msg">待机</div>
+      <div class="control-grid"><button id="controlPopupToggle">鼠标/键盘</button><button id="syncPointer" title="把目标指针移动到当前画面位置">同步指针</button><button id="snapshot">保存截图</button><button id="release">释放按键</button><button id="reload">重连视频</button><button id="fs">全屏</button></div>
+    </div>
+    <div class="panel">
+      <h2>快捷键</h2>
+      <div class="shortcut-grid"><button class="combo" data-combo="ctrl-alt-del">Ctrl Alt Del</button><button class="combo" data-combo="alt-tab">Alt Tab</button><button class="combo" data-combo="alt-f4">Alt F4</button><button data-shortcut-key="ControlLeft" title="单击发送，双击 Hold">Ctrl</button><button data-shortcut-key="AltLeft" title="单击发送，双击 Hold">Alt</button><button data-shortcut-key="MetaLeft" title="单击发送，双击 Hold">Win</button><button data-shortcut-key="ShiftLeft" title="单击发送，双击 Hold">Shift</button><button data-shortcut-key="PrintScreen" title="单击发送，双击 Hold">PrtSc</button><button data-shortcut-key="F8" title="单击发送，双击 Hold">F8</button><button data-shortcut-key="F11" title="单击发送，双击 Hold">F11</button><button data-shortcut-key="Delete" title="单击发送，双击 Hold">Del</button></div>
+      <div class="side-hint">快捷键单击发送；Ctrl / Alt / Win / Shift / PrtSc / F8 / F11 / Del 双击 Hold。</div>
+    </div>
+    <div id="bootKeyLoopPanel" class="panel">
+      <h2>循环按键</h2>
+      <div class="side-field"><label for="bootKeyLoopKey">循环按键</label><select id="bootKeyLoopKey"><option value="Delete">Del</option><option value="Escape">Esc</option><option value="F1">F1</option><option value="F2">F2</option><option value="F3">F3</option><option value="F4">F4</option><option value="F5">F5</option><option value="F6">F6</option><option value="F7">F7</option><option value="F8">F8</option><option value="F9">F9</option><option value="F10">F10</option><option value="F11">F11</option><option value="F12">F12</option></select></div>
+      <div class="capture-row"><span>循环发送</span><label class="ui-switch"><input id="bootKeyLoopToggle" type="checkbox" role="switch" aria-label="循环发送所选按键"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span id="bootKeyLoopText" class="ui-switch-state">关闭</span></label></div>
+      <div id="bootKeyLoopState" class="capture-msg">选择按键后打开；进入 BIOS 后手动关闭。</div>
+      <div class="side-hint">每 250 ms 发送一次所选按键；不会自动重启、识别 BIOS 或停止。</div>
+    </div>
+  </aside>
+</main>
+<div id="controlWindow" class="tool-window hide">
+  <div class="tool-head"><h2>鼠标/键盘</h2><button id="controlPopupClose" type="button">关闭</button></div>
+  <div class="tool-tabs"><button id="toolMouseTab" class="active" type="button">鼠标</button><button id="toolKeyboardTab" type="button">软键盘</button></div>
+  <section id="mouseTool" class="tool-body">
+    <div class="mouse-tabs"><button id="modeJoy" data-mode="joy">摇杆</button><button id="modeTouch" class="active" data-mode="touch">触控板</button></div>
+    <div id="joyPane" class="mouse-pane hide"><div id="joystick" class="joystick" tabindex="0"><div class="joy-axis"></div><div id="joyThumb" class="joy-thumb"></div></div></div>
+    <div id="touchPane" class="mouse-pane"><div id="touchPad" class="touchpad" tabindex="0"><span id="touchDot" class="touch-dot"></span></div></div>
+    <div class="mouse-speed"><span>速度</span><input id="mouseSpeed" type="range" min="1" max="10" value="5"><b id="speedText">5</b></div>
+    <div class="mouse-buttons three"><button data-mouse-button="0">左键</button><button data-mouse-button="1">中键</button><button data-mouse-button="2">右键</button></div>
+    <div class="mouse-buttons"><button id="dragLock">拖拽</button><button data-mouse-click="0">单击</button><button data-mouse-dblclick="0">双击</button><button data-wheel="-1">滚轮</button></div>
+  </section>
+  <section id="keyboardTool" class="tool-body hide">
+    <div id="keyboard" class="keys"></div>
+  </section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const screenEl=$("screen"),screenPad=$("screenPad"),cursor=$("cursor"),video=$("video"),h264Video=$("h264Video"),h264MseVideo=$("h264MseVideo"),nosignal=$("nosignal"),agentCursor=$("agentCursor"),agentActionToast=$("agentActionToast"),streamStats=$("streamStats");
+const keyboardPassthrough=$("keyboardPassthrough"),keyboardPassthroughText=$("keyboardPassthroughText"),keyboardCaptureMsg=$("keyboardCaptureMsg"),directClickToggle=$("directClickToggle"),directClickText=$("directClickText"),focusRefreshToggle=$("focusRefreshToggle"),focusRefreshText=$("focusRefreshText"),resolutionSelect=$("resolutionSelect"),outputModeField=$("outputModeField"),outputModeSelect=$("outputModeSelect");
+const accessModeSelect=$("accessModeSelect"),accessModeDetail=$("accessModeDetail");
+const controlWindow=$("controlWindow"),controlPopupToggle=$("controlPopupToggle"),controlPopupClose=$("controlPopupClose"),toolMouseTab=$("toolMouseTab"),toolKeyboardTab=$("toolKeyboardTab"),mouseTool=$("mouseTool"),keyboardTool=$("keyboardTool");
+const agentTakeoverBanner=$("agentTakeoverBanner"),agentPresenceTitle=$("agentPresenceTitle"),agentTakeoverDetail=$("agentTakeoverDetail"),reclaimKvm=$("reclaimKvm"),bootKeyLoopKey=$("bootKeyLoopKey"),bootKeyLoopToggle=$("bootKeyLoopToggle"),bootKeyLoopText=$("bootKeyLoopText"),bootKeyLoopState=$("bootKeyLoopState");
+let kvmReadOnly=false,automatedControllerLabel="Agent/MCP";
+let kvmPageActive=!document.hidden;
+let kvmLeaving=false,kvmWindowBlurred=false;
+let videoPeerBlocked=false;
+let msVideoPowerKnown=false,msVideoPowerOff=false;
+const UI=window.ExoAnchorUI,API=UI.api,Session=UI.session,AuthUI=UI.auth;
+UI.lifecycle.addCleanup(UI.accessMode.bind(
+  accessModeSelect, accessModeDetail,
+  error=>{keyboardCaptureMsg.textContent=error?.message||"权限模式保存失败";keyboardCaptureMsg.className="capture-msg bad"}
+));
+let hidReconnectTimer=0,hidConnectGeneration=0,hidConnectPendingGeneration=-1,hidSocketStreamId=0,hidFocusBlocked=false,hidGestureNoticeTimer=0;
+function hidMayConnect(){return kvmPageActive&&!kvmLeaving&&!kvmReadOnly&&!videoPeerBlocked&&!msVideoPowerOff&&videoLeaseHeld&&!hidFocusBlocked&&!document.hidden}
+function hidSocketIsCurrent(){return !!API.ws&&API.ws.readyState===WebSocket.OPEN&&hidSocketStreamId===videoStreamId&&hidMayConnect()}
+API.send=function(o){if(kvmReadOnly||!Session.active())return false;Session.touch();if(!hidSocketIsCurrent()){if(hidMayConnect())void this.connect();return false}try{this.ws.send(JSON.stringify(o));return true}catch(e){disconnectHidWs();scheduleHidReconnect();return false}};
+function clearHidReconnect(){if(hidReconnectTimer)UI.lifecycle.clearTimer(hidReconnectTimer);hidReconnectTimer=0}
+function scheduleHidReconnect(delay=API.retry){if(hidReconnectTimer||!hidMayConnect())return;hidReconnectTimer=UI.lifecycle.timeout(()=>{hidReconnectTimer=0;if(hidMayConnect())void API.connect()},delay)}
+API.connect=async function(){if(!hidMayConnect())return;clearHidReconnect();const generation=hidConnectGeneration,streamId=videoStreamId;if(hidConnectPendingGeneration===generation)return;hidConnectPendingGeneration=generation;try{if(!(await this.ensureToken())){if(generation===hidConnectGeneration)scheduleHidReconnect();return}if(generation!==hidConnectGeneration||streamId!==videoStreamId||!hidMayConnect()||this.ws?.readyState<=1)return;const proto=location.protocol==="https:"?"wss:":"ws:",ws=new WebSocket(proto+"//"+location.host+"/api/ws/hid?stream_id="+streamId);this.ws=ws;ws.onopen=()=>{if(this.ws!==ws||generation!==hidConnectGeneration||streamId!==videoStreamId||!hidMayConnect()){if(this.ws===ws)this.ws=null;try{ws.close()}catch(e){}return}hidSocketStreamId=streamId;this.retry=1000;clearHidReconnect();syncKeyboardCaptureConnection()};ws.onclose=()=>{if(this.ws===ws){this.ws=null;hidSocketStreamId=0}syncKeyboardCaptureConnection();if(generation===hidConnectGeneration&&streamId===videoStreamId&&hidMayConnect()){scheduleHidReconnect(this.retry);this.retry=Math.min(this.retry*1.5,10000)}};ws.onerror=syncKeyboardCaptureConnection}finally{if(hidConnectPendingGeneration===generation)hidConnectPendingGeneration=-1}};
+function disconnectHidWs(){hidConnectGeneration++;clearHidReconnect();const ws=API.ws;API.ws=null;hidSocketStreamId=0;if(ws){ws.onclose=null;try{ws.close()}catch(e){}}syncKeyboardCaptureConnection()}
+AuthUI.bindForm(async()=>{await Session.load();await UI.accessMode.load();if(videoLeaseHeld&&!kvmReadOnly){if(!API.ws||API.ws.readyState>1)API.connect()}else void startKvmLease()});
+function fmtBytes(n){if(!n)return"--";if(n>1048576)return Math.round(n/1048576)+" MB";return Math.round(n/1024)+" KB"}
+function setToolPanel(panel){const mouse=panel!=="keyboard";toolMouseTab.classList.toggle("active",mouse);toolKeyboardTab.classList.toggle("active",!mouse);mouseTool.classList.toggle("hide",!mouse);keyboardTool.classList.toggle("hide",mouse);if(mouse)touchPad.focus({preventScroll:true})}
+function setControlWindow(open){controlWindow.classList.toggle("hide",!open);controlPopupToggle.classList.toggle("active",open);if(open)setToolPanel(mouseTool.classList.contains("hide")?"keyboard":"mouse");else{stopJoy();stopTouch(null,false);if(dragLock.classList.contains("active")){dragLock.classList.remove("active");API.send({type:"mouseup",button:0})}}}
+controlPopupToggle.onclick=()=>setControlWindow(controlWindow.classList.contains("hide"));
+controlPopupClose.onclick=()=>setControlWindow(false);
+toolMouseTab.onclick=()=>setToolPanel("mouse");
+toolKeyboardTab.onclick=()=>setToolPanel("keyboard");
+let videoTimer=0,videoFirstFrameTimer=0;
+let videoClaimed=true,videoLeaseHeld=false;
+const videoTabId=(globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`);
+const videoClaimChannel=typeof BroadcastChannel==="function"?new BroadcastChannel("exoanchor-kvm-video"):null;
+function newVideoStreamId(){try{return globalThis.crypto.getRandomValues(new Uint32Array(1))[0]||1}catch(e){return ((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0)||1}}
+let videoStreamId=newVideoStreamId(),videoRecoveryTimer=0,videoUnhealthyPolls=0;
+let videoStreamReady=false;
+const h264OutputAvailable=window.ExoAnchorBuild?.h264Video===true,outputModeStorageKey="si_kvm_output_mode";
+let selectedOutputMode="mjpeg",outputFailureMessage="";
+try{if(h264OutputAvailable&&localStorage.getItem(outputModeStorageKey)==="h264")selectedOutputMode="h264"}catch(e){}
+outputModeField.hidden=!h264OutputAvailable;
+if(h264OutputAvailable){const option=document.createElement("option");option.value="h264";option.textContent="H.264（实验，1080p25 / 720p30）";outputModeSelect.append(option)}
+outputModeSelect.value=selectedOutputMode;
+let h264Socket=null,h264Decoder=null,h264Generation=0,h264Width=0,h264Height=0,h264Codec="",h264Mode="",h264Mse=null,h264TransportSpec=null,h264ParameterSets=null,h264BackendProbe=null,h264SupportedDecoderConfig=null,h264RestartTimer=0,h264StableTimer=0,h264DecodeBacklogSince=0,h264LastFrameAt=0,h264ReconnectAttempts=0,backendVideoHealthy=false;
+let videoModeSwitchGeneration=0,videoModeSwitching=false,videoTransitionWaiter=null;
+const H264_MSE_TARGET_LAG_MS=150,H264_MSE_SOFT_LAG_MS=250,H264_MSE_HARD_LAG_MS=500,H264_MSE_SEEK_COOLDOWN_MS=250,H264_MSE_STARTUP_GRACE_MS=1500,H264_MSE_TRIM_AFTER_MS=10000,H264_MSE_TRIM_INTERVAL_MS=5000,H264_MSE_RETAIN_HISTORY_MS=3000,H264_MSE_HARD_BYTES=6*1024*1024,H264_BACKLOG_GRACE_MS=650,H264_WEBCODECS_SOFT_FRAMES=12,H264_WEBCODECS_HARD_FRAMES=30;
+const h264Context=h264Video.getContext("2d",{alpha:false,desynchronized:true});
+const kvmDocumentReady=document.readyState==="complete"?Promise.resolve():new Promise(resolve=>window.addEventListener("load",resolve,{once:true}));
+function authUrl(path){return path}
+function streamUrl(){return "/api/stream?stream_id="+videoStreamId+"&t="+Date.now()}
+function h264Url(expectedStreamId){const url=new URL(location.href),configuredPort=Number(window.ExoAnchorBuild?.h264WsPort||0);url.protocol=location.protocol==="https:"?"wss:":"ws:";if(configuredPort>0&&configuredPort<=65535)url.port=String(configuredPort);else if(location.protocol==="http:")url.port="81";url.pathname="/api/ws/video/h264";url.search="?stream_id="+expectedStreamId+"&t="+Date.now();url.hash="";return url.href}
+function selectedCaptureSpec(){const match=/^[A-Z0-9]+:(\d+)x(\d+)@(\d+)$/.exec(resolutionSelect?.value||"");if(match)return{width:Number(match[1]),height:Number(match[2]),fpsX100:Number(match[3])};const v=UI.status.value?.video||{},mode=v.control?.kvm_mode||{};return{width:Number(mode.width||v.width||0),height:Number(mode.height||v.height||0),fpsX100:Number(mode.fps_x100||Math.round(Number(v.fps||0)*100))}}
+function h264CaptureSpecSupported(spec){if(!spec||spec.width<80||spec.width>1920||spec.height<80||spec.height>2032||spec.fpsX100<100)return false;const cap=spec.width<=1280&&spec.height<=720?3000:2500;return spec.fpsX100<=cap}
+function h264TransportCurrent(generation,expectedStreamId){const spec=h264TransportSpec;return !!spec&&generation===h264Generation&&spec.generation===generation&&spec.streamId===expectedStreamId&&expectedStreamId===videoStreamId&&spec.modeGeneration===videoModeSwitchGeneration}
+function h264SpecMatches(width,height){const spec=h264TransportSpec;return !!spec&&spec.width>0&&spec.height>0&&spec.width===width&&spec.height===height}
+function bytesEqual(a,b){return !!a&&!!b&&a.length===b.length&&a.every((v,i)=>v===b[i])}
+function rememberH264Parameters(nalus){const sets=h264ParameterSets;if(!sets)return false;let changed=false;for(const n of nalus){const type=n[0]&31;if(type!==7&&type!==8)continue;const key=type===7?"sps":"pps",copy=new Uint8Array(n);if(sets[key]&&!bytesEqual(sets[key],copy))changed=true;sets[key]=copy}sets.codec=sets.sps?annexBCodec([sets.sps]):sets.codec;return changed}
+function annexBWithParameters(nalus,sets){const parts=[];if(sets?.sps&&!nalus.some(n=>(n[0]&31)===7))parts.push(Uint8Array.of(0,0,0,1),sets.sps);if(sets?.pps&&!nalus.some(n=>(n[0]&31)===8))parts.push(Uint8Array.of(0,0,0,1),sets.pps);for(const n of nalus)parts.push(Uint8Array.of(0,0,0,1),n);return mp4Join(...parts)}
+function clearVideoFirstFrameTimer(){if(videoFirstFrameTimer)UI.lifecycle.clearTimer(videoFirstFrameTimer);videoFirstFrameTimer=0}
+function stopVideoTimers(){clearTimeout(videoTimer);videoTimer=0;clearVideoFirstFrameTimer();if(videoRecoveryTimer)UI.lifecycle.clearTimer(videoRecoveryTimer);videoRecoveryTimer=0}
+function mp4Join(...parts){const size=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(size);let at=0;for(const p of parts){out.set(p,at);at+=p.length}return out}
+function mp4Text(s){return Uint8Array.from(Array.from(s),c=>c.charCodeAt(0))}
+function mp4U8(v){return Uint8Array.of(v&255)}
+function mp4U16(v){return Uint8Array.of((v>>>8)&255,v&255)}
+function mp4U24(v){return Uint8Array.of((v>>>16)&255,(v>>>8)&255,v&255)}
+function mp4U32(v){return Uint8Array.of((v>>>24)&255,(v>>>16)&255,(v>>>8)&255,v&255)}
+function mp4Box(type,...parts){const body=mp4Join(...parts);return mp4Join(mp4U32(body.length+8),mp4Text(type),body)}
+function mp4Full(type,version,flags,...parts){return mp4Box(type,mp4U8(version),mp4U24(flags),...parts)}
+const mp4Matrix=mp4Join(mp4U32(0x10000),mp4U32(0),mp4U32(0),mp4U32(0),mp4U32(0x10000),mp4U32(0),mp4U32(0),mp4U32(0),mp4U32(0x40000000));
+function mp4InitSegment(sps,pps,width,height,sampleEntry="avc1"){
+  const avcC=mp4Box("avcC",mp4U8(1),mp4U8(sps[1]),mp4U8(sps[2]),mp4U8(sps[3]),mp4U8(255),mp4U8(225),mp4U16(sps.length),sps,mp4U8(1),mp4U16(pps.length),pps);
+  const compressor=new Uint8Array(32),name=mp4Text("ExoAnchor");compressor[0]=name.length;compressor.set(name,1);
+  const avcSample=mp4Box(sampleEntry,new Uint8Array(6),mp4U16(1),mp4U16(0),mp4U16(0),new Uint8Array(12),mp4U16(width),mp4U16(height),mp4U32(0x480000),mp4U32(0x480000),mp4U32(0),mp4U16(1),compressor,mp4U16(24),mp4U16(65535),avcC);
+  const stbl=mp4Box("stbl",mp4Full("stsd",0,0,mp4U32(1),avcSample),mp4Full("stts",0,0,mp4U32(0)),mp4Full("stsc",0,0,mp4U32(0)),mp4Full("stsz",0,0,mp4U32(0),mp4U32(0)),mp4Full("stco",0,0,mp4U32(0)));
+  const url=mp4Full("url ",0,1),dinf=mp4Box("dinf",mp4Full("dref",0,0,mp4U32(1),url));
+  const minf=mp4Box("minf",mp4Full("vmhd",0,1,mp4U16(0),mp4U16(0),mp4U16(0),mp4U16(0)),dinf,stbl);
+  const hdlr=mp4Full("hdlr",0,0,mp4U32(0),mp4Text("vide"),new Uint8Array(12),mp4Text("VideoHandler\0"));
+  const mdhd=mp4Full("mdhd",0,0,mp4U32(0),mp4U32(0),mp4U32(1000),mp4U32(0),mp4U16(0x55c4),mp4U16(0));
+  const realMdia=mp4Box("mdia",mdhd,hdlr,minf);
+  const tkhd=mp4Full("tkhd",0,7,mp4U32(0),mp4U32(0),mp4U32(1),mp4U32(0),mp4U32(0),new Uint8Array(8),mp4U16(0),mp4U16(0),mp4U16(0),mp4U16(0),mp4Matrix,mp4U32(width*65536),mp4U32(height*65536));
+  const trak=mp4Box("trak",tkhd,realMdia),mvhd=mp4Full("mvhd",0,0,mp4U32(0),mp4U32(0),mp4U32(1000),mp4U32(0),mp4U32(0x10000),mp4U16(0x100),mp4U16(0),new Uint8Array(8),mp4Matrix,new Uint8Array(24),mp4U32(2));
+  const mvex=mp4Box("mvex",mp4Full("trex",0,0,mp4U32(1),mp4U32(1),mp4U32(0),mp4U32(0),mp4U32(0)));
+  return mp4Join(mp4Box("ftyp",mp4Text("isom"),mp4U32(512),mp4Text(`isomiso6${sampleEntry}mp41`)),mp4Box("moov",mvhd,trak,mvex));
+}
+function mp4Fragment(sequence,decodeTime,duration,key,data){const mfhd=mp4Full("mfhd",0,0,mp4U32(sequence)),tfhd=mp4Full("tfhd",0,0x020000,mp4U32(1)),tfdt=mp4Full("tfdt",0,0,mp4U32(decodeTime));const trun=offset=>mp4Full("trun",0,0x000701,mp4U32(1),mp4U32(offset),mp4U32(duration),mp4U32(data.length),mp4U32(key?0x02000000:0x01010000));let moof=mp4Box("moof",mfhd,mp4Box("traf",tfhd,tfdt,trun(0)));moof=mp4Box("moof",mfhd,mp4Box("traf",tfhd,tfdt,trun(moof.length+8)));return mp4Join(moof,mp4Box("mdat",data))}
+function annexBNalus(data){const starts=[];for(let i=0;i+3<data.length;i++){if(data[i]||data[i+1])continue;if(data[i+2]===1){starts.push([i,i+3]);i+=2}else if(i+4<data.length&&data[i+2]===0&&data[i+3]===1){starts.push([i,i+4]);i+=3}}const out=[];for(let i=0;i<starts.length;i++){const begin=starts[i][1],end=i+1<starts.length?starts[i+1][0]:data.length;if(end>begin)out.push(data.subarray(begin,end))}return out}
+function annexBCodec(nalus){const sps=nalus.find(n=>n.length>=4&&(n[0]&31)===7);return sps?`avc1.${[sps[1],sps[2],sps[3]].map(v=>v.toString(16).padStart(2,"0")).join("")}`:""}
+function avccAccessUnit(nalus,inBandParameters=false){const kept=nalus.filter(n=>n.length&&(n[0]&31)!==9&&(inBandParameters||![7,8].includes(n[0]&31))),parts=[];for(const n of kept)parts.push(mp4U32(n.length),n);return mp4Join(...parts)}
+function mseStateCurrent(state,expectedStreamId,generation=state?.generation){return !!state&&state===h264Mse&&state.expected===expectedStreamId&&h264TransportCurrent(generation,expectedStreamId)}
+function mseLagSnapshot(state){let bufferedStart=0,oldestBufferedStart=0,bufferedEnd=0,bufferedLagMs=0;try{const ranges=state?.source?.buffered;if(ranges?.length&&h264MseVideo.readyState>=1){oldestBufferedStart=ranges.start(0);bufferedStart=ranges.start(ranges.length-1);bufferedEnd=ranges.end(ranges.length-1);bufferedLagMs=Math.max(0,(bufferedEnd-h264MseVideo.currentTime)*1000)}}catch(e){}const queueMs=Math.max(0,state.queueDurationMs+state.inflightDurationMs),totalBytes=Math.max(0,state.queueBytes+state.inflightBytes),now=performance.now(),queuedMedia=state.queue.find(item=>item.media),oldestEnqueuedAt=state.inflightEnqueuedAt||queuedMedia?.enqueuedAt||0,oldestAgeMs=oldestEnqueuedAt?Math.max(0,now-oldestEnqueuedAt):0;return{bufferedStart,oldestBufferedStart,bufferedEnd,bufferedLagMs,queueMs,totalLagMs:queueMs+bufferedLagMs,totalBytes,oldestAgeMs}}
+function mseEnforceLatency(state,expectedStreamId){if(!mseStateCurrent(state,expectedStreamId))return false;const snapshot=mseLagSnapshot(state),now=performance.now();if(snapshot.totalBytes>H264_MSE_HARD_BYTES){recoverH264(expectedStreamId,"H.264 播放队列容量超限，正在追赶实时画面");return false}if(!state.rendered)return true;if(h264MseVideo.paused&&now-state.lastPlayAttemptAt>=500){state.lastPlayAttemptAt=now;void h264MseVideo.play().catch(()=>{})}const startupGrace=!state.latencyArmed||now<state.latencyGraceUntil;if(!startupGrace&&(snapshot.totalLagMs>H264_MSE_HARD_LAG_MS||snapshot.oldestAgeMs>H264_MSE_HARD_LAG_MS)){recoverH264(expectedStreamId,"H.264 播放延迟超限，正在追赶实时画面");return false}const seekForStartup=startupGrace&&!state.initialSeekDone&&snapshot.bufferedLagMs>H264_MSE_TARGET_LAG_MS,seekForSoft=!startupGrace&&snapshot.totalLagMs>H264_MSE_SOFT_LAG_MS&&snapshot.bufferedLagMs>H264_MSE_TARGET_LAG_MS;if((seekForStartup||seekForSoft)&&snapshot.bufferedEnd>snapshot.bufferedStart&&!h264MseVideo.seeking&&now-state.lastSeekAt>=H264_MSE_SEEK_COOLDOWN_MS){const bufferedEnd=snapshot.bufferedEnd,target=Math.max(snapshot.bufferedStart,bufferedEnd - H264_MSE_TARGET_LAG_MS / 1000);try{h264MseVideo.currentTime=target;state.lastSeekAt=now;state.initialSeekDone=true}catch(e){}}else if(startupGrace&&!state.initialSeekDone&&snapshot.bufferedLagMs<=H264_MSE_TARGET_LAG_MS)state.initialSeekDone=true;return true}
+function msePump(expectedStreamId){const state=h264Mse;if(!mseStateCurrent(state,expectedStreamId)||!state.source||state.source.updating)return;if(!mseEnforceLatency(state,expectedStreamId))return;if(!state.queue.length){const snapshot=mseLagSnapshot(state),now=performance.now();if(state.rendered&&state.latencyArmed&&now>=state.latencyGraceUntil&&snapshot.totalLagMs<H264_MSE_SOFT_LAG_MS&&now-state.lastTrimAt>=H264_MSE_TRIM_INTERVAL_MS){const historyMs=Math.max(0,(h264MseVideo.currentTime-snapshot.oldestBufferedStart)*1000);if(historyMs>H264_MSE_TRIM_AFTER_MS){const cutoff=Math.max(snapshot.oldestBufferedStart,h264MseVideo.currentTime-H264_MSE_RETAIN_HISTORY_MS/1000);if(cutoff>snapshot.oldestBufferedStart+.25){try{state.sourceOp="remove";state.lastTrimAt=now;state.source.remove(snapshot.oldestBufferedStart,cutoff)}catch(e){state.sourceOp="idle"}}}}return}const item=state.queue.shift();state.queueBytes=Math.max(0,state.queueBytes-item.data.length);state.queueDurationMs=Math.max(0,state.queueDurationMs-item.durationMs);state.inflightBytes=item.data.length;state.inflightDurationMs=item.durationMs;state.inflightEnqueuedAt=item.media?item.enqueuedAt:0;try{state.sourceOp="append";state.source.appendBuffer(item.data)}catch(e){state.sourceOp="idle";state.inflightBytes=0;state.inflightDurationMs=0;state.inflightEnqueuedAt=0;failH264(expectedStreamId,"H.264 封装写入失败")}}
+/* Safari may advertise avc3 MSE support and then reject the live stream in
+ * VideoToolbox with kVTVideoDecoderBadDataErr (-12909).  avc1 keeps SPS/PPS
+ * in avcC and omits them from media samples, which is accepted by Safari and
+ * the other MP4 decoders used by this fallback. */
+function mseEnsureSource(expectedStreamId){const state=h264Mse;if(!mseStateCurrent(state,expectedStreamId)||!state.open||state.source||!state.sps||!state.pps)return;const suffix=[state.sps[1],state.sps[2],state.sps[3]].map(v=>v.toString(16).padStart(2,"0")).join(""),mime=`video/mp4; codecs="avc1.${suffix}"`;state.sampleEntry="avc1";if(!MediaSource.isTypeSupported(mime)){failH264(expectedStreamId,`浏览器不支持 avc1.${suffix}`);return}try{state.source=state.media.addSourceBuffer(mime);state.source.mode="segments";state.onUpdateEnd=()=>{if(!mseStateCurrent(state,expectedStreamId))return;const completedOp=state.sourceOp;state.sourceOp="idle";if(completedOp==="append"){state.inflightBytes=0;state.inflightDurationMs=0;state.inflightEnqueuedAt=0}if(mseEnforceLatency(state,expectedStreamId))msePump(expectedStreamId)};state.onSourceError=()=>{if(mseStateCurrent(state,expectedStreamId))failH264(expectedStreamId,"H.264 SourceBuffer 异常")};state.source.addEventListener("updateend",state.onUpdateEnd);state.source.addEventListener("error",state.onSourceError);const init=mp4InitSegment(state.sps,state.pps,state.width,state.height,state.sampleEntry),item={data:init,durationMs:0,wireTs:0,enqueuedAt:performance.now(),key:true,media:false};state.queue.unshift(item);state.queueBytes+=init.length;msePump(expectedStreamId)}catch(e){if(mseStateCurrent(state,expectedStreamId))failH264(expectedStreamId,"H.264 初始化失败")}}
+function mseConsume(nalus,wireKey,width,height,timestamp,sequence,expectedStreamId){const state=h264Mse;if(!mseStateCurrent(state,expectedStreamId))return;let hasIdr=false;for(const n of nalus){const type=n[0]&31;if(type===7)state.sps=new Uint8Array(n);else if(type===8)state.pps=new Uint8Array(n);else if(type===5)hasIdr=true}const key=wireKey||hasIdr;if((state.width&&state.width!==width)||(state.height&&state.height!==height)){recoverH264(expectedStreamId,"H.264 分辨率切换，正在重建播放器");return}state.width=width;state.height=height;mseEnsureSource(expectedStreamId);if(!state.sps||!state.pps||state.waitingForKey&&!key)return;if(key)state.waitingForKey=false;const sample=avccAccessUnit(nalus,false);if(!sample.length)return;const duration=state.lastTimestamp===null?40:Math.max(10,Math.min(200,(timestamp-state.lastTimestamp)>>>0));state.lastTimestamp=timestamp;const fragment=mp4Fragment(sequence+1,state.decodeTime,duration,key,sample),now=performance.now(),item={data:fragment,durationMs:duration,wireTs:timestamp,enqueuedAt:now,key,media:true};state.decodeTime+=duration;state.queue.push(item);state.queueBytes+=fragment.length;state.queueDurationMs+=duration;if(!mseEnforceLatency(state,expectedStreamId))return;msePump(expectedStreamId)}
+function noteMseRenderedFrame(state,expectedStreamId,generation){if(!mseStateCurrent(state,expectedStreamId,generation))return;const width=h264MseVideo.videoWidth||0,height=h264MseVideo.videoHeight||0;if(!width||!height)return;if(!h264SpecMatches(width,height)){recoverH264(expectedStreamId,`H.264 渲染尺寸 ${width}x${height} 与所选模式不一致`);return}const now=performance.now(),currentTime=h264MseVideo.currentTime;if(!state.rendered){state.rendered=true;state.latencyGraceUntil=now+H264_MSE_STARTUP_GRACE_MS;state.lastRenderedTime=currentTime}else{if(currentTime>state.lastRenderedTime+.005)state.latencyArmed=true;state.lastRenderedTime=Math.max(state.lastRenderedTime,currentTime)}if(!mseEnforceLatency(state,expectedStreamId))return;h264LastFrameAt=performance.now();markVideoReady()}
+function startMse(generation,expectedStreamId){try{const media=new MediaSource(),url=URL.createObjectURL(media),state={media,url,generation,expected:expectedStreamId,source:null,sourceOp:"idle",open:false,queue:[],queueBytes:0,queueDurationMs:0,inflightBytes:0,inflightDurationMs:0,inflightEnqueuedAt:0,lastSeekAt:0,lastTrimAt:0,lastPlayAttemptAt:0,rendered:false,latencyArmed:false,latencyGraceUntil:0,lastRenderedTime:0,initialSeekDone:false,sps:null,pps:null,width:0,height:0,sampleEntry:"avc1",decodeTime:0,lastTimestamp:null,waitingForKey:true,onSourceOpen:null,onUpdateEnd:null,onSourceError:null};h264Mse=state;state.onSourceOpen=()=>{if(!mseStateCurrent(state,expectedStreamId,generation))return;state.open=true;mseEnsureSource(expectedStreamId)};media.addEventListener("sourceopen",state.onSourceOpen);const rendered=()=>noteMseRenderedFrame(state,expectedStreamId,generation);h264MseVideo.src=url;h264MseVideo.ontimeupdate=rendered;h264MseVideo.onloadeddata=()=>{if(!mseStateCurrent(state,expectedStreamId,generation))return;video.hidden=true;h264Video.hidden=true;h264MseVideo.hidden=false;state.lastPlayAttemptAt=performance.now();void h264MseVideo.play().catch(()=>{});if(typeof h264MseVideo.requestVideoFrameCallback==="function"){const tick=()=>{if(!mseStateCurrent(state,expectedStreamId,generation))return;rendered();h264MseVideo.requestVideoFrameCallback(tick)};h264MseVideo.requestVideoFrameCallback(tick)}else rendered()};h264MseVideo.onerror=()=>{if(!mseStateCurrent(state,expectedStreamId,generation))return;const error=h264MseVideo.error,detail=error?`（code ${error.code}${error.message?`：${String(error.message).slice(0,96)}`:""}）`:"";failH264(expectedStreamId,`H.264 ${state.sampleEntry||"MSE"} 视频解码异常${detail}`)};return true}catch(e){return false}}
+function closeH264Transport(){h264Generation++;h264DecodeBacklogSince=0;h264LastFrameAt=0;h264TransportSpec=null;h264ParameterSets=null;h264BackendProbe=null;h264SupportedDecoderConfig=null;videoStreamReady=false;if(h264RestartTimer)UI.lifecycle.clearTimer(h264RestartTimer);h264RestartTimer=0;if(h264StableTimer)UI.lifecycle.clearTimer(h264StableTimer);h264StableTimer=0;const ws=h264Socket;h264Socket=null;if(ws){ws.onopen=ws.onclose=ws.onerror=ws.onmessage=null;try{ws.close(1000,"reconnect")}catch(e){}}const decoder=h264Decoder;h264Decoder=null;if(decoder){try{decoder.close()}catch(e){}}const mse=h264Mse;h264Mse=null;h264MseVideo.onloadeddata=h264MseVideo.onerror=h264MseVideo.ontimeupdate=null;if(mse?.source){if(mse.onUpdateEnd)mse.source.removeEventListener("updateend",mse.onUpdateEnd);if(mse.onSourceError)mse.source.removeEventListener("error",mse.onSourceError);try{if(mse.source.updating)mse.source.abort()}catch(e){}try{if(mse.media.readyState==="open")mse.media.removeSourceBuffer(mse.source)}catch(e){}}if(mse?.onSourceOpen)mse.media.removeEventListener("sourceopen",mse.onSourceOpen);try{if(mse?.media.readyState==="open")mse.media.endOfStream()}catch(e){}try{h264MseVideo.pause();h264MseVideo.removeAttribute("src");h264MseVideo.load()}catch(e){}if(mse?.url)URL.revokeObjectURL(mse.url);h264Width=0;h264Height=0;h264Codec="";h264Mode="";h264Video.hidden=true;h264MseVideo.hidden=true}
+function closeVideoTransport(){closeH264Transport();video.removeAttribute("src");video.hidden=false}
+function browserVideoReady(){if(selectedOutputMode==="h264"){const socketReady=!!h264Socket&&h264Socket.readyState===WebSocket.OPEN,fresh=h264LastFrameAt>0&&performance.now()-h264LastFrameAt<2500,visible=(!h264Video.hidden&&h264Video.width>0&&h264Video.height>0)||(!h264MseVideo.hidden&&h264MseVideo.readyState>=2&&h264MseVideo.videoWidth>0);return videoStreamReady&&socketReady&&fresh&&visible}return videoStreamReady||(!video.hidden&&!!video.getAttribute("src")&&video.naturalWidth>0&&video.naturalHeight>0)}
+function showVideoRecovery(message){nosignal.classList.remove("hide");videoText.textContent=message||"正在重新连接视频画面"}
+function resolveVideoTransitionReady(ready=true){const waiter=videoTransitionWaiter;if(!waiter||waiter.generation!==videoModeSwitchGeneration)return;videoTransitionWaiter=null;UI.lifecycle.clearTimer(waiter.timer);waiter.resolve(ready)}
+function waitForVideoTransitionReady(generation,timeoutMs=12000){if(generation!==videoModeSwitchGeneration||!videoModeSwitching)return Promise.resolve(false);if(browserVideoReady())return Promise.resolve(true);return new Promise(resolve=>{const timer=UI.lifecycle.timeout(()=>{if(videoTransitionWaiter?.generation===generation)videoTransitionWaiter=null;resolve(false)},timeoutMs);videoTransitionWaiter={generation,timer,resolve}})}
+function beginVideoTransition(message){if(videoModeSwitching)return 0;const generation=++videoModeSwitchGeneration;videoModeSwitching=true;setKvmControlsDisabled(kvmReadOnly);videoStreamReady=false;outputFailureMessage="";stopVideoTimers();if(kvmLeaseRetryTimer){UI.lifecycle.clearTimer(kvmLeaseRetryTimer);kvmLeaseRetryTimer=0}kvmLeaseRetryRotate=false;if(kvmResumeRetryTimer){UI.lifecycle.clearTimer(kvmResumeRetryTimer);kvmResumeRetryTimer=0}closeVideoTransport();showVideoRecovery(message);return generation}
+function finishVideoTransition(generation){if(generation!==videoModeSwitchGeneration)return;if(videoTransitionWaiter?.generation===generation){const waiter=videoTransitionWaiter;videoTransitionWaiter=null;UI.lifecycle.clearTimer(waiter.timer);waiter.resolve(false)}videoModeSwitching=false;setKvmControlsDisabled(kvmReadOnly);renderResolution(UI.status.value?.video||{})}
+function cancelVideoTransition(){if(videoTransitionWaiter){const waiter=videoTransitionWaiter;videoTransitionWaiter=null;UI.lifecycle.clearTimer(waiter.timer);waiter.resolve(false)}if(videoModeSwitching){videoModeSwitching=false;videoModeSwitchGeneration++}setKvmControlsDisabled(kvmReadOnly)}
+async function restartVideoForTransition(generation,delay=0){for(let i=0;i<40&&kvmLeaseStarting&&generation===videoModeSwitchGeneration&&!kvmLeaving;i++)await new Promise(resolve=>setTimeout(resolve,50));if(kvmLeaseStarting||generation!==videoModeSwitchGeneration||kvmLeaving||document.hidden)return false;return startKvmLease({rotate:true,resetStream:true,delay})}
+function markVideoReady(){videoStreamReady=true;outputFailureMessage="";clearVideoFirstFrameTimer();videoUnhealthyPolls=0;if(selectedOutputMode==="h264"&&!h264StableTimer){const generation=h264Generation,streamId=videoStreamId;h264StableTimer=UI.lifecycle.timeout(()=>{h264StableTimer=0;if(generation===h264Generation&&streamId===videoStreamId&&browserVideoReady())h264ReconnectAttempts=0},8000)}resolveVideoTransitionReady();nosignal.classList.add("hide")}
+function armVideoFirstFrameTimeout(expectedStreamId,transport){clearVideoFirstFrameTimer();videoFirstFrameTimer=UI.lifecycle.timeout(()=>{videoFirstFrameTimer=0;if(!videoClaimed||kvmLeaving||document.hidden||expectedStreamId!==videoStreamId||browserVideoReady())return;videoStreamReady=false;if(transport==="h264"){recoverH264(expectedStreamId,"H.264 首帧超时");return}closeVideoTransport();showVideoRecovery("视频首帧超时，正在自动重连");scheduleVideoRecovery(250)},6500)}
+function startMjpegTransport(expectedStreamId){outputFailureMessage="";closeH264Transport();video.hidden=false;video.src=streamUrl();armVideoFirstFrameTimeout(expectedStreamId,"mjpeg")}
+function failH264(expectedStreamId,message){if(!videoClaimed||kvmLeaving||document.hidden||expectedStreamId!==videoStreamId||selectedOutputMode!=="h264")return;closeH264Transport();video.removeAttribute("src");video.hidden=true;videoStreamReady=false;outputFailureMessage=`${message||"H.264 输出不可用"}；当前仍选择 H.264，请重连或手动切换为 MJPEG`;showVideoRecovery(outputFailureMessage);resolveVideoTransitionReady(false)}
+function restartH264Transport(expectedStreamId,message,delay=80){if(h264RestartTimer||!videoClaimed||kvmLeaving||document.hidden||expectedStreamId!==videoStreamId||selectedOutputMode!=="h264")return;closeH264Transport();videoStreamReady=false;showVideoRecovery(message);h264RestartTimer=UI.lifecycle.timeout(()=>{h264RestartTimer=0;if(!videoClaimed||kvmLeaving||document.hidden||expectedStreamId!==videoStreamId||selectedOutputMode!=="h264")return;if(!startH264Transport(expectedStreamId))recoverH264(expectedStreamId,"H.264 实时传输重建失败")},delay)}
+function recoverH264(expectedStreamId,message){if(h264RestartTimer||!videoClaimed||kvmLeaving||document.hidden||expectedStreamId!==videoStreamId||selectedOutputMode!=="h264")return;const attempt=++h264ReconnectAttempts;if(attempt>5){failH264(expectedStreamId,`${message||"H.264 连接断开"}，自动重连仍未恢复`);return}const delay=Math.min(2000,250*(2**(attempt-1)));restartH264Transport(expectedStreamId,`${message||"H.264 连接断开"}，正在自动重连（${attempt}/5）`,delay)}
+function h264MseConsumePacket(packet,expectedStreamId){
+  if(!packet)return;
+  mseConsume(packet.nalus,packet.key,packet.width,packet.height,packet.timestamp,packet.sequence,expectedStreamId)
+}
+function seedH264MseState(state){
+  const sets=h264ParameterSets,spec=h264TransportSpec;if(!state||!sets)return;
+  if(sets.sps)state.sps=new Uint8Array(sets.sps);
+  if(sets.pps)state.pps=new Uint8Array(sets.pps);
+  state.width=Number(spec?.width||0);state.height=Number(spec?.height||0)
+}
+function switchH264ToMse(generation,expectedStreamId,message){
+  if(!h264TransportCurrent(generation,expectedStreamId))return false;
+  if(h264Mode==="mse")return true;
+  h264BackendProbe=null;h264SupportedDecoderConfig=null;h264DecodeBacklogSince=0;
+  const decoder=h264Decoder;h264Decoder=null;if(decoder){try{decoder.close()}catch(e){}}
+  h264Mode="mse";h264Width=0;h264Height=0;h264Codec="";h264LastFrameAt=0;videoStreamReady=false;
+  if(typeof MediaSource!=="function"||!startMse(generation,expectedStreamId)){failH264(expectedStreamId,"当前浏览器的 WebCodecs 和 MSE 均无法播放 H.264");return false}
+  seedH264MseState(h264Mse);showVideoRecovery(message||"WebCodecs 不可用，正在改用 H.264 MSE");return true
+}
+function h264WebCodecsConfig(codec,width,height){return{codec,codedWidth:width,codedHeight:height,optimizeForLatency:true,hardwareAcceleration:"prefer-hardware"}}
+function submitH264WebCodecsPacket(packet,generation,expectedStreamId){
+  if(!h264TransportCurrent(generation,expectedStreamId)||h264Mode!=="webcodecs")return false;
+  const sets=h264ParameterSets,codec=packet.codec||sets?.codec||h264Codec;
+  if(h264Decoder&&(packet.width!==h264Width||packet.height!==h264Height||packet.parametersChanged||codec&&codec!==h264Codec)){recoverH264(expectedStreamId,"H.264 编码参数已变化，正在重建解码器");return false}
+  if(!h264Decoder){
+    if(!packet.key||!packet.hasIdr||!sets?.sps||!sets?.pps||!codec)return true;
+    try{
+      let decoder=null;decoder=new VideoDecoder({output:frame=>{if(!h264TransportCurrent(generation,expectedStreamId)||h264Decoder!==decoder){frame.close();return}const w=frame.displayWidth||frame.codedWidth,h=frame.displayHeight||frame.codedHeight;if(!h264SpecMatches(w,h)){frame.close();queueMicrotask(()=>recoverH264(expectedStreamId,`H.264 渲染尺寸 ${w}x${h} 与所选模式不一致`));return}if(h264Video.width!==w)h264Video.width=w;if(h264Video.height!==h)h264Video.height=h;try{h264Context.drawImage(frame,0,0,w,h)}catch(error){frame.close();queueMicrotask(()=>recoverH264(expectedStreamId,"H.264 画面绘制失败"));return}frame.close();video.hidden=true;h264MseVideo.hidden=true;h264Video.hidden=false;h264LastFrameAt=performance.now();markVideoReady()},error:error=>queueMicrotask(()=>{if(!h264TransportCurrent(generation,expectedStreamId)||h264Decoder!==decoder)return;const detail=error?.message?`：${String(error.message).slice(0,120)}`:"";switchH264ToMse(generation,expectedStreamId,`WebCodecs 解码失败${detail}，正在改用 H.264 MSE`)})});
+      h264Decoder=decoder;decoder.configure(h264SupportedDecoderConfig||h264WebCodecsConfig(codec,packet.width,packet.height));
+      h264Width=packet.width;h264Height=packet.height;h264Codec=codec;
+    }catch(error){if(switchH264ToMse(generation,expectedStreamId,"WebCodecs 配置失败，正在改用 H.264 MSE"))h264MseConsumePacket(packet,expectedStreamId);return false}
+  }
+  const queued=h264Decoder.decodeQueueSize,now=performance.now();if(queued>H264_WEBCODECS_SOFT_FRAMES){if(!h264DecodeBacklogSince)h264DecodeBacklogSince=now;if(queued>H264_WEBCODECS_HARD_FRAMES||now-h264DecodeBacklogSince>H264_BACKLOG_GRACE_MS){recoverH264(expectedStreamId,"H.264 解码队列持续积压，正在追赶实时画面");return false}}else if(queued<6)h264DecodeBacklogSince=0;
+  const decodePayload=packet.key&&!sets.injected?annexBWithParameters(packet.nalus,sets):packet.payload;
+  try{h264Decoder.decode(new EncodedVideoChunk({type:packet.key?"key":"delta",timestamp:Number(packet.timestamp)*1000,data:decodePayload}));if(packet.key)sets.injected=true;return true}catch(error){if(switchH264ToMse(generation,expectedStreamId,"WebCodecs 帧提交失败，正在改用 H.264 MSE"))h264MseConsumePacket(packet,expectedStreamId);return false}
+}
+function finishH264BackendProbe(probe,supported,supportedConfig,message){
+  if(h264BackendProbe!==probe||!h264TransportCurrent(probe.generation,probe.expectedStreamId))return;
+  h264BackendProbe=null;const packets=probe.packets.splice(0);
+  if(!supported){if(switchH264ToMse(probe.generation,probe.expectedStreamId,message||"WebCodecs 不支持当前 H.264，正在改用 MSE"))packets.forEach(packet=>h264MseConsumePacket(packet,probe.expectedStreamId));return}
+  h264SupportedDecoderConfig=supportedConfig||probe.config;h264Mode="webcodecs";
+  for(const packet of packets){if(!h264TransportCurrent(probe.generation,probe.expectedStreamId))break;if(h264Mode==="mse")h264MseConsumePacket(packet,probe.expectedStreamId);else submitH264WebCodecsPacket(packet,probe.generation,probe.expectedStreamId)}
+}
+function queueH264BackendProbe(packet,generation,expectedStreamId){
+  let probe=h264BackendProbe;
+  if(!probe){
+    if(!packet.key||!packet.hasIdr||!h264ParameterSets?.sps||!h264ParameterSets?.pps||!packet.codec)return;
+    const config=h264WebCodecsConfig(packet.codec,packet.width,packet.height);probe={generation,expectedStreamId,config,packets:[packet]};h264BackendProbe=probe;
+    try{Promise.resolve(VideoDecoder.isConfigSupported(config)).then(result=>finishH264BackendProbe(probe,result?.supported===true,result?.config||config,"WebCodecs 不支持当前 H.264，正在改用 MSE")).catch(()=>finishH264BackendProbe(probe,false,null,"WebCodecs 能力探测失败，正在改用 H.264 MSE"))}catch(error){finishH264BackendProbe(probe,false,null,"WebCodecs 能力探测失败，正在改用 H.264 MSE")}
+    return
+  }
+  probe.packets.push(packet);if(probe.packets.length>H264_WEBCODECS_HARD_FRAMES)finishH264BackendProbe(probe,false,null,"WebCodecs 能力探测超时，正在改用 H.264 MSE")
+}
+function h264Packet(event,generation,expectedStreamId){
+  if(!h264TransportCurrent(generation,expectedStreamId)||!(event.data instanceof ArrayBuffer))return;
+  const bytes=new Uint8Array(event.data),view=new DataView(event.data);
+  if(bytes.length<24||bytes[0]!==69||bytes[1]!==65||bytes[2]!==72||bytes[3]!==49||bytes[4]!==1){recoverH264(expectedStreamId,"H.264 数据格式无效");return}
+  const wireKey=(bytes[5]&1)!==0,header=view.getUint16(6,true),width=view.getUint16(8,true),height=view.getUint16(10,true),sequence=view.getUint32(12,true),timestamp=view.getUint32(16,true),length=view.getUint32(20,true);
+  if(header<24||width<80||height<80||header+length>bytes.length){recoverH264(expectedStreamId,"H.264 数据长度无效");return}
+  if(!h264SpecMatches(width,height)){recoverH264(expectedStreamId,`H.264 传输尺寸 ${width}x${height} 与所选模式不一致`);return}
+  const payload=new Uint8Array(event.data,header,length),nalus=annexBNalus(payload);
+  if(!nalus.length){recoverH264(expectedStreamId,"H.264 NAL 数据无效");return}
+  const parametersChanged=rememberH264Parameters(nalus),hasIdr=nalus.some(n=>(n[0]&31)===5),key=wireKey||hasIdr,sets=h264ParameterSets,codec=sets?.codec||h264Codec,packet={nalus,key,hasIdr,width,height,timestamp,sequence,payload,parametersChanged,codec};
+  if(h264Mode==="webcodecs-probe"){queueH264BackendProbe(packet,generation,expectedStreamId);return}
+  if(h264Mode==="mse"){if(parametersChanged&&h264Mse?.source){recoverH264(expectedStreamId,"H.264 编码参数已变化，正在重建播放器");return}h264MseConsumePacket(packet,expectedStreamId);return}
+  submitH264WebCodecsPacket(packet,generation,expectedStreamId)
+}
+function startH264Transport(expectedStreamId){
+  const webCodecs=window.ExoAnchorBuild?.h264ForceMse!==true&&typeof VideoDecoder==="function"&&typeof VideoDecoder.isConfigSupported==="function"&&typeof EncodedVideoChunk==="function"&&!!h264Context;
+  const mse=typeof MediaSource==="function";
+  if(!webCodecs&&!mse)return false;
+  const selected=selectedCaptureSpec();if(!h264CaptureSpecSupported(selected))return false;
+  closeH264Transport();const generation=h264Generation;h264TransportSpec={...selected,streamId:expectedStreamId,generation,modeGeneration:videoModeSwitchGeneration};h264ParameterSets={sps:null,pps:null,codec:"",injected:false};h264BackendProbe=null;h264SupportedDecoderConfig=null;h264Mode=webCodecs?"webcodecs-probe":"mse";video.hidden=true;h264Video.hidden=true;h264MseVideo.hidden=true;
+  if(!webCodecs&&!startMse(generation,expectedStreamId)){closeH264Transport();return false}
+  try{h264Socket=new WebSocket(h264Url(expectedStreamId));h264Socket.binaryType="arraybuffer"}catch(error){return false}
+  h264Socket.onmessage=event=>h264Packet(event,generation,expectedStreamId);
+  h264Socket.onerror=()=>{};
+  h264Socket.onclose=()=>{if(h264TransportCurrent(generation,expectedStreamId)&&videoClaimed&&!msVideoPowerOff&&!kvmLeaving&&!document.hidden)recoverH264(expectedStreamId,"H.264 连接断开")};
+  armVideoFirstFrameTimeout(expectedStreamId,"h264");
+  return true;
+}
+function stopVideoForPeer(){stopBootKeyLoop("视频控制已切换，循环已停止");releaseAll();videoPeerBlocked=true;videoClaimed=false;videoLeaseHeld=false;videoStreamReady=false;stopVideoTimers();cancelVideoTransition();disconnectHidWs();closeH264Transport();video.removeAttribute("src");releaseKvmLease(false);setKvmControlsDisabled(kvmReadOnly);showVideoRecovery("视频已由另一个 KVM 标签页接管")}
+function startVideo(delay=0){if(!msVideoPowerKnown||msVideoPowerOff||!videoClaimed||!videoLeaseHeld)return;clearTimeout(videoTimer);clearVideoFirstFrameTimer();closeVideoTransport();videoStreamReady=false;outputFailureMessage="";showVideoRecovery(`正在连接 ${selectedOutputMode==="h264"?"H.264":"MJPEG"} 输出`);videoTimer=setTimeout(()=>{videoTimer=0;if(msVideoPowerOff||!videoClaimed||!videoLeaseHeld||kvmLeaving||document.hidden)return;const expectedStreamId=videoStreamId;if(selectedOutputMode==="h264"){if(!h264OutputAvailable){failH264(expectedStreamId,"当前固件未提供 H.264 输出");return}const spec=selectedCaptureSpec();if(!spec.width||!spec.height){void status();recoverH264(expectedStreamId,"H.264 采集模式尚未同步");return}if(!h264CaptureSpecSupported(spec)){failH264(expectedStreamId,"当前采集帧率超出 H.264 验证范围（1080p25 / 720p30）");return}if(!startH264Transport(expectedStreamId))failH264(expectedStreamId,"当前浏览器不支持 H.264 输出");return}startMjpegTransport(expectedStreamId)},delay)}
+async function claimVideo(delay=0,rotate=false){if(!msVideoPowerKnown||msVideoPowerOff)return false;videoPeerBlocked=false;setKvmControlsDisabled(kvmReadOnly);videoClaimed=true;videoLeaseHeld=false;kvmLeaseEpoch++;h264ReconnectAttempts=0;const previousStreamId=rotate?videoStreamId:0;if(rotate){disconnectHidWs();videoStreamId=newVideoStreamId()}if(videoClaimChannel)videoClaimChannel.postMessage({type:"claim",tabId:videoTabId});showVideoRecovery("正在同步视频画面");const claimedId=videoStreamId,lease=await touchKvm(rotate,false,true,previousStreamId);if(!lease||!videoClaimed||!videoLeaseHeld||claimedId!==videoStreamId||msVideoPowerOff||kvmLeaving||document.hidden){videoLeaseHeld=false;closeVideoTransport();if(videoClaimed&&!msVideoPowerOff&&!kvmLeaving&&!document.hidden&&!kvmLeaseRetryTimer)scheduleLeaseRecovery();return false}startVideo(delay);return true}
+function scheduleVideoRecovery(delay=500){if(videoRecoveryTimer||videoModeSwitching||msVideoPowerOff||!videoClaimed||kvmLeaving||!kvmPageActive||document.hidden||selectedOutputMode==="h264"&&outputFailureMessage)return;videoRecoveryTimer=UI.lifecycle.timeout(()=>{videoRecoveryTimer=0;if(!msVideoPowerOff)void startKvmLease({rotate:true,resetStream:true})},delay)}
+if(videoClaimChannel)videoClaimChannel.onmessage=e=>{const msg=e.data||{};if(msg.type==="claim"&&msg.tabId!==videoTabId)stopVideoForPeer()};
+video.onload=()=>{videoStreamReady=video.naturalWidth>0&&video.naturalHeight>0;if(videoStreamReady){h264Video.hidden=true;h264MseVideo.hidden=true;markVideoReady()}};
+video.onerror=()=>{if(msVideoPowerOff||!videoClaimed||video.hidden||!video.getAttribute("src"))return;clearVideoFirstFrameTimer();videoStreamReady=false;video.removeAttribute("src");showVideoRecovery("浏览器视频流已断开，正在自动重连");scheduleVideoRecovery(750)};
+let kvmLeaseTimer=0,kvmLeaseRetryTimer=0,kvmLeaseRetryRotate=false,kvmLeaseStarting=false,kvmLeaseInFlight=null,kvmLeaseFailures=0,kvmLeaseLastError="",kvmResumeRetryTimer=0,kvmLeaseEpoch=1;
+function stopKvmHeartbeat(){if(kvmLeaseTimer){UI.lifecycle.clearTimer(kvmLeaseTimer);kvmLeaseTimer=0}}
+function leaseFailureRequiresRotation(error){return /stale.*(?:kvm|stream)|expired.*(?:lease|session)/i.test(String(error?.message||error||""))}
+function leaseErrorText(error){const text=String(error?.message||error||"video lease unavailable").trim();if(/login required|401|unauth/i.test(text))return"登录状态需要恢复";if(/agent.*(?:input|control|takeover)/i.test(text))return"Agent 正在控制输入";if(/stale.*(?:kvm|stream)|expired.*(?:lease|session)/i.test(text))return"视频会话已过期";if(/timed out|network|fetch/i.test(text))return"视频控制请求超时";return text.slice(0,120)}
+function scheduleLeaseRecovery(delay=Math.min(500*(2**Math.max(0,kvmLeaseFailures-1)),5000),rotate=false){if(rotate)kvmLeaseRetryRotate=true;if(kvmLeaseRetryTimer||msVideoPowerOff||kvmLeaving||!kvmPageActive||document.hidden)return;kvmLeaseRetryTimer=UI.lifecycle.timeout(()=>{kvmLeaseRetryTimer=0;const rotateStream=kvmLeaseRetryRotate;kvmLeaseRetryRotate=false;if(!msVideoPowerOff)void startKvmLease(rotateStream?{rotate:true,resetStream:true}:{})},delay)}
+function handleLeaseFailure(error){const rotate=leaseFailureRequiresRotation(error);kvmLeaseFailures++;kvmLeaseLastError=leaseErrorText(error);videoLeaseHeld=false;stopKvmHeartbeat();disconnectHidWs();closeVideoTransport();if(msVideoPowerOff){showVideoRecovery("MS2109 电源已关闭");return}showVideoRecovery(`${kvmLeaseLastError}，正在自动恢复`);scheduleLeaseRecovery(undefined,rotate)}
+async function sendKvmLease(active,force=false,claim=false,previousStreamId=0,streamId=videoStreamId){const body={owner:"kvm",active,stream_id:streamId>>>0};if(force)body.force=true;if(claim){body.claim=true;body.previous_stream_id=previousStreamId>>>0}return API.request("POST","/api/video/lease",body,active,{timeoutMs:active?5000:3000,keepalive:!active,signal:active?UI.lifecycle.signal():null})}
+async function touchKvm(forceRequest=false,allowBackground=false,claim=false,previousStreamId=0){if(!msVideoPowerKnown||msVideoPowerOff||(!allowBackground&&(!kvmPageActive||document.hidden))||document.getElementById("authModal")?.classList.contains("show"))return null;const requestEpoch=kvmLeaseEpoch,requestStreamId=videoStreamId;if(kvmLeaseInFlight&&!forceRequest&&kvmLeaseInFlight.epoch===requestEpoch&&kvmLeaseInFlight.streamId===requestStreamId)return kvmLeaseInFlight.promise;const requestState={epoch:requestEpoch,streamId:requestStreamId,promise:null};const request=(async()=>{try{const lease=await sendKvmLease(true,false,claim,previousStreamId,requestStreamId);if(requestEpoch!==kvmLeaseEpoch||requestStreamId!==videoStreamId||msVideoPowerOff)return null;videoLeaseHeld=true;kvmLeaseFailures=0;kvmLeaseLastError="";return lease}catch(error){if(requestEpoch===kvmLeaseEpoch&&requestStreamId===videoStreamId)handleLeaseFailure(error);return null}})();requestState.promise=request;if(!forceRequest)kvmLeaseInFlight=requestState;try{return await request}finally{if(!forceRequest&&kvmLeaseInFlight===requestState)kvmLeaseInFlight=null}}
+async function startKvmLease(options={}){const rotate=!!options.rotate,resetStream=!!options.resetStream,delay=Number(options.delay??(videoClaimChannel?180:0));if(!msVideoPowerKnown||msVideoPowerOff||!kvmPageActive||document.hidden||kvmLeaving)return false;if(kvmLeaseStarting){if((rotate||resetStream)&&!kvmResumeRetryTimer)kvmResumeRetryTimer=UI.lifecycle.timeout(()=>{kvmResumeRetryTimer=0;if(!msVideoPowerOff)void startKvmLease(options)},120);return false}if(kvmLeaseTimer&&videoLeaseHeld&&!rotate&&!resetStream){if(!browserVideoReady())scheduleVideoRecovery(250);return true}kvmLeaseStarting=true;try{if(!(await API.ensure()))return false;await kvmDocumentReady;if(msVideoPowerOff||kvmLeaving||!kvmPageActive||document.hidden)return false;if(resetStream){videoClaimed=true;videoLeaseHeld=false;videoStreamReady=false;stopVideoTimers();closeVideoTransport()}const claimed=await claimVideo(delay,rotate);if(claimed&&!kvmLeaseTimer)kvmLeaseTimer=UI.lifecycle.interval(()=>{void touchKvm(false,true)},2000);if(claimed&&!kvmReadOnly&&(!API.ws||API.ws.readyState>1))void API.connect();return claimed}finally{kvmLeaseStarting=false}}
+function releaseKvmLease(send=true){const releasedStreamId=videoStreamId;kvmLeaseEpoch++;videoLeaseHeld=false;stopKvmHeartbeat();if(kvmLeaseRetryTimer){UI.lifecycle.clearTimer(kvmLeaseRetryTimer);kvmLeaseRetryTimer=0}kvmLeaseRetryRotate=false;if(kvmResumeRetryTimer){UI.lifecycle.clearTimer(kvmResumeRetryTimer);kvmResumeRetryTimer=0}if(send)void sendKvmLease(false,false,false,0,releasedStreamId).catch(()=>{})}
+function suspendKvmForMsPowerOff(){stopBootKeyLoop("MS2109 电源已关闭，循环已停止");sendHidReleaseAllOnCurrentSocket();releaseAll();videoClaimed=false;videoLeaseHeld=false;videoStreamReady=false;kvmLeaseLastError="";outputFailureMessage="";videoUnhealthyPolls=0;stopVideoTimers();clearFocusRefreshPending();cancelVideoTransition();disconnectHidWs();closeVideoTransport();releaseKvmLease();setKvmControlsDisabled(kvmReadOnly);streamStats.textContent="STREAM OFF · MS2109 POWER OFF";streamStats.classList.add("stale");showVideoRecovery("MS2109 电源已关闭")}
+function resumeKvmAfterMsPowerOn(){setKvmControlsDisabled(kvmReadOnly);if(videoPeerBlocked||kvmLeaving||!kvmPageActive||document.hidden)return;videoClaimed=true;showVideoRecovery("MS2109 电源已开启，正在恢复视频");void startKvmLease({rotate:true,resetStream:true})}
+function syncMsVideoPowerState(statusValue){const ms2109=statusValue?.ms2109||{},wasKnown=msVideoPowerKnown,wasOff=msVideoPowerOff;msVideoPowerKnown=true;msVideoPowerOff=ms2109.supported===true&&ms2109.initialized===true&&ms2109.power_on===false;if(msVideoPowerOff){if(!wasKnown||!wasOff||videoClaimed||videoLeaseHeld)suspendKvmForMsPowerOff();else{setKvmControlsDisabled(kvmReadOnly);showVideoRecovery("MS2109 电源已关闭")}return false}if(!wasKnown||wasOff)resumeKvmAfterMsPowerOn();return true}
+const focusRefresh={enabled:localStorage.getItem("si_kvm_focus_refresh")!=="0",pending:0};
+function renderFocusRefresh(){focusRefreshToggle.checked=focusRefresh.enabled;focusRefreshText.textContent=focusRefresh.enabled?"开启":"关闭"}
+renderFocusRefresh();
+function clearFocusRefreshPending(){if(focusRefresh.pending)UI.lifecycle.clearTimer(focusRefresh.pending);focusRefresh.pending=0}
+focusRefreshToggle.onchange=()=>{focusRefresh.enabled=focusRefreshToggle.checked;localStorage.setItem("si_kvm_focus_refresh",focusRefresh.enabled?"1":"0");if(!focusRefresh.enabled)clearFocusRefreshPending();renderFocusRefresh()};
+function windowHasFocus(){return typeof document.hasFocus!=="function"||document.hasFocus()}
+async function finishKvmFocusRefresh(){if(msVideoPowerOff)return;const claimed=await startKvmLease({rotate:true,resetStream:true,delay:0});if(kvmLeaving||document.hidden||kvmWindowBlurred||!kvmPageActive||!windowHasFocus()||msVideoPowerOff)return;if(!claimed){clearFocusRefreshPending();focusRefresh.pending=UI.lifecycle.timeout(()=>{focusRefresh.pending=0;if(!msVideoPowerOff)void finishKvmFocusRefresh()},500);return}hidFocusBlocked=false;if(!kvmReadOnly){restoreKeyboardCaptureAfterFocus();if(!hidSocketIsCurrent())void API.connect()}}
+function refreshKvmAfterWindowFocus(){if(!kvmWindowBlurred||kvmLeaving||document.hidden||!kvmPageActive||!windowHasFocus())return;if(videoModeSwitching){clearFocusRefreshPending();focusRefresh.pending=UI.lifecycle.timeout(()=>{focusRefresh.pending=0;refreshKvmAfterWindowFocus()},120);return}kvmWindowBlurred=false;if(!focusRefresh.enabled){hidFocusBlocked=false;if(!kvmReadOnly)restoreKeyboardCaptureAfterFocus();if(videoLeaseHeld&&!kvmReadOnly&&!hidSocketIsCurrent())void API.connect();return}clearFocusRefreshPending();focusRefresh.pending=UI.lifecycle.timeout(()=>{focusRefresh.pending=0;if(!focusRefresh.enabled||kvmLeaving||document.hidden||kvmWindowBlurred||!kvmPageActive||!windowHasFocus())return;void finishKvmFocusRefresh()},80)}
+window.addEventListener("blur",()=>{kvmWindowBlurred=true;clearFocusRefreshPending();stopBootKeyLoop("窗口失焦，循环已停止");releaseAll();hidFocusBlocked=true;disconnectHidWs()});
+window.addEventListener("focus",refreshKvmAfterWindowFocus);
+function handleKvmVisibilityChange(){if(kvmLeaving)return;kvmPageActive=!document.hidden;if(document.hidden){kvmWindowBlurred=true;clearFocusRefreshPending();stopBootKeyLoop("页面不可见，循环已停止");releaseAllForHidden();hidFocusBlocked=true;if(focusRefresh.enabled){videoStreamReady=false;stopVideoTimers();cancelVideoTransition()}disconnectHidWs();if(focusRefresh.enabled)closeVideoTransport();return}refreshKvmAfterWindowFocus()}
+document.addEventListener("visibilitychange",handleKvmVisibilityChange);
+function leaveKvmPage(){if(kvmLeaving)return;stopBootKeyLoop("页面已离开，循环已停止");releaseAll();kvmLeaving=true;kvmPageActive=false;videoClaimed=false;videoLeaseHeld=false;videoStreamReady=false;stopVideoTimers();clearFocusRefreshPending();cancelVideoTransition();video.onerror=null;video.onload=null;closeVideoTransport();videoClaimChannel?.close();releaseKvmLease();disconnectHidWs()}
+function setKvmControlsDisabled(disabled){const blocked=!!disabled||videoModeSwitching||videoPeerBlocked||msVideoPowerOff;[resolutionSelect,outputModeSelect,keyboardPassthrough,directClickToggle,controlPopupToggle,syncPointer,snapshot,release,reload,fs,bootKeyLoopToggle].forEach(el=>{if(el)el.disabled=blocked});bootKeyLoopKey.disabled=blocked||bootKeyLoopRunning;document.querySelectorAll("[data-combo],[data-shortcut-key],#keyboard button,#mouseTool button,#mouseTool input").forEach(el=>{el.disabled=blocked})}
+function setKvmReadOnly(on,controller=automatedControllerLabel){on=!!on;automatedControllerLabel=controller||"Agent/MCP";const changed=on!==kvmReadOnly;if(on&&changed){stopBootKeyLoop("控制权已切换，循环已停止");releaseAll();setKeyboardCapture(false);setControlWindow(false);disconnectHidWs()}kvmReadOnly=on;document.body.classList.toggle("kvm-readonly",on);setKvmControlsDisabled(on);if(on){setKeyboardCaptureMsg(`${automatedControllerLabel} 正在控制输入；视频保持可见`,`warn`);if(!kvmLeaseTimer||!videoLeaseHeld)void startKvmLease()}else{if(!keyboardCapture.enabled)setKeyboardCaptureMsg("待机");else syncKeyboardCaptureConnection();if(!API.ws||API.ws.readyState>1)API.connect();if(!kvmLeaseTimer||!videoLeaseHeld)void startKvmLease()}}
+async function reclaimKvmControl(){reclaimKvm.disabled=true;try{await API.request("POST","/api/control/lease",{active:false,force:true,reason:"manual KVM terminated automated input"},true,{timeoutMs:3000});const lease=await sendKvmLease(true,true,true,0);if(!lease)throw new Error("manual control reclaim failed");videoLeaseHeld=true;setKvmReadOnly(false);if(!kvmLeaseTimer)kvmLeaseTimer=UI.lifecycle.interval(()=>{void touchKvm(false,true)},2000);if(!browserVideoReady())startVideo(0);setTimeout(status,100)}catch(e){videoText.textContent=e.message||"manual control reclaim failed";nosignal.classList.remove("hide");setKvmReadOnly(true)}finally{reclaimKvm.disabled=false}}
+reclaimKvm.onclick=reclaimKvmControl;
+document.addEventListener("exoanchor:navigate",leaveKvmPage);
+UI.lifecycle.addCleanup(leaveKvmPage);
+startKvmLease();
+function modeFpsX100(m){return Number(m.fps_x100||Math.round(Number(m.fps||0)*100))}
+function modeFormat(m){return String(m.pixel_format||"MJPEG").toUpperCase()}
+function modeValue(m){return `${modeFormat(m)}:${m.width}x${m.height}@${modeFpsX100(m)}`}
+function modeLabel(m){const fps=modeFpsX100(m)/100;return `${modeFormat(m)} ${m.width}x${m.height} @ ${fps%1?fps.toFixed(1):fps.toFixed(0)}fps`}
+const COMMON_VIDEO_MODES=[["MJPEG",1920,1080,50],["MJPEG",1920,1080,30],["MJPEG",1920,1080,25],["MJPEG",1280,720,50],["MJPEG",1280,720,30],["MJPEG",640,480,30]];
+function commonModes(modes){const list=Array.isArray(modes)?modes:[];return COMMON_VIDEO_MODES.map(([fmt,w,h,fps])=>list.find(m=>modeFormat(m)===fmt&&m.width===w&&m.height===h&&modeFpsX100(m)===fps*100)).filter(Boolean)}
+let resolutionSignature="";
+function renderResolution(v){const allModes=Array.isArray(v.modes)?v.modes:[],modes=commonModes(allModes),kvm=v.control?.kvm_mode||{};const saved=`${kvm.width||0}x${kvm.height||0}@${kvm.fps_x100||0}`;const signature=saved+"|"+modes.map(m=>`${modeValue(m)}:${m.selected?1:0}`).join("|"),disabled=videoModeSwitching||kvmReadOnly||msVideoPowerOff||modes.length===0;if(videoModeSwitching&&resolutionSelect.options.length){resolutionSelect.disabled=true;return}if(document.activeElement===resolutionSelect&&resolutionSelect.options.length){resolutionSelect.disabled=disabled;return}if(signature===resolutionSignature){resolutionSelect.disabled=disabled;return}resolutionSignature=signature;resolutionSelect.disabled=disabled;resolutionSelect.innerHTML=modes.length?modes.map(m=>`<option value="${modeValue(m)}">${modeLabel(m)}</option>`).join(""):`<option value="">No common mode</option>`;if(modes.length){const selected=modes.find(m=>m.width===kvm.width&&m.height===kvm.height&&modeFpsX100(m)===(kvm.fps_x100||0))||modes.find(m=>m.selected)||modes.find(m=>m.width===v.width&&m.height===v.height)||modes[0];resolutionSelect.value=modeValue(selected)}}
+resolutionSelect.onchange=async()=>{
+  if(videoModeSwitching)return;
+  const m=/^([A-Z0-9]+):(\d+)x(\d+)@(\d+)$/.exec(resolutionSelect.value||"");if(!m)return;
+  const pixel_format=m[1],w=Number(m[2]),h=Number(m[3]),fps_x100=Number(m[4]),switchGeneration=beginVideoTransition(`正在切换到 ${w}x${h} @ ${(fps_x100/100).toFixed(fps_x100%100?1:0)}fps`);if(!switchGeneration)return;
+  try{
+    await API.post("/api/video/resolution",{pixel_format,width:w,height:h,fps_x100});
+    if(switchGeneration!==videoModeSwitchGeneration||kvmLeaving)return;
+    const claimed=await restartVideoForTransition(switchGeneration,650);
+    if(!claimed&&switchGeneration===videoModeSwitchGeneration&&!document.hidden)throw new Error("视频模式已保存，但视频租约尚未恢复");
+    if(claimed&&!(await waitForVideoTransitionReady(switchGeneration))&&switchGeneration===videoModeSwitchGeneration&&!document.hidden)throw new Error(outputFailureMessage||"新采集模式未输出匹配的有效画面");
+    UI.lifecycle.timeout(()=>{if(switchGeneration===videoModeSwitchGeneration)void status()},900);
+  }catch(e){
+    if(switchGeneration===videoModeSwitchGeneration){videoText.textContent=e.message||"video mode switch failed";nosignal.classList.remove("hide")}
+  }finally{
+    finishVideoTransition(switchGeneration)
+  }
+};
+outputModeSelect.onchange=async()=>{if(videoModeSwitching){outputModeSelect.value=selectedOutputMode;return}const next=outputModeSelect.value==="h264"&&h264OutputAvailable?"h264":"mjpeg",switchGeneration=beginVideoTransition(`正在切换到 ${next==="h264"?"H.264":"MJPEG"} 输出`);if(!switchGeneration)return;selectedOutputMode=next;outputModeSelect.value=next;try{localStorage.setItem(outputModeStorageKey,next)}catch(e){}try{const claimed=await restartVideoForTransition(switchGeneration,0);if(!claimed&&switchGeneration===videoModeSwitchGeneration&&!document.hidden)throw new Error("视频输出租约尚未恢复");if(claimed&&!(await waitForVideoTransitionReady(switchGeneration))&&switchGeneration===videoModeSwitchGeneration&&!document.hidden)throw new Error(outputFailureMessage||`${next==="h264"?"H.264":"MJPEG"} 未输出匹配的有效画面`)}catch(e){if(switchGeneration===videoModeSwitchGeneration){videoText.textContent=e.message||"video output switch failed";nosignal.classList.remove("hide")}}finally{finishVideoTransition(switchGeneration)}};
+snapshot.onclick=()=>window.open(authUrl("/api/snapshot?t="+Date.now()),"_blank");
+reload.onclick=async()=>{const switchGeneration=beginVideoTransition("正在重新连接视频");if(!switchGeneration)return;try{const claimed=await restartVideoForTransition(switchGeneration,0);if(!claimed&&switchGeneration===videoModeSwitchGeneration&&!document.hidden)throw new Error("视频租约尚未恢复");if(claimed&&!(await waitForVideoTransitionReady(switchGeneration))&&switchGeneration===videoModeSwitchGeneration&&!document.hidden)throw new Error(outputFailureMessage||"重连后未收到匹配的有效画面")}catch(e){if(switchGeneration===videoModeSwitchGeneration){videoText.textContent=e.message||"video reconnect failed";nosignal.classList.remove("hide")}}finally{finishVideoTransition(switchGeneration)}};
+fs.onclick=()=>document.fullscreenElement?document.exitFullscreen():screenEl.requestFullscreen();
+function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function speed(){return Number(mouseSpeed.value||5)}
+const direct={enabled:localStorage.getItem("si_direct_click")!=="0",hover:null,drag:false,pointer:null,button:0};
+function activeVideoRect(){const active=!h264Video.hidden?h264Video:!h264MseVideo.hidden?h264MseVideo:video,r=active.getBoundingClientRect();const vw=active===h264Video?(h264Video.width||16):active===h264MseVideo?(h264MseVideo.videoWidth||16):(video.naturalWidth||16),vh=active===h264Video?(h264Video.height||9):active===h264MseVideo?(h264MseVideo.videoHeight||9):(video.naturalHeight||9),ar=vw/vh;let w=r.width,h=w/ar;if(h>r.height){h=r.height;w=h*ar}const left=r.left+(r.width-w)/2,top=r.top+(r.height-h)/2;return{left,top,width:w,height:h}}
+let agentMirrorTimer=0;
+function mirrorAgentHidEvent(event,statusValue){
+  if(localStorage.getItem("si_agent_action_visualization")==="0")return;
+  if(event?.channel!=="hid")return;
+  const text=event?.redacted?"[sensitive action redacted]":String(event?.text||"Agent HID action");
+  const phase=String(event?.phase||event?.kind||"event");
+  agentTakeoverBanner.classList.remove("hide");
+  reclaimKvm.hidden=false;
+  agentTakeoverDetail.textContent=`INPUT · ${phase.toUpperCase()} / VIDEO · ${browserVideoReady()?"LIVE":"RECOVERING"}`;
+  agentActionToast.textContent=`AGENT · ${phase} · ${text}`;
+  agentActionToast.classList.toggle("bad",phase==="failed");
+  agentActionToast.classList.add("show");
+  clearTimeout(agentMirrorTimer);
+  agentMirrorTimer=setTimeout(()=>{agentActionToast.classList.remove("show");if(!statusValue?.running)agentCursor.classList.remove("show")},2200);
+  if(phase!=="input_sent")return;
+  const match=/\bx=(-?\d+)\s+y=(-?\d+)/.exec(text);
+  if(match){
+    const videoRect=activeVideoRect(),screenRect=screenEl.getBoundingClientRect();
+    const u=clamp(Number(match[1])/32767,0,1),v=clamp(Number(match[2])/32767,0,1);
+    agentCursor.style.left=(videoRect.left-screenRect.left+u*videoRect.width)+"px";
+    agentCursor.style.top=(videoRect.top-screenRect.top+v*videoRect.height)+"px";
+    agentCursor.classList.add("show");
+  }
+  if(/\b(click|mousedown|mouseup)\b/i.test(text)){
+    agentCursor.classList.remove("click");
+    void agentCursor.offsetWidth;
+    agentCursor.classList.add("click");
+  }
+}
+function screenPoint(e){const r=activeVideoRect();const x=e.clientX-r.left,y=e.clientY-r.top;if(x<0||y<0||x>r.width||y>r.height)return null;return{x,y,u:r.width?x/r.width:.5,v:r.height?y/r.height:.5,rect:r}}
+function setDirectEnabled(on){direct.enabled=!!on;localStorage.setItem("si_direct_click",direct.enabled?"1":"0");directClickToggle.checked=direct.enabled;directClickText.textContent=direct.enabled?"开启":"关闭"}
+function absPoint(p){return{x:Math.round(clamp(p.u,0,1)*32767),y:Math.round(clamp(p.v,0,1)*32767)}}
+function showHidGestureBlocked(){setKeyboardCaptureMsg("HID 正在连接，请重试","warn");if(hidGestureNoticeTimer)UI.lifecycle.clearTimer(hidGestureNoticeTimer);hidGestureNoticeTimer=UI.lifecycle.timeout(()=>{hidGestureNoticeTimer=0;if(keyboardCaptureMsg.textContent==="HID 正在连接，请重试")setKeyboardCaptureMsg(hidSocketIsCurrent()?"HID 已连接，请重试":"HID 未连接","warn")},1800)}
+function beginHidGesture(){if(hidSocketIsCurrent())return true;showHidGestureBlocked();if(hidMayConnect())void API.connect();return false}
+function directMoveTo(p){const a=absPoint(p);return API.send({type:"absmove",x:a.x,y:a.y})}
+function syncDirectPointer(){if(direct.hover)directMoveTo(direct.hover);syncPointer.classList.add("active");setTimeout(()=>syncPointer.classList.remove("active"),220)}
+function sendMove(dx,dy){const x=Math.round(clamp(dx,-127,127));const y=Math.round(clamp(dy,-127,127));return x||y?API.send({type:"mousemove",unit:"hid",dx:x,dy:y}):false}
+function sendWheel(deltaY){if(!beginHidGesture())return false;return API.send({type:"wheel",deltaY:deltaY,deltaX:0})}
+function sendClick(button=0){if(!beginHidGesture())return false;return API.send({type:"click",button})}
+let inputGeneration=1;
+const inputCancelers=new Set(),inputTimers=new Set();
+function scheduleInputAction(fn,delay){const generation=inputGeneration,timer=setTimeout(()=>{inputTimers.delete(timer);if(generation===inputGeneration)fn()},delay);inputTimers.add(timer);return timer}
+function cancelPendingInputActions(){inputGeneration++;for(const timer of inputTimers)clearTimeout(timer);inputTimers.clear();for(const cancel of inputCancelers)cancel()}
+function sendDblClick(button=0){sendClick(button);scheduleInputAction(()=>sendClick(button),90)}
+const textKeys={" ":"Space","\n":"Enter","\t":"Tab","a":"KeyA","b":"KeyB","c":"KeyC","d":"KeyD","e":"KeyE","f":"KeyF","g":"KeyG","h":"KeyH","i":"KeyI","j":"KeyJ","k":"KeyK","l":"KeyL","m":"KeyM","n":"KeyN","o":"KeyO","p":"KeyP","q":"KeyQ","r":"KeyR","s":"KeyS","t":"KeyT","u":"KeyU","v":"KeyV","w":"KeyW","x":"KeyX","y":"KeyY","z":"KeyZ","0":"Digit0","1":"Digit1","2":"Digit2","3":"Digit3","4":"Digit4","5":"Digit5","6":"Digit6","7":"Digit7","8":"Digit8","9":"Digit9","-":"Minus","=":"Equal","[":"BracketLeft","]":"BracketRight","\\":"Backslash",";":"Semicolon","'":"Quote","`":"Backquote",",":"Comma",".":"Period","/":"Slash"};
+const shiftedTextKeys={"A":"KeyA","B":"KeyB","C":"KeyC","D":"KeyD","E":"KeyE","F":"KeyF","G":"KeyG","H":"KeyH","I":"KeyI","J":"KeyJ","K":"KeyK","L":"KeyL","M":"KeyM","N":"KeyN","O":"KeyO","P":"KeyP","Q":"KeyQ","R":"KeyR","S":"KeyS","T":"KeyT","U":"KeyU","V":"KeyV","W":"KeyW","X":"KeyX","Y":"KeyY","Z":"KeyZ","!":"Digit1","@":"Digit2","#":"Digit3","$":"Digit4","%":"Digit5","^":"Digit6","&":"Digit7","*":"Digit8","(":"Digit9",")":"Digit0","_":"Minus","+":"Equal","{":"BracketLeft","}":"BracketRight","|":"Backslash",":":"Semicolon","\"":"Quote","~":"Backquote","<":"Comma",">":"Period","?":"Slash"};
+function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+async function tapCode(code,mods=[],generation=inputGeneration){if(generation!==inputGeneration||!beginHidGesture())return false;for(const mod of mods)API.send({type:"keydown",code:mod});if(!API.send({type:"keydown",code}))return false;await wait(5);if(generation!==inputGeneration)return false;API.send({type:"keyup",code});for(let i=mods.length-1;i>=0;i--)API.send({type:"keyup",code:mods[i]});await wait(6);return generation===inputGeneration}
+async function typeText(value,generation=inputGeneration){const text=String(value||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");let sent=0,skipped=0;for(const ch of text){if(generation!==inputGeneration)break;if(textKeys[ch]){if(await tapCode(textKeys[ch],[],generation))sent++;continue}if(shiftedTextKeys[ch]){if(await tapCode(shiftedTextKeys[ch],["ShiftLeft"],generation))sent++;continue}if(ch==="\b"){if(await tapCode("Backspace",[],generation))sent++;continue}skipped++}return{sent,skipped}}
+const modifierCodes=new Set(["ControlLeft","ControlRight","ShiftLeft","ShiftRight","AltLeft","AltRight","MetaLeft","MetaRight"]);
+const keyboardCapture={enabled:false,pendingMods:new Set(),pressed:new Set(),pastePending:false,pasteTimer:0,pasting:false};
+function keyboardWsReady(){return hidSocketIsCurrent()}
+function setKeyboardCaptureMsg(text,kind=""){keyboardCaptureMsg.textContent=text||"";keyboardCaptureMsg.className="capture-msg "+kind}
+function isCaptureEditableTarget(e){const t=e.target;if(document.getElementById("authModal")?.classList.contains("show"))return true;if(!t||!t.closest)return false;return !!(t.closest("input,textarea,select")||t.isContentEditable)}
+function isLocalPasteShortcut(e){return e.code==="KeyV"&&(e.ctrlKey||e.metaKey)&&!e.altKey}
+function releaseKeyboardCaptureKeys(){const keys=Array.from(keyboardCapture.pressed).reverse();keyboardCapture.pendingMods.clear();for(const code of keys)API.send({type:"keyup",code});keyboardCapture.pressed.clear()}
+function flushPendingModifiers(){for(const code of Array.from(keyboardCapture.pendingMods)){if(!keyboardCapture.pressed.has(code)){API.send({type:"keydown",code});keyboardCapture.pressed.add(code)}keyboardCapture.pendingMods.delete(code)}}
+function updateKeyboardCaptureState(){keyboardPassthrough.checked=keyboardCapture.enabled;keyboardPassthroughText.textContent=keyboardCapture.enabled?"开启":"关闭";document.body.classList.toggle("keyboard-capture",keyboardCapture.enabled)}
+function setKeyboardCapture(on){keyboardCapture.enabled=!!on;updateKeyboardCaptureState();if(keyboardCapture.enabled){screenPad.focus({preventScroll:true});setKeyboardCaptureMsg(keyboardWsReady()?"捕获中":"HID 未连接",keyboardWsReady()?"ok":"bad")}else{releaseKeyboardCaptureKeys();setKeyboardCaptureMsg("待机")}}
+function syncKeyboardCaptureConnection(){const ready=keyboardWsReady();if(!keyboardCapture.enabled){if(ready&&keyboardCaptureMsg.textContent==="HID 正在连接，请重试")setKeyboardCaptureMsg("HID 已连接，请重试","ok");return}if(ready&&(keyboardCaptureMsg.textContent==="HID 未连接"||keyboardCaptureMsg.textContent==="HID 正在连接，请重试"))setKeyboardCaptureMsg("捕获中","ok");else if(!ready&&keyboardCaptureMsg.textContent!=="HID 未连接"&&keyboardCaptureMsg.textContent!=="HID 正在连接，请重试")setKeyboardCaptureMsg("HID 未连接","bad")}
+function restoreKeyboardCaptureAfterFocus(){if(!keyboardCapture.enabled){setKeyboardCaptureMsg("待机");return}const ready=keyboardWsReady();setKeyboardCaptureMsg(ready?"捕获中":"HID 未连接",ready?"ok":"bad")}
+UI.lifecycle.interval(syncKeyboardCaptureConnection,500);
+function releaseKeyboardCapture(reason=""){releaseKeyboardCaptureKeys();keyboardCapture.pastePending=false;clearTimeout(keyboardCapture.pasteTimer);if(keyboardCapture.enabled&&reason)setKeyboardCaptureMsg(reason,"warn")}
+async function sendLocalClipboardText(text,generation=inputGeneration){if(generation!==inputGeneration)return;keyboardCapture.pastePending=false;clearTimeout(keyboardCapture.pasteTimer);releaseKeyboardCaptureKeys();const value=String(text||"");if(!value){setKeyboardCaptureMsg("剪贴板为空","warn");return}if(keyboardCapture.pasting)return;keyboardCapture.pasting=true;setKeyboardCaptureMsg("粘贴中","warn");try{const r=await typeText(value,generation);if(generation===inputGeneration)setKeyboardCaptureMsg(r.skipped?`已输入 ${r.sent} 跳过 ${r.skipped}`:`已输入 ${r.sent}`,"ok")}catch(err){if(generation===inputGeneration)setKeyboardCaptureMsg(err.message||"粘贴失败","bad")}finally{keyboardCapture.pasting=false}}
+async function readClipboardAfterShortcut(){if(!keyboardCapture.pastePending)return;const generation=inputGeneration;keyboardCapture.pastePending=false;if(navigator.clipboard&&navigator.clipboard.readText){try{const text=await navigator.clipboard.readText();if(generation===inputGeneration)await sendLocalClipboardText(text,generation);return}catch(e){}}if(generation!==inputGeneration)return;releaseKeyboardCaptureKeys();setKeyboardCaptureMsg("剪贴板不可用","warn")}
+function handleKeyboardCaptureKeydown(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;if(keyboardCapture.pasting){e.preventDefault();e.stopImmediatePropagation();return}if(isLocalPasteShortcut(e)){keyboardCapture.pastePending=true;clearTimeout(keyboardCapture.pasteTimer);keyboardCapture.pasteTimer=setTimeout(readClipboardAfterShortcut,80);e.stopImmediatePropagation();return}e.preventDefault();e.stopImmediatePropagation();const code=e.code;if(!code)return;if(!keyboardWsReady()){setKeyboardCaptureMsg("HID 未连接","bad");return}if(modifierCodes.has(code)){if(!keyboardCapture.pressed.has(code))keyboardCapture.pendingMods.add(code);setKeyboardCaptureMsg("捕获中","ok");return}flushPendingModifiers();if(e.repeat&&keyboardCapture.pressed.has(code))return;if(!keyboardCapture.pressed.has(code)){keyboardCapture.pressed.add(code);API.send({type:"keydown",code})}setKeyboardCaptureMsg("捕获中","ok")}
+function handleKeyboardCaptureKeyup(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;e.preventDefault();e.stopImmediatePropagation();const code=e.code;if(!code)return;if(modifierCodes.has(code)&&keyboardCapture.pendingMods.delete(code)){setKeyboardCaptureMsg("捕获中","ok");return}if(keyboardCapture.pressed.has(code)){API.send({type:"keyup",code});keyboardCapture.pressed.delete(code)}setKeyboardCaptureMsg("捕获中","ok")}
+function handleKeyboardCapturePaste(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;e.preventDefault();e.stopImmediatePropagation();const text=e.clipboardData?e.clipboardData.getData("text/plain"):"";sendLocalClipboardText(text)}
+keyboardPassthrough.onchange=()=>{localStorage.setItem("si_keyboard_capture",keyboardPassthrough.checked?"1":"0");setKeyboardCapture(keyboardPassthrough.checked)};
+document.addEventListener("keydown",handleKeyboardCaptureKeydown,true);
+document.addEventListener("keyup",handleKeyboardCaptureKeyup,true);
+document.addEventListener("paste",handleKeyboardCapturePaste,true);
+window.addEventListener("blur",()=>releaseKeyboardCapture("窗口失焦"));
+document.addEventListener("visibilitychange",()=>{if(document.hidden)releaseKeyboardCapture("页面后台")});
+UI.lifecycle.addCleanup(()=>{releaseKeyboardCapture("");releaseHoldKeys()});
+setKeyboardCapture(localStorage.getItem("si_keyboard_capture")!=="0");
+function stopDirectDrag(e,sendUp=true){if(!direct.drag)return;const p=e?screenPoint(e):null;if(p)directMoveTo(p);if(sendUp)API.send({type:"absmouseup",button:direct.button});try{screenPad.releasePointerCapture(direct.pointer)}catch(err){}direct.drag=false;direct.pointer=null}
+setDirectEnabled(direct.enabled);
+directClickToggle.onchange=()=>setDirectEnabled(directClickToggle.checked);
+syncPointer.onclick=syncDirectPointer;
+screenPad.addEventListener("mouseenter",()=>screenPad.focus());
+screenPad.addEventListener("pointerdown",e=>{e.preventDefault();screenPad.focus();if(!direct.enabled||e.button>2)return;const p=screenPoint(e);if(!p||!beginHidGesture())return;direct.drag=true;direct.pointer=e.pointerId;direct.button=e.button;screenPad.setPointerCapture(e.pointerId);if(!directMoveTo(p)||!API.send({type:"absmousedown",button:e.button}))stopDirectDrag(null,false)});
+screenPad.addEventListener("pointermove",e=>{const r=screenEl.getBoundingClientRect();cursor.style.left=e.clientX-r.left+"px";cursor.style.top=e.clientY-r.top+"px";cursor.style.opacity=1;const p=screenPoint(e);if(p)direct.hover={u:p.u,v:p.v};if(direct.enabled&&direct.drag&&e.pointerId===direct.pointer&&p){e.preventDefault();directMoveTo(p)}});
+screenPad.addEventListener("pointerup",e=>{if(direct.drag&&e.pointerId===direct.pointer){e.preventDefault();stopDirectDrag(e,true)}});
+screenPad.addEventListener("pointercancel",e=>{if(direct.drag&&e.pointerId===direct.pointer){e.preventDefault();stopDirectDrag(e,true)}});
+screenPad.addEventListener("pointerleave",()=>{if(!direct.drag)cursor.style.opacity=0});
+screenPad.addEventListener("wheel",e=>{e.preventDefault();if(direct.enabled)sendWheel(Math.sign(e.deltaY)*-1)},{passive:false});
+screenPad.addEventListener("contextmenu",e=>e.preventDefault());
+const joystick=$("joystick"),joyThumb=$("joyThumb");
+const joy={active:false,pointer:null,x:0,y:0,timer:0};
+function setJoy(x,y){joy.x=x;joy.y=y;joyThumb.style.left=(50+x*34)+"%";joyThumb.style.top=(50+y*34)+"%"}
+function updateJoy(e){const r=joystick.getBoundingClientRect();const radius=Math.min(r.width,r.height)*0.38;let x=(e.clientX-r.left-r.width/2)/radius;let y=(e.clientY-r.top-r.height/2)/radius;const mag=Math.hypot(x,y);if(mag>1){x/=mag;y/=mag}setJoy(x,y)}
+function stopJoy(){if(joy.pointer!==null){try{joystick.releasePointerCapture(joy.pointer)}catch(e){}}joy.active=false;joy.pointer=null;setJoy(0,0);UI.lifecycle.clearTimer(joy.timer);joy.timer=0}
+joystick.addEventListener("pointerdown",e=>{e.preventDefault();joystick.focus();if(!beginHidGesture())return;joy.active=true;joy.pointer=e.pointerId;joystick.setPointerCapture(e.pointerId);updateJoy(e);if(!joy.timer)joy.timer=UI.lifecycle.interval(()=>sendMove(joy.x*speed()*4,joy.y*speed()*4),32)});
+joystick.addEventListener("pointermove",e=>{if(joy.active&&e.pointerId===joy.pointer)updateJoy(e)});
+joystick.addEventListener("pointerup",stopJoy);joystick.addEventListener("pointercancel",stopJoy);joystick.addEventListener("contextmenu",e=>e.preventDefault());
+const touchPad=$("touchPad"),touchDot=$("touchDot");
+const touch={active:false,pointer:null,lastX:0,lastY:0,startX:0,startY:0,moved:0,startAt:0,locked:false,centered:false};
+function setTouchDot(e,visible=true){const r=touchPad.getBoundingClientRect();touchDot.style.left=e.clientX-r.left+"px";touchDot.style.top=e.clientY-r.top+"px";touchDot.style.opacity=visible?1:0}
+function setTouchCenter(visible=true){const r=touchPad.getBoundingClientRect();touchDot.style.left=r.width/2+"px";touchDot.style.top=r.height/2+"px";touchDot.style.opacity=visible?1:0}
+function requestTouchLock(e){if(e.pointerType!=="mouse"||!touchPad.requestPointerLock)return false;setTouchCenter(true);try{const ret=touchPad.requestPointerLock();if(ret&&ret.catch)ret.catch(()=>{if(touch.active&&!touch.locked){try{touchPad.setPointerCapture(touch.pointer)}catch(err){}setTouchDot({clientX:touch.lastX,clientY:touch.lastY},true)}});return true}catch(err){return false}}
+function stopTouch(e,allowTap=true){if(!touch.active)return;const wasTap=allowTap&&touch.moved<7&&(Date.now()-touch.startAt)<320;if(document.pointerLockElement===touchPad&&document.exitPointerLock)document.exitPointerLock();if(e&&!touch.locked&&!touch.centered)setTouchDot(e,false);else setTouchCenter(false);try{touchPad.releasePointerCapture(touch.pointer)}catch(err){}touch.active=false;touch.pointer=null;touch.locked=false;touch.centered=false;touchPad.classList.remove("locked");document.body.classList.remove("touch-capture");if(wasTap)sendClick(0)}
+touchPad.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"&&e.button!==0)return;e.preventDefault();touchPad.focus();if(!beginHidGesture())return;touch.active=true;touch.pointer=e.pointerId;touch.lastX=e.clientX;touch.lastY=e.clientY;touch.startX=e.clientX;touch.startY=e.clientY;touch.moved=0;touch.startAt=Date.now();touch.centered=e.pointerType==="mouse";document.body.classList.toggle("touch-capture",touch.centered);if(!requestTouchLock(e)){touchPad.setPointerCapture(e.pointerId);touch.centered?setTouchCenter(true):setTouchDot(e,true)}});
+touchPad.addEventListener("pointermove",e=>{if(!touch.active||touch.locked||e.pointerId!==touch.pointer)return;e.preventDefault();const dx=e.clientX-touch.lastX;const dy=e.clientY-touch.lastY;touch.lastX=e.clientX;touch.lastY=e.clientY;touch.moved=Math.max(touch.moved,Math.hypot(e.clientX-touch.startX,e.clientY-touch.startY));touch.centered?setTouchCenter(true):setTouchDot(e,true);sendMove(dx*speed()*0.55,dy*speed()*0.55)});
+touchPad.addEventListener("pointerup",stopTouch);touchPad.addEventListener("pointercancel",stopTouch);touchPad.addEventListener("wheel",e=>{e.preventDefault();sendWheel(Math.sign(e.deltaY)*-1)},{passive:false});touchPad.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("pointerlockchange",()=>{const locked=document.pointerLockElement===touchPad;const wasLocked=touch.locked;touch.locked=locked;touchPad.classList.toggle("locked",locked);if(locked)setTouchCenter(true);else if(wasLocked&&touch.active)stopTouch(null,false)});
+document.addEventListener("mousemove",e=>{if(!touch.active||document.pointerLockElement!==touchPad)return;e.preventDefault();const dx=e.movementX||0,dy=e.movementY||0;touch.moved+=Math.hypot(dx,dy);setTouchCenter(true);sendMove(dx*speed()*0.55,dy*speed()*0.55)});
+document.addEventListener("mouseup",e=>{if(touch.active&&document.pointerLockElement===touchPad&&e.button===0){e.preventDefault();stopTouch(e)}});
+function setMouseMode(mode){modeJoy.classList.toggle("active",mode==="joy");modeTouch.classList.toggle("active",mode==="touch");joyPane.classList.toggle("hide",mode!=="joy");touchPane.classList.toggle("hide",mode!=="touch");(mode==="joy"?joystick:touchPad).focus()}
+modeJoy.onclick=()=>setMouseMode("joy");modeTouch.onclick=()=>setMouseMode("touch");mouseSpeed.oninput=()=>speedText.textContent=mouseSpeed.value;
+document.querySelectorAll("[data-mouse-button]").forEach(b=>{let held=false;const button=Number(b.dataset.mouseButton);const up=(send=true)=>{if(!held)return;held=false;b.classList.remove("active");if(send)API.send({type:"mouseup",button})};const normalUp=()=>up(true);inputCancelers.add(()=>up(false));b.addEventListener("pointerdown",e=>{e.preventDefault();if(!beginHidGesture())return;held=true;b.classList.add("active");b.setPointerCapture(e.pointerId);if(!API.send({type:"mousedown",button}))up(false)});b.addEventListener("pointerup",normalUp);b.addEventListener("pointercancel",normalUp);b.addEventListener("pointerleave",normalUp)});
+document.querySelectorAll("[data-mouse-click]").forEach(b=>b.onclick=()=>sendClick(Number(b.dataset.mouseClick)));
+document.querySelectorAll("[data-mouse-dblclick]").forEach(b=>b.onclick=()=>sendDblClick(Number(b.dataset.mouseDblclick)));
+document.querySelectorAll("[data-wheel]").forEach(b=>{let timer=0;const step=()=>sendWheel(Number(b.dataset.wheel));const stop=()=>{UI.lifecycle.clearTimer(timer);timer=0;b.classList.remove("active")};inputCancelers.add(stop);b.addEventListener("pointerdown",e=>{e.preventDefault();if(!beginHidGesture())return;b.classList.add("active");b.setPointerCapture(e.pointerId);step();timer=UI.lifecycle.interval(step,90)});b.addEventListener("pointerup",stop);b.addEventListener("pointercancel",stop);b.addEventListener("pointerleave",stop)});
+dragLock.onclick=()=>{const active=!dragLock.classList.contains("active");if(active&&!beginHidGesture())return;dragLock.classList.toggle("active",active);if(!API.send({type:active?"mousedown":"mouseup",button:0}))dragLock.classList.remove("active")};
+function sendHidReleaseAllOnCurrentSocket(){const ws=API.ws;if(!ws||ws.readyState!==WebSocket.OPEN||hidSocketStreamId!==videoStreamId)return false;try{ws.send(JSON.stringify({type:"releaseall"}));return true}catch(e){return false}}
+function releaseAll(){cancelPendingInputActions();stopJoy();stopTouch(null,false);stopDirectDrag(null,false);releaseKeyboardCaptureKeys();releaseHoldKeys();dragLock.classList.remove("active");API.send({type:"releaseall"})}
+function releaseAllForHidden(){releaseAll();sendHidReleaseAllOnCurrentSocket()}
+release.onclick=()=>{stopBootKeyLoop("已手动关闭");releaseAll()};
+function acceptsKeyboard(){return !keyboardCapture.enabled&&(document.activeElement===screenPad||document.activeElement===joystick||document.activeElement===touchPad)}
+document.addEventListener("keydown",e=>{if(!acceptsKeyboard())return;e.preventDefault();API.send({type:"keydown",code:e.code})});
+document.addEventListener("keyup",e=>{if(!acceptsKeyboard())return;e.preventDefault();API.send({type:"keyup",code:e.code})});
+const combos={"ctrl-alt-del":{modifiers:["ControlLeft","AltLeft"],keys:["Delete"]},"alt-tab":{modifiers:["AltLeft"],keys:["Tab"]},"alt-f4":{modifiers:["AltLeft"],keys:["F4"]}};
+document.querySelectorAll("[data-combo]").forEach(b=>b.onclick=()=>API.send({type:"combo",...combos[b.dataset.combo]}));
+const heldKeys=new Set();
+function setHeldShortcut(button,on){const code=button.dataset.shortcutKey;if(!code)return;const active=!!on;if(active===heldKeys.has(code)||active&&!beginHidGesture())return;if(active){heldKeys.add(code);button.classList.add("active");if(!API.send({type:"keydown",code})){heldKeys.delete(code);button.classList.remove("active")}}else{heldKeys.delete(code);button.classList.remove("active");API.send({type:"keyup",code})}}
+function releaseHoldKeys(){document.querySelectorAll("[data-shortcut-key]").forEach(b=>{if(heldKeys.has(b.dataset.shortcutKey))setHeldShortcut(b,false)});for(const code of Array.from(heldKeys)){API.send({type:"keyup",code});heldKeys.delete(code)}}
+async function tapShortcutKey(button){const code=button.dataset.shortcutKey;if(!code||heldKeys.has(code))return;button.classList.add("active");await tapCode(code);if(!heldKeys.has(code))button.classList.remove("active")}
+const shortcutClickTimers=new WeakMap();
+document.querySelectorAll("[data-shortcut-key]").forEach(b=>{b.addEventListener("click",e=>{e.preventDefault();if(e.detail>1)return;clearTimeout(shortcutClickTimers.get(b));shortcutClickTimers.set(b,setTimeout(()=>tapShortcutKey(b),220))});b.addEventListener("dblclick",e=>{e.preventDefault();clearTimeout(shortcutClickTimers.get(b));setHeldShortcut(b,!heldKeys.has(b.dataset.shortcutKey))})});
+const layout=[["Escape","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"],["Backquote","Digit1","Digit2","Digit3","Digit4","Digit5","Digit6","Digit7","Digit8","Digit9","Digit0","Backspace","Delete"],["Tab","KeyQ","KeyW","KeyE","KeyR","KeyT","KeyY","KeyU","KeyI","KeyO","KeyP"],["CapsLock","KeyA","KeyS","KeyD","KeyF","KeyG","KeyH","KeyJ","KeyK","KeyL","Enter"],["ShiftLeft","KeyZ","KeyX","KeyC","KeyV","KeyB","KeyN","KeyM","ArrowUp","ShiftRight"],["ControlLeft","MetaLeft","AltLeft","Space","ArrowLeft","ArrowDown","ArrowRight"]];
+const labels={Escape:"Esc",Backspace:"Back",Delete:"Del",CapsLock:"Caps",ShiftLeft:"Shift",ShiftRight:"Shift",ControlLeft:"Ctrl",MetaLeft:"Win",AltLeft:"Alt",Space:"Space",ArrowLeft:"Left",ArrowRight:"Right",ArrowUp:"Up",ArrowDown:"Down"};
+keyboard.innerHTML=layout.map(row=>`<div class="keyrow">${row.map(code=>`<button class="key ${code==="Space"?"wide":""}" data-code="${code}">${labels[code]||code.replace("Key","").replace("Digit","")}</button>`).join("")}</div>`).join("");
+keyboard.querySelectorAll("button").forEach(b=>{b.onmousedown=e=>{e.preventDefault();if(!beginHidGesture())return;b.classList.add("active");if(!API.send({type:"keydown",code:b.dataset.code}))b.classList.remove("active")};b.onmouseup=e=>{e.preventDefault();if(!b.classList.contains("active"))return;b.classList.remove("active");API.send({type:"keyup",code:b.dataset.code})};b.onmouseleave=()=>{if(!b.classList.contains("active"))return;b.classList.remove("active");API.send({type:"keyup",code:b.dataset.code})}});
+function renderAgentPresence(agentViewing,inputControlActive,controller,browserHealthy){
+  const visible=agentViewing||inputControlActive;
+  agentTakeoverBanner.classList.toggle("hide",!visible);
+  agentTakeoverBanner.classList.toggle("takeover",inputControlActive);
+  reclaimKvm.hidden=!inputControlActive;
+  if(!visible)return;
+  agentPresenceTitle.textContent=inputControlActive?`${controller} 正在控制输入`:"Agent 正在查看画面";
+  agentTakeoverDetail.textContent=inputControlActive?`KVM 视频继续共享 · ${browserHealthy?"画面已同步":"画面恢复中"} · 可随时终止自动控制`:`只读观察 · 视频共享 · ${browserHealthy?"画面已同步":"画面恢复中"} · 人工输入不受影响`;
+}
+function videoUnavailableReason(v,agentTakeover){const reason=v.last_error?`视频采集异常：${v.last_error}`:Array.isArray(v.modes)&&v.modes.length?"采集器已识别，等待有效视频信号":"未检测到视频采集器或输入信号";return agentTakeover?`Agent 正在控制输入；${reason}`:reason}
+function renderKvmStatus(s){
+  if(!s)return;
+  const v=s.video||{},vc=v.control||{},lease=s.control_lease||{};
+  if(!syncMsVideoPowerState(s)){renderResolution(v);return}
+  const agentViewing=!!vc.agent_active,controller=lease.agent_owner==="mcp"?"MCP":"Agent";
+  const hasInputControlState=typeof lease.input_control_active==="boolean";
+  const inputControlActive=hasInputControlState?lease.input_control_active===true:(lease.agent_active===true&&lease.mode!=="observe");
+  const frameAge=Number(v.last_frame_ms||0);
+  const metrics=v.stream_metrics||{},metricsValid=!!metrics.valid&&Number(metrics.fps)>0&&Number(metrics.stream_id)===videoStreamId;
+  const rttMs=Number(UI.status.lastDurationMs),rttText=Number.isFinite(rttMs)&&rttMs>=0?`${Math.round(rttMs)} ms`:"-- ms";
+  streamStats.textContent=metricsValid?`STREAM ${Number(metrics.fps).toFixed(1)} FPS · ${Number(metrics.bitrate_mbps||0).toFixed(2)} Mb/s · RTT ${rttText}`:"STREAM -- FPS · -- Mb/s · RTT -- ms";
+  streamStats.classList.toggle("stale",!metricsValid);
+  const backendHealthy=!!v.frame_ready&&Number(v.fps||0)>0&&(frameAge===0||frameAge<1500);
+  const browserHealthy=browserVideoReady();
+  backendVideoHealthy=backendHealthy;
+  if(browserHealthy)videoStreamReady=true;
+  renderResolution(v);
+  setKvmReadOnly(inputControlActive,controller);
+  renderAgentPresence(agentViewing,inputControlActive,controller,browserHealthy);
+  if(videoModeSwitching){
+    nosignal.classList.remove("hide");
+    return;
+  }
+  if((backendHealthy&&browserHealthy)||(selectedOutputMode==="h264"&&browserHealthy)){
+    videoUnhealthyPolls=0;
+    nosignal.classList.add("hide");
+    return;
+  }
+  nosignal.classList.remove("hide");
+  if(selectedOutputMode==="h264"&&outputFailureMessage){
+    videoText.textContent=outputFailureMessage;
+    return;
+  }
+  if(backendHealthy){
+    videoText.textContent="采集后端正常，正在重连浏览器视频流";
+  }else if(kvmLeaseLastError){
+    videoText.textContent=`${kvmLeaseLastError}，正在自动恢复`;
+  }else{
+    videoText.textContent=videoUnavailableReason(v,false);
+  }
+  if(selectedOutputMode==="h264"){
+    if(videoClaimed&&!videoLeaseHeld){
+      scheduleLeaseRecovery(250);
+    }else if(videoClaimed&&videoLeaseHeld&&!browserHealthy&&!outputFailureMessage&&!h264Socket&&!h264Mse){
+      startVideo(0);
+    }else if(videoClaimed&&videoLeaseHeld&&!browserHealthy&&h264LastFrameAt>0&&performance.now()-h264LastFrameAt>=2500&&++videoUnhealthyPolls>=2){
+      videoUnhealthyPolls=0;
+      recoverH264(videoStreamId,"H.264 视频流停滞");
+    }else if(browserHealthy){
+      videoUnhealthyPolls=0;
+    }
+    return;
+  }
+  if(videoClaimed&&!videoLeaseHeld){
+    scheduleLeaseRecovery(250);
+  }else if(videoClaimed&&videoLeaseHeld&&++videoUnhealthyPolls>=2){
+    videoUnhealthyPolls=0;
+    if(!kvmLeaseTimer)scheduleLeaseRecovery(250);
+    else scheduleVideoRecovery(250);
+  }
+}
+function status(){return UI.status.refresh()}
+const BOOT_KEY_LOOP_INTERVAL_MS=250;
+const bootKeyLoopAllowed=new Set(["Delete","Escape","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"]);
+let bootKeyLoopRunning=false,bootKeyLoopTimer=0,bootKeyLoopSending=false,bootKeyLoopCount=0,bootKeyLoopGeneration=0;
+function bootKeyLoopLabel(){return bootKeyLoopKey.options[bootKeyLoopKey.selectedIndex]?.textContent||bootKeyLoopKey.value}
+function renderBootKeyLoop(message=""){
+  bootKeyLoopToggle.checked=bootKeyLoopRunning;
+  bootKeyLoopText.textContent=bootKeyLoopRunning?"开启":"关闭";
+  bootKeyLoopKey.disabled=bootKeyLoopRunning||kvmReadOnly||videoModeSwitching||videoPeerBlocked||msVideoPowerOff;
+  if(message)bootKeyLoopState.textContent=message;
+  else bootKeyLoopState.textContent=bootKeyLoopRunning?`运行中 · ${bootKeyLoopLabel()} · 已发送 ${bootKeyLoopCount} 次`:"选择按键后打开；进入 BIOS 后手动关闭。";
+  bootKeyLoopState.className=`capture-msg ${bootKeyLoopRunning?"ok":""}`.trim();
+}
+function stopBootKeyLoop(reason="已手动关闭"){
+  if(!bootKeyLoopRunning){bootKeyLoopToggle.checked=false;return}
+  bootKeyLoopRunning=false;bootKeyLoopSending=false;bootKeyLoopGeneration++;
+  if(bootKeyLoopTimer)clearInterval(bootKeyLoopTimer);bootKeyLoopTimer=0;
+  cancelPendingInputActions();API.send({type:"releaseall"});renderBootKeyLoop(reason);
+}
+async function sendBootKeyLoopTick(generation){
+  if(!bootKeyLoopRunning||bootKeyLoopSending||generation!==bootKeyLoopGeneration)return;
+  if(kvmReadOnly||kvmLeaving||document.hidden||videoPeerBlocked||msVideoPowerOff){stopBootKeyLoop("控制不可用，循环已停止");return}
+  if(!keyboardWsReady()){renderBootKeyLoop(`等待 HID 连接 · ${bootKeyLoopLabel()}`);if(hidMayConnect())void API.connect();return}
+  bootKeyLoopSending=true;
+  try{if(await tapCode(bootKeyLoopKey.value,[],inputGeneration)){if(bootKeyLoopRunning&&generation===bootKeyLoopGeneration){bootKeyLoopCount++;renderBootKeyLoop()}}}
+  finally{if(generation===bootKeyLoopGeneration)bootKeyLoopSending=false}
+}
+function startBootKeyLoop(){
+  const key=bootKeyLoopKey.value;
+  if(!bootKeyLoopAllowed.has(key)||kvmReadOnly||kvmLeaving||document.hidden||videoPeerBlocked||msVideoPowerOff){bootKeyLoopToggle.checked=false;renderBootKeyLoop("当前无法开启循环按键");return}
+  if(bootKeyLoopRunning)return;
+  bootKeyLoopRunning=true;bootKeyLoopCount=0;bootKeyLoopGeneration++;
+  const generation=bootKeyLoopGeneration;renderBootKeyLoop();void sendBootKeyLoopTick(generation);
+  bootKeyLoopTimer=window.setInterval(()=>{void sendBootKeyLoopTick(generation)},BOOT_KEY_LOOP_INTERVAL_MS);
+}
+bootKeyLoopToggle.onchange=()=>{if(bootKeyLoopToggle.checked)startBootKeyLoop();else stopBootKeyLoop("已手动关闭")};
+bootKeyLoopKey.onchange=()=>renderBootKeyLoop();
+renderBootKeyLoop();
+UI.status.subscribe(renderKvmStatus);
+UI.pageContext.register("kvm",()=>{
+  const statusValue=UI.status.value||{},v=statusValue.video||{},control=v.control||{},selected=resolutionSelect.options[resolutionSelect.selectedIndex];
+  return {summary:"KVM 当前可见控制状态（不附带截图）",items:[
+    {kind:"kvm_state",label:"Video",value:msVideoPowerOff?"off":v.frame_ready?`${v.width||0}×${v.height||0} @ ${Number(v.fps||0).toFixed(1)} fps`:v.device_connected?"standby":"offline"},
+    {kind:"kvm_state",label:"Selected mode",value:selected?.textContent||"no common mode"},
+    {kind:"kvm_state",label:"Output mode",value:selectedOutputMode==="h264"?"H.264":"MJPEG"},
+    {kind:"kvm_state",label:"Control owner",value:control.agent_takeover?"agent":control.active_owner||"none"},
+    {kind:"kvm_state",label:"Human control",value:kvmReadOnly?"read-only":"available"},
+    {kind:"setting",label:"Access mode",value:UI.accessMode.mode},
+    {kind:"kvm_state",label:"HID websocket",value:API.ws?.readyState===WebSocket.OPEN?"connected":"disconnected"},
+    {kind:"status",label:"Key loop",value:bootKeyLoopRunning?`${bootKeyLoopLabel()} · ${bootKeyLoopCount}`:"off"},
+  ]};
+});
+UI.lifecycle.addCleanup(UI.actionMirror.subscribe(mirrorAgentHidEvent));
+document.addEventListener("exoanchor:logout",()=>{stopBootKeyLoop("已退出，循环已停止");releaseAll();try{releaseKvmLease()}catch(e){}disconnectHidWs()});
+</script>
+</body>
+</html>

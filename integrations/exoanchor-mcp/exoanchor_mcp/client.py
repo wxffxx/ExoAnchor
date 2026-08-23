@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
+import time
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -129,7 +131,13 @@ class ExoAnchorClient:
                     return payload, dict(resp.headers)
                 content_type = resp.headers.get("Content-Type", "")
                 if "json" in content_type:
-                    return json.loads(payload.decode("utf-8") or "{}")
+                    # Diagnostics must remain inspectable when an older device
+                    # accidentally places a non-UTF-8 byte in a JSON string.
+                    # Current firmware sanitizes at the source; replacement
+                    # here keeps the bridge usable during mixed-version repair.
+                    return json.loads(
+                        payload.decode("utf-8", errors="replace") or "{}"
+                    )
                 text = payload.decode("utf-8", errors="replace")
                 try:
                     return json.loads(text)
@@ -154,9 +162,31 @@ class ExoAnchorClient:
         resp = self._request(
             "POST",
             "/api/auth/login",
-            {"username": self.config.username, "password": self.config.password},
+            {
+                "username": self.config.username,
+                "password": self.config.password,
+                "request_id": secrets.token_hex(16),
+            },
             retry_auth=False,
         )
+        # Password verification is intentionally performed by an asynchronous
+        # device job.  On a loaded ESP32-P4 the configured PBKDF2 verifier can
+        # take longer than 30 seconds, so the polling lifetime must follow the
+        # transport timeout instead of imposing a shorter hidden deadline.
+        deadline = time.monotonic() + self.config.timeout
+        while isinstance(resp, dict) and resp.get("pending"):
+            job_id = str(resp.get("job_id") or "")
+            if not job_id:
+                raise ExoAnchorError("login response did not include job_id")
+            if time.monotonic() >= deadline:
+                raise ExoAnchorError("login timed out")
+            delay = max(0.05, min(float(resp.get("poll_after_ms", 100)) / 1000, 1.0))
+            time.sleep(delay)
+            resp = self._request(
+                "GET",
+                f"/api/auth/login/status?job_id={job_id}",
+                retry_auth=False,
+            )
         token = resp.get("token") if isinstance(resp, dict) else None
         if not token:
             raise ExoAnchorError("login response did not include token")
@@ -168,6 +198,11 @@ class ExoAnchorClient:
         return resp if isinstance(resp, dict) else {"value": resp}
 
     def post_json(self, path: str, body: JSON) -> JSON:
+        # Never discover authentication by replaying a mutating request.  A
+        # device may accept the action and then reset or lose the response;
+        # retrying that POST after a 401 would make its outcome ambiguous.
+        if not self.token and self.config.password:
+            self.login()
         resp = self._request("POST", path, body)
         return resp if isinstance(resp, dict) else {"value": resp}
 

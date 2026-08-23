@@ -1,0 +1,6 @@
+# One-time bring-up overlay for a PrototypeV2.3 board that previously ran a
+# different board profile. Include this after the normal V2.3 board overlay
+# for the migration flash only. Do not make it part of routine release builds:
+# a newly built image intentionally gets a new reset marker and would erase
+# user settings again.
+CONFIG_SI_RESET_SETTINGS_ON_NEW_IMAGE=y

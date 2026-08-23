@@ -1,0 +1,159 @@
+ExoAnchor ESP32-P4 Firmware Third-Party Notices
+================================================
+
+This file covers non-Espressif third-party software directly incorporated into
+the ExoAnchor ESP32-P4 firmware. ESP-IDF and components published by Espressif
+retain their respective upstream licenses and notices.
+
+None of the components listed in this file is licensed under the GPL.
+
+
+libssh2_esp 1.0.0
+-----------------
+
+Source: https://github.com/skuodi/libssh2_esp
+License: BSD-3-Clause
+ESP Component Registry package hash:
+  a65c753c7388cf47299765dc8c8a22dccdc53d1e72a2fb0cf361c1f800067a63
+Security backport:
+  CVE-2026-55200 transport packet-length bound check from upstream commit
+  97acf3dfda80c91c3a8c9f2372546301d4a1a7a8. The build verifies the unpatched
+  source SHA-256 before reproducing that one-hunk BSD-3-Clause change.
+
+BSD 3-Clause License
+
+Copyright (c) 2025, skuodi
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+libssh2 1.11.1
+---------------
+
+Source: https://github.com/libssh2/libssh2
+License: BSD-3-Clause-style permissive license
+
+Copyright (C) 2004-2007 Sara Golemon <sarag@libssh2.org>
+Copyright (C) 2005,2006 Mikhail Gusarov <dottedmag@libssh2.org>
+Copyright (C) 2006-2007 The Written Word, Inc.
+Copyright (C) 2007 Eli Fant <elifantu@mail.ru>
+Copyright (C) 2009-2023 Daniel Stenberg
+Copyright (C) 2008, 2009 Simon Josefsson
+Copyright (C) 2000 Markus Friedl
+Copyright (C) 2015 Microsoft Corp.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+  Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+  Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+  Neither the name of the copyright holder nor the names of any other
+  contributors may be used to endorse or promote products derived from this
+  software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+@xterm/xterm 6.0.0
+-----------------
+
+Source: https://github.com/xtermjs/xterm.js
+Bundled files: main/www/vendor/xterm/xterm.js and xterm.css
+License: MIT
+SHA-256 (xterm.js):
+  14903579ff54664cd72f8e8699e6961a6272c21863ec1c3b118cdc8af5d4a972
+SHA-256 (xterm.css):
+  854a7c0fb70e8b1a083c16797ab827299fb18744f5ad34f227b48337e33293c6
+
+Copyright (c) 2017-2019, The xterm.js authors
+  (https://github.com/xtermjs/xterm.js)
+Copyright (c) 2014-2016, SourceLair Private Company
+  (https://www.sourcelair.com)
+Copyright (c) 2012-2013, Christopher Jeffrey (https://github.com/chjj/)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+@xterm/addon-fit 0.11.0
+----------------------
+
+Source: https://github.com/xtermjs/xterm.js/tree/master/addons/addon-fit
+Bundled file: main/www/vendor/xterm/addon-fit.js
+License: MIT
+SHA-256 (addon-fit.js):
+  ba3ea256ce0620a0992a197d6c9baea64823fc93d8da07a9e366ca9943c18527
+
+Copyright (c) 2019, The xterm.js authors
+  (https://github.com/xtermjs/xterm.js)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "ExoAnchor MCP Control"
+  short_description: "Safely configure and operate ExoAnchor MCP"
+  default_prompt: "Use $exoanchor-mcp-control to verify the target device and perform a supervised MCP operation."

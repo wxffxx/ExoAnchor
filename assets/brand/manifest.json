@@ -1,0 +1,350 @@
+{
+  "schema": "exoanchor.brand-assets.v2",
+  "selected_direction": "11-riven-datum",
+  "readme_banner": {
+    "wordmark": "EXOANCHOR",
+    "font": "HarmonyOS Sans Black",
+    "font_file": "HarmonyOS_Sans_Black.ttf",
+    "font_sha256": "ef643b37b20c21d01edb5722934cff45ae885f0b03ca1864386463e12fb03e22"
+  },
+  "colors": {
+    "ink": "#111318",
+    "indigo": "#5966D8",
+    "indigo_light": "#7480F0",
+    "off_white": "#F2F3F0",
+    "white": "#F7F9FC",
+    "deep_indigo": "#0C1022"
+  },
+  "assets": [
+    {
+      "path": "README.md",
+      "bytes": 5287
+    },
+    {
+      "path": "brand-assets-preview.png",
+      "bytes": 116600,
+      "format": "PNG",
+      "size": [
+        1600,
+        1100
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "hardware/exoanchor-symbol-silkscreen-10mm.dxf",
+      "bytes": 1340
+    },
+    {
+      "path": "hardware/exoanchor-symbol-silkscreen-10mm.svg",
+      "bytes": 1057
+    },
+    {
+      "path": "hardware/exoanchor-symbol-silkscreen-20mm.dxf",
+      "bytes": 1374
+    },
+    {
+      "path": "hardware/exoanchor-symbol-silkscreen-20mm.svg",
+      "bytes": 1058
+    },
+    {
+      "path": "hardware/exoanchor-symbol-silkscreen.svg",
+      "bytes": 1045
+    },
+    {
+      "path": "png/exoanchor-lockup-horizontal-color-1200.png",
+      "bytes": 28820,
+      "format": "PNG",
+      "size": [
+        1200,
+        270
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-lockup-horizontal-color-2400.png",
+      "bytes": 59681,
+      "format": "PNG",
+      "size": [
+        2400,
+        540
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-lockup-horizontal-color-600.png",
+      "bytes": 15136,
+      "format": "PNG",
+      "size": [
+        600,
+        135
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-lockup-horizontal-reverse-1200.png",
+      "bytes": 32488,
+      "format": "PNG",
+      "size": [
+        1200,
+        270
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-readme-banner-1600x400.png",
+      "bytes": 72216,
+      "format": "PNG",
+      "size": [
+        1600,
+        400
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-social-preview-1280x640.png",
+      "bytes": 46667,
+      "format": "PNG",
+      "size": [
+        1280,
+        640
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-symbol-color-1024.png",
+      "bytes": 48521,
+      "format": "PNG",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-symbol-color-128.png",
+      "bytes": 6058,
+      "format": "PNG",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-symbol-color-256.png",
+      "bytes": 11347,
+      "format": "PNG",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-symbol-color-512.png",
+      "bytes": 22521,
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-symbol-reverse-128.png",
+      "bytes": 6230,
+      "format": "PNG",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-symbol-reverse-256.png",
+      "bytes": 12925,
+      "format": "PNG",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "png/exoanchor-symbol-reverse-512.png",
+      "bytes": 25834,
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "svg/exoanchor-lockup-horizontal-color.svg",
+      "bytes": 3341
+    },
+    {
+      "path": "svg/exoanchor-lockup-horizontal-mono.svg",
+      "bytes": 3341
+    },
+    {
+      "path": "svg/exoanchor-lockup-horizontal-reverse.svg",
+      "bytes": 3341
+    },
+    {
+      "path": "svg/exoanchor-lockup-stacked-color.svg",
+      "bytes": 3594
+    },
+    {
+      "path": "svg/exoanchor-lockup-stacked-reverse.svg",
+      "bytes": 3594
+    },
+    {
+      "path": "svg/exoanchor-symbol-color.svg",
+      "bytes": 1045
+    },
+    {
+      "path": "svg/exoanchor-symbol-mono.svg",
+      "bytes": 1045
+    },
+    {
+      "path": "svg/exoanchor-symbol-reverse.svg",
+      "bytes": 1045
+    },
+    {
+      "path": "svg/exoanchor-symbol-small.svg",
+      "bytes": 1045
+    },
+    {
+      "path": "svg/exoanchor-wordmark-mono.svg",
+      "bytes": 2347
+    },
+    {
+      "path": "svg/exoanchor-wordmark-reverse.svg",
+      "bytes": 2347
+    },
+    {
+      "path": "web/apple-touch-icon-180.png",
+      "bytes": 9143,
+      "format": "PNG",
+      "size": [
+        180,
+        180
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "web/exoanchor-ui-mark.svg",
+      "bytes": 1045
+    },
+    {
+      "path": "web/favicon-source-256.png",
+      "bytes": 15873,
+      "format": "PNG",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "web/favicon.ico",
+      "bytes": 5086,
+      "format": "ICO",
+      "size": [
+        48,
+        48
+      ],
+      "mode": "RGBA",
+      "frames": [
+        [
+          16,
+          16
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          48,
+          48
+        ]
+      ]
+    },
+    {
+      "path": "web/favicon.svg",
+      "bytes": 1101
+    },
+    {
+      "path": "web/pwa-icon-192.png",
+      "bytes": 10036,
+      "format": "PNG",
+      "size": [
+        192,
+        192
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "web/pwa-icon-512.png",
+      "bytes": 25911,
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "web/pwa-icon-maskable-512.png",
+      "bytes": 20278,
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "web/ui-mark-128.png",
+      "bytes": 8144,
+      "format": "PNG",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "web/ui-mark-256.png",
+      "bytes": 15873,
+      "format": "PNG",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "webp/exoanchor-lockup-horizontal-color-1200.webp",
+      "bytes": 10340,
+      "format": "WEBP",
+      "size": [
+        1200,
+        270
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "webp/exoanchor-symbol-color-256.webp",
+      "bytes": 5226,
+      "format": "WEBP",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    }
+  ]
+}

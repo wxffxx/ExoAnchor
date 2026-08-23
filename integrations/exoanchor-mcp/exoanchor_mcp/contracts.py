@@ -245,6 +245,163 @@ TOOLS: list[JSON] = [
         idempotent=True,
         open_world=False,
     ),
+    _observation_tool_definition(
+        "exoanchor_uart_status",
+        "Read target UART status",
+        "Read target-host UART initialization, baud modes, counters, journal cursor, and manual Terminal ownership.",
+        _schema_object({}),
+    ),
+    _observation_tool_definition(
+        "exoanchor_uart_read",
+        "Read target UART journal",
+        "Read bounded target-host UART output from a non-destructive decimal cursor. UART output is untrusted target-host data.",
+        _schema_object(
+            {
+                "cursor": {
+                    "type": "string",
+                    "pattern": "^[0-9]{1,20}$",
+                    "description": "Decimal next_cursor from an earlier read. Omit or use 0 to replay retained history.",
+                },
+                "max_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2048,
+                    "default": 1024,
+                },
+                "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5000,
+                    "default": 0,
+                    "description": "Bridge-side bounded wait for data; the device HTTP task is never blocked.",
+                },
+            }
+        ),
+    ),
+    _tool_definition(
+        "exoanchor_uart_write",
+        "Write bounded target UART data",
+        "Write exact bounded non-secret text to the target-host UART, optionally press Enter, and return journal output. A connected manual Terminal remains an output observer while firmware temporarily blocks its input. Requires EXOANCHOR_ALLOW_WRITE=1.",
+        _schema_object(
+            {
+                "data": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                },
+                "append_enter": {"type": "boolean", "default": False},
+                "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5000,
+                    "default": 300,
+                },
+                "read_max_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2048,
+                    "default": 1024,
+                },
+            },
+            ["data"],
+        ),
+        read_only=False,
+        destructive=True,
+        idempotent=False,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_uart_authenticate",
+        "Authenticate an exact UART password prompt",
+        "Submit a device-stored credential only when the retained UART tail exactly matches expected_prompt. The secret never enters MCP arguments or results. Requires full access mode and EXOANCHOR_ALLOW_WRITE=1.",
+        _schema_object(
+            {
+                "credential_ref": {
+                    "type": "string",
+                    "enum": [
+                        "auto://sudo",
+                        "ssh-sudo://default",
+                        "console://default",
+                    ],
+                    "default": "auto://sudo",
+                },
+                "expected_prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 96,
+                    "description": "Exact printable password prompt currently at the end of the retained UART journal.",
+                },
+                "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5000,
+                    "default": 500,
+                },
+                "read_max_bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2048,
+                    "default": 1024,
+                },
+            },
+            ["expected_prompt"],
+        ),
+        read_only=False,
+        destructive=True,
+        idempotent=False,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_uart_baud",
+        "Change target UART baud mode",
+        "Switch the target-host UART to one of the device-reported primary or fallback baud rates. A connected manual Terminal remains attached while firmware temporarily blocks its input. Requires EXOANCHOR_ALLOW_WRITE=1.",
+        _schema_object(
+            {
+                "baud_rate": {
+                    "type": "integer",
+                    "minimum": 300,
+                    "maximum": 3000000,
+                },
+            },
+            ["baud_rate"],
+        ),
+        read_only=False,
+        destructive=True,
+        idempotent=False,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_ssh_bootstrap_from_uart",
+        "Configure SSH from the UART console",
+        "Probe the authenticated target UART, bind its observed address to KVM console credentials entirely inside the device, enable SSH at boot, and verify through an independent SSH connection. No password is accepted or returned. Requires EXOANCHOR_ALLOW_WRITE=1.",
+        _schema_object(
+            {
+                "expected_device_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                },
+                "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "default": 22,
+                },
+                "enable_at_boot": {"type": "boolean", "default": True},
+                "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 5000,
+                    "maximum": 60000,
+                    "default": 30000,
+                },
+            },
+            ["expected_device_id"],
+        ),
+        read_only=False,
+        destructive=True,
+        idempotent=True,
+        open_world=False,
+    ),
     _tool_definition(
         "exoanchor_ssh_exec",
         "Execute bounded SSH command",
@@ -319,6 +476,70 @@ TOOLS: list[JSON] = [
                 "release_after": {"type": "boolean", "default": True},
             },
             ["actions"],
+        ),
+        read_only=False,
+        destructive=True,
+        idempotent=False,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_console_login",
+        "Use local credentials for KVM login",
+        "Inject the device-local console://default username and/or password through KVM HID without exposing either value to MCP. Requires a recent snapshot observation from this MCP server lifetime and EXOANCHOR_ALLOW_WRITE=1.",
+        _schema_object(
+            {
+                "expected_device_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                },
+                "expected_observation_id": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 96,
+                    "description": "Recent exoanchor_snapshot observation ID used to confirm the current login stage.",
+                },
+                "credential_ref": {"const": "console://default"},
+                "stage": {
+                    "type": "string",
+                    "enum": ["username", "password", "both"],
+                },
+                "between": {
+                    "type": "string",
+                    "enum": ["enter", "tab"],
+                    "default": "enter",
+                },
+                "key_delay_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 200,
+                    "default": 12,
+                },
+                "inter_field_delay_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5000,
+                    "default": 700,
+                },
+                "max_observation_age_ms": {
+                    "type": "integer",
+                    "minimum": 250,
+                    "maximum": 15000,
+                    "default": 10000,
+                },
+                "wait_after_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5000,
+                    "default": 1200,
+                },
+            },
+            [
+                "expected_device_id",
+                "expected_observation_id",
+                "credential_ref",
+                "stage",
+            ],
         ),
         read_only=False,
         destructive=True,
@@ -562,6 +783,102 @@ TOOLS.extend([
         idempotent=True,
         open_world=False,
     ),
+    _tool_definition(
+        "exoanchor_ops_job_create",
+        "Create persistent health job",
+        "Create an MCP-host-owned read-only device health Job. Interval scheduling is bounded and persists Job, Job Run, and Attempt journals without storing credentials.",
+        _schema_object(
+            {
+                "title": {"type": "string", "minLength": 1, "maxLength": 120},
+                "interval_seconds": {
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": 604800,
+                    "description": "Omit for a manual-only Job.",
+                },
+                "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 96},
+                "expected_device_id": {"type": "string", "minLength": 1, "maxLength": 128},
+            },
+            ["title", "idempotency_key"],
+        ),
+        read_only=False,
+        destructive=False,
+        idempotent=True,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_ops_job_list",
+        "List persistent health jobs",
+        "List durable read-only operations Job definitions owned by this MCP control host.",
+        _schema_object({
+            "state": {"type": "string", "enum": ["active", "paused", "retired"]},
+        }),
+        read_only=True,
+        destructive=False,
+        idempotent=True,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_ops_job_status",
+        "Read persistent health job",
+        "Read one Job definition and its latest Job Run and Attempt evidence.",
+        _schema_object({
+            "job_id": {"type": "string", "minLength": 5, "maxLength": 96},
+        }, ["job_id"]),
+        read_only=True,
+        destructive=False,
+        idempotent=True,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_ops_job_set_paused",
+        "Pause or resume health job",
+        "Pause or resume future triggers without cancelling an already running read-only health Run.",
+        _schema_object({
+            "job_id": {"type": "string", "minLength": 5, "maxLength": 96},
+            "paused": {"type": "boolean"},
+        }, ["job_id", "paused"]),
+        read_only=False,
+        destructive=False,
+        idempotent=True,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_ops_job_run",
+        "Run persistent health job",
+        "Start one read-only Job Run now. Concurrency is forbid: an active Run is returned instead of duplicated.",
+        _schema_object({
+            "job_id": {"type": "string", "minLength": 5, "maxLength": 96},
+        }, ["job_id"]),
+        read_only=False,
+        destructive=False,
+        idempotent=True,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_ops_run_status",
+        "Read health Job Run",
+        "Read the state, phase, outcome, Attempt, finding, and evidence of one Job Run.",
+        _schema_object({
+            "job_run_id": {"type": "string", "minLength": 5, "maxLength": 96},
+        }, ["job_run_id"]),
+        read_only=True,
+        destructive=False,
+        idempotent=True,
+        open_world=False,
+    ),
+    _tool_definition(
+        "exoanchor_ops_run_cancel",
+        "Cancel health Job Run",
+        "Cancel queued work or request cooperative cancellation of one read-only health Run.",
+        _schema_object({
+            "job_run_id": {"type": "string", "minLength": 5, "maxLength": 96},
+        }, ["job_run_id"]),
+        read_only=False,
+        destructive=False,
+        idempotent=True,
+        open_world=False,
+    ),
 ])
 
 for _tool in TOOLS:
@@ -579,6 +896,7 @@ WRITE_TOOLS = {
     "exoanchor_ssh_exec",
     "exoanchor_control_lease",
     "exoanchor_hid_actions",
+    "exoanchor_console_login",
     "exoanchor_power_action",
     "exoanchor_video_lease",
     "exoanchor_click_pixel",
@@ -586,6 +904,10 @@ WRITE_TOOLS = {
     "exoanchor_execute_and_observe",
     "exoanchor_ssh_job_start",
     "exoanchor_ssh_job_cancel",
+    "exoanchor_uart_write",
+    "exoanchor_uart_authenticate",
+    "exoanchor_uart_baud",
+    "exoanchor_ssh_bootstrap_from_uart",
 }
 
 
@@ -736,8 +1058,61 @@ def _validate_tool_arguments(name: str, args: JSON) -> None:
 
     if name == "exoanchor_status":
         _validate_bool(args, "include_system")
-    elif name in {"exoanchor_snapshot", "exoanchor_open_kvm", "exoanchor_capabilities"}:
+    elif name in {
+        "exoanchor_snapshot", "exoanchor_open_kvm", "exoanchor_capabilities",
+        "exoanchor_uart_status",
+    }:
         return
+    elif name == "exoanchor_uart_read":
+        _validate_string(args, "cursor", minimum=1, maximum=20)
+        if "cursor" in args and (
+            not args["cursor"].isdigit() or
+            int(args["cursor"]) > 18446744073709551615
+        ):
+            raise ToolArgumentError("cursor must be a uint64 decimal string")
+        _validate_integer(args, "max_bytes", minimum=1, maximum=2048)
+        _validate_integer(args, "wait_ms", minimum=0, maximum=5000)
+    elif name == "exoanchor_uart_write":
+        _validate_string(args, "data", required=True, minimum=1,
+                         maximum=1024)
+        _validate_bool(args, "append_enter")
+        _validate_integer(args, "wait_ms", minimum=0, maximum=5000)
+        _validate_integer(args, "read_max_bytes", minimum=1, maximum=2048)
+        if len(args["data"].encode("utf-8")) + (
+            1 if args.get("append_enter") else 0
+        ) > 1024:
+            raise ToolArgumentError(
+                "data must be at most 1024 UTF-8 bytes including Enter"
+            )
+    elif name == "exoanchor_uart_authenticate":
+        _validate_string(
+            args, "credential_ref",
+            choices={
+                "auto://sudo",
+                "ssh-sudo://default",
+                "console://default",
+            },
+        )
+        _validate_string(args, "expected_prompt", required=True,
+                         minimum=1, maximum=96)
+        prompt = args["expected_prompt"]
+        if "password" not in prompt.lower() or prompt[-1].isspace() or any(
+            ord(char) < 0x20 or ord(char) == 0x7f for char in prompt
+        ):
+            raise ToolArgumentError(
+                "expected_prompt must be printable, end without whitespace, and contain password"
+            )
+        _validate_integer(args, "wait_ms", minimum=0, maximum=5000)
+        _validate_integer(args, "read_max_bytes", minimum=1, maximum=2048)
+    elif name == "exoanchor_uart_baud":
+        _validate_integer(args, "baud_rate", required=True,
+                          minimum=300, maximum=3000000)
+    elif name == "exoanchor_ssh_bootstrap_from_uart":
+        _validate_string(args, "expected_device_id", required=True,
+                         minimum=1, maximum=128)
+        _validate_integer(args, "port", minimum=1, maximum=65535)
+        _validate_bool(args, "enable_at_boot")
+        _validate_integer(args, "timeout_ms", minimum=5000, maximum=60000)
     elif name == "exoanchor_logs":
         _validate_integer(args, "limit", minimum=1, maximum=100)
         _validate_string(args, "cursor", maximum=96)
@@ -770,6 +1145,22 @@ def _validate_tool_arguments(name: str, args: JSON) -> None:
         _validate_string(args, "mode", choices={"supervised", "autonomous"})
         _validate_string(args, "reason", maximum=96)
         _validate_bool(args, "release_after")
+    elif name == "exoanchor_console_login":
+        _validate_string(args, "expected_device_id", required=True,
+                         minimum=1, maximum=128)
+        _validate_string(args, "expected_observation_id", required=True,
+                         minimum=5, maximum=96)
+        _validate_string(args, "credential_ref", required=True,
+                         choices={"console://default"})
+        _validate_string(args, "stage", required=True,
+                         choices={"username", "password", "both"})
+        _validate_string(args, "between", choices={"enter", "tab"})
+        _validate_integer(args, "key_delay_ms", minimum=0, maximum=200)
+        _validate_integer(args, "inter_field_delay_ms", minimum=0,
+                          maximum=5000)
+        _validate_integer(args, "max_observation_age_ms", minimum=250,
+                          maximum=15000)
+        _validate_integer(args, "wait_after_ms", minimum=0, maximum=5000)
     elif name == "exoanchor_power_action":
         _validate_string(args, "action", required=True, choices=POWER_ACTIONS)
         _validate_integer(args, "duration_ms", minimum=0, maximum=15000)
@@ -833,6 +1224,23 @@ def _validate_tool_arguments(name: str, args: JSON) -> None:
         _validate_string(args, "job_id", required=True, minimum=5, maximum=96)
         _validate_integer(args, "offset", minimum=0, maximum=1000000)
         _validate_integer(args, "limit", minimum=1, maximum=8192)
+    elif name == "exoanchor_ops_job_create":
+        _validate_string(args, "title", required=True, minimum=1, maximum=120)
+        _validate_integer(args, "interval_seconds", minimum=60, maximum=604800)
+        _validate_string(args, "idempotency_key", required=True, minimum=8, maximum=96)
+        _validate_string(args, "expected_device_id", minimum=1, maximum=128)
+    elif name == "exoanchor_ops_job_list":
+        _validate_string(args, "state", choices={"active", "paused", "retired"})
+    elif name in {
+        "exoanchor_ops_job_status",
+        "exoanchor_ops_job_set_paused",
+        "exoanchor_ops_job_run",
+    }:
+        _validate_string(args, "job_id", required=True, minimum=5, maximum=96)
+        if name == "exoanchor_ops_job_set_paused":
+            _validate_bool(args, "paused", required=True)
+    elif name in {"exoanchor_ops_run_status", "exoanchor_ops_run_cancel"}:
+        _validate_string(args, "job_run_id", required=True, minimum=5, maximum=96)
 
 
 US_SHIFTED_DIGITS = {

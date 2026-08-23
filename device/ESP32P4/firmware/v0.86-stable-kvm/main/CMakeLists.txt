@@ -1,0 +1,65 @@
+set(SI_MAIN_SRCS
+        "app/app_main.c"
+        "adapters/hid_json.c"
+        "adapters/http_api.c"
+        "application/auth_service.c"
+        "application/control_lease.c"
+        "application/device_settings.c"
+        "application/device_observation_service.c"
+        "application/video_control.c"
+        "core/device_observation_utils.c"
+        "core/time_utils.c"
+        "drivers/hid_device.c"
+        "drivers/net_manager.c"
+        "drivers/power_control.c"
+        "drivers/video_input.c"
+        "infrastructure/secret_store.c"
+        "infrastructure/settings_store.c"
+        "services/diag_cli.c"
+        "services/device_http.c"
+        "services/status_ws.c"
+        "services/web_server.c"
+)
+
+set(SI_MAIN_REQUIRES
+        esp_app_format
+        esp_eth
+        esp_event
+        esp_driver_gpio
+        esp_hw_support
+        esp_http_server
+        esp_driver_jpeg
+        esp_netif
+        esp_partition
+        esp_psram
+        esp_tinyusb
+        esp_timer
+        json
+        mbedtls
+        nvs_flash
+        spi_flash
+        usb
+        usb_host_uvc)
+
+idf_component_register(
+    SRCS
+        ${SI_MAIN_SRCS}
+    INCLUDE_DIRS
+        "adapters"
+        "application"
+        "config"
+        "core"
+        "drivers"
+        "infrastructure"
+        "services"
+    EMBED_TXTFILES
+        "www/index.html"
+        "www/kvm.html"
+        "www/assets/ui-core.css"
+        "www/assets/ui-core.js"
+        "www/assets/ui-shell.css"
+        "www/assets/ui-shell.js"
+        "www/settings.html"
+    REQUIRES
+        ${SI_MAIN_REQUIRES}
+)

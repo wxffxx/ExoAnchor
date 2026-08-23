@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import argparse
 import base64
+import ipaddress
 import json
 import os
+import re
 import sys
 import time
 import uuid
 from typing import Any
+from urllib.parse import urlencode
 
 from . import __version__
 from .client import ExoAnchorClient, ExoAnchorConfig, ExoAnchorError
@@ -20,7 +23,7 @@ from .contracts import (
     _text_to_hid_actions,
     _validate_tool_arguments,
 )
-from .jobs import JobConflictError, JobManager, JobNotFoundError
+from .jobs import JobConflictError, JobManager, JobNotFoundError, OpsJobManager
 from .observations import (
     STATUS_CONDITIONS,
     ObservationStore,
@@ -45,13 +48,39 @@ SERVER_INSTRUCTIONS = (
     "or use operating-system installation as an implicit goal."
 )
 
+MCP_TOOL_POLICY_MAP = {
+    "exoanchor_status": "observe_status",
+    "exoanchor_wait_for_status": "observe_status",
+    "exoanchor_logs": "observe_status",
+    "exoanchor_snapshot": "observe_screenshot",
+    "exoanchor_wait_for_frame_change": "observe_screenshot",
+    "exoanchor_ssh_exec": "ssh_exec",
+    "exoanchor_ssh_job_start": "ssh_exec",
+    "exoanchor_control_lease": "control_lease",
+    "exoanchor_hid_actions": "hid_actions",
+    "exoanchor_console_login": "console_login",
+    "exoanchor_click_pixel": "hid_actions",
+    "exoanchor_type_text": "hid_actions",
+    "exoanchor_execute_and_observe": "hid_actions",
+    "exoanchor_power_action": "power_action",
+    "exoanchor_video_lease": "video_lease",
+    "exoanchor_uart_status": "uart_status",
+    "exoanchor_uart_read": "uart_read",
+    "exoanchor_uart_write": "uart_write",
+    "exoanchor_uart_authenticate": "uart_auth",
+    "exoanchor_uart_baud": "uart_baud",
+    "exoanchor_ssh_bootstrap_from_uart": "ssh_exec",
+}
+
 
 class ToolRuntime:
     def __init__(self, client: ExoAnchorClient):
         self.client = client
         self.observations = ObservationStore()
         self._snapshot_images: dict[str, JSON] = {}
+        self._snapshot_observed_at: dict[str, float] = {}
         self._jobs: JobManager | None = None
+        self._ops_jobs: OpsJobManager | None = None
 
     @property
     def device_id(self) -> str:
@@ -74,6 +103,61 @@ class ToolRuntime:
             )
         return self._jobs
 
+    @property
+    def ops_jobs(self) -> OpsJobManager:
+        if self._ops_jobs is None:
+            self._ops_jobs = OpsJobManager(
+                str(getattr(
+                    self.client.config,
+                    "state_dir",
+                    os.path.expanduser("~/.local/state/exoanchor-mcp"),
+                )),
+                self._run_ops_health_job,
+            )
+        return self._ops_jobs
+
+    def _run_ops_health_job(self, job: JSON) -> JSON:
+        expected = str(job.get("target", {}).get("device_id") or "")
+        if expected != self.device_id:
+            return {
+                "ok": False,
+                "outcome": "blocked",
+                "failure_class": "target_identity",
+                "finding": {
+                    "severity": "critical",
+                    "classification": "target_identity",
+                    "message": (
+                        f"operations target mismatch: expected {expected!r}, "
+                        f"configured {self.device_id!r}"
+                    ),
+                },
+                "evidence": None,
+            }
+        observation = self._status_observation(include_system=True)
+        conditions = observation.get("derived", {}).get("conditions", {})
+        required = ("mcp_enabled", "video_connected", "hid_ready", "power_on")
+        degraded = [name for name in required if conditions.get(name) is not True]
+        finding = None
+        if degraded:
+            finding = {
+                "severity": "warning",
+                "classification": "health_gate",
+                "message": "device health gates failed: " + ", ".join(degraded),
+                "conditions": conditions,
+            }
+        return {
+            "ok": not degraded,
+            "outcome": "degraded" if degraded else "no_change",
+            "finding": finding,
+            "evidence": {
+                "observation_id": observation["observation_id"],
+                "captured_at": observation["captured_at"],
+                "content_sha256": observation["content_sha256"],
+                "conditions": conditions,
+            },
+            "failure_class": "health_gate" if degraded else None,
+        }
+
     def _device_mcp_settings(self) -> JSON:
         try:
             return self.client.get_json("/api/settings/mcp")
@@ -95,6 +179,29 @@ class ToolRuntime:
         if name in WRITE_TOOLS and not self.client.config.allow_write:
             raise ExoAnchorError(
                 f"{name} is disabled; set EXOANCHOR_ALLOW_WRITE=1 to allow device-changing tools"
+            )
+
+    def _ensure_tool_enabled(self, name: str) -> None:
+        policy_name = MCP_TOOL_POLICY_MAP.get(name)
+        if policy_name is None:
+            return
+        capabilities = self.client.get_json("/api/capabilities")
+        contract = capabilities.get("agent_tools")
+        tools = contract.get("tools") if isinstance(contract, dict) else None
+        item = next(
+            (
+                tool for tool in tools
+                if isinstance(tool, dict) and tool.get("name") == policy_name
+            ),
+            None,
+        ) if isinstance(tools, list) else None
+        if not isinstance(item, dict) or item.get("mcp_callable") is not True:
+            raise ExoAnchorError(
+                f"{policy_name} is not mapped to the MCP controller"
+            )
+        if item.get("mcp_enabled") is not True:
+            raise ExoAnchorError(
+                f"{policy_name} is disabled for MCP in device Settings"
             )
 
     def _check_expected_device(self, args: JSON) -> None:
@@ -186,8 +293,11 @@ class ToolRuntime:
             "mimeType": "image/jpeg",
         }
         self._snapshot_images[observation["observation_id"]] = image
+        self._snapshot_observed_at[observation["observation_id"]] = time.monotonic()
         while len(self._snapshot_images) > 16:
-            self._snapshot_images.pop(next(iter(self._snapshot_images)))
+            expired = next(iter(self._snapshot_images))
+            self._snapshot_images.pop(expired)
+            self._snapshot_observed_at.pop(expired, None)
         return observation, image
 
     def _require_expected_frame(self, args: JSON) -> tuple[JSON, JSON]:
@@ -200,6 +310,42 @@ class ToolRuntime:
                 f"stale frame: expected {expected}, current frame is {actual}; observe again"
             )
         return observation, image
+
+    def _require_fresh_snapshot_observation(self, args: JSON) -> JSON:
+        self._check_expected_device(args)
+        observation_id = args["expected_observation_id"]
+        observation = self.observations.get(observation_id)
+        observed_at = self._snapshot_observed_at.get(observation_id)
+        if (observation is None or observation.get("kind") != "snapshot" or
+                observed_at is None):
+            raise ExoAnchorError(
+                "snapshot observation is unavailable in this MCP server lifetime; observe again"
+            )
+        data = observation.get("data")
+        if not isinstance(data, dict) or data.get("device_id") != self.device_id:
+            raise ExoAnchorError("snapshot observation belongs to a different device")
+        age_ms = round((time.monotonic() - observed_at) * 1000)
+        if age_ms > args.get("max_observation_age_ms", 10000):
+            raise ExoAnchorError(
+                f"snapshot observation is stale ({age_ms} ms old); observe again"
+            )
+        return observation
+
+    def _post_json_retry_busy(self, path: str, body: JSON, *,
+                              attempts: int = 4) -> JSON:
+        last_error: ExoAnchorError | None = None
+        for attempt in range(attempts):
+            try:
+                return self.client.post_json(path, body)
+            except ExoAnchorError as exc:
+                last_error = exc
+                message = str(exc).lower()
+                transient = "http 503" in message or "async worker unavailable" in message
+                if not transient or attempt + 1 >= attempts:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
+        assert last_error is not None
+        raise last_error
 
     def _safe_hid_transaction(self, actions: list[JSON], *, reason: str) -> JSON:
         lease = self.client.post_json(
@@ -214,28 +360,36 @@ class ToolRuntime:
         responses: list[JSON] = []
         primary_error: ExoAnchorError | None = None
         cleanup_errors: list[str] = []
+        submitted_actions = list(actions)
+        release_in_transaction = (
+            bool(submitted_actions) and
+            submitted_actions[-1].get("type") == "releaseall"
+        )
+        if not release_in_transaction:
+            submitted_actions.append({"type": "releaseall"})
         try:
-            for start in range(0, len(actions), 64):
-                responses.append(self.client.post_json(
+            for start in range(0, len(submitted_actions), 63):
+                responses.append(self._post_json_retry_busy(
                     "/api/hid/actions",
                     {
                         "owner": self.client.config.control_owner,
-                        "actions": actions[start:start + 64],
+                        "actions": submitted_actions[start:start + 63],
                     },
                 ))
         except ExoAnchorError as exc:
             primary_error = exc
         finally:
-            try:
-                self.client.post_json(
-                    "/api/hid/actions",
-                    {
-                        "owner": self.client.config.control_owner,
-                        "actions": [{"type": "releaseall"}],
-                    },
-                )
-            except ExoAnchorError as exc:
-                cleanup_errors.append(f"releaseall failed: {exc}")
+            if primary_error is not None:
+                try:
+                    self._post_json_retry_busy(
+                        "/api/hid/actions",
+                        {
+                            "owner": self.client.config.control_owner,
+                            "actions": [{"type": "releaseall"}],
+                        },
+                    )
+                except ExoAnchorError as exc:
+                    cleanup_errors.append(f"releaseall failed: {exc}")
             try:
                 release = self.client.post_json(
                     "/api/control/lease",
@@ -250,6 +404,133 @@ class ToolRuntime:
         if cleanup_errors:
             raise ExoAnchorError("; ".join(cleanup_errors))
         return {"lease": lease, "batches": responses, "release": release}
+
+    def _safe_controlled_post(self, path: str, body: JSON, *, reason: str) -> JSON:
+        lease = self.client.post_json(
+            "/api/control/lease",
+            {
+                "owner": self.client.config.control_owner,
+                "active": True,
+                "mode": "supervised",
+                "reason": reason,
+            },
+        )
+        response: JSON | None = None
+        primary_error: ExoAnchorError | None = None
+        release: JSON | None = None
+        release_error: ExoAnchorError | None = None
+        try:
+            response = self._post_json_retry_busy(path, body)
+        except ExoAnchorError as exc:
+            primary_error = exc
+        finally:
+            try:
+                release = self.client.post_json(
+                    "/api/control/lease",
+                    {"owner": self.client.config.control_owner, "active": False},
+                )
+            except ExoAnchorError as exc:
+                release_error = exc
+        if primary_error and release_error:
+            raise ExoAnchorError(
+                f"{primary_error}; control lease release also failed: {release_error}"
+            )
+        if primary_error:
+            raise primary_error
+        if release_error:
+            raise release_error
+        assert response is not None
+        return {"lease": lease, "response": response, "release": release}
+
+    @staticmethod
+    def _uart_payload_is_sensitive(data: str) -> bool:
+        lowered = data.lower()
+        return any(marker in lowered for marker in (
+            "password=", "passwd=", "api_key=", "apikey=", "token=",
+            "authorization:", "bearer ", "private key", "secret=",
+        ))
+
+    def _uart_status_data(self) -> JSON:
+        self._ensure_device_mcp_enabled()
+        status = self.client.get_json("/api/uart/status")
+        if status.get("supported") is not True:
+            raise ExoAnchorError("target UART is not supported by this board profile")
+        if status.get("initialized") is not True:
+            detail = str(status.get("last_error") or "target UART unavailable")
+            raise ExoAnchorError(detail)
+        return status
+
+    def _safe_uart_post(self, path: str, body: JSON, *, reason: str) -> JSON:
+        lease = self.client.post_json(
+            "/api/control/lease",
+            {
+                "owner": self.client.config.control_owner,
+                "active": True,
+                "mode": "supervised",
+                "reason": reason,
+            },
+        )
+        response: JSON | None = None
+        primary_error: ExoAnchorError | None = None
+        release: JSON | None = None
+        release_error: ExoAnchorError | None = None
+        try:
+            response = self.client.post_json(path, body)
+        except ExoAnchorError as exc:
+            primary_error = exc
+        finally:
+            try:
+                release = self.client.post_json(
+                    "/api/control/lease",
+                    {"owner": self.client.config.control_owner, "active": False},
+                )
+            except ExoAnchorError as exc:
+                release_error = exc
+        if primary_error and release_error:
+            raise ExoAnchorError(
+                f"{primary_error}; control lease release also failed: {release_error}"
+            )
+        if primary_error:
+            raise primary_error
+        if release_error:
+            raise release_error
+        assert response is not None
+        return {"lease": lease, "response": response, "release": release}
+
+    def _uart_read_observation(self, args: JSON) -> JSON:
+        self._ensure_device_mcp_enabled()
+        cursor = args.get("cursor", "0")
+        max_bytes = args.get("max_bytes", 1024)
+        wait_ms = args.get("wait_ms", 0)
+        deadline = time.monotonic() + wait_ms / 1000.0
+        attempts = 0
+        data: JSON
+        source = "/api/uart/read?" + urlencode({
+            "cursor": cursor,
+            "max_bytes": max_bytes,
+        })
+        while True:
+            attempts += 1
+            data = self.client.get_json(source)
+            if int(data.get("bytes") or 0) > 0 or time.monotonic() >= deadline:
+                break
+            time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
+        return self.observations.put(make_observation(
+            "uart_read",
+            source,
+            {
+                "device_id": self.device_id,
+                **data,
+            },
+            derived={
+                "wait": {
+                    "wait_ms": wait_ms,
+                    "attempts": attempts,
+                    "matched_data": int(data.get("bytes") or 0) > 0,
+                },
+                "cursor_scope": "device boot_id and UART generation",
+            },
+        ))
 
     def _execute_and_observe(self, actions: list[JSON], args: JSON, *,
                              action_kind: str, action_detail: JSON) -> JSON:
@@ -298,6 +579,7 @@ class ToolRuntime:
         if not isinstance(args, dict):
             raise ToolArgumentError("tool arguments must be an object")
         _validate_tool_arguments(name, args)
+        self._ensure_tool_enabled(name)
         self._require_write(name)
         handler = getattr(self, f"_tool_{name}", None)
         if handler is None:
@@ -310,6 +592,291 @@ class ToolRuntime:
     def _tool_exoanchor_snapshot(self, args: JSON) -> JSON:
         observation, image = self._capture_snapshot()
         return {"text": observation, "image": image}
+
+    def _tool_exoanchor_uart_status(self, args: JSON) -> JSON:
+        status = self._uart_status_data()
+        return {"text": self.observations.put(make_observation(
+            "uart_status",
+            "/api/uart/status",
+            {"device_id": self.device_id, **status},
+        ))}
+
+    def _tool_exoanchor_uart_read(self, args: JSON) -> JSON:
+        return {"text": self._uart_read_observation(args)}
+
+    def _tool_exoanchor_uart_write(self, args: JSON) -> JSON:
+        self._ensure_tool_enabled("exoanchor_uart_status")
+        self._ensure_tool_enabled("exoanchor_uart_read")
+        status = self._uart_status_data()
+        data = args["data"]
+        if self._uart_payload_is_sensitive(data):
+            raise ExoAnchorError("sensitive UART payloads are prohibited")
+        cursor = str(
+            status.get("journal_next_cursor") or
+            status.get("journal_next_seq") or
+            "0"
+        )
+        transaction = self._safe_uart_post(
+            "/api/uart/write",
+            {
+                "data": data,
+                "append_newline": args.get("append_enter", False),
+            },
+            reason="mcp uart_write",
+        )
+        output = self._uart_read_observation({
+            "cursor": cursor,
+            "max_bytes": args.get("read_max_bytes", 1024),
+            "wait_ms": args.get("wait_ms", 300),
+        })
+        return {"text": {
+            "ok": True,
+            "device_id": self.device_id,
+            "data_sha256": bytes_hash(data.encode("utf-8")),
+            "data_not_echoed": True,
+            "append_enter": args.get("append_enter", False),
+            "transaction": transaction,
+            "output": output,
+        }}
+
+    def _tool_exoanchor_uart_authenticate(self, args: JSON) -> JSON:
+        self._ensure_tool_enabled("exoanchor_uart_status")
+        self._uart_status_data()
+        credential_ref = args.get("credential_ref", "auto://sudo")
+        expected_prompt = args["expected_prompt"]
+        transaction = self._safe_uart_post(
+            "/api/uart/authenticate",
+            {
+                "credential_ref": credential_ref,
+                "expected_prompt": expected_prompt,
+                "wait_ms": args.get("wait_ms", 500),
+                "read_max_bytes": args.get("read_max_bytes", 1024),
+            },
+            reason="mcp uart_auth",
+        )
+        return {"text": {
+            "ok": True,
+            "device_id": self.device_id,
+            "credential_ref": credential_ref,
+            "credential_not_exported": True,
+            "expected_prompt_sha256": bytes_hash(
+                expected_prompt.encode("utf-8")
+            ),
+            "transaction": transaction,
+        }}
+
+    def _tool_exoanchor_uart_baud(self, args: JSON) -> JSON:
+        self._ensure_tool_enabled("exoanchor_uart_status")
+        status = self._uart_status_data()
+        baud_rate = args["baud_rate"]
+        modes = {
+            status.get("default_baud_rate"),
+            status.get("fallback_baud_rate"),
+        }
+        if baud_rate not in modes:
+            raise ToolArgumentError(
+                "baud_rate must equal the device-reported primary or fallback baud"
+            )
+        transaction = self._safe_uart_post(
+            "/api/uart/baud",
+            {"baud_rate": baud_rate},
+            reason="mcp uart_baud",
+        )
+        return {"text": {
+            "ok": True,
+            "device_id": self.device_id,
+            "baud_rate": baud_rate,
+            "transaction": transaction,
+        }}
+
+    @staticmethod
+    def _parse_uart_ssh_probe(text: str) -> JSON:
+        match = re.search(
+            r"__EA_SSH_PROBE_BEGIN__\r?\n"
+            r"(?P<body>.*?)"
+            r"\r?\n__EA_SSH_PROBE_END__(?:\r?\n|$)",
+            text,
+            flags=re.DOTALL,
+        )
+        if not match:
+            raise ExoAnchorError(
+                "UART SSH probe did not return its completion marker; "
+                "keep the authenticated shell open and retry"
+            )
+        fields: JSON = {}
+        for line in match.group("body").replace("\r", "").split("\n"):
+            key, separator, value = line.partition("=")
+            if separator and key in {
+                "SSHD", "SSH_ACTIVE", "SSH_ENABLED", "IP", "USER"
+            }:
+                fields[key] = value.strip()
+        if fields.get("SSHD") != "present":
+            raise ExoAnchorError(
+                "OpenSSH server is not installed on the UART target; "
+                "install openssh-server in the supervised UART terminal first"
+            )
+        if fields.get("SSH_ACTIVE") != "active":
+            raise ExoAnchorError(
+                "OpenSSH server is not active on the UART target; "
+                "start ssh in the supervised UART terminal first"
+            )
+        host = str(fields.get("IP") or "")
+        try:
+            ipaddress.ip_address(host)
+        except ValueError as exc:
+            raise ExoAnchorError(
+                "UART SSH probe did not return one valid target IP address"
+            ) from exc
+        username = str(fields.get("USER") or "")
+        if not username or len(username) > 63:
+            raise ExoAnchorError(
+                "UART SSH probe did not return a valid authenticated username"
+            )
+        return {
+            "sshd": "present",
+            "active": True,
+            "enabled_at_boot": fields.get("SSH_ENABLED") == "enabled",
+            "host": host,
+            "username": username,
+        }
+
+    def _uart_ssh_probe(self, timeout_ms: int) -> tuple[JSON, JSON]:
+        self._ensure_tool_enabled("exoanchor_uart_status")
+        self._ensure_tool_enabled("exoanchor_uart_read")
+        self._ensure_tool_enabled("exoanchor_uart_write")
+        status = self._uart_status_data()
+        cursor = str(
+            status.get("journal_next_cursor") or
+            status.get("journal_next_seq") or
+            "0"
+        )
+        command = (
+            "printf '__EA_SSH_PROBE_BEGIN__\\n'; "
+            "if command -v sshd >/dev/null 2>&1; then echo SSHD=present; "
+            "else echo SSHD=missing; fi; "
+            "printf 'SSH_ACTIVE=%s\\n' \"$(systemctl is-active ssh 2>/dev/null || true)\"; "
+            "printf 'SSH_ENABLED=%s\\n' \"$(systemctl is-enabled ssh 2>/dev/null || true)\"; "
+            "printf 'IP=%s\\n' \"$(hostname -I 2>/dev/null | awk '{print $1}')\"; "
+            "printf 'USER=%s\\n' \"$(id -un 2>/dev/null)\"; "
+            "printf '__EA_SSH_PROBE_END__\\n'"
+        )
+        transaction = self._safe_uart_post(
+            "/api/uart/write",
+            {"data": command, "append_newline": True},
+            reason="mcp ssh bootstrap UART probe",
+        )
+        deadline = time.monotonic() + timeout_ms / 1000.0
+        chunks: list[str] = []
+        while True:
+            wait_ms = min(500, max(0, int((deadline - time.monotonic()) * 1000)))
+            observation = self._uart_read_observation({
+                "cursor": cursor,
+                "max_bytes": 2048,
+                "wait_ms": wait_ms,
+            })
+            data = observation.get("data", {})
+            chunks.append(str(data.get("text") or data.get("data") or ""))
+            cursor = str(data.get("next_cursor") or cursor)
+            joined = "".join(chunks)
+            if re.search(
+                r"(?:^|\r?\n)__EA_SSH_PROBE_END__(?:\r?\n|$)",
+                joined,
+            ):
+                return self._parse_uart_ssh_probe(joined), transaction
+            if time.monotonic() >= deadline:
+                raise ExoAnchorError(
+                    "UART SSH probe timed out before its completion marker"
+                )
+
+    def _tool_exoanchor_ssh_bootstrap_from_uart(self, args: JSON) -> JSON:
+        self._ensure_device_mcp_enabled()
+        self._check_expected_device(args)
+        self._ensure_tool_enabled("exoanchor_ssh_exec")
+        timeout_ms = args.get("timeout_ms", 30000)
+        probe_timeout_ms = min(timeout_ms, 5000)
+        probe, uart_transaction = self._uart_ssh_probe(probe_timeout_ms)
+
+        binding_transaction = self._safe_uart_post(
+            "/api/ssh/configure-from-console",
+            {
+                "host": probe["host"],
+                "port": args.get("port", 22),
+                "timeout_ms": timeout_ms,
+                "credential_ref": "console://default",
+                "observed_username": probe["username"],
+                "reuse_for_sudo": True,
+            },
+            reason="mcp bind UART target to local console credentials",
+        )
+        binding = binding_transaction["response"]
+        if binding.get("ok") is not True:
+            raise ExoAnchorError(
+                "device did not confirm the local console-to-SSH credential binding"
+            )
+        if binding.get("secret_returned") is not False:
+            raise ExoAnchorError(
+                "device violated the SSH bootstrap secret-return contract"
+            )
+        if (binding.get("host") != probe["host"] or
+                binding.get("username") != probe["username"]):
+            raise ExoAnchorError(
+                "device SSH binding does not match the UART-observed target identity"
+            )
+
+        enable_result: JSON | None = None
+        if args.get("enable_at_boot", True) and not probe["enabled_at_boot"]:
+            enable_result = self.client.post_json(
+                "/api/ssh/exec",
+                {
+                    "command": (
+                        "sudo systemctl enable --now ssh && "
+                        "systemctl is-enabled ssh && systemctl is-active ssh"
+                    ),
+                    "timeout_ms": timeout_ms,
+                },
+            )
+            if (enable_result.get("ok") is not True or
+                    int(enable_result.get("exit_status", -1)) != 0):
+                raise ExoAnchorError(
+                    "SSH credential binding succeeded, but enabling ssh at boot failed"
+                )
+
+        verification = self.client.post_json(
+            "/api/ssh/exec",
+            {
+                "command": (
+                    "printf '__EXOANCHOR_SSH_OK__\\n'; hostname; id -un"
+                ),
+                "timeout_ms": timeout_ms,
+            },
+        )
+        output = str(verification.get("output") or "")
+        output_lines = output.replace("\r", "").splitlines()
+        if (verification.get("ok") is not True or
+                int(verification.get("exit_status", -1)) != 0 or
+                "__EXOANCHOR_SSH_OK__" not in output_lines or
+                probe["username"] not in output_lines):
+            raise ExoAnchorError(
+                "SSH target was configured but the independent SSH verification failed"
+            )
+        return {"text": {
+            "ok": True,
+            "device_id": self.device_id,
+            "workflow": "kvm_credentials_to_uart_discovery_to_ssh",
+            "probe": probe,
+            "credential_ref": "console://default",
+            "credential_copied_locally": True,
+            "secret_transmitted_by_mcp": False,
+            "uart_transaction": uart_transaction,
+            "binding_transaction": binding_transaction,
+            "binding": binding,
+            "enable_at_boot": {
+                "requested": args.get("enable_at_boot", True),
+                "already_enabled": probe["enabled_at_boot"],
+                "result": enable_result,
+            },
+            "verification": verification,
+        }}
 
     def _tool_exoanchor_capabilities(self, args: JSON) -> JSON:
         self._ensure_device_mcp_enabled()
@@ -328,8 +895,19 @@ class ToolRuntime:
                 "stages": [1, 2, 3, 4],
                 "snapshot_frame_identity": "jpeg_sha256",
                 "keyboard_layouts": ["us"],
-                "ssh_job_lifetime": "mcp_bridge_process",
+                "ssh_job_lifetime": "durable_journal_with_interrupted_recovery",
                 "ssh_cancellation": "cooperative_only",
+                "operations": {
+                    "owner": "mcp_control_host",
+                    "schemas": [
+                        "exoanchor.ops.job.v1",
+                        "exoanchor.ops.run.v1",
+                    ],
+                    "attempts": True,
+                    "triggers": ["manual", "interval"],
+                    "runbook": "device_health_read_only",
+                    "concurrency": "forbid",
+                },
                 "unknown_bios_policy": "observe_or_supervised_stop",
             },
         }
@@ -516,6 +1094,75 @@ class ToolRuntime:
             raise ExoAnchorError(f"unknown SSH job: {args['job_id']}") from exc
         return {"text": result}
 
+    def _tool_exoanchor_ops_job_create(self, args: JSON) -> JSON:
+        self._ensure_device_mcp_enabled()
+        self._check_expected_device(args)
+        try:
+            job, reused = self.ops_jobs.create(
+                title=args["title"],
+                device_id=self.device_id,
+                interval_seconds=args.get("interval_seconds"),
+                idempotency_key=args.get("idempotency_key"),
+            )
+        except JobConflictError as exc:
+            raise ExoAnchorError(str(exc)) from exc
+        return {"text": {"ok": True, "idempotency_reused": reused, "job": job}}
+
+    def _tool_exoanchor_ops_job_list(self, args: JSON) -> JSON:
+        self._ensure_device_mcp_enabled()
+        return {"text": {
+            "ok": True,
+            "jobs": self.ops_jobs.list(state=args.get("state")),
+        }}
+
+    def _tool_exoanchor_ops_job_status(self, args: JSON) -> JSON:
+        try:
+            return {"text": self.ops_jobs.status(args["job_id"])}
+        except JobNotFoundError as exc:
+            raise ExoAnchorError(
+                f"unknown operations job: {args['job_id']}"
+            ) from exc
+
+    def _tool_exoanchor_ops_job_set_paused(self, args: JSON) -> JSON:
+        try:
+            return {"text": self.ops_jobs.set_paused(
+                args["job_id"], bool(args["paused"])
+            )}
+        except JobNotFoundError as exc:
+            raise ExoAnchorError(
+                f"unknown operations job: {args['job_id']}"
+            ) from exc
+        except JobConflictError as exc:
+            raise ExoAnchorError(str(exc)) from exc
+
+    def _tool_exoanchor_ops_job_run(self, args: JSON) -> JSON:
+        self._ensure_device_mcp_enabled()
+        try:
+            run, reused = self.ops_jobs.start_run(args["job_id"])
+        except JobNotFoundError as exc:
+            raise ExoAnchorError(
+                f"unknown operations job: {args['job_id']}"
+            ) from exc
+        except JobConflictError as exc:
+            raise ExoAnchorError(str(exc)) from exc
+        return {"text": {"ok": True, "active_run_reused": reused, "run": run}}
+
+    def _tool_exoanchor_ops_run_status(self, args: JSON) -> JSON:
+        try:
+            return {"text": self.ops_jobs.run_status(args["job_run_id"])}
+        except JobNotFoundError as exc:
+            raise ExoAnchorError(
+                f"unknown operations run: {args['job_run_id']}"
+            ) from exc
+
+    def _tool_exoanchor_ops_run_cancel(self, args: JSON) -> JSON:
+        try:
+            return {"text": self.ops_jobs.cancel_run(args["job_run_id"])}
+        except JobNotFoundError as exc:
+            raise ExoAnchorError(
+                f"unknown operations run: {args['job_run_id']}"
+            ) from exc
+
     def _tool_exoanchor_control_lease(self, args: JSON) -> JSON:
         self._ensure_device_mcp_enabled()
         active = args["active"]
@@ -571,6 +1218,54 @@ class ToolRuntime:
         if release_error:
             raise release_error
         return {"text": {"lease": lease_resp, "hid": hid_resp, "release": release_resp}}
+
+    def _tool_exoanchor_console_login(self, args: JSON) -> JSON:
+        before = self._require_fresh_snapshot_observation(args)
+        stage = args["stage"]
+        transaction = self._safe_controlled_post(
+            "/api/console/login",
+            {
+                "credential_ref": args["credential_ref"],
+                "stage": stage,
+                "between": args.get("between", "enter"),
+                "key_delay_ms": args.get("key_delay_ms", 12),
+                "inter_field_delay_ms": args.get("inter_field_delay_ms", 700),
+            },
+            reason=f"mcp console_login {stage}",
+        )
+        device_response = transaction["response"]
+        if (device_response.get("ok") is not True or
+                device_response.get("secret_redacted") is not True or
+                device_response.get("verification_required") is not True):
+            raise ExoAnchorError("device violated the console login response contract")
+        if any(key in device_response for key in ("username", "password", "secret")):
+            raise ExoAnchorError("device returned forbidden console credential material")
+        wait_after_ms = args.get("wait_after_ms", 1200)
+        if wait_after_ms:
+            time.sleep(wait_after_ms / 1000.0)
+        try:
+            after, image = self._capture_snapshot()
+        except ExoAnchorError as exc:
+            raise ExoAnchorError(
+                "console credentials were submitted and the control lease was released, "
+                f"but verification snapshot failed: {exc}"
+            ) from exc
+        return {"text": {
+            "ok": True,
+            "device_id": self.device_id,
+            "action_kind": "console_login",
+            "stage": stage,
+            "credential_ref": "console://default",
+            "secret_redacted": True,
+            "secret_transmitted_by_mcp": False,
+            "before_observation_id": before["observation_id"],
+            "before_frame_id": before["data"]["frame_id"],
+            "after_observation": after,
+            "frame_changed": after["data"]["frame_id"] != before["data"]["frame_id"],
+            "verification": "fresh_observation_token_then_post_action_snapshot",
+            "device_response": transaction,
+            "completed_at": utc_now(),
+        }, "image": image}
 
     def _tool_exoanchor_click_pixel(self, args: JSON) -> JSON:
         before, _ = self._require_expected_frame(args)

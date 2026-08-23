@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor Control Center — Redesign Demo</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0b0d10;
+  --top:#111419;
+  --surface:#15191f;
+  --surface-2:#1b2028;
+  --surface-3:#222832;
+  --line:#2b333e;
+  --line-strong:#3b4654;
+  --text:#f4f7fa;
+  --soft:#cbd3dd;
+  --muted:#8d98a7;
+  --accent:#54d6bd;
+  --accent-strong:#73e5cf;
+  --accent-bg:#102c29;
+  --warn:#f2be63;
+  --warn-bg:#322610;
+  --bad:#ff7b7f;
+  --bad-bg:#35181c;
+  --info:#8ab8ff;
+  --shadow:0 22px 70px rgba(0,0,0,.28);
+  --radius:12px;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;overflow-x:hidden}
+button,input,select,textarea{font:inherit}
+button{color:inherit}
+.app-shell{min-height:100vh}
+.topbar{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:auto minmax(260px,1fr) auto;align-items:center;gap:18px;min-height:64px;padding:0 20px;border-bottom:1px solid var(--line);background:rgba(17,20,25,.94);backdrop-filter:blur(18px)}
+.brand{display:flex;align-items:center;gap:11px;min-width:220px}
+.mark{width:34px;height:34px;display:grid;place-items:center;flex:0 0 auto;border:1px solid #4b5869;border-radius:9px;background:linear-gradient(145deg,#252c36,#171b21);font-weight:850;letter-spacing:-.04em;box-shadow:inset 0 1px rgba(255,255,255,.06)}
+.brand-copy{min-width:0}.brand-name{font-weight:780;white-space:nowrap}.brand-node{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top-nav{display:flex;align-items:center;gap:5px;min-width:0;overflow-x:auto;scrollbar-width:none}.top-nav::-webkit-scrollbar{display:none}
+.nav-button{border:0;background:transparent;color:var(--muted);border-radius:8px;padding:8px 11px;cursor:pointer;white-space:nowrap;font-weight:650}
+.nav-button:hover{color:var(--text);background:var(--surface-2)}.nav-button.active{color:var(--text);background:var(--surface-3);box-shadow:inset 0 0 0 1px var(--line)}
+.top-status{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:6px;min-height:27px;padding:5px 9px;border:1px solid var(--line-strong);border-radius:999px;color:var(--muted);font:700 11px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;white-space:nowrap}
+.pill:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 12%,transparent)}
+.pill.ok{color:var(--accent);border-color:#24675d;background:rgba(16,44,41,.42)}.pill.warn{color:var(--warn);border-color:#705720;background:rgba(50,38,16,.42)}.pill.bad{color:var(--bad);border-color:#78383d;background:rgba(53,24,28,.42)}.pill.unknown{color:#7f8996;border-color:#424b57;background:rgba(51,57,66,.32)}.pill.neutral:before{display:none}
+.page{display:none}.page.active{display:block}
+.content{width:min(1360px,100%);margin:0 auto;padding:22px}
+.demo-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#101319}
+.demo-copy{color:var(--muted);font-size:12px}.demo-copy b{color:var(--soft)}
+.demo-controls{display:flex;align-items:flex-end;justify-content:flex-end;gap:10px;flex-wrap:wrap}.segment-group{display:grid;gap:4px}.segment-group>span{color:var(--muted);font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}
+.segments{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid var(--line);border-radius:8px;background:#0b0e12}
+.segment,.power-segment{border:0;background:transparent;color:var(--muted);padding:7px 9px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700}.segment.active,.power-segment.active{background:var(--surface-3);color:var(--text)}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,.45fr);gap:14px;margin-bottom:14px}
+.hero{position:relative;overflow:hidden;min-height:242px;padding:26px;border:1px solid var(--line-strong);border-radius:var(--radius);background:linear-gradient(145deg,#171d24 0%,#13171d 63%,#11221f 100%);box-shadow:var(--shadow)}
+.hero:after{content:"";position:absolute;right:-70px;bottom:-95px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(84,214,189,.14),transparent 68%);pointer-events:none}
+.hero-kicker{display:flex;align-items:center;gap:9px;margin-bottom:18px;color:var(--accent);font-size:12px;font-weight:760;letter-spacing:.06em;text-transform:uppercase}
+.hero-kicker .state-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 5px rgba(84,214,189,.11)}
+.hero h1{max-width:760px;margin:0;font-size:clamp(26px,3vw,39px);line-height:1.08;letter-spacing:-.035em}.hero p{max-width:760px;margin:13px 0 0;color:var(--muted);font-size:15px}
+.hero-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:24px}
+.performance-rings{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08)}
+.ring-metric{display:flex;align-items:center;gap:10px;min-width:0;padding:9px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(7,10,13,.32)}
+.ring{--value:50;--ring-color:var(--accent);position:relative;width:58px;aspect-ratio:1;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;background:conic-gradient(var(--ring-color) calc(var(--value)*1%),#29313a 0);box-shadow:0 0 0 1px rgba(255,255,255,.06)}
+.ring:before{content:"";position:absolute;inset:6px;border-radius:50%;background:#14191f;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}.ring strong{position:relative;font:750 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.ring-copy{min-width:0}.ring-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.ring-copy span{display:block;margin-top:3px;color:var(--muted);font:10px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace}.ring.warn{--ring-color:var(--warn)}.ring.info{--ring-color:var(--info)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:39px;padding:9px 13px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface-3);color:var(--text);cursor:pointer;font-weight:720}.btn:hover{border-color:#59687a;background:#29313c}.btn.primary{border-color:#2b796e;background:#153b36;color:#e5fff9}.btn.primary:hover{background:#194941}.btn.danger{border-color:#7c3c42;background:#2a171a;color:#ffdadd}.btn.ghost{background:transparent}.btn.small{min-height:32px;padding:6px 9px;font-size:12px}.btn:disabled{opacity:.42;cursor:not-allowed}
+.attention{padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}.section-head h2,.section-head h3{margin:0;font-size:14px}.section-head p{margin:3px 0 0;color:var(--muted);font-size:12px}
+.attention-list{display:grid}.attention-item{display:grid;grid-template-columns:10px minmax(0,1fr);gap:10px;padding:12px 0;border-top:1px solid var(--line)}.attention-item:first-child{border-top:0;padding-top:2px}.attention-item i{width:8px;height:8px;margin-top:6px;border-radius:50%;background:var(--accent)}.attention-item.warn i{background:var(--warn)}.attention-item.bad i{background:var(--bad)}.attention-item b{display:block;font-size:13px}.attention-item span{display:block;margin-top:2px;color:var(--muted);font-size:12px}
+.overview-main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(330px,.45fr);gap:14px}
+.panel{min-width:0;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden}
+.panel-pad{padding:16px}.panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:13px}.panel-heading h2,.panel-heading h3{margin:0;font-size:14px}.panel-heading p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.screen{position:relative;display:grid;place-items:center;min-height:340px;aspect-ratio:16/9;overflow:hidden;background:#030405;border-top:1px solid #242b35;border-bottom:1px solid #242b35}
+.screen-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(84,214,189,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(84,214,189,.055) 1px,transparent 1px);background-size:72px 72px;mask-image:linear-gradient(to bottom,transparent,black 24%,black 75%,transparent)}
+.remote-window{position:relative;width:min(78%,720px);min-height:58%;padding:22px;border:1px solid #35524e;border-radius:10px;background:rgba(6,10,13,.86);box-shadow:0 28px 70px rgba(0,0,0,.48);font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#a7f3df}
+.remote-title{color:var(--text);font-size:15px;font-weight:750}.remote-line{height:8px;margin-top:12px;border-radius:3px;background:#203a37}.remote-line.blue{width:72%;background:#293b52}.remote-line.gold{width:54%;background:#3b3424}.remote-line.short{width:42%}.remote-prompt{margin-top:18px;color:var(--accent)}
+.screen-overlay{position:absolute;inset:0;display:none;place-items:center;text-align:center;background:#030405}.screen-overlay.show{display:grid}.screen-overlay b{display:block;font-size:28px}.screen-overlay span{color:var(--muted)}
+.screen-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;padding:12px}.metric{min-width:0;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}.metric span{display:block;color:var(--muted);font-size:11px}.metric b{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}
+.summary-stack{display:grid;gap:14px}.health-card{padding:15px}.kv{display:grid;gap:8px}.kv-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}.kv-row b{font-size:13px}.kv-row span{min-width:0;color:var(--soft);text-align:right;overflow-wrap:anywhere}
+.mini-chart{position:relative;height:76px;margin-top:12px;border:1px solid var(--line);border-radius:8px;background:#0d1014;overflow:hidden}.mini-chart:before{content:"";position:absolute;inset:16px 10px 12px;background:linear-gradient(135deg,transparent 0 11%,var(--accent) 12% 13%,transparent 14% 24%,var(--accent) 25% 26%,transparent 27% 38%,var(--accent) 39% 40%,transparent 41% 53%,var(--accent) 54% 55%,transparent 56% 68%,var(--accent) 69% 70%,transparent 71%);opacity:.72}.mini-chart:after{content:"30 fps stable";position:absolute;left:10px;bottom:8px;color:var(--muted);font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
+.diagnostics{margin-top:14px}.diag-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.diag-item{padding:12px;border-top:1px solid var(--line)}.diag-item:first-child{border-top:0}.diag-item span{color:var(--muted);font-size:12px}.diag-item b{display:block;margin-top:2px;font-size:17px}
+
+/* KVM */
+.workspace{height:calc(100vh - 64px);min-height:660px;display:grid;grid-template-columns:minmax(0,1fr) 300px;background:#080a0d}
+.kvm-stage{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;min-width:0;padding:14px;gap:10px}
+.workspace-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}.workspace-status{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.workspace-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.kvm-screen{position:relative;display:grid;place-items:center;min-width:0;min-height:0;overflow:hidden;border:1px solid #2a4e48;border-radius:12px;background:#020304;box-shadow:inset 0 0 0 3px rgba(84,214,189,.035),var(--shadow)}
+.kvm-screen .remote-window{width:min(66%,760px);min-width:0;overflow:hidden}.kvm-screen .remote-window>*{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pointer{position:absolute;left:58%;top:53%;width:9px;height:9px;border-radius:50%;background:var(--accent);border:1px solid white;box-shadow:0 0 0 6px rgba(84,214,189,.12)}
+.kvm-hint{color:var(--muted);font-size:12px;text-align:center}.kvm-sidebar{min-width:0;overflow:auto;padding:14px;border-left:1px solid var(--line);background:#101319}.control-section{margin-bottom:12px;padding:13px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}.control-section h3{margin:0 0 11px;font-size:13px}.field{display:grid;gap:6px;margin-bottom:11px}.field label{color:var(--muted);font-size:11px}.field input,.field select,.field textarea{width:100%;min-width:0;border:1px solid var(--line-strong);border-radius:8px;background:#0c0f13;color:var(--text);padding:9px 10px}.field textarea{resize:vertical;min-height:100px}.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0}.toggle-copy b{display:block;font-size:12px}.toggle-copy span{display:block;color:var(--muted);font-size:11px}.switch{position:relative;width:44px;height:25px;flex:0 0 auto}.switch input{position:absolute;opacity:0}.switch-track{position:absolute;inset:0;border:1px solid #485363;border-radius:999px;background:#303743;cursor:pointer;transition:.18s}.switch-track:after{content:"";position:absolute;left:3px;top:3px;width:17px;height:17px;border-radius:50%;background:#d5dce5;transition:.18s}.switch input:checked+.switch-track{border-color:#2c8275;background:#175149}.switch input:checked+.switch-track:after{transform:translateX(19px);background:var(--accent)}
+.button-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.button-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.button-grid .btn{min-width:0;padding:8px 6px;font-size:12px}
+
+/* Agent */
+.agent-layout{height:calc(100vh - 64px);min-height:680px;display:grid;grid-template-columns:minmax(420px,.9fr) minmax(500px,1.1fr);gap:14px;padding:14px;background:#080a0d}
+.agent-context,.agent-chat{display:flex;flex-direction:column;min-width:0;min-height:0}.agent-context .screen{flex:1;aspect-ratio:auto;min-height:0}.context-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.context-foot{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:11px}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line)}.chat-head h2{margin:0;font-size:14px}.run-mode{color:var(--warn);font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace}
+.chat-log{flex:1;min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px}.message{max-width:88%;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#10141a;white-space:pre-wrap}.message.user{align-self:flex-end;border-color:#286c62;background:#12312d}.message.agent{align-self:flex-start}.message.system{align-self:center;max-width:100%;border-style:dashed;color:var(--muted);font-size:12px;background:transparent}.message-meta{margin-bottom:4px;color:var(--muted);font-size:11px;font-weight:700}.run-card{display:grid;gap:8px}.run-step{display:grid;grid-template-columns:60px minmax(0,1fr);gap:8px;padding-top:7px;border-top:1px solid var(--line);font-size:12px}.run-step b{color:var(--accent)}.run-step span{color:var(--soft)}
+.composer{padding:12px;border-top:1px solid var(--line);background:#12161c}.composer-box{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:end}.composer textarea{width:100%;height:76px;resize:none;border:1px solid var(--line-strong);border-radius:9px;background:#0b0e12;color:var(--text);padding:11px 12px}.composer-actions{display:grid;gap:7px}.composer-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;color:var(--muted);font-size:11px}.permission-strip{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.permission{padding:4px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:#0f1217}.permission.on{color:var(--accent);border-color:#28685f}
+
+/* SSH Terminal */
+.terminal-layout{height:calc(100vh - 64px);min-height:660px;display:grid;grid-template-columns:minmax(0,1fr) 310px;background:#080a0d}
+.terminal-main{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;min-width:0;min-height:0;padding:14px;gap:10px}
+.terminal-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}.terminal-target{min-width:0}.terminal-target b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:750 13px ui-monospace,SFMono-Regular,Menlo,monospace}.terminal-target span{display:block;margin-top:3px;color:var(--muted);font-size:11px}.terminal-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.terminal-screen{min-width:0;min-height:0;overflow:auto;padding:17px 18px;border:1px solid #26322f;border-radius:11px;background:#030604;box-shadow:inset 0 0 0 3px rgba(84,214,189,.025),var(--shadow);font:13px/1.62 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c9f6e8;scrollbar-color:#304039 #080c09}
+.term-output{white-space:pre-wrap;overflow-wrap:anywhere}.term-line{display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px}.term-time{color:#63766f}.term-info{color:#9fb0aa}.term-ok{color:var(--accent)}.term-warn{color:var(--warn)}.term-command{color:#eafcf6}.term-command:before{content:"$ ";color:var(--accent)}
+.terminal-input{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 9px;border:1px solid #2c3b36;border-radius:9px;background:#080d0a;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}.terminal-input label{color:var(--accent);white-space:nowrap}.terminal-input input{min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:inherit}.terminal-input .btn{min-height:32px}
+.terminal-sidebar{min-width:0;overflow:auto;padding:14px;border-left:1px solid var(--line);background:#101319}.connection-summary{display:grid;gap:8px;margin-bottom:12px}.key-state{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}.key-state:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.channel-switch{display:inline-flex;align-items:center;gap:4px;padding:3px;border:1px solid var(--line);border-radius:8px;background:#090c10}.channel-button{border:0;border-radius:6px;background:transparent;color:var(--muted);padding:6px 9px;cursor:pointer;font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.channel-button.active{background:var(--surface-3);color:var(--accent);box-shadow:inset 0 0 0 1px var(--line-strong)}.terminal-ident{display:flex;align-items:center;gap:10px;min-width:0}.hidden{display:none!important}
+
+/* Settings */
+.settings-layout{display:grid;grid-template-columns:238px minmax(0,1fr);min-height:calc(100vh - 64px)}
+.settings-nav{position:sticky;top:64px;height:calc(100vh - 64px);overflow:auto;padding:18px 12px;border-right:1px solid var(--line);background:#101319}.settings-nav h2{margin:0 9px 14px;font-size:18px}.settings-nav-button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;width:100%;margin-bottom:5px;padding:10px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);text-align:left;cursor:pointer}.settings-nav-button b{font-size:13px}.settings-nav-button small{grid-column:1/-1;color:var(--muted)}.settings-nav-button i{width:8px;height:8px;margin-top:6px;border-radius:50%;background:#606a78}.settings-nav-button.active{border-color:var(--line);background:var(--surface-2);color:var(--text)}.settings-nav-button.active i{background:var(--accent)}
+.settings-main{min-width:0;padding:22px}.settings-main-inner{width:min(1120px,100%);margin:0 auto}.settings-title{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}.settings-title h1{margin:0;font-size:24px}.settings-title p{margin:5px 0 0;color:var(--muted)}.settings-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.save-banner{display:none;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:11px 12px;border:1px solid #725a24;border-radius:9px;background:#211b10}.save-banner.show{display:flex}.save-banner span{color:var(--warn)}
+.settings-view{display:none}.settings-view.active{display:block}.settings-view-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}.settings-view-head h2{margin:0;font-size:17px}.settings-view-head p{margin:3px 0 0;color:var(--muted)}
+.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.settings-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.settings-card{padding:15px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}.settings-card.span{grid-column:1/-1}.settings-card h3{margin:0 0 12px;font-size:14px}.settings-card .field:last-child{margin-bottom:0}.notice{display:grid;grid-template-columns:10px minmax(0,1fr);gap:10px;margin-bottom:14px;padding:12px;border:1px solid var(--line);border-radius:9px;background:#11151a}.notice i{width:8px;height:8px;margin-top:6px;border-radius:50%;background:var(--accent)}.notice.warn i{background:var(--warn)}.notice b{display:block}.notice span{color:var(--muted);font-size:12px}.danger-zone{border-color:#74383e;background:#211518}
+.toast{position:fixed;left:50%;bottom:24px;z-index:40;transform:translate(-50%,20px);opacity:0;pointer-events:none;padding:10px 13px;border:1px solid var(--line-strong);border-radius:9px;background:#1b2027;color:var(--text);box-shadow:var(--shadow);transition:.2s}.toast.show{transform:translate(-50%,0);opacity:1}
+
+@media(max-width:1040px){
+  .topbar{grid-template-columns:auto minmax(0,1fr);gap:10px;padding:10px 14px}.brand{min-width:0}.top-status{grid-column:1/-1;justify-content:flex-start;overflow-x:auto}.top-nav{justify-content:flex-end}
+  .hero-grid,.overview-main{grid-template-columns:1fr}.summary-stack{grid-template-columns:repeat(2,minmax(0,1fr))}.workspace{grid-template-columns:minmax(0,1fr) 270px}.agent-layout{grid-template-columns:minmax(360px,.85fr) minmax(440px,1.15fr)}.terminal-layout{grid-template-columns:minmax(0,1fr) 280px}
+  .diag-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .topbar{position:relative;display:flex;flex-wrap:wrap;min-height:0;padding:10px 12px;gap:9px}.brand{flex:1 1 auto}.top-nav{order:3;flex:1 0 100%;justify-content:flex-start;padding-bottom:1px}.top-status{order:2;grid-column:auto;max-width:48%;justify-content:flex-end}.top-status .pill:nth-child(n+3){display:none}
+  .content{padding:14px}.demo-bar{align-items:flex-start;flex-direction:column}.demo-controls{width:100%;justify-content:flex-start}.hero{min-height:0;padding:21px}.hero h1{font-size:28px}.hero p{font-size:14px}.performance-rings{grid-template-columns:repeat(2,minmax(0,1fr))}.summary-stack{grid-template-columns:1fr}.screen{min-height:230px}.remote-window{width:88%;min-height:0;padding:16px}.screen-meta,.context-foot{grid-template-columns:repeat(2,minmax(0,1fr))}.diag-grid{grid-template-columns:1fr 1fr}
+  .workspace{height:auto;min-height:calc(100vh - 115px);grid-template-columns:1fr}.kvm-stage{min-height:620px}.kvm-screen{width:100%;aspect-ratio:auto;min-height:320px}.kvm-sidebar{border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr;overflow:visible}.workspace-bar{align-items:flex-start;flex-direction:column}.workspace-actions{justify-content:flex-start}.kvm-screen .remote-window{width:80%}
+  .agent-layout{height:auto;min-height:0;grid-template-columns:1fr;padding:10px}.agent-chat{order:1;min-height:680px}.agent-context{order:2;min-height:520px}.composer-box{grid-template-columns:1fr}.composer-actions{grid-template-columns:1fr 1fr}.composer-meta{align-items:flex-start;flex-direction:column}.message{max-width:94%}
+  .terminal-layout{height:auto;min-height:0;grid-template-columns:1fr}.terminal-main{min-height:680px;padding:10px}.terminal-bar{align-items:flex-start;flex-direction:column}.terminal-actions{justify-content:flex-start}.terminal-screen{min-height:500px;padding:14px 12px}.terminal-sidebar{border-left:0;border-top:1px solid var(--line);overflow:visible}.terminal-input{grid-template-columns:auto minmax(0,1fr)}.terminal-input .btn{grid-column:1/-1}.terminal-ident{align-items:flex-start;flex-direction:column}
+  .settings-layout{display:block}.settings-nav{position:sticky;top:0;z-index:10;height:auto;display:flex;gap:6px;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line);overflow-x:auto}.settings-nav h2{display:none}.settings-nav-button{flex:0 0 142px;margin:0}.settings-main{padding:14px}.settings-title{flex-direction:column}.settings-actions{justify-content:flex-start}.settings-grid,.settings-grid.three{grid-template-columns:1fr}.settings-card.span{grid-column:auto}.save-banner{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:420px){.top-status{display:none}.hero-actions .btn{flex:1 1 130px}.segments{width:100%;overflow-x:auto}.segment{flex:1}.performance-rings{grid-template-columns:1fr 1fr}.ring-metric{gap:7px;padding:7px}.ring{width:50px}.diag-grid{grid-template-columns:1fr}.screen-meta,.context-foot{grid-template-columns:1fr 1fr}.remote-title{font-size:13px}.remote-window{font-size:11px}.workspace-status .pill:nth-child(n+3){display:none}}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand"><div class="mark">EA</div><div class="brand-copy"><div class="brand-name">ExoAnchor ESP32-P4</div><div class="brand-node">Desk Node · 192.0.2.83</div></div></div>
+    <nav class="top-nav" aria-label="主导航">
+      <button class="nav-button active" data-page="overview">Overview</button>
+      <button class="nav-button" data-page="kvm">KVM</button>
+      <button class="nav-button" data-page="agent">Agent</button>
+      <button class="nav-button" data-page="terminal">Terminal</button>
+      <button class="nav-button" data-page="settings">Settings</button>
+    </nav>
+    <div class="top-status"><span id="topVideo" class="pill ok">VIDEO READY</span><span id="topHid" class="pill ok">HID READY</span><span id="topPower" class="pill unknown">POWER N/A</span><span class="pill neutral">v0.86 concept</span></div>
+  </header>
+
+  <main>
+    <section id="page-overview" class="page active">
+      <div class="content">
+        <div class="demo-bar">
+          <div class="demo-copy"><b>交互 Demo</b> · 切换设备状态，观察首页如何只突出结论、异常和下一步。</div>
+          <div class="demo-controls">
+            <div class="segment-group"><span>Device health</span><div class="segments" aria-label="设备状态">
+              <button class="segment active" data-state="ready">Ready</button>
+              <button class="segment" data-state="warning">Attention</button>
+              <button class="segment" data-state="offline">Offline</button>
+            </div></div>
+            <div class="segment-group"><span id="powerStateDetail">Power · Detect GPIO 未配置</span><div class="segments" aria-label="电源探测状态">
+              <button class="power-segment active" data-power-state="unknown">N/A</button>
+              <button class="power-segment" data-power-state="off">Off</button>
+              <button class="power-segment" data-power-state="standby">Standby</button>
+              <button class="power-segment" data-power-state="on">On</button>
+            </div></div>
+          </div>
+        </div>
+
+        <div class="hero-grid">
+          <section id="hero" class="hero">
+            <div class="hero-kicker"><span class="state-dot"></span><span id="heroKicker">System performance · nominal</span></div>
+            <h1 id="heroTitle">欢迎回来，一切正常</h1>
+            <div class="hero-actions"><button class="btn primary" data-go="kvm">进入 KVM</button><button id="refreshDemo" class="btn">刷新状态</button><button id="showDiagnostics" class="btn ghost">查看诊断</button></div>
+            <div class="performance-rings" aria-label="系统性能">
+              <div class="ring-metric"><div class="ring" style="--value:12"><strong>12%</strong></div><div class="ring-copy"><b>CPU</b><span>48 / 400 MHz</span></div></div>
+              <div class="ring-metric"><div class="ring info" style="--value:36"><strong>36%</strong></div><div class="ring-copy"><b>SRAM</b><span>412 KB free</span></div></div>
+              <div class="ring-metric"><div class="ring info" style="--value:42"><strong>42%</strong></div><div class="ring-copy"><b>PSRAM</b><span>6.8 MB free</span></div></div>
+              <div class="ring-metric"><div class="ring warn" style="--value:61"><strong>61%</strong></div><div class="ring-copy"><b>Flash</b><span>3.88 MB free</span></div></div>
+              <div class="ring-metric"><div class="ring" style="--value:28"><strong>28%</strong></div><div class="ring-copy"><b>TF Card</b><span>21.4 GB free</span></div></div>
+            </div>
+          </section>
+          <aside class="attention">
+            <div class="section-head"><h2>需要关注</h2><span id="attentionCount" class="pill warn">1 ITEM</span></div>
+            <div id="attentionList" class="attention-list"></div>
+          </aside>
+        </div>
+
+        <div class="overview-main">
+          <section class="panel">
+            <div class="panel-pad panel-heading"><div><h2>主机画面</h2><p>按需预览，不在 Dashboard 抢占控制租约。</p></div><button class="btn small" data-go="kvm">打开控制台</button></div>
+            <div class="screen">
+              <div class="screen-grid"></div>
+              <div class="remote-window"><div class="remote-title">ExoAnchor remote console</div><div>desk-node login: operator</div><div class="remote-line"></div><div class="remote-line blue"></div><div class="remote-line gold"></div><div class="remote-line short"></div><div class="remote-prompt">operator@desk-node:~$ <span>_</span></div></div>
+              <div id="overviewNoSignal" class="screen-overlay"><div><b>没有检测到画面</b><span>设备仍在线，可以继续查看诊断。</span></div></div>
+            </div>
+            <div class="screen-meta"><div class="metric"><span>视频</span><b id="metaVideo">1280×720</b></div><div class="metric"><span>帧率</span><b id="metaFps">30.0 fps</b></div><div class="metric"><span>输入</span><b id="metaHid">HID ready</b></div><div class="metric"><span>控制租约</span><b>free</b></div></div>
+          </section>
+
+          <div class="summary-stack">
+            <section class="panel health-card"><div class="section-head"><h2>关键链路</h2><span class="pill ok">HEALTHY</span></div><div class="kv"><div class="kv-row"><b>Ethernet</b><span>100M full duplex</span></div><div class="kv-row"><b>USB UVC</b><span id="summaryVideo">ready</span></div><div class="kv-row"><b>USB HID</b><span id="summaryHid">ready</span></div><div class="kv-row"><b>Agent</b><span>configured</span></div></div></section>
+            <section class="panel health-card"><div class="section-head"><h2>视频质量</h2><span class="pill ok">STABLE</span></div><div class="kv"><div class="kv-row"><b>Mode</b><span>MJPEG</span></div><div class="kv-row"><b>Dropped</b><span>0.2%</span></div></div><div class="mini-chart"></div></section>
+          </div>
+        </div>
+
+        <details id="diagnostics" class="panel diagnostics">
+          <summary class="panel-pad">诊断详情 · CPU、内存、存储和最近日志</summary>
+          <div class="diag-grid"><div class="diag-item"><span>CPU</span><b>12%</b></div><div class="diag-item"><span>SRAM free</span><b>412 KB</b></div><div class="diag-item"><span>PSRAM free</span><b>6.8 MB</b></div><div class="diag-item"><span>最近错误</span><b>0</b></div></div>
+        </details>
+      </div>
+    </section>
+
+    <section id="page-kvm" class="page">
+      <div class="workspace">
+        <div class="kvm-stage">
+          <div class="workspace-bar"><div class="workspace-status"><span class="pill ok">CONNECTED</span><span class="pill ok">HID READY</span><span class="pill ok">1280×720 · 30 fps</span></div><div class="workspace-actions"><button class="btn small">Snapshot</button><button id="toggleControls" class="btn small">隐藏控制栏</button><button id="fakeFullscreen" class="btn small primary">Fullscreen</button></div></div>
+          <div class="kvm-screen"><div class="screen-grid"></div><div class="remote-window"><div class="remote-title">ExoAnchor remote console</div><div>operator@desk-node:~$ uname -a</div><div class="remote-line"></div><div class="remote-line blue"></div><div class="remote-line gold"></div><div class="remote-prompt">operator@desk-node:~$ <span>_</span></div></div><div class="pointer"></div></div>
+          <div class="kvm-hint">点击画面定位指针 · 按 Esc 释放键盘 · 当前控制租约属于 KVM</div>
+        </div>
+        <aside id="kvmSidebar" class="kvm-sidebar">
+          <section class="control-section"><h3>视频与输入</h3><div class="field"><label for="videoMode">视频模式</label><select id="videoMode"><option>MJPEG 1280×720 @ 30fps</option><option>MJPEG 1920×1080 @ 30fps</option><option>MJPEG 640×480 @ 30fps</option></select></div><label class="toggle-row"><span class="toggle-copy"><b>键盘直通</b><span>打开页面后捕获键盘</span></span><span class="switch"><input type="checkbox" checked><span class="switch-track"></span></span></label><label class="toggle-row"><span class="toggle-copy"><b>Direct Click</b><span>点击映射到目标主机</span></span><span class="switch"><input type="checkbox" checked><span class="switch-track"></span></span></label></section>
+          <section class="control-section"><h3>常用操作</h3><div class="button-grid"><button class="btn">Ctrl Alt Del</button><button class="btn">Alt Tab</button><button class="btn">Alt F4</button><button class="btn">Release</button></div></section>
+          <section class="control-section"><h3>电源</h3><div class="kv" style="margin-bottom:10px"><div class="kv-row"><b>Power detect</b><span>not wired</span></div><div class="kv-row"><b>Reset line</b><span>GPIO 2</span></div></div><div class="button-grid"><button id="powerAction" class="btn">Power</button><button id="resetAction" class="btn danger">Reset…</button></div></section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="page-agent" class="page">
+      <div class="agent-layout">
+        <section class="panel agent-context">
+          <div class="panel-pad panel-heading"><div><h2>视觉上下文</h2><p>不是第二个 KVM，只给 Agent 提供按需观察。</p></div><div class="context-toolbar"><button class="btn small primary">Video on</button><button class="btn small">执行日志</button></div></div>
+          <div class="screen"><div class="screen-grid"></div><div class="remote-window"><div class="remote-title">Installer · Disk selection</div><div>Select the target disk to continue</div><div class="remote-line"></div><div class="remote-line blue"></div><div class="remote-line gold"></div><div class="remote-prompt">[ Continue ]</div></div></div>
+          <div class="context-foot"><div class="metric"><span>Video</span><b>720p · 30fps</b></div><div class="metric"><span>HID</span><b>ready</b></div><div class="metric"><span>Screenshot</span><b>on request</b></div><div class="metric"><span>Owner</span><b>agent view</b></div></div>
+        </section>
+        <section class="panel agent-chat">
+          <div class="chat-head"><div><h2>Agent</h2><div class="run-mode">DRY-RUN · SCREENSHOT ON</div></div><button class="btn small">New session</button></div>
+          <div id="chatLog" class="chat-log">
+            <div class="message system">当前会话使用 DeepSeek · 自主控制关闭 · 联网搜索关闭</div>
+            <div class="message user"><div class="message-meta">你</div>看一下当前屏幕，告诉我下一步应该怎么操作。</div>
+            <div class="message agent run-card"><div class="message-meta">ExoAnchor Agent</div><div>安装器正在等待选择目标磁盘。当前画面中有一个可用磁盘，但在执行前应该先确认它不是包含重要数据的系统盘。</div><div class="run-step"><b>观察</b><span>识别到磁盘选择页面与 Continue 按钮</span></div><div class="run-step"><b>建议</b><span>先核对磁盘容量和型号，再继续安装</span></div></div>
+          </div>
+          <div class="composer"><div class="composer-box"><textarea id="agentPrompt" placeholder="告诉 Agent 你希望检查或完成什么…"></textarea><div class="composer-actions"><button id="sendAgent" class="btn primary">Send</button><button class="btn">Stop</button></div></div><div class="composer-meta"><div class="permission-strip"><span class="permission on">截图 on</span><span class="permission">联网 off</span><span class="permission">控制 dry-run</span></div><span>⌘/Ctrl + Enter 发送</span></div></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="page-terminal" class="page">
+      <div class="terminal-layout">
+        <section class="terminal-main">
+          <div class="terminal-bar">
+            <div class="terminal-ident"><div class="channel-switch" aria-label="终端通道"><button class="channel-button active" data-channel="ssh">SSH</button><button class="channel-button" data-channel="uart">UART</button></div><div class="terminal-target"><b id="terminalTarget">operator@192.0.2.67:22</b><span id="terminalMeta">设备侧 SSH PTY · stored key · 120×32</span></div></div>
+            <div class="terminal-actions"><span id="channelState" class="pill ok">CONNECTED</span><button id="quickCheck" class="btn small">Quick check</button><button id="clearTerminal" class="btn small">Clear</button><button id="disconnectTerminal" class="btn small danger">Disconnect</button></div>
+          </div>
+          <div id="terminalScreen" class="terminal-screen" role="log" aria-label="SSH 终端输出">
+            <div id="terminalOutput" class="term-output"><div class="term-line"><span class="term-time">09:41:02</span><span class="term-info">ExoAnchor SSH PTY connected to operator@192.0.2.67</span></div><div class="term-line"><span class="term-time">09:41:03</span><span class="term-command">uname -a</span></div><div class="term-line"><span class="term-time"></span><span>Linux desk-node 6.8.0 #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux</span></div><div class="term-line"><span class="term-time">09:41:04</span><span class="term-command">uptime</span></div><div class="term-line"><span class="term-time"></span><span>09:41:04 up 12 days, 3:18, 1 user, load average: 0.08, 0.04, 0.01</span></div><div class="term-line"><span class="term-time">09:41:05</span><span class="term-ok">Connection healthy · key authentication · sudo available</span></div></div>
+          </div>
+          <form id="terminalForm" class="terminal-input"><label id="terminalPromptLabel" for="terminalCommand">operator@desk-node:~$</label><input id="terminalCommand" autocomplete="off" spellcheck="false" placeholder="输入命令…"><button class="btn small primary" type="submit">Run</button></form>
+        </section>
+        <aside class="terminal-sidebar">
+          <section id="terminalSshConfig" class="control-section"><div class="section-head"><h3>SSH 连接</h3><span class="pill ok">KEY READY</span></div><div class="field"><label for="sshHost">Host</label><input id="sshHost" value="192.0.2.67"></div><div class="field"><label for="sshPort">Port</label><input id="sshPort" type="number" value="22"></div><div class="field"><label for="sshUser">Username</label><input id="sshUser" value="operator"></div><div class="field"><label for="sshAuth">Authentication</label><select id="sshAuth"><option>Stored key</option><option>Password</option><option>Auto</option></select></div><div class="button-grid"><button id="connectTerminal" class="btn primary">Connect</button><button class="btn">Edit key</button></div></section>
+          <section id="terminalUartConfig" class="control-section hidden"><div class="section-head"><h3>UART 串口</h3><span class="pill warn">STANDBY</span></div><div class="field"><label for="uartPort">Serial port</label><select id="uartPort"><option>/dev/ttyUSB0</option><option>/dev/ttyACM0</option><option>ESP32-P4 internal UART</option></select></div><div class="field"><label for="uartBaud">Baud rate</label><select id="uartBaud"><option>115200</option><option>921600</option><option>460800</option><option>9600</option></select></div><div class="settings-grid three"><div class="field"><label>Data</label><select><option>8</option></select></div><div class="field"><label>Parity</label><select><option>None</option><option>Even</option><option>Odd</option></select></div><div class="field"><label>Stop</label><select><option>1</option><option>2</option></select></div></div><div class="button-grid"><button id="connectUart" class="btn primary">Open UART</button><button class="btn">Reset target</button></div></section>
+          <section class="control-section"><h3>会话状态</h3><div class="connection-summary"><div class="kv-row"><b id="channelMetricLabel">Latency</b><span id="channelMetricValue">7 ms</span></div><div class="kv-row"><b id="sessionKindLabel">PTY</b><span id="sessionKindValue">120×32</span></div><div class="kv-row"><b>Last activity</b><span>just now</span></div></div><div id="credentialNote" class="key-state">Private key 保存在设备本地</div></section>
+          <section class="control-section"><h3>安全边界</h3><p id="terminalSafetyCopy" style="margin:0;color:var(--muted);font-size:12px">终端命令由设备直接发往目标主机，不经过模型 API。Agent 使用 SSH 时仍受工具策略约束。</p></section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="page-settings" class="page">
+      <div class="settings-layout">
+        <nav class="settings-nav" aria-label="设置分类">
+          <h2>Settings</h2>
+          <button class="settings-nav-button active" data-settings="settings-overview"><b>概览</b><i></i><small>健康状态与入口</small></button>
+          <button class="settings-nav-button" data-settings="settings-hardware"><b>硬件与 GPIO</b><i></i><small>设备身份与接线</small></button>
+          <button class="settings-nav-button" data-settings="settings-control"><b>控制接入</b><i></i><small>SSH、MCP、租约</small></button>
+          <button class="settings-nav-button" data-settings="settings-agent"><b>Agent 与模型</b><i></i><small>Profile、权限、工具</small></button>
+          <button class="settings-nav-button" data-settings="settings-maintenance"><b>固件与维护</b><i></i><small>OTA、重启、恢复</small></button>
+        </nav>
+        <div class="settings-main"><div class="settings-main-inner">
+          <div class="settings-title"><div><h1 id="settingsTitle">设置概览</h1><p id="settingsLead">一次只处理一个分类，概览页不直接编辑底层参数。</p></div><div class="settings-actions"><button class="btn">Discard</button><button id="saveSettings" class="btn primary">Save changes</button></div></div>
+          <div id="saveBanner" class="save-banner"><span><b id="dirtyCount">1 项修改未保存</b> · 应用前可统一检查</span><button class="btn small primary">Review & apply</button></div>
+
+          <section id="settings-overview" class="settings-view active">
+            <div class="settings-view-head"><div><h2>设备健康状态</h2><p>这里只展示结果和跳转，不混入几十个编辑字段。</p></div><span class="pill ok">HEALTHY</span></div>
+            <div class="settings-grid three"><div class="settings-card"><div class="section-head"><h3>网络与设备</h3><span class="pill ok">ONLINE</span></div><div class="kv"><div class="kv-row"><b>IP</b><span>192.0.2.83</span></div><div class="kv-row"><b>Ethernet</b><span>100M full duplex</span></div><div class="kv-row"><b>标注名</b><span>Desk Node</span></div></div></div><div class="settings-card"><div class="section-head"><h3>KVM</h3><span class="pill ok">READY</span></div><div class="kv"><div class="kv-row"><b>Video</b><span>1280×720 @ 30</span></div><div class="kv-row"><b>HID</b><span>ready</span></div><div class="kv-row"><b>Lease</b><span>free</span></div></div></div><div class="settings-card"><div class="section-head"><h3>Agent</h3><span class="pill warn">CHECK</span></div><div class="kv"><div class="kv-row"><b>Profile</b><span>DeepSeek</span></div><div class="kv-row"><b>Model</b><span>deepseek-chat</span></div><div class="kv-row"><b>Search</b><span>off</span></div></div></div><div class="settings-card"><div class="section-head"><h3>Storage</h3><span class="pill ok">OK</span></div><div class="kv"><div class="kv-row"><b>Flash</b><span>3.88 MB free</span></div><div class="kv-row"><b>TF card</b><span>mounted</span></div></div></div><div class="settings-card"><div class="section-head"><h3>Firmware</h3><span class="pill ok">READY</span></div><div class="kv"><div class="kv-row"><b>Version</b><span>0.85.10x</span></div><div class="kv-row"><b>Partition</b><span>ota_0</span></div></div></div></div>
+          </section>
+
+          <section id="settings-hardware" class="settings-view">
+            <div class="notice warn"><i></i><div><b>当前硬件为 Waveshare NANO 扩展形态</b><span>Power detect 未接入不应显示为设备故障。</span></div></div>
+            <div class="settings-grid"><div class="settings-card"><h3>设备身份</h3><div class="field"><label for="deviceName">设备标注名</label><input id="deviceName" class="dirty-field" value="Desk Node"></div><div class="field"><label>Hostname</label><input value="exoanchor-p4" disabled></div></div><div class="settings-card"><h3>固定功能脚</h3><div class="kv"><div class="kv-row"><b>HID D−</b><span>GPIO 26</span></div><div class="kv-row"><b>HID D+</b><span>GPIO 27</span></div><div class="kv-row"><b>UVC host</b><span>USB HS</span></div></div></div><div class="settings-card span"><h3>电源 GPIO 映射</h3><div class="settings-grid three"><div class="field"><label>Power button</label><input class="dirty-field" type="number" value="1"></div><div class="field"><label>Reset button</label><input class="dirty-field" type="number" value="2"></div><div class="field"><label>Power detect</label><input class="dirty-field" type="number" placeholder="Not wired"></div></div></div></div>
+          </section>
+
+          <section id="settings-control" class="settings-view">
+            <div class="settings-grid"><div class="settings-card span"><div class="section-head"><h3>维护目标主机</h3><span class="pill warn">NOT TESTED</span></div><div class="settings-grid three"><div class="field"><label>Host</label><input class="dirty-field" value="192.0.2.67"></div><div class="field"><label>Username</label><input class="dirty-field" value="operator"></div><div class="field"><label>Port</label><input class="dirty-field" type="number" value="22"></div></div><button class="btn">Test connection</button></div><div class="settings-card"><h3>外部 MCP 控制器</h3><label class="toggle-row"><span class="toggle-copy"><b>允许 MCP 客户端</b><span>通过设备 API 操作</span></span><span class="switch"><input class="dirty-field" type="checkbox" checked><span class="switch-track"></span></span></label></div><div class="settings-card"><h3>控制租约</h3><div class="kv"><div class="kv-row"><b>Owner</b><span>none</span></div><div class="kv-row"><b>Timeout</b><span>30s</span></div><div class="kv-row"><b>Conflict</b><span>reject</span></div></div></div></div>
+          </section>
+
+          <section id="settings-agent" class="settings-view">
+            <div class="settings-grid"><div class="settings-card"><div class="section-head"><h3>API Profile</h3><span class="pill ok">KEY SAVED</span></div><div class="field"><label>Provider</label><select class="dirty-field"><option>DeepSeek</option><option>OpenAI</option><option>Qwen</option></select></div><div class="field"><label>Model</label><select class="dirty-field"><option>deepseek-chat</option><option>deepseek-reasoner</option></select></div></div><div class="settings-card"><h3>运行默认值</h3><label class="toggle-row"><span class="toggle-copy"><b>允许截图</b><span>仅在任务需要时附加</span></span><span class="switch"><input class="dirty-field" type="checkbox" checked><span class="switch-track"></span></span></label><label class="toggle-row"><span class="toggle-copy"><b>联网搜索</b><span>由工具策略控制</span></span><span class="switch"><input class="dirty-field" type="checkbox"><span class="switch-track"></span></span></label></div><div class="settings-card span"><h3>System Prompt</h3><div class="field"><textarea class="dirty-field">You are the local ExoAnchor device agent. Prefer observation and dry-run before control.</textarea></div></div></div>
+          </section>
+
+          <section id="settings-maintenance" class="settings-view">
+            <div class="settings-grid"><div class="settings-card"><div class="section-head"><h3>Firmware update</h3><span class="pill ok">0.85.10x</span></div><div class="field"><label>Firmware .bin</label><input type="file"></div><button class="btn primary">Upload firmware</button></div><div class="settings-card"><h3>Remote OTA</h3><div class="field"><label>Channel</label><select class="dirty-field"><option>stable</option><option>beta</option></select></div><button class="btn">Check for update</button></div><div class="settings-card span danger-zone"><div class="section-head"><div><h3>危险操作</h3><p>这些操作不与普通设置混排。</p></div><span class="pill bad">CONFIRM</span></div><div class="settings-actions" style="justify-content:flex-start"><button class="btn danger">Reboot application</button><button class="btn danger">Reset everything…</button></div></div></div>
+          </section>
+        </div></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast" class="toast" role="status"></div>
+<script>
+const pages=document.querySelectorAll('.page');
+const navButtons=document.querySelectorAll('.nav-button');
+const toast=document.getElementById('toast');
+let toastTimer=0;
+function showToast(message){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1800)}
+function showPage(name){pages.forEach(page=>page.classList.toggle('active',page.id===`page-${name}`));navButtons.forEach(button=>button.classList.toggle('active',button.dataset.page===name));window.scrollTo({top:0,behavior:'smooth'})}
+navButtons.forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.page)));
+document.querySelectorAll('[data-go]').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.go)));
+
+const demoStates={
+  ready:{kicker:'System performance · nominal',title:'欢迎回来，一切正常',video:['VIDEO READY','ok'],hid:['HID READY','ok'],count:'1 ITEM',items:[['ok','账户安全正常','默认凭据已替换，本地会话受保护。'],['ok','视频流稳定','1280×720 MJPEG，最近没有丢帧告警。'],['warn','硬件能力有限','当前板型没有接入 Power Detect。']],meta:['1280×720','30.0 fps','HID ready'],summary:['ready','ready'],offline:false},
+  warning:{kicker:'System performance · input degraded',title:'画面在线，但输入控制未就绪',video:['VIDEO READY','ok'],hid:['HID WAITING','warn'],count:'2 ITEMS',items:[['warn','USB HID 未就绪','检查 GPIO26/GPIO27、5V、GND 和目标主机 USB 口。'],['ok','视频仍然可用','可以先观察主机当前状态。'],['warn','建议先诊断','修复 HID 后再进入控制模式。']],meta:['1280×720','30.0 fps','HID waiting'],summary:['ready','waiting'],offline:false},
+  offline:{kicker:'System performance · video fault',title:'没有检测到可用画面',video:['VIDEO OFFLINE','bad'],hid:['HID READY','ok'],count:'2 ITEMS',items:[['bad','没有视频帧','检查 HDMI 线和 MS2109 USB 连接。'],['ok','网络仍然在线','可以继续查看日志和设备诊断。'],['ok','键鼠已经就绪','恢复画面后可以直接控制。']],meta:['No signal','—','HID ready'],summary:['offline','ready'],offline:true}
+};
+function applyState(name){const state=demoStates[name];document.querySelectorAll('.segment').forEach(button=>button.classList.toggle('active',button.dataset.state===name));heroKicker.textContent=state.kicker;heroTitle.textContent=state.title;topVideo.textContent=state.video[0];topVideo.className=`pill ${state.video[1]}`;topHid.textContent=state.hid[0];topHid.className=`pill ${state.hid[1]}`;attentionCount.textContent=state.count;attentionList.innerHTML=state.items.map(([kind,title,copy])=>`<div class="attention-item ${kind==='ok'?'':kind}"><i></i><div><b>${title}</b><span>${copy}</span></div></div>`).join('');metaVideo.textContent=state.meta[0];metaFps.textContent=state.meta[1];metaHid.textContent=state.meta[2];summaryVideo.textContent=state.summary[0];summaryHid.textContent=state.summary[1];overviewNoSignal.classList.toggle('show',state.offline);hero.style.background=name==='offline'?'linear-gradient(145deg,#1c181c,#14161b 60%,#291518)':name==='warning'?'linear-gradient(145deg,#1b1b1a,#14171d 63%,#2d2413)':'linear-gradient(145deg,#171d24 0%,#13171d 63%,#11221f 100%)'}
+document.querySelectorAll('.segment').forEach(button=>button.addEventListener('click',()=>applyState(button.dataset.state)));
+applyState('ready');
+const powerStates={
+  unknown:{label:'POWER N/A',kind:'unknown',detail:'Power · Detect GPIO 未配置'},
+  off:{label:'POWER OFF',kind:'bad',detail:'Power · 3V3AUX OFF · PCIe 12V OFF'},
+  standby:{label:'POWER STANDBY',kind:'warn',detail:'Power · 3V3AUX ON · PCIe 12V OFF'},
+  on:{label:'POWER ON',kind:'ok',detail:'Power · 3V3AUX ON · PCIe 12V ON'}
+};
+function applyPowerState(name){const state=powerStates[name]||powerStates.unknown;document.querySelectorAll('.power-segment').forEach(button=>button.classList.toggle('active',button.dataset.powerState===name));topPower.textContent=state.label;topPower.className=`pill ${state.kind}`;powerStateDetail.textContent=state.detail}
+document.querySelectorAll('.power-segment').forEach(button=>button.addEventListener('click',()=>applyPowerState(button.dataset.powerState)));
+applyPowerState('unknown');
+refreshDemo.addEventListener('click',()=>showToast('状态已刷新 · 刚刚'));
+showDiagnostics.addEventListener('click',()=>{diagnostics.open=true;diagnostics.scrollIntoView({behavior:'smooth',block:'center'})});
+
+toggleControls.addEventListener('click',()=>{const hidden=kvmSidebar.style.display==='none';kvmSidebar.style.display=hidden?'block':'none';document.querySelector('.workspace').style.gridTemplateColumns=hidden?'minmax(0,1fr) 300px':'1fr';toggleControls.textContent=hidden?'隐藏控制栏':'显示控制栏'});
+fakeFullscreen.addEventListener('click',()=>showToast('Demo：正式版这里进入浏览器全屏'));
+powerAction.addEventListener('click',()=>showToast('Power 操作需要二次确认'));
+resetAction.addEventListener('click',()=>showToast('Reset 已拦截：需要确认目标主机'));
+
+const channelStateEl=document.getElementById('channelState');
+const terminalOutputEl=document.getElementById('terminalOutput');
+const terminalScreenEl=document.getElementById('terminalScreen');
+const terminalCommandEl=document.getElementById('terminalCommand');
+const terminalTargetEl=document.getElementById('terminalTarget');
+const terminalMetaEl=document.getElementById('terminalMeta');
+const terminalPromptLabelEl=document.getElementById('terminalPromptLabel');
+const terminalSshConfigEl=document.getElementById('terminalSshConfig');
+const terminalUartConfigEl=document.getElementById('terminalUartConfig');
+const terminalSafetyCopyEl=document.getElementById('terminalSafetyCopy');
+const channelMetricLabelEl=document.getElementById('channelMetricLabel');
+const channelMetricValueEl=document.getElementById('channelMetricValue');
+const sessionKindLabelEl=document.getElementById('sessionKindLabel');
+const sessionKindValueEl=document.getElementById('sessionKindValue');
+const credentialNoteEl=document.getElementById('credentialNote');
+let activeChannel='ssh';
+const channelConnected={ssh:true,uart:false};
+function terminalTime(){return new Date().toLocaleTimeString('zh-CN',{hour12:false})}
+function addTerminalLine(kind,text,local=true){const row=document.createElement('div');row.className='term-line';const time=document.createElement('span');time.className='term-time';time.textContent=terminalTime();const body=document.createElement('span');body.className=kind||'';body.textContent=`${local?'[local] ':''}${text}`;row.append(time,body);terminalOutputEl.appendChild(row);terminalScreenEl.scrollTop=terminalScreenEl.scrollHeight}
+function renderChannel(){const connected=channelConnected[activeChannel];const uart=activeChannel==='uart';document.querySelectorAll('.channel-button').forEach(button=>button.classList.toggle('active',button.dataset.channel===activeChannel));terminalSshConfigEl.classList.toggle('hidden',uart);terminalUartConfigEl.classList.toggle('hidden',!uart);terminalTargetEl.textContent=uart?`${uartPort.value} @ ${uartBaud.value}`:`${sshUser.value}@${sshHost.value}:${sshPort.value}`;terminalMetaEl.textContent=uart?'设备侧 UART bridge · 8N1 · raw console':'设备侧 SSH PTY · stored key · 120×32';terminalPromptLabelEl.textContent=uart?'uart>':'operator@desk-node:~$';channelStateEl.textContent=connected?'CONNECTED':(uart?'STANDBY':'DISCONNECTED');channelStateEl.className=`pill ${connected?'ok':uart?'warn':'bad'}`;disconnectTerminal.textContent=connected?'Disconnect':'Disconnected';disconnectTerminal.disabled=!connected;channelMetricLabelEl.textContent=uart?'RX / TX':'Latency';channelMetricValueEl.textContent=uart?'0 / 0 B':'7 ms';sessionKindLabelEl.textContent=uart?'Serial':'PTY';sessionKindValueEl.textContent=uart?'8N1':'120×32';credentialNoteEl.textContent=uart?'串口数据只在设备本地转发':'Private key 保存在设备本地';terminalSafetyCopyEl.textContent=uart?'UART 数据由设备直接桥接，不经过模型 API；Agent 访问串口时仍受工具策略约束。':'终端命令由设备直接发往目标主机，不经过模型 API。Agent 使用 SSH 时仍受工具策略约束。'}
+document.querySelectorAll('.channel-button').forEach(button=>button.addEventListener('click',()=>{activeChannel=button.dataset.channel;renderChannel();addTerminalLine('term-info',`switched to ${activeChannel.toUpperCase()} channel`)}));
+terminalForm.addEventListener('submit',event=>{event.preventDefault();const command=terminalCommandEl.value.trim();if(!command)return;if(!channelConnected[activeChannel]){showToast(`请先连接 ${activeChannel.toUpperCase()}`);return}addTerminalLine('term-command',command,false);terminalCommandEl.value='';setTimeout(()=>addTerminalLine('term-info',activeChannel==='uart'?'uart response · ok':'demo output · command completed · exit 0'),180)});
+quickCheck.addEventListener('click',()=>{if(!channelConnected[activeChannel]){showToast(`请先连接 ${activeChannel.toUpperCase()}`);return}const uart=activeChannel==='uart';addTerminalLine('term-command',uart?'status':'uptime && df -h / && free -h',false);setTimeout(()=>{addTerminalLine('term-ok',uart?'uart healthy · baud 115200 · framing errors 0':'quick check passed · load 0.08 · disk 38% · memory 41%');showToast('Quick check 完成')},220)});
+clearTerminal.addEventListener('click',()=>{terminalOutputEl.innerHTML='';addTerminalLine('term-info','Terminal cleared')});
+disconnectTerminal.addEventListener('click',()=>{channelConnected[activeChannel]=false;renderChannel();addTerminalLine('term-warn',`${activeChannel.toUpperCase()} session disconnected`);showToast(`${activeChannel.toUpperCase()} 已断开`)});
+connectTerminal.addEventListener('click',()=>{channelConnected.ssh=true;activeChannel='ssh';renderChannel();addTerminalLine('term-ok',`Connected to ${sshUser.value}@${sshHost.value}:${sshPort.value}`);showToast('SSH 已连接')});
+connectUart.addEventListener('click',()=>{channelConnected.uart=true;activeChannel='uart';renderChannel();addTerminalLine('term-ok',`UART opened · ${uartPort.value} · ${uartBaud.value} baud · 8N1`);showToast('UART 已打开')});
+renderChannel();
+
+function sendAgentMessage(){const value=agentPrompt.value.trim();if(!value)return;const user=document.createElement('div');user.className='message user';user.innerHTML='<div class="message-meta">你</div>';user.append(document.createTextNode(value));chatLog.appendChild(user);agentPrompt.value='';const reply=document.createElement('div');reply.className='message agent';reply.innerHTML='<div class="message-meta">ExoAnchor Agent</div>收到。这个 Demo 默认保持 dry-run；我会先观察并解释，再请求你确认任何控制动作。';setTimeout(()=>{chatLog.appendChild(reply);chatLog.scrollTop=chatLog.scrollHeight},350);chatLog.scrollTop=chatLog.scrollHeight}
+sendAgent.addEventListener('click',sendAgentMessage);agentPrompt.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key==='Enter')sendAgentMessage()});
+
+const settingsCopy={
+  'settings-overview':['设置概览','一次只处理一个分类，概览页不直接编辑底层参数。'],
+  'settings-hardware':['硬件与 GPIO','管理设备身份、固定功能脚和电源接线。'],
+  'settings-control':['控制接入','集中配置 SSH、MCP 和控制租约。'],
+  'settings-agent':['Agent 与模型','管理模型 Profile、运行权限和工具策略。'],
+  'settings-maintenance':['固件与维护','升级、重启和恢复操作集中在独立危险区。']
+};
+document.querySelectorAll('.settings-nav-button').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.settings-nav-button').forEach(item=>item.classList.toggle('active',item===button));document.querySelectorAll('.settings-view').forEach(view=>view.classList.toggle('active',view.id===button.dataset.settings));settingsTitle.textContent=settingsCopy[button.dataset.settings][0];settingsLead.textContent=settingsCopy[button.dataset.settings][1];document.querySelector('.settings-main').scrollTo?.({top:0,behavior:'smooth'})}));
+let dirty=0;document.querySelectorAll('.dirty-field').forEach(field=>field.addEventListener('change',()=>{dirty+=1;dirtyCount.textContent=`${dirty} 项修改未保存`;saveBanner.classList.add('show')}));
+saveSettings.addEventListener('click',()=>{if(!dirty){showToast('没有待保存的修改');return}dirty=0;saveBanner.classList.remove('show');showToast('Demo：设置已保存')});
+</script>
+</body>
+</html>

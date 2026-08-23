@@ -4,9 +4,14 @@ import threading
 import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
-from exoanchor_mcp.server import ExoAnchorClient, ExoAnchorConfig, ToolRuntime
+from exoanchor_mcp.server import (
+    MCP_TOOL_POLICY_MAP,
+    ExoAnchorClient,
+    ExoAnchorConfig,
+    ToolRuntime,
+)
 
 
 def test_jpeg(width=320, height=200):
@@ -21,6 +26,7 @@ def test_jpeg(width=320, height=200):
 class ReplayState:
     def __init__(self):
         self.posts = []
+        self.gets = []
         self.jpeg = test_jpeg()
 
 
@@ -39,10 +45,37 @@ class ReplayHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        self.state.gets.append((
+            self.path,
+            self.headers.get("X-ExoAnchor-Client"),
+        ))
+        if path == "/api/system/logs-invalid":
+            body = b'{"logs":[{"message":"bad \x94 byte"}]}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         responses = {
             "/api/settings/mcp": {"enabled": True},
-            "/api/capabilities": {"schema_version": "replay.v1", "video": {"snapshot": True}},
+            "/api/capabilities": {
+                "schema_version": "replay.v2",
+                "video": {"snapshot": True},
+                "agent_tools": {
+                    "schema_version": "exoanchor.agent_tools.v2",
+                    "tools": [
+                        {
+                            "name": name,
+                            "mcp_callable": True,
+                            "mcp_enabled": True,
+                        }
+                        for name in sorted(set(MCP_TOOL_POLICY_MAP.values()))
+                    ],
+                },
+            },
             "/api/status": {"server_uptime": 10},
             "/api/video/status": {
                 "connected": True,
@@ -66,6 +99,19 @@ class ReplayHandler(BaseHTTPRequestHandler):
                 },
             },
             "/api/control/lease": {"active": False, "can_request": True},
+            "/api/uart/status": {
+                "supported": True,
+                "initialized": True,
+                "port": 1,
+                "baud_rate": 115200,
+                "default_baud_rate": 115200,
+                "fallback_baud_rate": 9600,
+                "boot_id": "0123456789abcdef",
+                "uart_generation": 1,
+                "journal_next_cursor": "7",
+                "websocket_connected": False,
+                "last_error": "",
+            },
             "/api/system/info": {"hostname": "replay-device"},
             "/api/system/logs": {
                 "logs": [{"time": "00:00:01", "level": "INFO", "message": "replayed"}]
@@ -78,6 +124,24 @@ class ReplayHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+        if path == "/api/uart/read":
+            query = parse_qs(parsed.query)
+            cursor = query.get("cursor", ["0"])[0]
+            self._json({
+                "bytes": 3,
+                "text": "ok\n",
+                "data": "ok\n",
+                "base64": "b2sK",
+                "empty": False,
+                "boot_id": "0123456789abcdef",
+                "generation": "1",
+                "start_cursor": cursor,
+                "next_cursor": str(int(cursor) + 3),
+                "journal_next_cursor": str(int(cursor) + 3),
+                "pending_bytes": 0,
+                "history_lost": False,
+            })
             return
         if path in responses:
             self._json(responses[path])
@@ -97,6 +161,17 @@ class ReplayHandler(BaseHTTPRequestHandler):
                 "truncated": False,
                 "output": "Linux replay\n",
             })
+            return
+        if path == "/api/uart/write":
+            self._json({
+                "ok": True,
+                "bytes_written": len(body.get("data", "")) + (
+                    1 if body.get("append_newline") else 0
+                ),
+            })
+            return
+        if path == "/api/uart/baud":
+            self._json({"ok": True, "baud_rate": body["baud_rate"]})
             return
         if path in {"/api/control/lease", "/api/hid/actions"}:
             self._json({"ok": True, "request": body})
@@ -172,6 +247,54 @@ class HttpIntegrationTests(unittest.TestCase):
         result = self.runtime.call("exoanchor_ssh_job_result", {"job_id": job_id})["text"]
         self.assertEqual(result["output"], "Linux replay\n")
         self.assertTrue(result["output_complete"])
+
+    def test_invalid_utf8_json_from_older_firmware_remains_diagnosable(self):
+        payload = self.runtime.client.get_json("/api/system/logs-invalid")
+        self.assertEqual(payload["logs"][0]["message"], "bad \ufffd byte")
+
+    def test_uart_cursor_write_and_baud_over_real_http_transport(self):
+        status = self.runtime.call("exoanchor_uart_status", {})["text"]
+        self.assertEqual(status["data"]["journal_next_cursor"], "7")
+        read = self.runtime.call(
+            "exoanchor_uart_read",
+            {"cursor": "7", "max_bytes": 128},
+        )["text"]
+        self.assertEqual(read["data"]["next_cursor"], "10")
+
+        write = self.runtime.call(
+            "exoanchor_uart_write",
+            {"data": "whoami", "append_enter": True, "wait_ms": 0},
+        )["text"]
+        self.assertTrue(write["ok"])
+        self.assertEqual(self.state.posts[-3:], [
+            (
+                "/api/control/lease",
+                {
+                    "owner": "mcp",
+                    "active": True,
+                    "mode": "supervised",
+                    "reason": "mcp uart_write",
+                },
+            ),
+            (
+                "/api/uart/write",
+                {"data": "whoami", "append_newline": True},
+            ),
+            (
+                "/api/control/lease",
+                {"owner": "mcp", "active": False},
+            ),
+        ])
+        self.assertIn(
+            ("/api/uart/read?cursor=7&max_bytes=1024", "exoanchor-mcp"),
+            self.state.gets,
+        )
+
+        baud = self.runtime.call(
+            "exoanchor_uart_baud", {"baud_rate": 9600}
+        )["text"]
+        self.assertTrue(baud["ok"])
+        self.assertEqual(self.state.posts[-2][0], "/api/uart/baud")
 
 
 if __name__ == "__main__":

@@ -146,9 +146,10 @@ def condition_value(status: JSON, condition: str) -> bool:
         "mcp_enabled": mcp.get("enabled") is not False,
         "video_connected": video.get("connected") is True,
         "video_disconnected": video.get("connected") is False,
-        "hid_ready": hid.get("ready") is True or (
-            hid.get("initialized") is True and hid.get("connected") is True
-        ),
+        # Firmware ready is the authoritative, fail-closed command path.
+        # initialized/connected are useful diagnostics but must never override
+        # an explicit ready=false observation.
+        "hid_ready": hid.get("ready") is True,
         "power_on": (
             power.get("power_on") is True
             or power.get("on") is True

@@ -1,0 +1,1497 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor Settings</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{color-scheme:dark;--bg:#101114;--top:#15171b;--rail:#171a1f;--panel:#1b1e24;--panel2:#232730;--line:#343a45;--line2:#252a32;--text:#eef2f6;--muted:#98a2ae;--soft:#cbd3de;--green:#2dd4bf;--red:#f87171;--yellow:#f6bd4b;--blue:#8ab4ff;--target-accent:var(--blue);--space-1:6px;--space-2:10px;--space-3:14px;--space-4:18px;--space-5:24px;--space-6:32px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:flex-start;gap:22px;padding:0 22px;background:var(--top);position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:32px;height:32px;border:1px solid #4b5563;border-radius:7px;display:grid;place-items:center;font-weight:850;background:#222731;flex:0 0 auto}
+.title{font-weight:700;white-space:nowrap}
+.sub{font-size:12px;color:var(--muted);margin-top:-2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.nav{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.nav a,.nav button{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}
+.nav a.active,.nav a:hover,.nav button:hover{background:var(--panel2);color:var(--text)}
+.nav button{border:0;background:transparent;font:inherit;cursor:pointer}
+#logoutNav:hover{background:#3a171b;color:#fecaca;box-shadow:inset 0 0 0 1px #7f2d2d}
+.version-pill{color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:7px 0}
+.status-strip{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-left:auto}
+.data-state{font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:6px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
+.data-state.ok{color:var(--green);border-color:#1f766d}
+.data-state.bad{color:var(--red);border-color:#7f2d2d}
+.data-state.warn{color:var(--yellow);border-color:#7c5d16}
+.wrap{max-width:1460px;margin:0 auto;display:grid;grid-template-columns:232px minmax(0,1fr);gap:0;min-height:calc(100vh - 58px);align-items:start}
+.settings-content{grid-column:2;min-width:0;padding:22px}
+.settings-menu{position:sticky;top:58px;height:calc(100vh - 58px);overflow:auto;z-index:1;grid-column:1;display:flex;flex-direction:column;gap:5px;margin:0;padding:16px 12px;background:var(--rail);border-right:1px solid var(--line)}
+.settings-menu h1{font-size:18px;margin:0 0 10px;color:var(--text)}
+.settings-menu-group{display:flex;align-items:center;gap:8px;padding:14px 10px 6px;color:#cbd3dd;font-size:14px;line-height:1.2;font-weight:800;letter-spacing:0;text-transform:none;white-space:nowrap}.settings-menu-group:before{content:"";width:8px;height:8px;flex:0 0 auto;border-radius:50%;background:var(--muted)}.settings-menu-group[data-scope="target"]:before{background:var(--blue,#8ab8ff)}.settings-menu-group[data-scope="device"]:before{background:var(--green)}
+.settings-menu a{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;color:var(--muted);text-decoration:none;border:1px solid transparent;background:transparent;border-radius:7px;padding:10px 10px;font-weight:650}
+.settings-menu a b{grid-column:1;grid-row:1;font-weight:720}
+.settings-menu a small{grid-column:1/-1;grid-row:2;color:var(--muted);font-weight:400;line-height:1.35}
+.settings-menu a:after{content:"";grid-column:2;grid-row:1;align-self:center;justify-self:end;width:9px;height:9px;border-radius:50%;background:var(--green)}
+.settings-menu a:hover,.settings-menu a.active{color:var(--text);border-color:var(--line);background:#20242b}
+.settings-menu a.active:after{background:var(--green)}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}
+.page-head h1{font-size:22px;line-height:1.15;margin:0}
+.page-head p{margin:6px 0 0;color:var(--muted);max-width:760px}
+.anchor-target{scroll-margin-top:94px}
+.section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;font-size:17px;color:var(--text);font-weight:760;text-transform:none;letter-spacing:0;margin:32px 0 6px;padding-top:28px;border-top:1px solid var(--line)}
+.section-title:first-of-type{margin-top:0;border-top:0;padding-top:0}
+.section-lead{margin:0 0 18px;color:var(--muted);max-width:760px;line-height:1.5}
+.advanced-title{margin:28px 0 0;padding:18px 0 0;border-top:1px solid var(--line);color:#d7dce3;font-weight:800}
+.grid{display:grid;gap:16px}
+.overview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.account-grid,.hardware-grid,.storage-grid,.kvm-grid,.control-grid,.agent-grid,.firmware-grid,.diagnostic-grid{grid-template-columns:minmax(0,1fr)}
+.settings-subsection-title{display:flex;align-items:center;gap:10px;margin:24px 0 8px;padding-top:22px;border-top:1px solid var(--line);color:#dfe5ec;font-size:16px;font-weight:760}.settings-subsection-title.first{margin-top:0;padding-top:0;border-top:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;min-width:0}
+.overview-card{display:flex;flex-direction:column;gap:10px}
+.overview-card .rows{margin-top:auto}
+.full-span{grid-column:1/-1}
+.card h2{font-size:14px;line-height:1.35;margin:0;color:#dfe5ec}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.card-head h2{margin:0}
+.card-note{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 16px}.card>h2+.card-note{margin-top:6px}.card>.ui-setting-row+.ui-setting-row{margin-top:8px}
+.form-block{min-width:0;margin-top:14px}
+.rows{display:grid;gap:9px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:10px 11px;background:var(--panel2);border:1px solid var(--line2);border-radius:7px;min-width:0}
+.row b{font-weight:600;color:#e5e9ef}
+.row span:last-child{text-align:right;word-break:break-word;color:var(--soft)}
+.diagnostic-row b{display:flex;align-items:center;gap:8px}.diagnostic-dot{width:8px;height:8px;flex:0 0 auto;border-radius:50%;background:var(--red)}.diagnostic-dot.ok{background:var(--green)}.diagnostic-dot.idle{background:var(--muted)}
+.diagnostic-log{height:280px;overflow:auto;border:1px solid var(--line2);border-radius:8px;background:#0c0e12;padding:9px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.diagnostic-log>div{display:grid;grid-template-columns:66px 58px minmax(0,1fr);gap:8px;padding:5px 3px;border-bottom:1px solid #1d222a}.diagnostic-log>div:last-child{border-bottom:0}.diagnostic-log span:last-child{overflow-wrap:anywhere;color:#dbe2ea}.card-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.card-head-actions button{padding:8px 10px}
+.tool-table{display:grid;gap:8px}
+.tool-row{display:grid;grid-template-columns:minmax(145px,.8fr) 82px 92px 92px minmax(170px,1.4fr);gap:8px;align-items:center;padding:10px 0;background:transparent;border:0;border-bottom:1px solid var(--line2);border-radius:0;min-width:0}
+.tool-row:last-child{border-bottom:0}
+.tool-row b{display:block;color:#e5e9ef;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tool-row small{display:block;color:var(--muted);font:11px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tool-row span{min-width:0;word-break:break-word}
+.tool-row .data-state{text-align:center;justify-self:start}
+.tool-access-head,.tool-policy-row{display:grid;grid-template-columns:minmax(210px,1.35fr) 128px 96px 126px 104px;gap:10px;align-items:center}
+.tool-access-head{padding:0 0 8px;border-bottom:1px solid var(--line);color:var(--muted);font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}
+.tool-policy-row{padding:12px 0}
+.tool-policy-row .tool-copy b{white-space:normal}
+.tool-policy-row .tool-copy small{white-space:normal;overflow:visible}
+.tool-access-switch{justify-self:start;gap:7px;min-width:0}
+.tool-access-switch .ui-switch-state{min-width:18px}
+.tool-access-switch.is-unmapped{color:var(--muted)}
+.tool-policy-row select{width:100%;border:1px solid var(--line);background:#0e1014;color:var(--text);border-radius:6px;padding:8px 9px;font:12px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;min-width:0}
+.tool-json{min-height:190px!important;font-size:12px!important}
+.mapping-head{color:var(--muted);font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}
+.mapping-head span{color:var(--muted)!important;text-align:left!important}
+.mapping-row{grid-template-columns:minmax(145px,1fr) minmax(100px,.7fr) minmax(100px,.7fr) 82px minmax(170px,1.2fr)}
+.gpio-matrix-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:4px 0 12px}
+.gpio-matrix-summary{color:var(--soft);font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+.gpio-matrix-legend{display:flex;gap:13px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:11px}
+.gpio-matrix-legend span{display:inline-flex;align-items:center;gap:6px}.gpio-matrix-legend i{width:7px;height:7px;border-radius:2px;background:#59616d}.gpio-matrix-legend .fixed{background:#60a5fa}.gpio-matrix-legend .runtime{background:#2dd4bf}
+.gpio-matrix-grid{display:grid;grid-template-columns:repeat(5,minmax(125px,1fr));gap:7px}
+.gpio-pin{min-height:86px;padding:9px 10px;border:1px solid var(--line2);border-radius:7px;background:#0d0f13;min-width:0}
+.gpio-pin.unassigned{background:#0b0d10;border-style:dashed}
+.gpio-pin-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}
+.gpio-pin-head b{font:700 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e5e9ef}.gpio-pin-head small{font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}
+.gpio-signal{display:block;padding-left:7px;border-left:2px solid #60a5fa;margin-top:6px;min-width:0}.gpio-signal.runtime{border-left-color:#2dd4bf}.gpio-signal b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dbe4ef;font-size:11px}.gpio-signal small{display:block;color:var(--muted);font:9px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}
+.gpio-empty{color:#4f5661;font:10px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}
+.gpio-config{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}.gpio-config summary{cursor:pointer;color:#e5e9ef;font-weight:650}.gpio-config-note{color:var(--muted);font-size:12px;margin:7px 0 10px}
+.gpio-map-group+.gpio-map-group{margin-top:16px;padding-top:14px;border-top:1px solid var(--line2)}.gpio-map-group-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}.gpio-map-group-head h3{margin:0;color:#e5e9ef;font-size:14px}.gpio-map-group-head small{max-width:620px;color:var(--muted);font-size:11px;line-height:1.45;text-align:right}
+.gpio-edit{display:grid;gap:8px;margin-top:10px}
+.gpio-edit-row{display:grid;grid-template-columns:minmax(150px,1fr) 88px 116px minmax(92px,.7fr);gap:8px;align-items:center;padding:9px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;min-width:0}
+.gpio-edit-row b{display:block;font-weight:650;color:#e5e9ef}
+.gpio-edit-row small{display:block;color:var(--muted);font:11px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:2px}
+.gpio-edit-row .gpio-num{width:100%;border:1px solid var(--line);background:#0e1014;color:var(--text);border-radius:6px;padding:8px 9px;font:14px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.gpio-edit-row .gpio-num.gpio-conflict{border-color:var(--red);color:var(--red)}
+.inline-check{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;white-space:nowrap}
+.inline-check input{width:16px;height:16px;accent-color:var(--green)}
+.gpio-state{text-align:right;color:#dbe1e8;font:12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word}
+.field{display:grid;gap:6px;margin-bottom:12px;min-width:0}
+.field label,.checkline{color:var(--muted);font-size:12px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#0d0f13;color:var(--text);border-radius:7px;padding:10px 11px;font:14px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;min-width:0}
+.field textarea{min-height:108px;resize:vertical;line-height:1.45;white-space:pre-wrap}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid rgba(138,180,255,.32);border-color:#547db8}
+.checkline{display:flex;align-items:center;gap:8px;margin:2px 0 12px}
+.checkline input{width:16px;height:16px;accent-color:var(--green)}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{border:1px solid var(--line);background:#262b34;color:var(--text);border-radius:7px;padding:10px 12px;cursor:pointer;font-weight:720}
+button:hover{border-color:#5b6370;background:#2c323d}
+button:disabled{opacity:.48;cursor:not-allowed}
+button.primary{border-color:#1f766d;background:#17302f;color:var(--green)}
+button.danger{border-color:#7f2d2d;color:#fecaca}
+.button-link{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#242832;color:var(--text);border-radius:6px;padding:10px 12px;text-decoration:none;font-weight:650;line-height:1}
+.button-link:hover{border-color:#59606d;background:#2a303b}
+.button-link.primary{border-color:#1f766d;background:#17302f;color:var(--green)}
+.editor{border:1px solid var(--line2);background:#16191e;border-radius:8px;margin-top:12px}
+.editor summary{cursor:pointer;padding:11px 12px;font-weight:720;color:var(--soft)}
+.editor>div,.editor>form{border-top:1px solid var(--line2);padding:12px;margin-top:0}
+.danger-zone{border-color:#7f2d2d;background:#201719}
+.danger-zone .card-head h2{color:#fecaca}
+.switch-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;border:1px solid var(--line2);background:var(--panel2);border-radius:7px;padding:11px;margin-bottom:12px}
+.switch-row .checkline{margin:0;font-size:14px;color:var(--text);font-weight:700}
+.switch-row small{display:block;color:var(--muted);font-weight:400;margin-top:2px}
+.progress{height:8px;background:#0e1014;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:10px}
+.bar{height:100%;width:0;background:var(--green);transition:width .16s ease}
+.storage-preview{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px}
+.storage-meter{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:12px;min-width:0}
+.storage-meter b{display:block;color:#e5e9ef;margin-bottom:4px}
+.storage-meter span{display:block;color:var(--muted);font-size:12px;word-break:break-word}
+.storage-meter .progress{margin-top:9px}
+.path-chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.path-chips button{padding:7px 9px;font-size:12px}
+.path-line{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#0e1014;border:1px solid var(--line);border-radius:7px;padding:9px 10px;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--soft);margin-bottom:10px;text-transform:none}
+.path-line span,.path-chips button,.file-row{letter-spacing:0;text-transform:none}
+.file-list{display:grid;gap:6px;max-height:360px;overflow:auto;border:1px solid var(--line2);border-radius:8px;padding:8px;background:#111318}
+.file-row{display:grid;grid-template-columns:minmax(0,1fr) 82px 96px 142px;gap:10px;align-items:center;text-align:left;width:100%;border:1px solid transparent;background:#191d24;border-radius:7px;padding:9px 10px;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--soft)}
+.file-row:hover{border-color:#3f4652;background:#202530}
+.file-row.file:hover{border-color:#3f4652;background:#202530}
+.file-row .file-name{font-weight:750;color:#eef2f6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-row .file-type{color:var(--muted)}
+.file-row .file-size{text-align:right;color:#cbd3de}
+.file-row .file-actions{display:flex;justify-content:flex-end;gap:6px}
+.file-row .mini-btn{padding:6px 8px;border-radius:6px;font-size:12px;line-height:1}
+.file-open{border:0;background:transparent;color:#eef2f6;padding:0;text-align:left;font:inherit;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-open:hover{background:transparent;color:var(--green);border-color:transparent}
+.file-preview{max-height:360px;overflow:auto;background:#0c0e12;border:1px solid var(--line);border-radius:7px;padding:12px;margin:0;color:#e5e9ef;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}
+.msg{min-height:20px;margin-top:10px;color:var(--muted)}
+.msg.ok{color:var(--green)}
+.msg.bad{color:var(--red)}
+.msg.warn{color:var(--yellow)}
+.modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,6,8,.72);z-index:20;padding:18px}
+.modal.show{display:grid}
+.dialog{width:min(430px,100%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45)}
+.dialog h2{font-size:16px;margin:0 0 6px}
+.dialog p{margin:0 0 14px;color:var(--muted)}
+.settings-page{display:block}
+.settings-page-head{margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.settings-page-head h2{margin:0;font-size:22px;letter-spacing:-.02em}
+.settings-page-head p{margin:5px 0 0;color:var(--muted);max-width:760px}
+.advanced-panel{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.advanced-panel>.section-title{font-size:17px;color:#d7dce3}
+.advanced-eyebrow{display:block;margin-bottom:4px;color:var(--yellow);font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.06em}
+.browser-preference-note{margin-top:9px;color:var(--green);font-size:12px;min-height:18px}
+.legacy-control{display:none!important}
+@media(max-width:1040px){.overview-grid,.account-grid,.hardware-grid,.storage-grid,.kvm-grid,.control-grid,.agent-grid,.firmware-grid,.diagnostic-grid,.storage-preview{grid-template-columns:1fr}.gpio-matrix-grid{grid-template-columns:repeat(3,minmax(120px,1fr))}.gpio-edit-row{grid-template-columns:1fr 78px}.tool-row,.tool-policy-row,.file-row{grid-template-columns:1fr}.tool-access-head{display:none}.tool-policy-row{gap:8px}.tool-policy-row select{max-width:260px}.file-row .file-size{text-align:left}.file-row .file-actions{justify-content:flex-start}.gpio-state{text-align:left}.top{height:auto;align-items:flex-start;gap:12px;padding:14px;flex-direction:column}.status-strip{justify-content:flex-start;margin-left:0}.wrap{display:block}.settings-content{grid-column:auto;padding:14px}.settings-menu{position:sticky;top:0;height:auto;display:flex;flex-direction:row;overflow:auto;margin:0;border-right:0;border-bottom:1px solid var(--line)}.settings-menu h1{display:none}.settings-menu-group{flex:0 0 auto;padding:10px 7px}.settings-menu a{white-space:nowrap;min-width:145px}.sub{max-width:260px}.page-head{flex-direction:column}.diagnostic-log>div{grid-template-columns:58px 48px minmax(0,1fr)}}
+@media(max-width:640px){.gpio-matrix-head{display:grid}.gpio-matrix-grid{grid-template-columns:repeat(2,minmax(118px,1fr))}}
+/* Control Center settings */
+:root{--bg:#0b0d10;--top:#111419;--rail:#101319;--panel:#15191f;--panel2:#1b2028;--line:#2b333e;--line2:#222832;--text:#f4f7fa;--muted:#8d98a7;--soft:#cbd3dd;--green:#54d6bd;--red:#ff7b7f;--yellow:#f2be63}
+.top{height:64px;padding:0 20px;gap:18px;background:rgba(17,20,25,.95);backdrop-filter:blur(18px)}.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(145deg,#252c36,#171b21)}.nav{gap:5px;overflow:auto;scrollbar-width:none}.nav a,.nav button{padding:8px 11px;border-radius:8px;font-weight:650;white-space:nowrap}.version-pill{display:none}.data-state{display:inline-flex;align-items:center;gap:6px;min-height:27px;padding:5px 9px;border-color:#3b4654;font-weight:700}.data-state:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.data-state.ok{color:var(--green);border-color:#24675d;background:#102c296b}.data-state.warn{color:var(--yellow);border-color:#705720;background:#3226106b}.data-state.bad{color:var(--red);border-color:#78383d;background:#35181c6b}.data-state.unknown{color:#7f8996;border-color:#424b57;background:#33394252}.wrap{max-width:none;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 64px)}.settings-menu{top:64px;height:calc(100vh - 64px);padding:18px 12px}.settings-menu a{border-radius:8px}.settings-menu a:hover,.settings-menu a.active{background:var(--panel2)}.settings-content{padding:24px}.page-head{width:min(960px,100%);margin:0 auto 22px;padding-bottom:18px;border-bottom:1px solid var(--line)}.page-head h1{font-size:26px;letter-spacing:-.025em}.settings-content>[data-settings-section]{width:min(960px,100%);margin-left:auto;margin-right:auto}.settings-hidden{display:none!important}.section-title{margin:0 0 6px;padding:0;border:0;font-size:22px;letter-spacing:-.02em}.settings-page>.section-title:not(:first-child),#advancedSettings>.section-title:not(:first-child){margin-top:32px;padding-top:28px;border-top:1px solid var(--line)}.section-lead{margin:0 0 18px;line-height:1.5}.card{border-radius:11px;padding:18px}.row,.field input,.field select,.field textarea,button,.button-link,.editor,.switch-row,.storage-meter,.file-list{border-radius:8px}.danger-zone{background:#27171a}.overview-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:1040px){.top{height:auto}.nav{width:100%}.wrap{display:block}.settings-menu{position:sticky;top:0;height:auto;padding:8px;z-index:4}.settings-content{padding:16px}.settings-menu a{min-width:155px}.settings-menu a small{display:none}.overview-grid{grid-template-columns:1fr}.page-head{margin-bottom:18px}}
+.settings-field-dirty{border-color:var(--yellow)!important;box-shadow:0 0 0 1px rgba(242,190,99,.16)}.settings-group-dirty>.actions .primary,.settings-group-dirty .actions .primary{border-color:#705720}
+.stable-profile .agent-only{display:none!important}.stable-profile .tool-access-head,.stable-profile .tool-policy-row{grid-template-columns:minmax(210px,1.35fr) 96px 126px 104px}.stable-profile .tool-access-head span:nth-child(2),.stable-profile .tool-policy-row .tool-copy+.tool-access-switch{display:none}.stable-profile #openAgentFromSkills,.stable-profile .developer-details{display:none}
+.settings-menu a[data-scope="target"]:after{background:var(--target-accent)!important}
+.settings-menu a[data-scope="device"]:after{background:var(--green)!important}
+.settings-menu a[data-scope="target"].active:after{box-shadow:0 0 0 4px rgba(138,180,255,.14)}
+.settings-content [data-settings-section="target-info"] button.primary,.settings-content [data-settings-section="target"] button.primary{border-color:#547db8;background:#17253a;color:var(--target-accent)}
+/* Unified settings component rhythm */
+.section-title{margin-bottom:var(--space-1)}
+.section-lead{margin-bottom:var(--space-4)}
+.settings-page>.section-title[data-settings-level="subsection"],#advancedSettings>.section-title[data-settings-level="subsection"]{margin:var(--space-5) 0 var(--space-2);padding-top:var(--space-5);border-top:1px solid var(--line);font-size:16px;letter-spacing:0}
+.settings-page>.section-title[data-settings-level="subsection"][data-settings-first],#advancedSettings>.section-title[data-settings-level="subsection"][data-settings-first]{margin-top:0;padding-top:0;border-top:0}
+.settings-subsection-title{margin:var(--space-5) 0 var(--space-2);padding-top:var(--space-5)}
+.settings-subsection-title.first{margin-top:0;padding-top:0;border-top:0}
+.settings-page>.section-title+.grid,.settings-content>.section-title+.grid{margin-top:var(--space-2)}
+.grid{gap:var(--space-4)}
+.card{padding:var(--space-4)}
+.card-head{margin:0 0 var(--space-1)}
+.card-head+:not(.card-note){margin-top:var(--space-2)}
+.card-note{margin:0 0 var(--space-4)}
+.form-block{margin-top:var(--space-4)}
+.field{gap:var(--space-1);margin-bottom:var(--space-3)}
+.field small,.ui-setting-copy small{color:var(--muted);font-size:12px;line-height:1.5}
+.card>.ui-setting-row+.ui-setting-row{margin-top:var(--space-2)}
+.card>.ui-setting-row+.field,.card>.field+.ui-setting-row,.card>.rows+.ui-setting-row{margin-top:var(--space-3)}
+.actions{gap:var(--space-2);margin-top:var(--space-4)}
+.editor{margin-top:var(--space-3)}
+.msg{min-height:0;margin-top:var(--space-2)}
+.msg:empty,.browser-preference-note:empty{display:none}
+button,.button-link{min-height:38px}
+.card-head-actions button,.card-head-actions .button-link{min-height:34px;padding:7px 10px}
+</style>
+<link rel="stylesheet" href="/assets/ui-core.css">
+<link rel="stylesheet" href="/assets/ui-shell.css">
+<script src="/assets/ui-core.js"></script>
+<script src="/assets/ui-shell.js"></script>
+</head>
+<body>
+<div id="appShell"></div><script>ExoAnchorShell.mount("settings")</script>
+<main class="wrap">
+  <nav class="settings-menu" aria-label="Settings sections">
+    <h1>Settings</h1>
+    <a href="#target-info" data-scope="target"><b>被控端信息</b><small>身份、配置、用途与备注</small></a>
+    <a href="#target" data-scope="target"><b>被控端访问</b><small>Console 与 SSH</small></a>
+    <a href="#device" data-scope="device"><b>设备与网络</b><small>设备、KVM、HID 与诊断</small></a>
+    <a href="#security"><b>账户与安全</b><small>本地账户和会话策略</small></a>
+    <a href="#agent"><b id="automationMenuTitle">集成与权限</b><small id="automationMenuLead">MCP、Agent 与工具授权</small></a>
+    <a href="#system"><b>系统与支持</b><small>远程更新与版本维护</small></a>
+    <a href="#advanced"><b>高级设置</b><small>硬件、存储、诊断与恢复</small></a>
+  </nav>
+
+  <div class="settings-content">
+  <div class="page-head">
+    <div><h1>设置</h1><p>管理设备、访问、安全、集成与系统维护选项。</p></div>
+  </div>
+  <div id="device" class="section-title anchor-target" data-settings-section="device"><span>设备与网络</span></div>
+  <p class="section-lead" data-settings-section="device">管理设备身份、网络、KVM、HID 与诊断。</p>
+  <div class="section-title" data-settings-section="device" data-settings-level="subsection" data-settings-first><span>设备基础</span></div>
+  <section class="grid hardware-grid" data-settings-section="device">
+    <div class="card">
+      <div class="card-head"><h2>设备身份</h2></div>
+      <div class="card-note">显示在页面左上角，用来区分多台 ExoAnchor 设备。</div>
+      <form id="deviceForm" class="form-block">
+        <div class="field"><label for="deviceLabel">设备标注名</label><input id="deviceLabel" type="text" maxlength="48" autocomplete="off" placeholder="例如：机房 KVM-01"></div>
+        <div class="actions"><button class="primary" type="submit">保存设备身份</button></div>
+      </form>
+      <div id="deviceMsg" class="msg"></div>
+    </div>
+    <div id="deviceHardwareCard" class="card full-span">
+      <div class="card-head"><h2>设备硬件方向</h2></div>
+      <div class="card-note">调整当前设备的板级方向配置。变更会立即应用并持久保存；不会触发 PWR、RST 或 Locator LED 动作。</div>
+      <div id="powerResetSwapRow" class="ui-setting-row" hidden><div class="ui-setting-copy"><b>开机 / 重启交换</b><small id="powerResetSwapMeta">正在读取当前映射</small></div><button id="powerResetSwap" type="button">交换</button></div>
+      <div id="settingsLocatorReverseRow" class="ui-setting-row" hidden><div class="ui-setting-copy"><b>Locator LED 方向反转</b><small id="settingsLocatorReverseMeta">反转设置会保存到设备</small></div><label class="ui-switch"><input id="settingsLocatorReverse" type="checkbox" role="switch" aria-label="Reverse Locator LED direction"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div id="deviceHardwareMsg" class="msg"></div>
+      <div id="settingsLocatorMsg" class="msg" hidden></div>
+    </div>
+  </section>
+
+  <div id="networkSettings" class="section-title anchor-target" data-settings-section="device" data-settings-priority="5" data-settings-level="subsection"><span>网络设置</span></div>
+  <p class="section-lead" data-settings-section="device" data-settings-priority="5">控制设备在当前局域网中的发现入口。</p>
+  <section class="grid hardware-grid" data-settings-section="device" data-settings-priority="5">
+    <div id="productFeaturesCard" class="card">
+      <div class="card-head"><h2>局域网发现</h2></div>
+      <div class="card-note">允许 Toolkit 通过 UDP Discovery 或 <code>_exoanchor._tcp</code> mDNS 在同一局域网中找到这台设备。关闭后仍可直接使用已知 IP 访问。</div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许局域网发现</b><small>关闭会同时停止 UDP Discovery 与 _exoanchor._tcp mDNS</small></div><label class="ui-switch"><input id="lanDiscoveryEnabled" type="checkbox" role="switch" aria-label="允许局域网发现"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div id="productFeaturesMsg" class="msg"></div>
+    </div>
+  </section>
+
+  <div id="deviceDiagnostics" class="section-title anchor-target" data-settings-section="device" data-settings-priority="20" data-settings-level="subsection"><span>设备诊断摘要</span></div>
+  <p class="section-lead" data-settings-section="device" data-settings-priority="20">快速查看设备、网络、视频、USB 与 GPIO 的当前状态。</p>
+  <section id="deviceDiagnosticsSummary" class="grid diagnostic-grid" data-settings-section="device" data-settings-priority="20">
+    <div class="card">
+      <div class="card-head"><h2>设备信息</h2></div>
+      <div id="diagnosticDevice" class="rows"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>网络</h2></div>
+      <div class="card-note">当前网络契约只读显示。以太网配置通过设备 UART0 的 <code>network</code> 命令安全应用并确认。</div>
+      <div id="diagnosticNetwork" class="rows"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>视频流</h2></div>
+      <div id="diagnosticVideo" class="rows"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>USB 详情</h2></div>
+      <div id="diagnosticUsb" class="rows"></div>
+    </div>
+    <div class="card full-span">
+      <div class="card-head"><h2>GPIO 状态</h2><div class="card-head-actions"><button id="refreshDeviceDiagnostics" type="button">刷新摘要</button></div></div>
+      <div id="diagnosticGpio" class="rows"></div>
+      <div id="deviceDiagnosticsMsg" class="msg"></div>
+    </div>
+  </section>
+
+  <div id="gpioMatrix" class="section-title anchor-target" data-settings-section="device" data-settings-priority="90" data-settings-level="subsection"><span>只读 GPIO 矩阵</span></div>
+  <p class="section-lead" data-settings-section="device" data-settings-priority="90">查看各 GPIO 当前用途与占用状态。</p>
+  <section class="grid hardware-grid" data-settings-section="device" data-settings-priority="90">
+    <div id="gpioMatrixCard" class="card full-span">
+      <div class="card-head"><h2>当前占用</h2></div>
+      <div class="card-note">展示 GPIO0–54 当前固件和运行配置实际占用的编号 GPIO。未分配仅表示当前固件未使用，不代表该引脚一定可安全外接。</div>
+      <div class="gpio-matrix-head"><div id="gpioMatrixSummary" class="gpio-matrix-summary">正在读取板型引脚占用…</div><div class="gpio-matrix-legend"><span><i class="fixed"></i>板型固定</span><span><i class="runtime"></i>运行映射</span><span><i></i>未分配</span></div></div>
+      <div id="gpioMatrixGrid" class="gpio-matrix-grid" aria-label="GPIO0 到 GPIO54 占用矩阵"></div>
+    </div>
+  </section>
+
+  <section id="advancedSettings" data-settings-section="advanced" data-settings-priority="10">
+  <div id="advanced" class="section-title anchor-target"><span>高级设置</span></div>
+  <p class="section-lead">管理硬件映射、存储、诊断与设备恢复功能。</p>
+  <div id="gpio" class="section-title anchor-target" data-settings-section="advanced" data-settings-priority="50" data-settings-level="subsection" data-settings-first><span>GPIO 映射</span></div>
+  <p class="section-lead" data-settings-section="advanced" data-settings-priority="50">仅在接线或板型变化时修改。错误的引脚或有效电平可能导致电源控制不可用。</p>
+  <section class="grid hardware-grid" data-settings-section="advanced" data-settings-priority="50">
+    <div class="card full-span">
+      <div class="card-head"><h2>GPIO 映射</h2></div>
+      <div class="card-note">配置可热更新的主机控制与状态探测引脚；固定外设引脚不能用于运行映射。</div>
+      <form id="gpioMapForm" class="form-block">
+        <div id="gpioMapRows"></div>
+        <div class="actions"><button class="primary" type="submit">保存 GPIO 映射</button><button id="resetGpioMap" type="button">恢复默认</button></div>
+      </form>
+      <div id="gpioMapMsg" class="msg"></div>
+    </div>
+  </section>
+
+  <div id="storage" class="section-title anchor-target" data-settings-section="advanced" data-settings-priority="30" data-settings-level="subsection"><span>存储与文件管理</span></div>
+  <p class="section-lead" data-settings-section="advanced" data-settings-priority="30">查看内部 Flash、TF 卡和 ExoAnchor 目录。文件浏览和上传属于高级维护操作。</p>
+  <section class="grid storage-grid" data-settings-section="advanced" data-settings-priority="30">
+    <div class="card">
+      <div class="card-head"><h2>空间预览</h2></div>
+      <div class="storage-preview">
+        <div class="storage-meter"><b>Internal Flash</b><span id="storageFlashText">--</span><div class="progress"><div id="storageFlashBar" class="bar"></div></div></div>
+        <div class="storage-meter"><b>TF Card</b><span id="storageTfText">--</span><div class="progress"><div id="storageTfBar" class="bar"></div></div></div>
+      </div>
+      <div class="rows" id="storageRows"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>文件目录</h2></div>
+      <div class="path-chips" id="storageQuickLinks">
+        <button type="button" data-path="">/EA</button>
+        <button type="button" data-path="AGENT">AGENT</button>
+        <button type="button" data-path="ASSETS">ASSETS</button>
+        <button type="button" data-path="LOGS">LOGS</button>
+        <button type="button" data-path="SNAPSHOTS">SNAPSHOTS</button>
+        <button type="button" data-path="MCP">MCP</button>
+        <button type="button" data-path="OTA">OTA</button>
+      </div>
+      <div class="path-line"><span id="storageCurrentPath">/EA</span><button id="storageRefreshDir" type="button">Refresh</button></div>
+      <div id="storageFileList" class="file-list"></div>
+      <div id="storageFileMsg" class="msg"></div>
+    </div>
+    <div class="card full-span">
+      <div class="card-head"><h2>文件上传与日志</h2></div>
+      <div class="card-note">把文件上传到当前目录；点击目录中的文件可查看前几 KB 内容或下载完整文件。</div>
+      <form id="storageUploadForm" class="form-block">
+        <div class="grid storage-grid">
+          <div class="field"><label for="storageUploadFiles">选择文件</label><input id="storageUploadFiles" type="file" multiple></div>
+          <div class="field"><label for="storageUploadName">目标文件名（单文件可选）</label><input id="storageUploadName" autocomplete="off" placeholder="留空使用原文件名"></div>
+        </div>
+        <div class="actions"><button class="primary" type="submit">上传到当前目录</button><button id="downloadSystemLogs" type="button">下载系统日志</button></div>
+        <div class="progress"><div id="storageUploadProgress" class="bar"></div></div>
+        <div id="storageUploadMsg" class="msg"></div>
+      </form>
+      <details id="storagePreviewPanel" class="editor" style="display:none">
+        <summary id="storagePreviewTitle">文件预览</summary>
+        <div><pre id="storagePreviewBody" class="file-preview"></pre></div>
+      </details>
+    </div>
+  </section>
+
+  <div id="diagnostics" class="section-title anchor-target" data-settings-section="advanced" data-settings-priority="20" data-settings-level="subsection"><span>详细日志</span></div>
+  <p class="section-lead" data-settings-section="advanced" data-settings-priority="20">查看、刷新和下载近期系统日志。</p>
+  <section class="grid diagnostic-grid" data-settings-section="advanced" data-settings-priority="20">
+    <div class="card full-span">
+      <div class="card-head"><h2>近期日志</h2><div class="card-head-actions"><button id="refreshDiagnostics" type="button">刷新日志</button><button id="downloadDiagnosticLogs" type="button">下载日志</button></div></div>
+      <div id="diagnosticLogs" class="diagnostic-log"></div>
+      <div id="diagnosticLogsMsg" class="msg"></div>
+    </div>
+  </section>
+
+  </section>
+
+  <div id="security" class="section-title anchor-target" data-settings-section="security"><span>账户与安全</span></div>
+  <p class="section-lead" data-settings-section="security">管理 Web 控制台账户与当前浏览器的会话策略。</p>
+  <section class="grid account-grid" data-settings-section="security">
+    <div class="card">
+      <div class="card-head"><h2>本地账户</h2></div>
+      <div class="card-note">保护 Web 控制台和设备 API，默认凭据必须修改。</div>
+      <div class="rows" id="authRows"></div>
+      <details class="editor"><summary>编辑本地账户</summary>
+      <form id="accountForm">
+        <div class="field"><label for="currentPassword">当前密码</label><input id="currentPassword" type="password" autocomplete="current-password"></div>
+        <div class="field"><label for="accountUsername">新用户名</label><input id="accountUsername" type="text" autocomplete="username" maxlength="32"></div>
+        <div class="field"><label for="newPassword">新密码</label><input id="newPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
+        <div class="field"><label for="confirmPassword">确认新密码</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
+        <div class="actions"><button class="primary" type="submit">保存账户</button></div>
+        <div id="accountMsg" class="msg"></div>
+      </form>
+      </details>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>会话</h2></div>
+      <div class="card-note">控制浏览器空闲后是否自动退出本地会话。</div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>自动退出</b><small>浏览器空闲后重新认证</small></div><label class="ui-switch"><input id="autoLogoutEnabled" type="checkbox" role="switch" aria-label="自动退出"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div class="field"><label for="autoLogoutMinutes">空闲时间（分钟）</label><input id="autoLogoutMinutes" type="number" min="1" max="1440" step="1" inputmode="numeric"></div>
+      <div class="actions"><button id="saveAutoLogout" class="primary" type="button">保存会话</button></div>
+      <div id="sessionMsg" class="msg"></div>
+    </div>
+  </section>
+
+  <div id="target-info" class="section-title anchor-target" data-settings-section="target-info" data-scope="target"><span>被控端信息</span></div>
+  <p class="section-lead" data-settings-section="target-info">维护被操作主机的身份、配置和用途资料；这些资料不包含连接方式或操作权限。</p>
+  <section class="grid control-grid" data-settings-section="target-info">
+    <div class="card full-span">
+      <div class="card-head"><h2>主机资料</h2></div>
+      <div class="card-note">结构化字段帮助 Agent 识别主机类型和环境；配置、用途与备注是自由文本。所有内容只作为背景资料，不会授予操作权限。</div>
+      <form id="targetProfileForm" class="form-block">
+        <div class="field"><label for="targetProfileName">主机名称</label><input id="targetProfileName" maxlength="64" autocomplete="off" placeholder="例如：构建服务器"></div>
+        <div class="field"><label for="targetDeviceType">设备类型</label><select id="targetDeviceType"><option value="unknown">未指定</option><option value="desktop">台式机</option><option value="workstation">工作站</option><option value="server">服务器</option><option value="laptop">笔记本</option><option value="embedded">嵌入式设备</option><option value="virtual_machine">虚拟机</option><option value="network_appliance">网络设备</option><option value="other">其他</option></select></div>
+        <div class="field"><label for="targetOperatingSystem">操作系统</label><select id="targetOperatingSystem"><option value="unknown">未指定</option><option value="linux">Linux</option><option value="windows">Windows</option><option value="macos">macOS</option><option value="bsd">BSD</option><option value="appliance">专用系统 / Appliance</option><option value="other">其他</option></select></div>
+        <div class="field"><label for="targetEnvironment">环境</label><select id="targetEnvironment"><option value="unknown">未指定</option><option value="development">开发</option><option value="testing">测试</option><option value="staging">预发布</option><option value="production">生产</option><option value="lab">实验室</option><option value="home">家庭</option><option value="other">其他</option></select></div>
+        <div class="field"><label for="targetLocation">位置</label><input id="targetLocation" maxlength="96" autocomplete="off" placeholder="例如：实验室机架 A3"></div>
+        <div class="field"><label for="targetConfiguration">设备配置</label><textarea id="targetConfiguration" maxlength="256" placeholder="CPU、内存、存储、网络、外设等"></textarea></div>
+        <div class="field"><label for="targetPurpose">作用</label><textarea id="targetPurpose" maxlength="256" placeholder="这台主机承担的服务、工作负载或测试职责"></textarea></div>
+        <div class="field"><label for="targetNotes">备注</label><textarea id="targetNotes" maxlength="256" placeholder="维护窗口、已知限制、联系人等补充信息"></textarea></div>
+        <div class="actions"><button class="primary" type="submit">保存被控端信息</button><button id="targetProfileLoad" type="button">重新读取</button></div>
+        <div id="targetProfileMsg" class="msg"></div>
+      </form>
+    </div>
+  </section>
+
+  <div id="target" class="section-title anchor-target" data-settings-section="target" data-scope="target"><span>被控端访问</span></div>
+  <p class="section-lead" data-settings-section="target">配置访问被控主机所需的 Console 和 SSH 凭据。</p>
+  <div id="kvm" class="section-title anchor-target" data-settings-section="device" data-settings-priority="10" data-settings-level="subsection"><span>KVM 与 HID</span></div>
+  <section id="kvmDeviceSettings" class="grid kvm-grid" data-settings-section="device" data-settings-priority="10">
+    <div class="card full-span">
+      <div class="card-head"><h2>视频运行与电源</h2></div>
+      <div class="card-note">集中管理预览刷新、后台采集、返回 KVM 重连和视频采集芯片电源。</div>
+      <div class="field"><label for="previewFpsSelect">Overview 预览帧率</label><select id="previewFpsSelect"><option value="100">1 FPS</option><option value="200">2 FPS</option><option value="300">3 FPS</option><option value="400">4 FPS</option><option value="500">5 FPS</option><option value="600">6 FPS</option><option value="700">7 FPS</option><option value="800">8 FPS</option><option value="900">9 FPS</option><option value="1000">10 FPS</option></select><small>只控制 Overview 快照刷新，不修改 KVM 的分辨率或采集 FPS。</small></div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>视频采集常在线</b><small>无页面租约时仍保持后台采集</small></div><label class="ui-switch"><input id="videoAlwaysOnline" type="checkbox" role="switch" aria-label="视频采集常在线"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>返回 KVM 自动刷新</b><small>当前浏览器 · 返回页面或窗口时重新连接视频</small></div><label class="ui-switch"><input id="browserFocusRefreshEnabled" type="checkbox" role="switch" aria-label="返回 KVM 自动刷新"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div id="ms2109PowerControl" class="ui-setting-row" data-ms2109-control hidden><div class="ui-setting-copy"><b>MS 视频电源</b><small>关闭后 KVM 停止连接，开启后自动恢复</small></div><label class="ui-switch"><input id="ms2109PowerToggle" type="checkbox" role="switch" aria-label="MS 视频电源"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div class="actions"><button id="saveVideoRuntime" class="primary" type="button">保存视频运行</button></div>
+      <div id="videoRuntimeMsg" class="msg"></div>
+      <div id="browserPreferenceMsg" class="browser-preference-note" aria-live="polite"></div>
+      <div id="ms2109PowerMsg" class="msg"></div>
+    </div>
+  </section>
+
+  <div id="console" class="settings-subsection-title first anchor-target" data-settings-section="target"><span>Console 登录</span></div>
+  <p class="section-lead" data-settings-section="target">维护被控主机本地 Console 登录所使用的账户；密码只在设备本地转换为 KVM HID 输入。</p>
+  <section class="grid control-grid" data-settings-section="target">
+    <div class="card full-span">
+      <div class="card-head"><h2>Console 账户</h2></div>
+      <div class="card-note">仅支持当前 KVM 键盘布局可复现的 ASCII 凭据。留空密码可保留已保存值；读取接口、模型 API、日志和 UART 均不会获得密码。</div>
+      <div class="rows" id="consoleCredentialsRows"></div>
+      <details class="editor"><summary>编辑 Console 账户</summary>
+      <form id="consoleCredentialsForm">
+        <div class="field"><label for="consoleUsername">Username</label><input id="consoleUsername" autocomplete="username" maxlength="63" placeholder="ubuntu"></div>
+        <div class="field"><label for="consolePassword">Password</label><input id="consolePassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存密码"></div>
+        <label class="checkline"><input id="consoleClearPassword" type="checkbox"> 清空已保存密码</label>
+        <div class="actions"><button class="primary" type="submit">保存 Console 账户</button><button id="consoleCredentialsLoad" type="button">读取状态</button><button id="consoleCredentialsClear" class="danger" type="button">清空 Console 账户</button></div>
+        <div id="consoleCredentialsMsg" class="msg"></div>
+      </form>
+      </details>
+    </div>
+  </section>
+
+  <div id="remote" class="settings-subsection-title anchor-target" data-settings-section="target"><span>SSH 维护接入</span></div>
+  <p class="section-lead" data-settings-section="target">配置被控主机的 SSH 地址、账户和认证材料；凭据只在设备本地使用。</p>
+  <section class="grid control-grid" data-settings-section="target">
+    <div class="card full-span">
+      <div class="card-head"><h2>维护目标主机</h2><div class="card-head-actions"><a class="button-link" href="/terminal">打开 Terminal</a></div></div>
+      <div class="card-note">默认 SSH 目标。密码只在设备本地执行 SSH 时读取，不发送给模型 API。</div>
+      <div class="rows" id="sshTargetRows"></div>
+      <details class="editor"><summary>编辑维护目标主机</summary>
+      <form id="sshTargetForm">
+        <div class="field"><label for="sshTargetHost">Host / IPv4</label><input id="sshTargetHost" autocomplete="off" maxlength="63" placeholder="192.0.2.10"></div>
+        <div class="field"><label for="sshTargetPort">Port</label><input id="sshTargetPort" type="number" min="1" max="65535" value="22"></div>
+        <div class="field"><label for="sshTargetUsername">Username</label><input id="sshTargetUsername" autocomplete="username" maxlength="63" placeholder="root"></div>
+        <div class="field"><label for="sshTargetAuth">Auth</label><select id="sshTargetAuth"><option value="auto">Auto</option><option value="key">Stored Key</option><option value="password">Password</option></select></div>
+        <div class="field"><label for="sshTargetPassword">Password</label><input id="sshTargetPassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存密码"></div>
+        <label class="checkline"><input id="sshTargetClearPassword" type="checkbox"> 清空已保存密码</label>
+        <div class="field"><label for="sshTargetSudoPassword">Sudo Password</label><input id="sshTargetSudoPassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存 sudo 密码"></div>
+        <label class="checkline"><input id="sshTargetClearSudoPassword" type="checkbox"> 清空已保存 sudo 密码</label>
+        <div class="field"><label for="sshTargetTimeout">Timeout ms</label><input id="sshTargetTimeout" type="number" min="5000" max="120000" step="1000" value="30000"></div>
+        <div class="actions"><button class="primary" type="submit">保存目标主机</button><button id="sshTargetLoad" type="button">读取目标</button><button id="sshTargetClear" class="danger" type="button">清空目标</button></div>
+        <div id="sshTargetMsg" class="msg"></div>
+      </form>
+      </details>
+    </div>
+    <div class="card full-span">
+      <div class="card-head"><h2>SSH Key</h2></div>
+      <div class="card-note">手动上传 private key，用于目标主机 SSH public key auth。private key 保存后不会回显。</div>
+      <div class="rows" id="sshKeyRows"></div>
+      <details class="editor"><summary>编辑 SSH Key</summary>
+      <form id="sshKeyForm">
+        <div class="field"><label for="sshPrivateKeyFile">Private key 文件</label><input id="sshPrivateKeyFile" type="file" accept=".pem,.key,.txt"></div>
+        <div class="field"><label for="sshPrivateKey">Private key</label><textarea id="sshPrivateKey" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea></div>
+        <div class="field"><label for="sshPublicKey">Public key（可选，用于展示和后续 authorized_keys 辅助）</label><textarea id="sshPublicKey" spellcheck="false" placeholder="ssh-ed25519 AAAA... exoanchor"></textarea></div>
+        <div class="field"><label for="sshKeyPassphrase">Key passphrase（可选）</label><input id="sshKeyPassphrase" type="password" autocomplete="off" placeholder="留空则不保存/清空 passphrase"></div>
+        <div class="actions"><button class="primary" type="submit">保存 SSH Key</button><button id="sshKeyLoad" type="button">读取状态</button><button id="sshKeyClear" class="danger" type="button">清空 SSH Key</button></div>
+        <div id="sshKeyMsg" class="msg"></div>
+      </form>
+      </details>
+    </div>
+  </section>
+
+  <div id="agent" class="section-title anchor-target" data-settings-section="agent"><span id="automationSectionTitle">集成与权限</span></div>
+  <p id="automationSectionLead" class="section-lead" data-settings-section="agent">管理外部 MCP 的连接与工具权限；Dev 固件同时提供内置 Agent 设置。</p>
+  <section class="grid agent-grid" data-settings-section="agent">
+    <div class="card full-span">
+      <div class="card-head"><h2>外部 MCP 控制器</h2></div>
+      <div class="card-note">供 Codex、Claude 等外部客户端通过设备 API 操作 ExoAnchor；它不是被控主机的 SSH。</div>
+      <div class="rows" id="mcpRows"></div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许外部 MCP 访问</b><small>开启后仍受下方逐项工具授权和控制租约约束</small></div><label class="ui-switch"><input id="mcpEnabled" type="checkbox" role="switch" aria-label="允许外部 MCP 访问"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div class="actions"><button id="saveMcpSettings" class="primary" type="button">保存 MCP 设置</button></div>
+      <div id="mcpMsg" class="msg"></div>
+    </div>
+    <div class="card full-span agent-only">
+      <div class="card-head"><h2>内置 Agent</h2></div>
+      <div class="card-note">控制 Dev 固件中的本地运行时及其数据使用方式；这些设置不会改变 MCP 权限。</div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>启用内置 Agent</b><small>关闭后拒绝新的本地 Agent 任务</small></div><label class="ui-switch"><input id="embeddedAgentEnabled" type="checkbox" role="switch" aria-label="启用内置 Agent"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许页面上下文</b><small>设备级 · 后端会丢弃未授权的页面上下文</small></div><label class="ui-switch"><input id="pageContextEnabled" type="checkbox" role="switch" aria-label="允许页面上下文"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>保存对话历史</b><small>设备级 · 关闭后新对话不再写入 TF 历史</small></div><label class="ui-switch"><input id="conversationHistoryEnabled" type="checkbox" role="switch" aria-label="保存对话历史"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许长期记忆</b><small>设备级 · 默认关闭</small></div><label class="ui-switch"><input id="longTermMemoryEnabled" type="checkbox" role="switch" aria-label="允许长期记忆"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div class="actions"><button id="saveAgentPrivacy" class="primary" type="button">保存 Agent 设置</button></div>
+      <div id="agentPrivacyMsg" class="msg"></div>
+    </div>
+    <div class="card full-span agent-only">
+      <div class="card-head"><h2>操作可见性</h2></div>
+      <div class="card-note">只影响当前浏览器，切换后立即生效。</div>
+      <div class="ui-setting-row"><div class="ui-setting-copy"><b>显示 Agent 操作过程</b><small>在 KVM 和 Terminal 中显示 Agent 的实际操作</small></div><label class="ui-switch"><input id="browserAgentActionsEnabled" type="checkbox" role="switch" aria-label="显示 Agent 操作过程"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+      <div id="agentBrowserPreferenceMsg" class="browser-preference-note" aria-live="polite"></div>
+    </div>
+    <form id="agentIdentityForm" class="card full-span agent-only">
+      <div class="card-head"><h2>助手身份</h2></div>
+      <div class="card-note">这是设备端助手在 Agent 工作区、悬浮对话窗和运行时上下文中的显示名称；默认名称为 Agent，不会改变模型 Provider 或工具权限。</div>
+      <div class="field"><label for="agentDisplayName">助手名称</label><input id="agentDisplayName" type="text" maxlength="32" autocomplete="off" placeholder="Agent"></div>
+      <div class="actions"><button class="primary" type="submit">保存助手名称</button><button id="agentDisplayNameDefault" type="button">恢复 Agent</button></div>
+      <div id="agentIdentityMsg" class="msg"></div>
+    </form>
+    <div class="card agent-only">
+      <div class="card-head"><h2>云端模型 API</h2></div>
+      <div class="card-note">保存多家兼容 OpenAI Chat Completions 的 Provider。API Key 只保存在设备本地，保存后不会回显。</div>
+      <form id="agentApiForm" class="form-block">
+        <div class="field"><label for="agentApiProfile">API Profile</label><select id="agentApiProfile"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="kimi">Kimi K3</option><option value="custom">Custom</option></select></div>
+        <div class="field"><label for="agentApiLabel">Profile 名称</label><input id="agentApiLabel" autocomplete="off" maxlength="24" placeholder="DeepSeek"></div>
+        <div class="field"><label for="agentApiProvider">Provider</label><select id="agentApiProvider"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="kimi">Kimi K3</option><option value="custom">Custom</option></select></div>
+        <div class="field"><label for="agentApiBase">OpenAI API Base</label><input id="agentApiBase" type="url" autocomplete="off" placeholder="https://api.deepseek.com"></div>
+        <div class="field"><label for="agentApiModelSelect">模型列表</label><select id="agentApiModelSelect"><option value="">尚未枚举</option></select></div>
+        <div class="field"><label for="agentApiModel">选中 Model</label><input id="agentApiModel" autocomplete="off" placeholder="deepseek-v4-pro"></div>
+        <div class="field"><label for="agentApiKey">API Key</label><input id="agentApiKey" type="password" autocomplete="off" placeholder="保存后不会显示明文"></div>
+        <div class="actions"><button class="primary" type="submit">保存当前 API</button><button id="agentApiLoad" type="button">读取配置</button><button id="agentApiRefreshModels" type="button">枚举模型</button></div>
+        <div id="agentApiMsg" class="msg"></div>
+      </form>
+    </div>
+    <div class="card agent-only">
+      <div class="card-head"><h2>System Prompt</h2></div>
+      <div class="card-note">保存后下一次 Agent 请求立即生效；恢复默认只删除自定义提示词。</div>
+      <details class="editor"><summary>编辑 System Prompt</summary>
+      <form id="agentPromptForm">
+        <div class="field"><label for="agentSystemPrompt">Agent system prompt</label><textarea id="agentSystemPrompt" maxlength="2048" spellcheck="false"></textarea></div>
+        <div class="actions"><button class="primary" type="submit">保存提示词</button><button id="agentPromptLoad" type="button">读取提示词</button><button id="agentPromptDefault" type="button">恢复默认</button></div>
+        <div id="agentPromptMsg" class="msg"></div>
+      </form>
+      </details>
+    </div>
+    <div class="card full-span">
+      <div class="card-head"><h2 id="toolAccessTitle">工具能力授权</h2></div>
+      <div id="toolAccessLead" class="card-note">分别决定哪些能力可由设备内置 Agent 或外部 MCP 调用。关闭只影响对应调用方，不影响人工 KVM 与 Terminal。</div>
+      <div class="tool-access-head" aria-hidden="true"><span>工具</span><span>本地 Agent</span><span>MCP</span><span>权限</span><span>风险</span></div>
+      <div id="agentToolPolicyRows" class="tool-table tool-access-table"></div>
+      <div class="actions"><button id="saveAgentTools" class="primary" type="button">保存工具授权</button><button id="resetAgentTools" type="button">恢复默认</button><button id="refreshSkills" type="button">刷新</button><button id="openAgentFromSkills" type="button">Agent</button></div>
+      <div id="agentToolMsg" class="msg"></div>
+      <div id="skillMsg" class="msg"></div>
+      <details class="developer-details"><summary>Developer · 工具契约与默认管理模式</summary><div><div class="field"><label for="agentToolDefaultMode">默认管理模式</label><select id="agentToolDefaultMode"><option value="observe">observe</option><option value="supervised">supervised</option><option value="autonomous">autonomous</option></select></div><div id="agentToolRows" class="tool-table"></div></div></details>
+    </div>
+    <div class="card full-span agent-only">
+      <div class="card-head"><h2>联网搜索</h2></div>
+      <div class="card-note">允许 Agent 在需要实时资料时调用联网搜索。默认复用所选 API Profile，单独填写 API Key 会覆盖该来源。</div>
+      <div class="rows" id="webSearchRows"></div>
+      <form id="webSearchForm" class="form-block">
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许 Agent 调用 web_search</b><small>联网由运行时工具执行，不让模型私自访问网络</small></div><label class="ui-switch"><input id="webSearchEnabled" type="checkbox" role="switch" aria-label="允许 Agent 调用 web_search"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <details class="editor"><summary>搜索 Provider 与 Key</summary>
+        <div>
+          <div class="field"><label for="webSearchProfile">API Profile</label><select id="webSearchProfile"><option value="qwen">阿里云百炼 Qwen</option><option value="openai">OpenAI</option><option value="deepseek">DeepSeek</option><option value="custom">Custom</option></select></div>
+          <div class="field"><label for="webSearchEndpoint">Search API Base（可留空复用 Profile）</label><input id="webSearchEndpoint" type="url" autocomplete="off" placeholder="留空则使用所选 API Profile 的 Base"></div>
+          <div class="field"><label for="webSearchModel">Search Model</label><input id="webSearchModel" autocomplete="off" maxlength="64" placeholder="qwen-plus"></div>
+          <div class="field"><label for="webSearchStrategy">Search Strategy</label><select id="webSearchStrategy"><option value="agent">agent</option><option value="agent_max">agent_max</option><option value="turbo">turbo</option><option value="max">max</option></select></div>
+          <div class="field"><label for="webSearchApiKey">Search API Key（可选覆盖）</label><input id="webSearchApiKey" type="password" autocomplete="off" maxlength="256" placeholder="留空则保留/复用 Profile key"></div>
+          <label class="checkline"><input id="webSearchClearKey" type="checkbox"> 清空单独保存的 Search API Key</label>
+        </div>
+        </details>
+        <div class="actions"><button class="primary" type="submit">保存联网搜索</button></div>
+        <div id="webSearchMsg" class="msg"></div>
+      </form>
+    </div>
+    <div class="card full-span agent-only">
+      <div class="card-head"><h2>Skill Registry</h2></div>
+      <div class="card-note">可编辑的技能注册表，用于给 Agent 暴露可复用流程和工具组合。</div>
+      <details class="editor"><summary>编辑 Skills JSON</summary>
+      <div>
+      <div class="field"><label for="agentSkillsJson">skills JSON</label><textarea id="agentSkillsJson" class="tool-json" spellcheck="false"></textarea></div>
+      <div class="actions"><button id="saveAgentSkills" class="primary" type="button">保存 Skills</button><button id="formatAgentSkills" type="button">格式化</button></div>
+      <div id="agentSkillsMsg" class="msg"></div>
+      </div>
+      </details>
+    </div>
+  </section>
+
+  <div id="system" class="section-title anchor-target" data-settings-section="system" data-settings-priority="10"><span>系统与支持</span></div>
+  <p class="section-lead" data-settings-section="system" data-settings-priority="10">检查远程更新与当前固件版本。</p>
+  <section class="grid firmware-grid" data-settings-section="system" data-settings-priority="10">
+    <div class="card">
+      <div class="card-head"><h2>远程更新</h2></div>
+      <div class="card-note">从 Manifest URL 检查并安装远程固件，安装后需要重启应用。</div>
+      <div class="rows" id="otaRows"></div>
+      <details class="editor"><summary>远程 OTA 设置</summary>
+      <form id="otaSettingsForm">
+        <div class="field"><label for="otaManifestUrl">Manifest URL</label><input id="otaManifestUrl" type="url" autocomplete="off"></div>
+        <div class="field"><label for="otaChannel">Channel</label><input id="otaChannel" type="text" autocomplete="off" maxlength="16" placeholder="stable"></div>
+        <div class="actions"><button class="primary" type="submit">保存更新设置</button><button id="otaCheck" type="button">检查更新</button><button id="otaInstall" type="button">安装更新</button><button id="otaReboot" class="danger" type="button">重启应用</button></div>
+      </form>
+      </details>
+      <div id="otaMsg" class="msg"></div>
+    </div>
+  </section>
+  <details class="editor developer-details" data-settings-section="advanced" data-settings-priority="70">
+  <summary>开发者 · 本地固件上传</summary>
+  <div>
+  <section class="grid firmware-grid" data-settings-section="advanced">
+    <form id="otaUploadForm" class="card">
+      <div class="card-head"><h2>高级 · 本地固件上传</h2></div>
+      <div class="card-note">手动上传 `.bin` 固件到 OTA 分区，上传期间视频可能暂停。</div>
+      <div class="field"><label for="otaFile">固件 bin</label><input id="otaFile" type="file" accept=".bin,application/octet-stream"></div>
+      <div class="actions"><button class="primary" type="submit">上传固件</button></div>
+      <div class="progress"><div id="otaProgress" class="bar"></div></div>
+      <div id="otaUploadMsg" class="msg"></div>
+    </form>
+  </section>
+  </div>
+  </details>
+  <section class="grid firmware-grid" data-settings-section="advanced" data-settings-priority="80">
+    <div class="card full-span danger-zone">
+      <div class="card-head"><h2>高级 · 恢复出厂设置</h2></div>
+      <div class="card-note">清空本地账户、API、视频、会话和设备设置，然后重启设备。</div>
+      <div class="actions"><button id="resetEverything" class="danger" type="button">Reset Everything</button></div>
+      <div id="systemMsg" class="msg"></div>
+    </div>
+  </section>
+  </div>
+</main>
+
+<script>
+let authState={username:localStorage.getItem("si_username")||"admin"},gpioMapDirty=false,powerResetSwapBusy=false,settingsLocatorReverseBusy=false,settingsLocatorReversePending=null,lastSettingsLocator={supported:false,gpio:-1,return_gpio:-1,active:false,active_high:true,bidirectional:false,reversed:false},lastGpioMatrix={gpio_min:0,gpio_max:54,assignments:[]};
+const UI=window.ExoAnchorUI,API=UI.api,Session=UI.session,AuthUI=UI.auth;
+const EMBEDDED_AGENT=window.ExoAnchorBuild?.embeddedAgent!==false;
+document.documentElement.classList.toggle("stable-profile",!EMBEDDED_AGENT);
+if(!EMBEDDED_AGENT){
+  automationMenuTitle.textContent="集成与权限";
+  automationMenuLead.textContent="MCP 与工具授权";
+  automationSectionTitle.textContent="集成与权限";
+  automationSectionLead.textContent="管理外部 MCP 连接及其可调用的设备能力；Stable 固件不包含内置 Agent。";
+  toolAccessTitle.textContent="MCP 工具能力授权";
+  toolAccessLead.textContent="决定哪些设备能力可由外部 MCP 调用。关闭不会影响人工 KVM 与 Terminal。";
+}
+function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename||"download.bin";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
+async function downloadApiFile(path,filename){if(!Session.active())throw new Error("login required");const r=await fetch(path,{headers:API.authHeader()});if(r.status===401){if(await AuthUI.requireLogin())return downloadApiFile(path,filename);throw new Error("login required")}if(!r.ok)throw new Error(await r.text());downloadBlob(await r.blob(),filename)}
+const applySessionBase=Session.apply.bind(Session);
+Session.apply=function(cfg){applySessionBase(cfg);this.loadForm()};
+Session.loadForm=function(){autoLogoutEnabled.checked=this.enabled();autoLogoutMinutes.value=String(this.minutes())};
+Session.minutesFromInput=function(){return Math.max(1,Math.min(1440,Number(autoLogoutMinutes.value||15)))};
+Session.load=async function(silent=true){try{const cfg=await API.get("/api/settings/session");this.apply(cfg);if(!silent)msg(sessionMsg,"会话配置已读取","ok");return cfg}catch(err){if(!silent)msg(sessionMsg,err.message||"无法读取会话配置","bad");throw err}};
+Session.save=async function(){const payload={auto_logout_enabled:autoLogoutEnabled.checked,auto_logout_minutes:this.minutesFromInput()};const saved=await API.post("/api/settings/session",payload);this.apply(saved);this.touch();SettingsDirty.capture("session");msg(sessionMsg,this.enabled()?`自动退出：${this.minutes()} 分钟`:"自动退出已关闭","ok")};
+const PRODUCT_FEATURES_CHANNEL_NAME="exoanchor-product-features";
+let productFeaturesConfig={},productFeaturesChannel=null;
+function broadcastEmbeddedAgentAvailability(cfg={}){
+  if(typeof BroadcastChannel!=="function"||typeof cfg.embedded_agent_enabled!=="boolean")return;
+  try{
+    productFeaturesChannel=productFeaturesChannel||new BroadcastChannel(PRODUCT_FEATURES_CHANNEL_NAME);
+    productFeaturesChannel.postMessage({type:"embedded-agent-updated",embedded_agent_enabled:cfg.embedded_agent_enabled});
+  }catch(_error){}
+}
+window.addEventListener("pagehide",()=>{productFeaturesChannel?.close();productFeaturesChannel=null},{once:true});
+function applyProductFeatures(cfg={}){
+  productFeaturesConfig={...productFeaturesConfig,...cfg};
+  const effective=productFeaturesConfig;
+  lanDiscoveryEnabled.checked=effective.lan_discovery_enabled!==false;
+  embeddedAgentEnabled.checked=EMBEDDED_AGENT&&effective.embedded_agent_enabled!==false;
+  pageContextEnabled.checked=!!effective.page_context_enabled;
+  conversationHistoryEnabled.checked=effective.conversation_history_enabled!==false;
+  longTermMemoryEnabled.checked=!!effective.long_term_memory_enabled;
+  browserFocusRefreshEnabled.checked=localStorage.getItem("si_kvm_focus_refresh")!=="0";
+  browserAgentActionsEnabled.checked=localStorage.getItem("si_agent_action_visualization")!=="0";
+  window.dispatchEvent(new CustomEvent("exoanchor:product-features-changed",{detail:{...effective}}));
+}
+async function loadProductFeatures(silent=true){
+  try{const cfg=await API.get("/api/settings/product-features");applyProductFeatures(cfg);if(!silent)msg(productFeaturesMsg,"发现设置已读取","ok");return cfg}
+  catch(err){if(!silent)msg(productFeaturesMsg,err.message||"读取发现设置失败","bad");throw err}
+}
+async function saveProductFeatureSettings(payload){
+  const saved=await API.post("/api/settings/product-features",payload);
+  applyProductFeatures(saved);
+  if(Object.prototype.hasOwnProperty.call(payload,"embedded_agent_enabled"))broadcastEmbeddedAgentAvailability(saved);
+  SettingsDirty.capture("product_features");SettingsDirty.capture("agent_privacy");return saved;
+}
+function bindBrowserPreference(input,key,messageEl){
+  input.checked=localStorage.getItem(key)!=="0";
+  input.onchange=()=>{
+    localStorage.setItem(key,input.checked?"1":"0");
+    if(messageEl){messageEl.textContent=input.checked?"已为当前浏览器开启":"已为当前浏览器关闭";setTimeout(()=>{if(messageEl.textContent.startsWith("已为"))messageEl.textContent=""},1800)}
+    window.dispatchEvent(new CustomEvent("exoanchor:browser-preference",{detail:{key,enabled:input.checked}}));
+  };
+}
+AuthUI.bindForm(async()=>{settingsSectionLoaded.delete(activeSettingsSection());await loadSettingsSection(activeSettingsSection(),{force:true})});
+function row(name,value){return `<div class="row"><b>${name}</b><span>${value}</span></div>`}
+function diagnosticRow(name,value,state=null){const kind=state===true?"ok":state===false?"":state==="idle"?"idle":"idle";return `<div class="row diagnostic-row"><b><span class="diagnostic-dot ${kind}"></span>${name}</b><span>${value}</span></div>`}
+function msg(el,text,kind){el.textContent=text||"";el.className="msg "+(text?(kind||"ok"):"")}
+let ms2109Available=false,ms2109Busy=false,lastMs2109Status=null;
+function ms2109CapabilityAvailable(capabilities={}){
+  const capability=capabilities.ms2109_power??capabilities.ms2109_test;
+  return typeof capability==="boolean"?capability:!!(capability?.supported??capability?.power_control??capability?.enabled)
+}
+function setMs2109Availability(available){
+  ms2109Available=!!available;document.querySelectorAll("[data-ms2109-control]").forEach(el=>{el.hidden=!ms2109Available});
+  ms2109PowerToggle.disabled=ms2109Busy||!ms2109Available
+}
+function setMs2109Busy(busy){
+  ms2109Busy=!!busy;
+  ms2109PowerToggle.disabled=ms2109Busy||!ms2109Available;
+}
+function renderMs2109Status(status){
+  if(!status)return;lastMs2109Status=status;if(status.supported===false)setMs2109Availability(false);
+  const power=status.power||{},on=!!(power.on??status.power_on);
+  ms2109PowerToggle.checked=on;
+  setMs2109Busy(ms2109Busy)
+}
+async function loadMs2109Status(silent=true){
+  if(!ms2109Available&&!silent)return null;
+  try{const status=await API.get("/api/ms2109/status",{timeoutMs:12000});renderMs2109Status(status);if(!silent)msg(ms2109PowerMsg,"MS2109 状态已刷新","ok");return status}
+  catch(err){if(!silent)msg(ms2109PowerMsg,err.message||"读取 MS2109 状态失败","bad");throw err}
+}
+async function setMs2109Power(action){
+  setMs2109Busy(true);msg(ms2109PowerMsg,"正在切换 MS 视频电源","warn");
+  try{const status=await API.post("/api/ms2109/power",{action},{timeoutMs:15000});renderMs2109Status(status);msg(ms2109PowerMsg,`MS 视频电源已${action==="on"?"开启":"关闭"}`,"ok");await UI.status.refresh().catch(()=>{});return status}
+  catch(err){if(lastMs2109Status)renderMs2109Status(lastMs2109Status);msg(ms2109PowerMsg,err.message||"MS2109 电源控制失败","bad");throw err}
+  finally{setMs2109Busy(false)}
+}
+const SettingsDirty={
+  groups:new Map(),baselines:new Map(),
+  fields(root){return [...root.querySelectorAll("input,select,textarea")].filter(field=>!["password","file"].includes(field.type)&&!field.disabled&&!field.dataset.dirtyIgnore)},
+  value(field){return field.type==="checkbox"||field.type==="radio"?String(field.checked):field.value},
+  register(name,root){if(root)this.groups.set(name,root)},
+  capture(name){const root=this.groups.get(name);if(!root)return;const baseline=new Map();this.fields(root).forEach(field=>{baseline.set(field,this.value(field));field.classList.remove("settings-field-dirty")});this.baselines.set(name,baseline);root.classList.remove("settings-group-dirty")},
+  captureAll(){for(const name of this.groups.keys())this.capture(name)},
+  updateField(field){for(const [name,root] of this.groups){if(!root.contains(field))continue;const baseline=this.baselines.get(name);this.fields(root).forEach(item=>item.classList.toggle("settings-field-dirty",!baseline||!baseline.has(item)||baseline.get(item)!==this.value(item)));root.classList.toggle("settings-group-dirty",this.fields(root).some(item=>item.classList.contains("settings-field-dirty")));return}},
+  any(){return [...this.groups.values()].some(root=>root.classList.contains("settings-group-dirty"))},
+};
+SettingsDirty.register("device",deviceForm);SettingsDirty.register("product_features",productFeaturesCard);SettingsDirty.register("agent_privacy",saveAgentPrivacy.closest(".card"));SettingsDirty.register("agent_identity",agentIdentityForm);SettingsDirty.register("target_profile",targetProfileForm);SettingsDirty.register("mcp",mcpEnabled.closest(".card"));SettingsDirty.register("account",accountForm);SettingsDirty.register("session",saveAutoLogout.closest(".card"));SettingsDirty.register("gpio",gpioMapForm);SettingsDirty.register("video_runtime",saveVideoRuntime.closest(".card"));SettingsDirty.register("console_credentials",consoleCredentialsForm);SettingsDirty.register("ssh_target",sshTargetForm);SettingsDirty.register("ssh_key",sshKeyForm);SettingsDirty.register("agent_api",agentApiForm);SettingsDirty.register("agent_prompt",agentPromptForm);SettingsDirty.register("web_search",webSearchForm);SettingsDirty.register("agent_tools",saveAgentTools.closest(".card"));SettingsDirty.register("agent_skills",saveAgentSkills.closest(".card"));SettingsDirty.register("ota",otaSettingsForm);
+document.addEventListener("input",event=>SettingsDirty.updateField(event.target));document.addEventListener("change",event=>SettingsDirty.updateField(event.target));window.addEventListener("beforeunload",event=>{if(SettingsDirty.any()){event.preventDefault();event.returnValue=""}});
+function fillUsernames(name){if(name&&document.activeElement!==accountUsername)accountUsername.value=name}
+const SETTINGS_IDS=["target-info","target","device","security","agent","system","advanced"];
+const SETTINGS_ALIASES={general:"device",overview:"device",account:"security",hardware:"advanced",ms:"device",ms2109:"device",host:"target-info","target-profile":"target-info",remote:"target","target-host":"target",storage:"advanced","storage-management":"advanced",diagnostic:"device",diagnostics:"advanced","device-diagnostics":"device",gpio:"advanced","gpio-matrix":"device",kvm:"device","kvm-video":"device","control-access":"target",skills:"agent","firmware-maintenance":"advanced","advanced-settings":"advanced",developer:"advanced","developer-settings":"advanced"};
+function settingsId(id){const mapped=SETTINGS_ALIASES[id]||id;return SETTINGS_IDS.includes(mapped)?mapped:"device"}
+function activeSettingsSection(){return settingsId(location.hash.slice(1)||"device")}
+function organizeSettingsPages(){
+  const content=document.querySelector(".settings-content"),nodes=[...content.children].filter(el=>el.dataset.settingsSection);
+  const index=new Map(nodes.map((el,i)=>[el,i]));
+  for(const id of SETTINGS_IDS){
+    const page=document.createElement("div");page.className="settings-page";page.dataset.settingsSection=id;
+    nodes.filter(el=>el.dataset.settingsSection===id).sort((a,b)=>(Number(a.dataset.settingsPriority||0)-Number(b.dataset.settingsPriority||0))||(index.get(a)-index.get(b))).forEach(el=>page.appendChild(el));
+    content.appendChild(page);
+  }
+}
+function showSettingsSection(id,updateHash=false,scrollToTop=false){const active=settingsId(id);document.querySelectorAll(".settings-content>.settings-page[data-settings-section]").forEach(el=>el.classList.toggle("settings-hidden",el.dataset.settingsSection!==active));document.querySelectorAll(".settings-menu a:not(.legacy-control)").forEach(a=>a.classList.toggle("active",a.getAttribute("href")==="#"+active));if(updateHash&&location.hash!=="#"+active)history.replaceState(null,"","#"+active);if(scrollToTop)document.querySelector(".settings-content")?.scrollIntoView({block:"start"});if(Session.active())loadSettingsSection(active).catch(()=>{})}
+function setupSettingsNavigation(){organizeSettingsPages();document.addEventListener("click",e=>{const a=e.target.closest('.settings-menu a[href^="#"]');if(!a||a.classList.contains("legacy-control"))return;const id=settingsId(a.getAttribute("href").slice(1));if(!SETTINGS_IDS.includes(id))return;e.preventDefault();showSettingsSection(id,true,true)});showSettingsSection(location.hash.slice(1)||"device")}
+function updateSettingsMenu(){showSettingsSection(location.hash.slice(1)||"device")}
+const settingsSectionLoaded=new Set();
+async function loadSettingsSection(id,{force=false}={}){
+  const active=settingsId(id);
+  if(!Session.active())return;
+  if(!force&&settingsSectionLoaded.has(active))return refreshActiveSection(active);
+  if(active==="target-info")await loadTargetProfile(true).catch(()=>{});
+  else if(active==="target")await Promise.all([loadConsoleCredentials(true).catch(()=>{}),loadSshTargetConfig(true).catch(()=>{}),loadSshKeyConfig(true).catch(()=>{})]);
+  else if(active==="device")await Promise.all([loadDeviceIdentity(true).catch(()=>{}),loadProductFeatures(true).catch(()=>{})]);
+  else if(active==="security")await Session.load().catch(()=>{});
+  else if(active==="agent"){
+    const loads=[loadMcpSettings(true).catch(()=>{}),loadAgentTools(true).catch(()=>{})];
+    if(EMBEDDED_AGENT)loads.push(loadProductFeatures(true).catch(()=>{}),loadAgentApiConfig(true).catch(()=>{}),loadAgentPrompt(true).catch(()=>{}));
+    await Promise.all(loads);
+  }
+  settingsSectionLoaded.add(active);SettingsDirty.captureAll();
+  return refreshActiveSection(active);
+}
+let agentApiProfiles=[];
+const AGENT_PROFILE_DEFAULTS={deepseek:{id:"deepseek",label:"DeepSeek",provider:"deepseek",endpoint:"https://api.deepseek.com",model:"deepseek-v4-pro",api_key_configured:false},openai:{id:"openai",label:"OpenAI",provider:"openai",endpoint:"https://api.openai.com/v1",model:"gpt-4o",api_key_configured:false},qwen:{id:"qwen",label:"阿里云百炼 Qwen",provider:"qwen",endpoint:"https://dashscope.aliyuncs.com/compatible-mode/v1",model:"qwen3-vl-flash",api_key_configured:false},kimi:{id:"kimi",label:"Kimi K3",provider:"kimi",endpoint:"https://api.moonshot.cn/v1",model:"kimi-k3",api_key_configured:false},custom:{id:"custom",label:"Custom",provider:"custom",endpoint:"",model:"gpt-4o",api_key_configured:false}};
+function providerEndpoint(provider){if(provider==="openai")return"https://api.openai.com/v1";if(provider==="deepseek")return"https://api.deepseek.com";if(provider==="qwen")return"https://dashscope.aliyuncs.com/compatible-mode/v1";if(provider==="kimi")return"https://api.moonshot.cn/v1";return agentApiBase.value.trim()||""}
+function providerModel(provider){if(provider==="deepseek")return"deepseek-v4-pro";if(provider==="qwen")return"qwen3-vl-flash";if(provider==="kimi")return"kimi-k3";return"gpt-4o"}
+function profileDefault(id){return {...(AGENT_PROFILE_DEFAULTS[id]||AGENT_PROFILE_DEFAULTS.custom)}}
+function initAgentApiForm(){agentApiProfile.value=localStorage.getItem("ea_agent_profile")||"deepseek";agentApiProvider.value=localStorage.getItem("ea_agent_provider")||"deepseek";agentApiLabel.value=profileDefault(agentApiProfile.value).label;agentApiBase.value=localStorage.getItem("ea_agent_api_base")||providerEndpoint(agentApiProvider.value);agentApiModel.value=localStorage.getItem("ea_agent_model")||providerModel(agentApiProvider.value);agentApiKey.value=""}
+async function fetchAgentApiSettings(){return API.get("/api/settings/agent-api")}
+function fillAgentProfileOptions(active){const ids=["deepseek","openai","qwen","kimi","custom"];const seen=new Set();agentApiProfile.innerHTML="";[...agentApiProfiles,...ids.map(profileDefault)].forEach(p=>{if(!p||seen.has(p.id))return;seen.add(p.id);const opt=document.createElement("option");opt.value=p.id;opt.textContent=p.label||p.id;agentApiProfile.appendChild(opt)});agentApiProfile.value=active||agentApiProfile.value||"deepseek"}
+function selectedAgentProfile(){const id=agentApiProfile.value||"deepseek";return agentApiProfiles.find(p=>p.id===id)||profileDefault(id)}
+function applyAgentProfile(p){agentApiProfile.value=p.id||"deepseek";agentApiLabel.value=p.label||p.id||"";agentApiProvider.value=p.provider||"custom";agentApiBase.value=p.endpoint||providerEndpoint(agentApiProvider.value);agentApiModel.value=p.model||providerModel(agentApiProvider.value);agentApiKey.value="";agentApiKey.placeholder=p.api_key_configured?"已配置，留空则保留":"sk-...";setAgentModelOptions([],agentApiModel.value)}
+function applyAgentApiConfig(cfg){const nlp=(cfg&&cfg.nlp)||cfg||{};agentApiProfiles=Array.isArray(nlp.profiles)?nlp.profiles:[{id:nlp.active_profile||"deepseek",label:nlp.provider||"DeepSeek",provider:nlp.provider||nlp.api_provider||"deepseek",endpoint:nlp.endpoint||"",model:nlp.model||"deepseek-v4-pro",api_key_configured:!!nlp.api_key_configured}];const active=nlp.active_profile||localStorage.getItem("ea_agent_profile")||agentApiProfiles[0]?.id||"deepseek";fillAgentProfileOptions(active);applyAgentProfile(selectedAgentProfile());localStorage.setItem("ea_agent_profile",agentApiProfile.value);localStorage.setItem("ea_agent_provider",agentApiProvider.value);localStorage.setItem("ea_agent_api_base",agentApiBase.value);localStorage.setItem("ea_agent_model",agentApiModel.value)}
+async function loadAgentApiConfig(silent=false){try{const cfg=await fetchAgentApiSettings();applyAgentApiConfig(cfg);if(!silent)msg(agentApiMsg,"API 配置已读取","ok");return cfg}catch(err){if(!silent)msg(agentApiMsg,err.message||"无法读取 API 配置","bad");throw err}}
+function setAgentModelOptions(models,selected){const values=Array.isArray(models)?models.filter(Boolean):[];agentApiModelSelect.innerHTML="";if(!values.includes(selected)&&selected)values.unshift(selected);if(!values.length){const opt=document.createElement("option");opt.value="";opt.textContent="尚未枚举";agentApiModelSelect.appendChild(opt);return}values.forEach(id=>{const opt=document.createElement("option");opt.value=id;opt.textContent=id;agentApiModelSelect.appendChild(opt)});agentApiModelSelect.value=selected||values[0]||""}
+async function refreshAgentModels(){const r=await API.get(`/api/settings/agent-api/models?profile=${encodeURIComponent(agentApiProfile.value)}`);setAgentModelOptions(r.models||[],agentApiModel.value||r.selected_model);if(agentApiModelSelect.value)agentApiModel.value=agentApiModelSelect.value;msg(agentApiMsg,`已枚举 ${Array.isArray(r.models)?r.models.length:0} 个模型`,"ok");return r}
+async function saveAgentApiConfig(){msg(agentApiMsg,"","");
+  localStorage.setItem("ea_agent_profile",agentApiProfile.value);
+  localStorage.setItem("ea_agent_provider",agentApiProvider.value);
+  localStorage.setItem("ea_agent_api_base",agentApiBase.value.trim());
+  localStorage.setItem("ea_agent_model",agentApiModel.value.trim());
+  const apiKeyValue=agentApiKey.value.trim();
+  const payload={profile:agentApiProfile.value,label:agentApiLabel.value.trim()||selectedAgentProfile().label||agentApiProfile.value,provider:agentApiProvider.value,endpoint:agentApiBase.value.trim()||providerEndpoint(agentApiProvider.value),model:agentApiModel.value.trim()||providerModel(agentApiProvider.value)};
+  if(apiKeyValue)payload.api_key=apiKeyValue;
+  const saved=await API.post("/api/settings/agent-api",payload);
+  applyAgentApiConfig(saved);
+  agentApiKey.value="";
+  agentApiKey.placeholder="已配置，留空则保留";
+  SettingsDirty.capture("agent_api");
+  msg(agentApiMsg,"API 已保存","ok");
+}
+function promptBytes(text){return new TextEncoder().encode(String(text||"")).length}
+function applyAgentPromptConfig(cfg){const max=Number(cfg?.max_length||2048);agentSystemPrompt.maxLength=max;agentSystemPrompt.dataset.maxBytes=String(max);if(document.activeElement!==agentSystemPrompt)agentSystemPrompt.value=cfg?.system_prompt||cfg?.default_system_prompt||""}
+async function loadAgentPrompt(silent=false){try{const cfg=await API.get("/api/settings/agent-prompt");applyAgentPromptConfig(cfg);if(!silent)msg(agentPromptMsg,cfg.using_default?"已读取默认提示词":"已读取自定义提示词","ok");return cfg}catch(err){if(!silent)msg(agentPromptMsg,err.message||"无法读取提示词","bad");throw err}}
+async function saveAgentPrompt(){const prompt=agentSystemPrompt.value.trim();if(!prompt){msg(agentPromptMsg,"提示词不能为空","bad");return}const bytes=promptBytes(prompt),max=Number(agentSystemPrompt.dataset.maxBytes||2048);if(bytes>max){msg(agentPromptMsg,`提示词过长：${bytes}/${max} bytes`,"bad");return}const saved=await API.post("/api/settings/agent-prompt",{system_prompt:prompt});applyAgentPromptConfig(saved);SettingsDirty.capture("agent_prompt");msg(agentPromptMsg,`提示词已保存，${bytes}/${Number(saved.max_length||max)} bytes`,"ok")}
+async function resetAgentPrompt(){const saved=await API.post("/api/settings/agent-prompt",{reset_default:true});applyAgentPromptConfig(saved);SettingsDirty.capture("agent_prompt");msg(agentPromptMsg,"已恢复默认提示词","ok")}
+let consoleCredentialsConfig={configured:false,username:"",password_configured:false};
+function applyConsoleCredentialsConfig(cfg){consoleCredentialsConfig=Object.assign({configured:false,username:"",password_configured:false},cfg||{});const configured=!!consoleCredentialsConfig.configured;const ready=configured&&!!consoleCredentialsConfig.password_configured;consoleCredentialsRows.innerHTML=row("User",consoleCredentialsConfig.username||"未配置")+row("Password",consoleCredentialsConfig.password_configured?"已保存":"未配置")+row("Agent",ready?"console://default · KVM 本地注入":"等待完整凭据")+row("密码策略","不进入模型、日志或 UART");if(document.activeElement!==consoleUsername)consoleUsername.value=consoleCredentialsConfig.username||"";if(document.activeElement!==consolePassword)consolePassword.value="";if(document.activeElement!==consoleClearPassword)consoleClearPassword.checked=false}
+async function loadConsoleCredentials(silent=false){try{const cfg=await API.get("/api/settings/console-credentials");applyConsoleCredentialsConfig(cfg);if(!silent)msg(consoleCredentialsMsg,"Console 账户状态已读取","ok");return cfg}catch(err){if(!silent)msg(consoleCredentialsMsg,err.message||"读取 Console 账户失败","bad");throw err}}
+async function saveConsoleCredentials(){const username=consoleUsername.value.trim();if(!username){msg(consoleCredentialsMsg,"Username 必填","bad");return}const password=consolePassword.value;const ascii=value=>Array.from(value).every(ch=>{const code=ch.charCodeAt(0);return code>=0x20&&code<=0x7e});if(!ascii(username)||password&&!ascii(password)){msg(consoleCredentialsMsg,"Console 凭据仅支持可由当前 KVM 键盘输入的 ASCII 字符","bad");return}const payload={username,clear_password:!!consoleClearPassword.checked};if(password&&!payload.clear_password)payload.password=password;const saved=await API.post("/api/settings/console-credentials",payload);applyConsoleCredentialsConfig(saved);SettingsDirty.capture("console_credentials");msg(consoleCredentialsMsg,"Console 账户已保存；Agent 只能通过 console://default 在设备本地注入","ok")}
+async function clearConsoleCredentials(){const saved=await API.post("/api/settings/console-credentials",{clear:true});applyConsoleCredentialsConfig(saved);SettingsDirty.capture("console_credentials");msg(consoleCredentialsMsg,"Console 账户已清空","ok")}
+let sshTargetConfig={configured:false,host:"",port:22,username:"",auth_method:"auto",timeout_ms:30000,password_configured:false,sudo_password_configured:false,password_storage:"device_local_secret_store"};
+function applySshTargetConfig(cfg){sshTargetConfig=Object.assign({configured:false,host:"",port:22,username:"",auth_method:"auto",timeout_ms:30000,password_configured:false,sudo_password_configured:false,password_storage:"device_local_secret_store"},cfg||{});const configured=!!sshTargetConfig.configured;const passwordText=sshTargetConfig.password_configured?"已保存":"未配置";const sudoText=sshTargetConfig.sudo_password_configured?"已保存":"未配置";sshTargetRows.innerHTML=row("Host",sshTargetConfig.host||"未配置")+row("User",sshTargetConfig.username||"--")+row("Auth",sshTargetConfig.auth_method||"auto")+row("Password",passwordText)+row("Sudo password",sudoText)+row("密码策略","仅本地使用")+row("Timeout",`${Number(sshTargetConfig.timeout_ms||30000)} ms`);if(document.activeElement!==sshTargetHost)sshTargetHost.value=sshTargetConfig.host||"";if(document.activeElement!==sshTargetPort)sshTargetPort.value=String(sshTargetConfig.port||22);if(document.activeElement!==sshTargetUsername)sshTargetUsername.value=sshTargetConfig.username||"";if(document.activeElement!==sshTargetAuth)sshTargetAuth.value=sshTargetConfig.auth_method||"auto";if(document.activeElement!==sshTargetTimeout)sshTargetTimeout.value=String(sshTargetConfig.timeout_ms||30000);if(document.activeElement!==sshTargetPassword)sshTargetPassword.value="";if(document.activeElement!==sshTargetSudoPassword)sshTargetSudoPassword.value="";if(document.activeElement!==sshTargetClearPassword)sshTargetClearPassword.checked=false;if(document.activeElement!==sshTargetClearSudoPassword)sshTargetClearSudoPassword.checked=false}
+async function loadSshTargetConfig(silent=false){try{const cfg=await API.get("/api/settings/ssh-target");applySshTargetConfig(cfg);if(!silent)msg(sshTargetMsg,"SSH target 已读取","ok");return cfg}catch(err){if(!silent)msg(sshTargetMsg,err.message||"读取 SSH target 失败","bad");throw err}}
+async function saveSshTargetConfig(){const host=sshTargetHost.value.trim(),username=sshTargetUsername.value.trim();if(!host||!username){msg(sshTargetMsg,"Host 和 Username 必填","bad");return}const password=sshTargetPassword.value,sudoPassword=sshTargetSudoPassword.value;const payload={host,port:Number(sshTargetPort.value)||22,username,auth_method:sshTargetAuth.value||"auto",timeout_ms:Number(sshTargetTimeout.value)||30000,clear_password:!!sshTargetClearPassword.checked,clear_sudo_password:!!sshTargetClearSudoPassword.checked};if(password&&!payload.clear_password)payload.password=password;if(sudoPassword&&!payload.clear_sudo_password)payload.sudo_password=sudoPassword;const saved=await API.post("/api/settings/ssh-target",payload);applySshTargetConfig(saved);SettingsDirty.capture("ssh_target");msg(sshTargetMsg,"维护目标主机已保存；SSH/sudo 密码仅本地使用","ok")}
+async function clearSshTargetConfig(){const saved=await API.post("/api/settings/ssh-target",{clear:true});applySshTargetConfig(saved);SettingsDirty.capture("ssh_target");msg(sshTargetMsg,"维护目标主机已清空","ok")}
+function applySshKeyConfig(cfg){const privateOk=!!cfg.private_key_configured,publicOk=!!cfg.public_key_configured,passOk=!!cfg.passphrase_configured;sshKeyRows.innerHTML=row("Private key",privateOk?"已保存":"未配置")+row("Public key",publicOk?"已配置":"未配置")+row("Passphrase",passOk?"已配置":"未配置")+row("Auth method",privateOk?"可使用密钥":"仅密码");if(document.activeElement!==sshPublicKey)sshPublicKey.value=cfg.public_key||"";sshPrivateKey.value="";sshKeyPassphrase.value="";sshPrivateKey.placeholder=privateOk?"已配置，重新粘贴可覆盖":"-----BEGIN OPENSSH PRIVATE KEY-----"}
+async function loadSshKeyConfig(silent=false){try{const cfg=await API.get("/api/settings/ssh-key");applySshKeyConfig(cfg);if(!silent)msg(sshKeyMsg,"SSH key 状态已读取","ok");return cfg}catch(err){if(!silent)msg(sshKeyMsg,err.message||"读取 SSH key 失败","bad");throw err}}
+async function saveSshKeyConfig(){const privateKey=sshPrivateKey.value.trim(),publicKey=sshPublicKey.value.trim(),passphrase=sshKeyPassphrase.value;if(!privateKey){msg(sshKeyMsg,"请粘贴 private key；只更新 public key 暂不支持","bad");return}const saved=await API.post("/api/settings/ssh-key",{private_key:privateKey,public_key:publicKey,passphrase});applySshKeyConfig(saved);SettingsDirty.capture("ssh_key");msg(sshKeyMsg,"SSH key 已保存","ok")}
+async function clearSshKeyConfig(){const saved=await API.post("/api/settings/ssh-key",{clear:true});applySshKeyConfig(saved);SettingsDirty.capture("ssh_key");msg(sshKeyMsg,"SSH key 已清空","ok")}
+let mcpConfig={enabled:false,control_owner:"mcp"};
+function applyMcpConfig(cfg){mcpConfig=Object.assign({enabled:false,default_enabled:false,control_owner:"mcp",client_header:"X-ExoAnchor-Client: exoanchor-mcp",scope:"external_mcp_controller"},cfg||{});const enabled=!!mcpConfig.enabled;if(document.activeElement!==mcpEnabled)mcpEnabled.checked=enabled;mcpRows.innerHTML=row("访问状态",enabled?"允许外部客户端":"仅 Web / 内置 Agent")+row("控制身份",mcpConfig.control_owner||"mcp")+row("租约隔离","与 KVM 和内置 Agent 互斥")}
+async function loadMcpSettings(silent=false){try{const cfg=await API.get("/api/settings/mcp");applyMcpConfig(cfg);if(!silent)msg(mcpMsg,"MCP 设置已读取","ok");return cfg}catch(err){if(!silent)msg(mcpMsg,err.message||"读取 MCP 设置失败","bad");throw err}}
+async function saveMcpConfig(){const saved=await API.post("/api/settings/mcp",{enabled:!!mcpEnabled.checked});applyMcpConfig(saved);SettingsDirty.capture("mcp");msg(mcpMsg,mcpConfig.enabled?"MCP 控制器访问已开启":"MCP 控制器访问已关闭","ok")}
+function deviceLabelValue(info){return String(info?.device_label||info?.label||"").trim()}
+function applyDeviceLabel(label){const value=String(label||"").trim();if(value)localStorage.setItem("si_device_label",value);if(value&&document.activeElement!==deviceLabel)deviceLabel.value=value}
+function applyDeviceIdentity(cfg){
+  const label=String(cfg?.label||cfg?.device_label||"").trim();
+  const agentName=String(cfg?.agent_name||cfg?.agent_display_name||cfg?.default_agent_name||"Agent").trim()||"Agent";
+  if(label)applyDeviceLabel(label);
+  agentDisplayName.maxLength=Number(cfg?.agent_name_max_length||32);
+  if(document.activeElement!==agentDisplayName)agentDisplayName.value=agentName;
+  localStorage.setItem("ea_agent_display_name",agentName);
+  window.dispatchEvent(new CustomEvent("exoanchor:agent-name-changed",{detail:{name:agentName}}));
+  return cfg;
+}
+async function loadDeviceIdentity(silent=true){
+  try{const cfg=await API.get("/api/settings/device");applyDeviceIdentity(cfg);if(!silent)msg(deviceMsg,"设备身份已读取","ok");return cfg}
+  catch(err){if(document.activeElement!==agentDisplayName&&!agentDisplayName.value)agentDisplayName.value="Agent";if(!silent)msg(deviceMsg,err.message||"读取设备身份失败","bad");throw err}
+}
+const targetProfileFields={
+  name:targetProfileName,device_type:targetDeviceType,operating_system:targetOperatingSystem,
+  environment:targetEnvironment,location:targetLocation,configuration:targetConfiguration,
+  purpose:targetPurpose,notes:targetNotes
+};
+function applyTargetProfile(cfg){
+  const defaults={name:"",device_type:"unknown",operating_system:"unknown",environment:"unknown",location:"",configuration:"",purpose:"",notes:""};
+  for(const [key,field] of Object.entries(targetProfileFields)){
+    if(document.activeElement!==field)field.value=String(cfg?.[key]??defaults[key]);
+  }
+  return cfg;
+}
+async function loadTargetProfile(silent=true){
+  try{const cfg=await API.get("/api/settings/target-profile");applyTargetProfile(cfg);if(!silent)msg(targetProfileMsg,"被控端信息已读取","ok");return cfg}
+  catch(err){if(!silent)msg(targetProfileMsg,err.message||"读取被控端信息失败","bad");throw err}
+}
+async function saveTargetProfile(){
+  const payload={};
+  for(const [key,field] of Object.entries(targetProfileFields))payload[key]=field.value.trim();
+  const saved=await API.post("/api/settings/target-profile",payload);
+  applyTargetProfile(saved);
+  SettingsDirty.capture("target_profile");
+  msg(targetProfileMsg,"被控端信息已保存，并会作为受限背景资料提供给 Agent","ok");
+  return saved;
+}
+function formatBytes(value){let n=Number(value||0);if(!Number.isFinite(n)||n<=0)return"--";const u=["B","KB","MB","GB"];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return`${i===0||n>=10?n.toFixed(0):n.toFixed(1)} ${u[i]}`}
+function formatPercent(value){const n=Number(value);return Number.isFinite(n)?`${Math.max(0,Math.min(100,n)).toFixed(n>=10?0:1)}%`:"--"}
+function setBar(el,value){const n=Number(value);el.style.width=`${Number.isFinite(n)?Math.max(0,Math.min(100,n)):0}%`}
+let currentStoragePath="",storageDirectoryLoaded=false;
+function renderStorage(info){
+  const disk=info?.disk||info?.storage||{},flash=disk.flash||{},tf=disk.tf_card||{};
+  const tfMounted=!!tf.mounted,tfSupported=tf.supported!==false;
+  const flashText=flash.detected?`${formatBytes(flash.total_bytes)} · 可用 ${formatBytes(flash.free_bytes)}`:"未知";
+  const appText=flash.app_partition_bytes?`${formatBytes(flash.app_partition_bytes)} / ${formatBytes(flash.data_partition_bytes)}`:"--";
+  const tfText=tfMounted?`${formatBytes(tf.total_bytes)} · 可用 ${formatBytes(tf.free_bytes)}`:(tfSupported?"未插入或未挂载":"未启用");
+  const flashPct=Number(flash.usage_percent||0),tfPct=Number(tf.usage_percent||0);
+  storageFlashText.textContent=flash.detected?`${formatBytes(flash.used_bytes)} / ${formatBytes(flash.total_bytes)} · ${formatPercent(flashPct)}`:"未知";
+  storageTfText.textContent=tfMounted?`${formatBytes(tf.used_bytes)} / ${formatBytes(tf.total_bytes)} · ${formatPercent(tfPct)}`:(tfSupported?"未挂载":"未启用");
+  setBar(storageFlashBar,flashPct);setBar(storageTfBar,tfMounted?tfPct:0);
+  storageRows.innerHTML=row("内部 Flash",flashText)+row("应用/数据空间",appText)+row("TF 卡",tfText)+row("ExoAnchor 根目录",tf.root_path||"/sdcard/EA");
+}
+function normalizeStoragePath(path){
+  let raw=String(path||"").trim().replace(/^\/+/, "").replace(/^sdcard\//i,"").replace(/^EA\/?/i,"").replace(/\/+/g,"/");
+  raw=raw.replace(/\/$/,"");
+  if(!raw)return "";
+  const parts=raw.split("/").filter(Boolean);
+  const topMap={agent:"AGENT",assets:"ASSETS",logs:"LOGS",snapshots:"SNAPSHOTS",exports:"EXPORTS",mcp:"MCP",ota:"OTA"};
+  const out=parts.map((part,idx)=>{const key=part.toLowerCase();if(idx===0&&topMap[key])return topMap[key];return part});
+  return out.join("/");
+}
+function storageDisplayPath(path){const p=normalizeStoragePath(path);return `/EA${p?"/"+p:""}`}
+function storageEntryIcon(type){return type==="directory"?"dir":"file"}
+async function loadStorageDirectory(path=currentStoragePath){
+  const target=normalizeStoragePath(path);
+  storageCurrentPath.textContent=storageDisplayPath(target);
+  storageFileMsg.textContent="";
+  try{
+    const data=await API.get(`/api/storage/list?path=${encodeURIComponent(target)}`);
+    currentStoragePath=data.path||"";
+    storageDirectoryLoaded=true;
+    storageCurrentPath.textContent=data.display_path||storageDisplayPath(currentStoragePath);
+    const entries=Array.isArray(data.entries)?data.entries:[];
+    const parent=data.parent??"";
+    const parentRow=currentStoragePath?`<div class="file-row directory" data-type="directory" data-path="${esc(parent)}"><button class="file-open" type="button" data-action="open">..</button><span class="file-type">dir</span><span class="file-size"></span><span class="file-actions"></span></div>`:"";
+    storageFileList.innerHTML=parentRow+entries.map(item=>{const type=item.type||"unknown";const dir=type==="directory";const path=String(item.path||"");return `<div class="file-row ${dir?"directory":"file"}" data-type="${esc(type)}" data-path="${esc(path)}"><button class="file-open" type="button" data-action="${dir?"open":"view"}">${esc(item.name||"--")}</button><span class="file-type">${storageEntryIcon(type)}</span><span class="file-size">${dir?"":formatBytes(item.size)}</span><span class="file-actions">${dir?"":`<button class="mini-btn" type="button" data-action="view">查看</button><button class="mini-btn" type="button" data-action="download">下载</button>`}</span></div>`}).join("");
+    if(!entries.length&&!currentStoragePath)storageFileMsg.textContent="TF 卡根目录为空或尚未初始化。";
+    else if(data.truncated)storageFileMsg.textContent="目录内容较多，仅显示前一部分。";
+    else storageFileMsg.textContent="";
+  }catch(err){
+    storageDirectoryLoaded=false;
+    storageFileList.innerHTML="";
+    msg(storageFileMsg,err.message||`目录不可用：${storageDisplayPath(target)}`,"bad");
+  }
+}
+function storageDownloadName(path){const name=String(path||"").split("/").filter(Boolean).pop();return name||"exoanchor-file.bin"}
+async function downloadStorageFile(path){
+  const target=normalizeStoragePath(path);
+  msg(storageFileMsg,`正在下载 ${storageDownloadName(target)}`,"warn");
+  await downloadApiFile(`/api/storage/download?path=${encodeURIComponent(target)}`,storageDownloadName(target));
+  msg(storageFileMsg,`已开始下载 ${storageDownloadName(target)}`,"ok");
+}
+async function viewStorageFile(path){
+  const target=normalizeStoragePath(path);
+  msg(storageFileMsg,`正在读取 ${storageDownloadName(target)}`,"warn");
+  const data=await API.get(`/api/storage/view?path=${encodeURIComponent(target)}`);
+  storagePreviewPanel.style.display="block";
+  storagePreviewPanel.open=true;
+  storagePreviewTitle.textContent=`${data.name||storageDownloadName(target)} · ${data.mode||"preview"} · ${formatBytes(data.preview_bytes||0)}${data.truncated?" · truncated":""}`;
+  storagePreviewBody.textContent=data.content||"";
+  msg(storageFileMsg,`已读取 ${storageDownloadName(target)}`,"ok");
+}
+function safeUploadName(name){
+  return String(name||"").trim().replace(/^\/+|\/+$/g,"");
+}
+function storageUploadItems(){
+  const files=Array.from(storageUploadFiles.files||[]);
+  const custom=safeUploadName(storageUploadName.value);
+  if(custom&&files.length>1)throw new Error("多文件上传时不能指定单个目标文件名");
+  return files.map(file=>{
+    const name=custom||file.name;
+    if(!name||name.includes("/")||name.includes("\\")||name.includes(":")||name.includes(".."))throw new Error(`非法文件名：${name||"--"}`);
+    const base=normalizeStoragePath(currentStoragePath);
+    return {file,path:base?`${base}/${name}`:name,label:name};
+  });
+}
+async function uploadSelectedStorageFiles(){
+  const items=storageUploadItems();
+  if(!items.length){msg(storageUploadMsg,"请选择至少一个文件","bad");return}
+  storageUploadProgress.style.width="0%";
+  for(let i=0;i<items.length;i++){
+    const item=items[i];
+    msg(storageUploadMsg,`正在上传 ${item.label}`,"warn");
+    await API.upload(`/api/storage/upload?path=${encodeURIComponent(item.path)}`,item.file,p=>{
+      const total=(i+p)/items.length;
+      storageUploadProgress.style.width=`${Math.round(total*100)}%`;
+    });
+  }
+  storageUploadProgress.style.width="100%";
+  msg(storageUploadMsg,`已上传 ${items.length} 个文件到 ${storageDisplayPath(currentStoragePath)}`,"ok");
+  storageUploadFiles.value="";
+  storageUploadName.value="";
+  await loadStorageDirectory(currentStoragePath).catch(()=>{});
+  await refresh().catch(()=>{});
+}
+function modeCount(video){return Array.isArray(video.modes)?video.modes.length:Number(video.modes_count??video.mode_count??video.modes??0)}
+function renderVideoRuntime(video){
+  const ctl=video.control||{};
+  const on=!!(ctl.always_on||video.always_online);
+  const previewFpsX100=Number(ctl.preview_mode?.fps_x100||100);
+  if(document.activeElement!==videoAlwaysOnline)videoAlwaysOnline.checked=on;
+  if(document.activeElement!==previewFpsSelect)previewFpsSelect.value=String(previewFpsX100);
+}
+function renderOta(ota){
+  const settings=ota?.settings||{},last=ota?.last_check||{},part=ota?.partition||{};
+  if(document.activeElement!==otaManifestUrl)otaManifestUrl.value=settings.manifest_url||settings.default_manifest_url||"";
+  if(document.activeElement!==otaChannel)otaChannel.value=settings.channel||"stable";
+  const busy=!!ota?.busy;
+  const checked=!!last.checked;
+  otaInstall.disabled=busy||!last.update_available;
+  otaCheck.disabled=busy;
+  otaReboot.disabled=busy;
+  const latest=checked?(last.version||"--"):"未检查";
+  const result=checked?(last.message||"--"):"not checked";
+  const size=last.size?`${(last.size/1024/1024).toFixed(2)} MB`:"--";
+  otaRows.innerHTML=row("当前版本",ota?.current_version||"--")+row("启动分区",`${part.running||"--"} / ${part.boot||"--"}`)+row("最新版本",latest)+row("更新结果",result)+row("固件大小",size);
+}
+let agentToolContract=null,agentToolSettings=null,agentToolPolicy={version:2,tools:{}};
+function parseJsonOrDefault(text,fallback){try{return JSON.parse(text)}catch(e){return fallback}}
+function toolPolicyFor(name){const tools=agentToolPolicy&&agentToolPolicy.tools&&typeof agentToolPolicy.tools==="object"?agentToolPolicy.tools:{};return tools[name]||{}}
+function toolAccessValue(tool,policy,audience){const field=`${audience}_enabled`;if(typeof policy[field]==="boolean")return policy[field];if(audience==="agent"&&typeof policy.enabled==="boolean")return policy.enabled;if(typeof tool[field]==="boolean")return tool[field];return tool[`${audience}_callable`]===true}
+function toolStateBadge(tool,policy,audience="agent"){const implemented=tool.implemented!==false,available=tool.available!==false,callable=tool[`${audience}_callable`]===true,enabled=toolAccessValue(tool,policy,audience);if(!implemented)return {text:"规划中",kind:"warn"};if(!callable)return {text:"未接入",kind:"neutral"};if(!enabled)return {text:"关闭",kind:"bad"};if(!available)return {text:"暂不可用",kind:"warn"};return {text:"可用",kind:"ok"}}
+function riskKind(risk){return risk==="high"?"bad":risk==="medium"?"warn":"ok"}
+function renderAgentToolRows(tools){
+  if(!Array.isArray(tools)||!tools.length){agentToolRows.innerHTML=row("Tools","none");agentToolPolicyRows.innerHTML="";return}
+  agentToolRows.innerHTML=tools.map(t=>{const p=toolPolicyFor(t.name),a=toolStateBadge(t,p,"agent"),m=toolStateBadge(t,p,"mcp");return `<div class="tool-row"><span><b>${esc(t.name)}</b><small>${esc(t.endpoint||"--")}</small></span><span class="data-state ${esc(a.kind)}">A · ${esc(a.text)}</span><span class="data-state ${esc(m.kind)}">M · ${esc(m.text)}</span><span class="data-state ${riskKind(p.risk||t.risk)}">${esc(p.risk||t.risk||"low")}</span><span>${esc(t.description||"")}</span></div>`}).join("");
+  agentToolPolicyRows.innerHTML=tools.map(t=>{const p=toolPolicyFor(t.name),agentCallable=t.agent_callable===true&&t.implemented!==false,mcpCallable=t.mcp_callable===true&&t.implemented!==false,agentEnabled=agentCallable&&toolAccessValue(t,p,"agent"),mcpEnabled=mcpCallable&&toolAccessValue(t,p,"mcp");return `<div class="tool-row tool-policy-row" data-tool="${esc(t.name)}"><span class="tool-copy"><b>${esc(t.name)}</b><small>${esc(t.description||t.endpoint||"")}</small></span><label class="ui-switch tool-access-switch ${agentCallable?"":"is-unmapped"}"><input class="tool-agent-enabled" type="checkbox" role="switch" aria-label="${esc(t.name)} 本地 Agent" ${agentEnabled?"checked":""} ${agentCallable?"":"disabled"}><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span class="ui-switch-state">${agentCallable?(agentEnabled?"开":"关"):"未接入"}</span></label><label class="ui-switch tool-access-switch ${mcpCallable?"":"is-unmapped"}"><input class="tool-mcp-enabled" type="checkbox" role="switch" aria-label="${esc(t.name)} MCP" ${mcpEnabled?"checked":""} ${mcpCallable?"":"disabled"}><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span class="ui-switch-state">${mcpCallable?(mcpEnabled?"开":"关"):"未接入"}</span></label><select class="tool-permission" aria-label="${esc(t.name)} 权限"><option value="observe">observe</option><option value="supervised">supervised</option><option value="autonomous">autonomous</option></select><select class="tool-risk" aria-label="${esc(t.name)} 风险"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></div>`}).join("");
+  agentToolPolicyRows.querySelectorAll(".tool-policy-row").forEach(el=>{const t=tools.find(item=>item.name===el.dataset.tool)||{};const p=toolPolicyFor(el.dataset.tool);el.querySelector(".tool-permission").value=p.permission||t.permission||"observe";el.querySelector(".tool-risk").value=p.risk||t.risk||"low"});
+  agentToolPolicyRows.querySelectorAll(".tool-access-switch input").forEach(input=>input.addEventListener("change",()=>{const state=input.closest(".tool-access-switch").querySelector(".ui-switch-state");state.textContent=input.checked?"开":"关"}));
+}
+function renderSkills(){
+  const tools=(agentToolContract?.tools||agentToolContract?.agent_tools?.tools||[]).filter(t=>t.agent_callable===true||t.mcp_callable===true);
+  renderAgentToolRows(tools);
+}
+function applyWebSearchConfig(ws={}){
+  const enabled=!!ws.enabled,available=!!ws.available,keySaved=!!ws.api_key_configured;
+  if(document.activeElement!==webSearchEnabled)webSearchEnabled.checked=enabled;
+  if(document.activeElement!==webSearchProfile)webSearchProfile.value=ws.profile||"qwen";
+  if(document.activeElement!==webSearchEndpoint)webSearchEndpoint.value=ws.endpoint||"";
+  if(document.activeElement!==webSearchModel)webSearchModel.value=ws.model||"qwen-plus";
+  if(document.activeElement!==webSearchStrategy)webSearchStrategy.value=ws.strategy||"agent";
+  webSearchApiKey.value="";
+  webSearchApiKey.placeholder=keySaved?"已保存单独 Search key；留空保留":"留空则复用 Profile key";
+  webSearchClearKey.checked=false;
+  const keySource=keySaved?"单独配置":"复用 Profile";
+  webSearchRows.innerHTML=row("Provider",ws.provider||"qwen_chat_search")+row("API Key",keySource)+row("Profile",ws.profile||"qwen")+row("Model",ws.model||"qwen-plus")+row("Strategy",ws.strategy||"agent")+row("Endpoint",ws.endpoint||"复用 Profile");
+}
+async function saveWebSearchConfig(){
+  const payload={web_search:{enabled:!!webSearchEnabled.checked,profile:webSearchProfile.value||"qwen",endpoint:webSearchEndpoint.value.trim(),model:webSearchModel.value.trim()||"qwen-plus",strategy:webSearchStrategy.value||"agent",clear_api_key:!!webSearchClearKey.checked}};
+  const key=webSearchApiKey.value;
+  if(key&&!payload.web_search.clear_api_key)payload.web_search.api_key=key;
+  const saved=await API.post("/api/settings/agent-tools",payload);
+  agentToolSettings=saved;
+  agentToolPolicy=parseJsonOrDefault(saved.policy_json||"{}",{version:2,tools:{}});
+  if(!agentToolPolicy.tools||typeof agentToolPolicy.tools!=="object")agentToolPolicy.tools={};
+  applyWebSearchConfig(saved.web_search||{});
+  renderSkills();
+  return saved;
+}
+function collectAgentToolPolicy(){
+  const tools={};
+  agentToolPolicyRows.querySelectorAll(".tool-policy-row").forEach(el=>{
+    const current=toolPolicyFor(el.dataset.tool);
+    const item={...current,agent_enabled:el.querySelector(".tool-agent-enabled").checked,mcp_enabled:el.querySelector(".tool-mcp-enabled").checked,permission:el.querySelector(".tool-permission").value,risk:el.querySelector(".tool-risk").value};
+    delete item.enabled;
+    tools[el.dataset.tool]=item;
+  });
+  return {version:2,default_mode:agentToolDefaultMode.value,tools};
+}
+async function loadAgentTools(silent=false){
+  try{
+    const [caps,settings]=await Promise.all([API.get("/api/capabilities"),API.get("/api/settings/agent-tools")]);
+    agentToolContract=caps.agent_tools||{};
+    agentToolSettings=settings;
+    agentToolPolicy=parseJsonOrDefault(settings.policy_json||"{}",{version:2,tools:{}});
+    if(!agentToolPolicy.tools||typeof agentToolPolicy.tools!=="object")agentToolPolicy.tools={};
+    agentToolDefaultMode.value=settings.default_mode||agentToolPolicy.default_mode||"observe";
+    if(document.activeElement!==agentSkillsJson)agentSkillsJson.value=settings.skills_json||"[]";
+    applyWebSearchConfig(settings.web_search||{});
+    renderSkills();
+    if(!silent)msg(skillMsg,"Agent 工具能力已刷新","ok");
+    return settings;
+  }catch(err){
+    if(!silent)msg(skillMsg,err.message||"读取 Agent 工具失败","bad");
+    throw err;
+  }
+}
+async function saveAgentToolSettings({saveSkillsOnly=false}={}){
+  let skillsText=agentSkillsJson.value.trim()||"[]";
+  try{skillsText=JSON.stringify(JSON.parse(skillsText),null,2)}catch(e){msg(agentSkillsMsg,"skills JSON 格式错误","bad");throw e}
+  const payload={default_mode:agentToolDefaultMode.value,skills_json:skillsText};
+  if(!saveSkillsOnly){
+    agentToolPolicy=collectAgentToolPolicy();
+    payload.policy_json=JSON.stringify(agentToolPolicy);
+  }
+  const saved=await API.post("/api/settings/agent-tools",payload);
+  agentToolSettings=saved;
+  agentToolPolicy=parseJsonOrDefault(saved.policy_json||payload.policy_json||"{}",{version:2,tools:{}});
+  agentSkillsJson.value=saved.skills_json||skillsText;
+  renderSkills();
+  return saved;
+}
+function gpioLabel(n){return Number(n)>=0?`GPIO${n}`:"未接入"}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+function gpioMatrixRange(){const matrix=lastGpioMatrix||{},min=Number.isInteger(matrix.gpio_min)?matrix.gpio_min:0,max=Number.isInteger(matrix.gpio_max)?matrix.gpio_max:54;return{min,max}}
+function fixedGpioSet(){const {min,max}=gpioMatrixRange();return new Set((Array.isArray(lastGpioMatrix?.assignments)?lastGpioMatrix.assignments:[]).map(item=>Number(item.gpio)).filter(gpio=>Number.isInteger(gpio)&&gpio>=min&&gpio<=max))}
+function gpioMapState(m){const active=m.direction==="output"?`active ${m.active_level||"--"}`:(m.enabled?m.state:"未接入");return `${gpioLabel(m.gpio)} · ${m.direction} · ${active}`}
+function renderGpioMatrix(power){
+  const matrix=lastGpioMatrix||{},min=Number.isInteger(matrix.gpio_min)?matrix.gpio_min:0,max=Number.isInteger(matrix.gpio_max)?matrix.gpio_max:54;
+  const fixed=(Array.isArray(matrix.assignments)?matrix.assignments:[]).filter(item=>Number.isInteger(Number(item.gpio))&&Number(item.gpio)>=min&&Number(item.gpio)<=max).map(item=>({...item,gpio:Number(item.gpio),runtime:false}));
+  const runtime=(Array.isArray(power.gpio_map)?power.gpio_map:[]).filter(item=>Number.isInteger(Number(item.gpio))&&Number(item.gpio)>=min&&Number(item.gpio)<=max).map(item=>({gpio:Number(item.gpio),signal:item.role,label:item.label||item.role,subsystem:"power",direction:item.direction||"--",configurable:true,source:"runtime",runtime:true}));
+  const assignments=[...fixed,...runtime],byPin=new Map();
+  assignments.forEach(item=>{if(!byPin.has(item.gpio))byPin.set(item.gpio,[]);byPin.get(item.gpio).push(item)});
+  const pins=[];for(let gpio=min;gpio<=max;gpio++)pins.push(gpio);
+  gpioMatrixGrid.innerHTML=pins.map(gpio=>{const items=byPin.get(gpio)||[],signals=items.map(item=>`<span class="gpio-signal ${item.runtime?"runtime":""}"><b title="${esc(item.label||item.signal)}">${esc(item.label||item.signal)}</b><small>${esc(item.subsystem||"firmware")} · ${esc(item.direction||"--")}${item.configurable?" · configurable":""}</small></span>`).join("");return `<div class="gpio-pin ${items.length?"assigned":"unassigned"}" data-gpio="${gpio}"><div class="gpio-pin-head"><b>GPIO${gpio}</b><small>${items.length?`${items.length} signal${items.length>1?"s":""}`:"FREE*"}</small></div>${signals||'<span class="gpio-empty">当前固件未分配</span>'}</div>`}).join("");
+  const assignedPins=byPin.size,total=max-min+1,runtimePins=new Set(runtime.map(item=>item.gpio)).size;
+  gpioMatrixSummary.textContent=`${total} GPIO · ${assignedPins} 已占用 · ${total-assignedPins} 未分配 · ${fixed.length} 固定信号 · ${runtimePins} 运行映射`;
+}
+function renderSettingsLocator(power){
+  if(power.locator)lastSettingsLocator={...lastSettingsLocator,...power.locator};
+  const locator=lastSettingsLocator,reported=!!power.locator,supported=!!locator.supported,bidirectional=!!locator.bidirectional,configurable=supported&&bidirectional,reversed=settingsLocatorReversePending===null?!!locator.reversed:settingsLocatorReversePending;
+  settingsLocatorReverseRow.hidden=!reported;
+  settingsLocatorMsg.hidden=!reported||!configurable;
+  if(!configurable)settingsLocatorMsg.textContent="";
+  settingsLocatorReverse.checked=reversed;
+  settingsLocatorReverse.disabled=!reported||!configurable||!power.available||!!power.busy||settingsLocatorReverseBusy;
+  settingsLocatorReverse.setAttribute("aria-busy",settingsLocatorReverseBusy?"true":"false");
+  settingsLocatorReverse.title="交换两种灯色的正反方向";
+  settingsLocatorReverseMeta.textContent=!supported?"当前板型未配置 Locator LED":!bidirectional?`当前为单 GPIO${Number(locator.gpio)>=0?" GPIO"+Number(locator.gpio):""} 回路，不支持双向反转`:`当前为${reversed?"反向":"正向"}；修改后立即生效并持久保存`;
+}
+function renderDeviceHardware(power){
+  if(!power)return;
+  const map=Array.isArray(power.gpio_map)?power.gpio_map:[],pwr=map.find(item=>item.role==="power_button"),rst=map.find(item=>item.role==="reset_button");
+  const available=!!power.available&&Number.isInteger(Number(pwr?.gpio))&&Number(pwr.gpio)>=0&&Number.isInteger(Number(rst?.gpio))&&Number(rst.gpio)>=0&&Number(pwr.gpio)!==Number(rst.gpio);
+  powerResetSwapRow.hidden=!available;
+  powerResetSwap.disabled=!available||!!power.busy||powerResetSwapBusy;
+  powerResetSwap.setAttribute("aria-busy",powerResetSwapBusy?"true":"false");
+  powerResetSwapMeta.textContent=available?`当前开机 GPIO${Number(pwr.gpio)} · 重启 GPIO${Number(rst.gpio)}`:"当前板型不支持开机 / 重启交换";
+  renderSettingsLocator(power);
+}
+function renderGpioMap(power,hid,pins){
+  if(gpioMapDirty)return;
+  gpioMapDirty=false;
+  const map=Array.isArray(power.gpio_map)?power.gpio_map:[];
+  const mapped=map.map(m=>`<div class="gpio-edit-row" data-role="${esc(m.role)}"><div><b>${esc(m.label||m.role)}</b><small>${esc(m.role)} · ${esc(m.direction)}${m.required?" · required":""}</small></div><input class="gpio-num" aria-label="${esc(m.label||m.role)} GPIO" type="number" min="-1" max="54" step="1" inputmode="numeric" value="${Number(m.gpio)>=0?Number(m.gpio):""}" placeholder="-1"><label class="inline-check"><input class="gpio-active" type="checkbox" ${m.active_high!==false?"checked":""}> active high</label><span class="gpio-state">${esc(gpioMapState(m))}</span></div>`).join("");
+  gpioMapRows.innerHTML=`<div class="gpio-map-group"><div class="gpio-map-group-head"><h3>Control and sensing</h3><small>Power, Reset, state detection, and Locator LED; fixed ownership and duplicate mappings are rejected.</small></div><div class="gpio-edit">${mapped}</div></div>`;
+}
+function collectGpioMap(){
+  const fixed=fixedGpioSet(),used=new Map(),items=Array.from(gpioMapRows.querySelectorAll(".gpio-edit-row")).map(el=>{
+    const input=el.querySelector(".gpio-num"),raw=input.value.trim();
+    const gpio=raw===""?-1:Number(raw);
+    if(!Number.isInteger(gpio)||gpio<-1||gpio>54)throw new Error("GPIO 必须是 -1..54");
+    return {role:el.dataset.role,gpio,active_high:el.querySelector(".gpio-active").checked};
+  });
+  for(const item of items){if(item.gpio<0)continue;if(fixed.has(item.gpio))throw new Error(`GPIO${item.gpio} 已由板型固定信号占用`);if(used.has(item.gpio))throw new Error(`GPIO${item.gpio} 与 ${used.get(item.gpio)} 重复`);used.set(item.gpio,item.role)}
+  return items;
+}
+function netSpeed(net,eth){const mbps=Number(net.speed_mbps||eth.speed_mbps||0);return mbps>0?`${mbps}M`:""}
+function netDuplex(net,eth){if(net.full_duplex===true||eth.full_duplex===true)return"full duplex";if(net.full_duplex===false||eth.full_duplex===false)return"half duplex";return"--"}
+function netWorkState(net,eth){if(!net.link_up)return"link down";return[netSpeed(net,eth),netDuplex(net,eth)].filter(v=>v&&v!=="--").join(" · ")||"link up"}
+let diagnosticLogsLastFetch=0,lastNetworkStatus=null;
+function diagnosticOwner(video){const ctl=video.control||{},owner=video.capture_owner||ctl.active_owner||"off";return owner==="preview"?"预览":owner==="kvm"?"KVM":owner==="agent"?"Agent":"关闭"}
+function renderNetworkStatus(net,eth={}){
+  if(!net)return;
+  const linked=!!net.link_up,connected=!!net.connected,pending=!!net.pending_confirmation;
+  const state=pending?`${net.config_state||"pending"} · ${Number(net.confirm_remaining_seconds||0)}s`:net.config_state||"active";
+  diagnosticNetwork.innerHTML=diagnosticRow("Device ID",net.device_id||"--",!!net.device_id)+diagnosticRow("Hostname",net.hostname||"--",!!net.hostname)+diagnosticRow("Interface",net.interface||"未报告",!!net.interface)+diagnosticRow("工作状态",netWorkState(net,eth),linked)+diagnosticRow("地址模式",`${net.mode||"--"} · ${net.address_source||"waiting"}`,connected)+diagnosticRow("配置状态",state,pending?"idle":true)+diagnosticRow("IP",net.ipv4||net.ip||"No IP",connected)+diagnosticRow("Gateway",net.gateway||eth.gateway||"--",connected)+diagnosticRow("MAC",net.mac||eth.mac||"--",!!(net.mac||eth.mac))+(net.last_error?diagnosticRow("Last error",net.last_error,false):"");
+}
+function renderDiagnostics(status,info){
+  if(!status||!info)return;
+  const video=status.video||{},hid=status.hid||{},pins=hid.pins||{},power=status.power||{};
+  const net=status.network||{},eth=info.network?.ethernet||{},owner=diagnosticOwner(video);
+  const ip=net.ip||eth.ipv4||"No IP";
+  const hidReady=!!(hid.hid_ready||hid.ready);
+  const hidPort=hid.port||((pins.dm_gpio!=null&&pins.dp_gpio!=null)?`GPIO${pins.dm_gpio}/${pins.dp_gpio}`:"未报告");
+  diagnosticDevice.innerHTML=diagnosticRow("设备标注名",deviceLabelValue(info),true)+diagnosticRow("固件版本",`v${UI.VERSION}`,true)+diagnosticRow("Hostname",info.hostname||"--",!!info.hostname)+diagnosticRow("运行时间",info.uptime?.formatted||"--",true)+diagnosticRow("登录次数",Number(info.auth?.login_count||0),true);
+  renderNetworkStatus(lastNetworkStatus||Object.assign({},net,{ipv4:ip}),eth);
+  diagnosticVideo.innerHTML=diagnosticRow("Stream",video.streaming?"running":"waiting",!!video.streaming)+diagnosticRow("Owner",owner,!!video.capture_enabled)+diagnosticRow("Resolution",video.resolution||"--",!!video.device_connected)+diagnosticRow("Target",`${video.target_resolution||"--"} @ ${Number(video.target_fps||0).toFixed(1)}fps`,!!video.capture_enabled)+diagnosticRow("FPS",Number(video.fps||0).toFixed(1),!!video.frame_ready)+diagnosticRow("Dropped",video.frames_dropped??"--",!!video.frame_ready);
+  diagnosticUsb.innerHTML=diagnosticRow("UVC camera",video.frame_ready?`${video.frames_encoded} frames`:video.device_connected||modeCount(video)>0?"standby":"offline",!!(video.device_connected||modeCount(video)>0))+diagnosticRow("Capture",video.capture_enabled?owner:"off",!!video.capture_enabled)+diagnosticRow("HID USB",hidReady?"ready":hid.connected?"mounted":hid.initialized?"waiting":"off",hidReady)+diagnosticRow("HID port",hidPort,!!hid.port);
+  const gpioRows=[diagnosticRow("HID D-",pins.dm_gpio!=null?`GPIO${pins.dm_gpio}`:"未报告",pins.dm_gpio!=null),diagnosticRow("HID D+",pins.dp_gpio!=null?`GPIO${pins.dp_gpio}`:"未报告",pins.dp_gpio!=null)];
+  for(const item of Array.isArray(power.gpio_map)?power.gpio_map:[]){gpioRows.push(diagnosticRow(item.label||item.role,gpioMapState(item),item.enabled?true:"idle"))}
+  diagnosticGpio.innerHTML=gpioRows.join("");
+}
+async function loadDiagnosticLogs(force=false){
+  if(!force&&Date.now()-diagnosticLogsLastFetch<5000)return;
+  try{
+    const data=await API.get("/api/system/logs?n=60"),logs=Array.isArray(data.logs)?data.logs:[];
+    diagnosticLogsLastFetch=Date.now();
+    diagnosticLogs.innerHTML=logs.length?logs.map(item=>`<div><span>${esc(item.time||"--")}</span><span>${esc(item.level||"--")}</span><span>${esc(item.message||"")}</span></div>`).join(""):'<div><span>--</span><span>INFO</span><span>暂无日志</span></div>';
+    msg(diagnosticLogsMsg,"","");
+  }catch(err){msg(diagnosticLogsMsg,err.message||"日志读取失败","bad");throw err}
+}
+let settingsRefreshBusy=false;
+function renderSettingsRuntime(status){
+  if(!status)return;const active=activeSettingsSection(),video=status.video||{},hid=status.hid||{},pins=hid.pins||{},power=status.power||{};
+  if(active==="device"){renderVideoRuntime(video);renderDeviceHardware(power);renderGpioMatrix(power);renderDiagnostics(status,UI.info.value)}
+  if(active==="advanced")renderGpioMap(power,hid,pins);
+}
+function renderAuthStatus(auth){
+  authState=auth;API.username=auth.username||API.username||"admin";
+  const valid=!auth.enabled||auth.token_valid,must=!!auth.must_change_credentials;
+  authRows.innerHTML=row("用户名",auth.username||"--")+row("凭据",must?"默认，需修改":auth.local_credentials?"已设置":"默认")+row("会话",valid?"有效":"缺失");
+  fillUsernames(auth.username||auth.default_username||API.username);
+  if(must&&valid&&!accountMsg.textContent)msg(accountMsg,"请保存新的账户凭据","warn");
+  if(must&&!document.getElementById("authModal")?.classList.contains("show"))AuthUI.show("change",auth);
+}
+async function refreshActiveSection(id=activeSettingsSection()){
+  if(settingsRefreshBusy)return;
+  settingsRefreshBusy=true;
+  try{
+    const active=settingsId(id);
+    if(active==="security")renderAuthStatus(await API.get("/api/auth/status"));
+    else if(active==="device"){
+      const [capabilities,network,status,info]=await Promise.all([API.get("/api/capabilities"),API.get("/api/v1/network/status"),UI.status.refresh(),UI.info.refresh()]);
+      lastNetworkStatus=network;lastGpioMatrix=capabilities.gpio_matrix||lastGpioMatrix;applyDeviceLabel(deviceLabelValue(info));
+      const ms2109PowerAvailable=ms2109CapabilityAvailable(capabilities);setMs2109Availability(ms2109PowerAvailable);
+      if(ms2109PowerAvailable)await loadMs2109Status(true);
+      renderSettingsRuntime(status);renderDiagnostics(status,info);
+    }else if(active==="target"){
+      await UI.status.refresh();
+    }else if(active==="system"){
+      renderOta(await API.get("/api/ota/status"));
+    }else if(active==="advanced"){
+      const [status,info]=await Promise.all([UI.status.refresh(),UI.info.refresh()]);
+      renderStorage(info);renderSettingsRuntime(status);
+    }
+  }catch(e){
+    if(e?.status===401&&!document.getElementById("authModal")?.classList.contains("show"))AuthUI.requireLogin();
+    else if(activeSettingsSection()==="security")msg(sessionMsg,e.message||"账户状态读取失败","bad");
+  }finally{settingsRefreshBusy=false}
+}
+async function refresh(){return refreshActiveSection(activeSettingsSection())}
+accountForm.onsubmit=async e=>{
+  e.preventDefault();msg(accountMsg,"","");
+  const username=accountUsername.value.trim(),next=newPassword.value,confirm=confirmPassword.value;
+  if(!username){msg(accountMsg,"用户名不能为空","bad");return}
+  if(next!==confirm){msg(accountMsg,"两次密码不一致","bad");return}
+  try{
+    const r=await API.post("/api/settings/account",{current_username:authState.username||API.username,current_password:currentPassword.value,username,new_password:next});
+    API.setSession(r.token,r.username||username);currentPassword.value="";newPassword.value="";confirmPassword.value="";fillUsernames(r.username||username);
+    SettingsDirty.capture("account");msg(accountMsg,"账户已保存","ok");await refresh();
+  }catch(err){msg(accountMsg,err.message,"bad")}
+};
+storageQuickLinks.onclick=e=>{const btn=e.target.closest("button[data-path]");if(btn)loadStorageDirectory(btn.dataset.path||"").catch(()=>{})};
+storageFileList.onclick=e=>{const rowEl=e.target.closest(".file-row[data-path]");if(!rowEl)return;const action=e.target.closest("[data-action]")?.dataset.action||"";if(rowEl.dataset.type==="directory"||action==="open")loadStorageDirectory(rowEl.dataset.path||"").catch(()=>{});else if(action==="download")downloadStorageFile(rowEl.dataset.path||"").catch(err=>msg(storageFileMsg,err.message||"下载失败","bad"));else viewStorageFile(rowEl.dataset.path||"").catch(err=>msg(storageFileMsg,err.message||"查看失败","bad"))};
+storageRefreshDir.onclick=()=>loadStorageDirectory(currentStoragePath).catch(()=>{});
+storageUploadForm.onsubmit=e=>{e.preventDefault();uploadSelectedStorageFiles().catch(err=>{msg(storageUploadMsg,err.message||"上传失败","bad")})};
+downloadSystemLogs.onclick=()=>downloadApiFile("/api/system/logs/download?n=80","exoanchor-system-logs.txt").then(()=>msg(storageUploadMsg,"系统日志下载已开始","ok")).catch(err=>msg(storageUploadMsg,err.message||"日志下载失败","bad"));
+refreshDeviceDiagnostics.onclick=async()=>{refreshDeviceDiagnostics.disabled=true;msg(deviceDiagnosticsMsg,"正在刷新设备诊断摘要","warn");try{const [capabilities,status,info,network]=await Promise.all([API.get("/api/capabilities"),UI.status.refresh(),UI.info.refresh(),API.get("/api/v1/network/status")]);lastGpioMatrix=capabilities.gpio_matrix||lastGpioMatrix;lastNetworkStatus=network;renderSettingsRuntime(status);renderDiagnostics(status,info);msg(deviceDiagnosticsMsg,"设备诊断摘要已刷新","ok")}catch(err){msg(deviceDiagnosticsMsg,err.message||"设备诊断摘要刷新失败","bad")}finally{refreshDeviceDiagnostics.disabled=false}};
+refreshDiagnostics.onclick=async()=>{refreshDiagnostics.disabled=true;msg(diagnosticLogsMsg,"正在刷新日志","warn");try{await loadDiagnosticLogs(true);msg(diagnosticLogsMsg,"日志已刷新","ok")}catch(err){msg(diagnosticLogsMsg,err.message||"日志刷新失败","bad")}finally{refreshDiagnostics.disabled=false}};
+downloadDiagnosticLogs.onclick=()=>downloadApiFile("/api/system/logs/download?n=80","exoanchor-system-logs.txt").then(()=>msg(diagnosticLogsMsg,"系统日志下载已开始","ok")).catch(err=>msg(diagnosticLogsMsg,err.message||"日志下载失败","bad"));
+sshKeyForm.onsubmit=async e=>{
+  e.preventDefault();msg(sshKeyMsg,"正在保存 SSH key","warn");
+  try{await saveSshKeyConfig()}catch(err){msg(sshKeyMsg,err.message||"保存 SSH key 失败","bad")}
+};
+sshPrivateKeyFile.onchange=async()=>{
+  const file=sshPrivateKeyFile.files&&sshPrivateKeyFile.files[0];
+  if(!file)return;
+  if(file.size>=4096){msg(sshKeyMsg,"private key 文件过大，建议先用 ed25519 key 验证","bad");sshPrivateKeyFile.value="";return}
+  sshPrivateKey.value=await file.text();
+  msg(sshKeyMsg,`已载入 ${file.name}，点击保存后写入设备`,"ok");
+};
+sshKeyLoad.onclick=()=>loadSshKeyConfig(false).then(()=>SettingsDirty.capture("ssh_key")).catch(()=>{});
+sshKeyClear.onclick=async()=>{
+  if(!(await UI.confirmAction({title:"清空 SSH Key？",message:"设备上保存的 private key 和相关凭据将被删除。",confirmLabel:"清空"})))return;
+  msg(sshKeyMsg,"正在清空 SSH key","warn");
+  try{await clearSshKeyConfig()}catch(err){msg(sshKeyMsg,err.message||"清空失败","bad")}
+};
+mcpEnabled.onchange=()=>msg(mcpMsg,"MCP 设置尚未保存","warn");
+saveMcpSettings.onclick=()=>saveMcpConfig().catch(err=>{msg(mcpMsg,err.message||"保存 MCP 设置失败","bad")});
+lanDiscoveryEnabled.onchange=async()=>{
+  const before=productFeaturesConfig.lan_discovery_enabled!==false,enabled=lanDiscoveryEnabled.checked;
+  lanDiscoveryEnabled.disabled=true;msg(productFeaturesMsg,enabled?"正在开启局域网发现":"正在关闭局域网发现","warn");
+  try{await saveProductFeatureSettings({lan_discovery_enabled:enabled});msg(productFeaturesMsg,enabled?"局域网发现已开启":"局域网发现已关闭","ok")}
+  catch(err){lanDiscoveryEnabled.checked=before;SettingsDirty.capture("product_features");msg(productFeaturesMsg,err.message||"局域网发现设置失败","bad")}
+  finally{lanDiscoveryEnabled.disabled=false}
+};
+for(const input of [embeddedAgentEnabled,pageContextEnabled,conversationHistoryEnabled,longTermMemoryEnabled])input.onchange=()=>msg(agentPrivacyMsg,"Agent 设置尚未保存","warn");
+saveAgentPrivacy.onclick=()=>{const payload={embedded_agent_enabled:embeddedAgentEnabled.checked,page_context_enabled:pageContextEnabled.checked,conversation_history_enabled:conversationHistoryEnabled.checked,long_term_memory_enabled:longTermMemoryEnabled.checked};msg(agentPrivacyMsg,"正在保存 Agent 设置","warn");saveProductFeatureSettings(payload).then(()=>msg(agentPrivacyMsg,"Agent 设置已保存","ok")).catch(err=>msg(agentPrivacyMsg,err.message||"保存 Agent 设置失败","bad"))};
+ms2109PowerToggle.onchange=async()=>{
+  const on=ms2109PowerToggle.checked;
+  if(!on&&!(await UI.confirmAction({title:"关闭 MS2109 电源？",message:"视频采集会立即中断，直到重新开启或重新上电。",confirmLabel:"关闭电源"}))){ms2109PowerToggle.checked=true;return}
+  setMs2109Power(on?"on":"off").catch(()=>{});
+};
+agentApiProfile.onchange=()=>{localStorage.setItem("ea_agent_profile",agentApiProfile.value);applyAgentProfile(selectedAgentProfile())};
+agentApiProvider.onchange=()=>{agentApiBase.value=providerEndpoint(agentApiProvider.value);agentApiModel.value=providerModel(agentApiProvider.value);setAgentModelOptions([],agentApiModel.value)};
+agentApiModelSelect.onchange=()=>{if(agentApiModelSelect.value)agentApiModel.value=agentApiModelSelect.value};
+agentApiLoad.onclick=()=>loadAgentApiConfig(false).then(()=>SettingsDirty.capture("agent_api")).catch(()=>{});
+agentApiRefreshModels.onclick=()=>refreshAgentModels().catch(err=>{msg(agentApiMsg,err.message||"枚举模型失败","bad")});
+agentApiForm.onsubmit=async e=>{
+  e.preventDefault();
+  try{await saveAgentApiConfig()}catch(err){msg(agentApiMsg,err.message||"保存失败","bad")}
+};
+agentPromptLoad.onclick=()=>loadAgentPrompt(false).then(()=>SettingsDirty.capture("agent_prompt")).catch(()=>{});
+agentPromptDefault.onclick=()=>resetAgentPrompt().catch(err=>{msg(agentPromptMsg,err.message||"恢复默认失败","bad")});
+agentPromptForm.onsubmit=async e=>{
+  e.preventDefault();
+  try{await saveAgentPrompt()}catch(err){msg(agentPromptMsg,err.message||"保存失败","bad")}
+};
+sshTargetForm.onsubmit=async e=>{
+  e.preventDefault();msg(sshTargetMsg,"正在保存 SSH target","warn");
+  try{await saveSshTargetConfig();await refresh()}catch(err){msg(sshTargetMsg,err.message||"保存 SSH target 失败","bad")}
+};
+consoleCredentialsForm.onsubmit=async e=>{
+  e.preventDefault();msg(consoleCredentialsMsg,"正在保存 Console 账户","warn");
+  try{await saveConsoleCredentials()}catch(err){msg(consoleCredentialsMsg,err.message||"保存 Console 账户失败","bad")}
+};
+consoleCredentialsLoad.onclick=()=>loadConsoleCredentials(false).then(()=>SettingsDirty.capture("console_credentials")).catch(()=>{});
+consoleCredentialsClear.onclick=async()=>{
+  if(!(await UI.confirmAction({title:"清空 Console 账户？",message:"被控端 Console 用户名和本地保存的密码将被删除。",confirmLabel:"清空"})))return;
+  msg(consoleCredentialsMsg,"正在清空 Console 账户","warn");
+  try{await clearConsoleCredentials()}catch(err){msg(consoleCredentialsMsg,err.message||"清空失败","bad")}
+};
+sshTargetLoad.onclick=()=>loadSshTargetConfig(false).then(()=>SettingsDirty.capture("ssh_target")).catch(()=>{});
+sshTargetClear.onclick=async()=>{
+  if(!(await UI.confirmAction({title:"清空维护目标？",message:"SSH 主机、账户和本地保存的密码将被清空。",confirmLabel:"清空"})))return;
+  msg(sshTargetMsg,"正在清空 SSH target","warn");
+  try{await clearSshTargetConfig();await refresh()}catch(err){msg(sshTargetMsg,err.message||"清空失败","bad")}
+};
+deviceForm.onsubmit=async e=>{
+  e.preventDefault();msg(deviceMsg,"","");
+  const label=deviceLabel.value.trim();
+  if(!label){msg(deviceMsg,"请输入设备标注名","bad");return}
+  try{
+    const r=await API.post("/api/settings/device",{label});
+    applyDeviceIdentity(r);
+    SettingsDirty.capture("device");
+    msg(deviceMsg,"设备名称已保存","ok");
+    await refresh();
+  }catch(err){msg(deviceMsg,err.message,"bad")}
+};
+async function saveAgentDisplayName(name){
+  const agent_name=String(name||"").trim();
+  if(!agent_name){msg(agentIdentityMsg,"请输入助手名称","bad");return null}
+  const saved=await API.post("/api/settings/device",{agent_name});
+  applyDeviceIdentity(saved);
+  SettingsDirty.capture("agent_identity");
+  msg(agentIdentityMsg,`助手名称已保存：${agent_name}`,"ok");
+  return saved;
+}
+agentIdentityForm.onsubmit=e=>{e.preventDefault();msg(agentIdentityMsg,"正在保存助手名称","warn");saveAgentDisplayName(agentDisplayName.value).catch(err=>msg(agentIdentityMsg,err.message||"保存失败","bad"))};
+agentDisplayNameDefault.onclick=()=>{msg(agentIdentityMsg,"正在恢复默认名称","warn");saveAgentDisplayName("Agent").catch(err=>msg(agentIdentityMsg,err.message||"恢复失败","bad"))};
+targetProfileForm.onsubmit=e=>{e.preventDefault();msg(targetProfileMsg,"正在保存被控端信息","warn");saveTargetProfile().catch(err=>msg(targetProfileMsg,err.message||"保存失败","bad"))};
+targetProfileLoad.onclick=()=>loadTargetProfile(false).then(()=>SettingsDirty.capture("target_profile")).catch(()=>{});
+videoAlwaysOnline.onchange=()=>msg(videoRuntimeMsg,"视频运行设置未保存","warn");
+previewFpsSelect.onchange=()=>msg(videoRuntimeMsg,"Overview 预览帧率未保存","warn");
+saveVideoRuntime.onclick=async()=>{
+  msg(videoRuntimeMsg,"正在保存","warn");
+  try{
+    const previewFpsX100=Number(previewFpsSelect.value);
+    await API.post("/api/video/settings",{always_online:videoAlwaysOnline.checked,preview_fps_x100:previewFpsX100});
+    SettingsDirty.capture("video_runtime");
+    msg(videoRuntimeMsg,`视频运行已保存；Overview 预览 ${(previewFpsX100/100).toFixed(0)} FPS`,"ok");
+    await refresh();
+  }catch(err){msg(videoRuntimeMsg,err.message,"bad");await refresh().catch(()=>{})}
+};
+settingsLocatorReverse.onchange=async()=>{
+  if(settingsLocatorReverseBusy)return;
+  const reversed=settingsLocatorReverse.checked,before=!reversed;
+  settingsLocatorReversePending=reversed;settingsLocatorReverseBusy=true;msg(settingsLocatorMsg,reversed?"正在反转灯色方向":"正在恢复灯色方向","warn");
+  renderSettingsLocator({available:true,busy:false,locator:lastSettingsLocator});
+  try{
+    const result=await API.post("/api/power/action",{action:reversed?"locator_reverse_on":"locator_reverse_off"});
+    settingsLocatorReversePending=null;settingsLocatorReverseBusy=false;renderSettingsLocator(result);
+    msg(settingsLocatorMsg,reversed?"灯色方向已反转并保存":"灯色方向已恢复并保存","ok");
+    await UI.status.refresh();
+  }catch(err){settingsLocatorReversePending=null;settingsLocatorReverseBusy=false;lastSettingsLocator.reversed=before;renderSettingsLocator({available:true,busy:false,locator:lastSettingsLocator});msg(settingsLocatorMsg,err.message||"灯色方向保存失败","bad")}
+};
+powerResetSwap.onclick=async()=>{
+  if(powerResetSwapBusy)return;
+  if(!(await UI.confirmAction({title:"交换开机 / 重启功能？",message:`${powerResetSwapMeta.textContent}。交换只修改并保存 GPIO 映射，不会触发开机或重启动作。`,confirmLabel:"确认交换"})))return;
+  powerResetSwapBusy=true;powerResetSwap.disabled=true;msg(deviceHardwareMsg,"正在交换开机 / 重启映射","warn");
+  try{
+    const result=await API.post("/api/settings/gpio-map",{swap_power_reset:true});
+    powerResetSwapBusy=false;renderDeviceHardware(result);msg(deviceHardwareMsg,"开机 / 重启映射已交换","ok");
+    await UI.status.refresh();
+  }catch(err){powerResetSwapBusy=false;msg(deviceHardwareMsg,err.message||"开机 / 重启交换失败","bad");await refresh().catch(()=>{})}
+};
+gpioMapRows.oninput=()=>{gpioMapDirty=true;msg(gpioMapMsg,"GPIO 映射未保存","warn")};
+gpioMapForm.onsubmit=async e=>{
+  e.preventDefault();msg(gpioMapMsg,"","");
+  try{
+    const gpio_map=collectGpioMap();
+    await API.post("/api/settings/gpio-map",{gpio_map});
+    gpioMapDirty=false;
+    SettingsDirty.capture("gpio");
+    msg(gpioMapMsg,"GPIO 映射已热更新","ok");
+    await refresh();
+  }catch(err){msg(gpioMapMsg,err.message,"bad")}
+};
+resetGpioMap.onclick=async()=>{
+  if(!(await UI.confirmAction({title:"恢复默认 GPIO 映射？",message:"当前主机电源、复位和状态探测引脚配置将被替换。",confirmLabel:"恢复默认"})))return;
+  msg(gpioMapMsg,"正在恢复默认映射","warn");
+  try{
+    await API.post("/api/settings/gpio-map",{reset:true});
+    gpioMapDirty=false;
+    SettingsDirty.capture("gpio");
+    msg(gpioMapMsg,"已恢复默认映射","ok");
+    await refresh();
+  }catch(err){msg(gpioMapMsg,err.message,"bad")}
+};
+otaSettingsForm.onsubmit=async e=>{
+  e.preventDefault();msg(otaMsg,"","");
+  try{
+    await API.post("/api/ota/settings",{manifest_url:otaManifestUrl.value.trim(),channel:(otaChannel.value.trim()||"stable"),auto_check:false});
+    SettingsDirty.capture("ota");
+    msg(otaMsg,"更新设置已保存","ok");
+    await refresh();
+  }catch(err){msg(otaMsg,err.message,"bad")}
+};
+otaCheck.onclick=async()=>{
+  msg(otaMsg,"正在检查更新","warn");
+  try{
+    const r=await API.post("/api/ota/check",{});
+    const last=r.last_check||{};
+    msg(otaMsg,last.update_available?`发现版本 ${last.version}`:(last.message||"已经是最新版本"),last.update_available?"warn":"ok");
+    await refresh();
+  }catch(err){msg(otaMsg,err.message,"bad");await refresh()}
+};
+otaInstall.onclick=async()=>{
+  if(!(await UI.confirmAction({title:"安装固件更新？",message:"将写入 OTA 分区，期间视频和控制服务可能暂停。",confirmLabel:"安装更新"})))return;
+  msg(otaMsg,"正在安装更新，画面会暂停","warn");
+  try{
+    const r=await API.post("/api/ota/install",{});
+    msg(otaMsg,`已写入 ${((r.size||0)/1024/1024).toFixed(2)} MB，请重启应用`,"ok");
+    await refresh();
+  }catch(err){msg(otaMsg,err.message,"bad");await refresh()}
+};
+otaUploadForm.onsubmit=async e=>{
+  e.preventDefault();msg(otaUploadMsg,"","");
+  const file=otaFile.files&&otaFile.files[0];
+  if(!file){msg(otaUploadMsg,"请选择固件 bin","bad");return}
+  otaProgress.style.width="0%";
+  msg(otaUploadMsg,"正在上传固件，画面会暂停","warn");
+  try{
+    const r=await API.upload("/api/ota/upload",file,p=>{otaProgress.style.width=`${Math.round(p*100)}%`});
+    otaProgress.style.width="100%";
+    msg(otaUploadMsg,`已写入 ${((r.size||file.size)/1024/1024).toFixed(2)} MB，请重启应用`,"ok");
+    otaFile.value="";
+    await refresh();
+  }catch(err){msg(otaUploadMsg,err.message,"bad");await refresh()}
+};
+otaReboot.onclick=async()=>{
+  if(!(await UI.confirmAction({title:"重启应用？",message:"当前视频、终端和 Agent 会话会立即断开。",confirmLabel:"重启"})))return;
+  msg(otaMsg,"正在重启","warn");
+  try{await API.post("/api/ota/reboot",{});msg(otaMsg,"重启指令已发送","ok")}catch(err){msg(otaMsg,err.message,"bad")}
+};
+refreshSkills.onclick=()=>loadAgentTools(false).then(()=>{SettingsDirty.capture("agent_tools");SettingsDirty.capture("agent_skills");SettingsDirty.capture("web_search")}).catch(()=>{});
+webSearchForm.onsubmit=async e=>{
+  e.preventDefault();msg(webSearchMsg,"正在保存联网搜索设置","warn");
+  try{await saveWebSearchConfig();SettingsDirty.capture("web_search");msg(webSearchMsg,"联网搜索设置已保存","ok")}catch(err){msg(webSearchMsg,err.message||"保存失败","bad")}
+};
+agentToolDefaultMode.onchange=()=>msg(agentToolMsg,"工具授权尚未保存","warn");
+agentToolPolicyRows.oninput=()=>msg(agentToolMsg,"工具授权尚未保存","warn");
+saveAgentTools.onclick=async()=>{
+  msg(agentToolMsg,"正在保存工具授权","warn");
+  try{await saveAgentToolSettings();SettingsDirty.capture("agent_tools");msg(agentToolMsg,"Agent / MCP 工具授权已保存","ok")}catch(err){msg(agentToolMsg,err.message||"保存失败","bad")}
+};
+resetAgentTools.onclick=async()=>{
+  msg(agentToolMsg,"正在恢复默认工具授权","warn");
+  try{const saved=await API.post("/api/settings/agent-tools",{reset_default:true});agentToolSettings=saved;agentToolPolicy=parseJsonOrDefault(saved.policy_json||"{}",{version:2,tools:{}});agentToolDefaultMode.value=saved.default_mode||"observe";agentSkillsJson.value=saved.skills_json||"[]";applyWebSearchConfig(saved.web_search||{});renderSkills();SettingsDirty.capture("agent_tools");SettingsDirty.capture("agent_skills");SettingsDirty.capture("web_search");msg(agentToolMsg,"已恢复默认工具授权、联网搜索和 Skills","ok")}catch(err){msg(agentToolMsg,err.message||"恢复默认失败","bad")}
+};
+formatAgentSkills.onclick=()=>{
+  try{agentSkillsJson.value=JSON.stringify(JSON.parse(agentSkillsJson.value||"[]"),null,2);renderSkills();msg(agentSkillsMsg,"Skills JSON 已格式化","ok")}catch(err){msg(agentSkillsMsg,"skills JSON 格式错误","bad")}
+};
+saveAgentSkills.onclick=async()=>{
+  msg(agentSkillsMsg,"正在保存 Skills","warn");
+  try{await saveAgentToolSettings({saveSkillsOnly:true});SettingsDirty.capture("agent_skills");msg(agentSkillsMsg,"Skills 已保存","ok")}catch(err){msg(agentSkillsMsg,err.message||"保存失败","bad")}
+};
+openAgentFromSkills.onclick=()=>location.href="/agent";
+resetEverything.onclick=async()=>{
+  const phrase=prompt('输入 RESET EVERYTHING 确认清空所有设置并重启');
+  if(phrase!=="RESET EVERYTHING"){msg(systemMsg,"已取消","warn");return}
+  msg(systemMsg,"正在清空设置并重启","warn");
+  try{
+    await API.post("/api/settings/system",{reset_everything:true,confirm:"RESET EVERYTHING"});
+    API.setSession("",API.username);
+    msg(systemMsg,"重置指令已发送，设备将重启","ok");
+    setTimeout(()=>location.reload(),3500);
+  }catch(err){msg(systemMsg,err.message,"bad")}
+};
+saveAutoLogout.onclick=()=>Session.save().catch(err=>msg(sessionMsg,err.message||"保存失败","bad"));
+autoLogoutMinutes.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();Session.save().catch(err=>msg(sessionMsg,err.message||"保存失败","bad"))}};
+window.addEventListener("hashchange",updateSettingsMenu);
+UI.pageContext.register("settings",()=>{
+  const info=UI.info.value||{},section=settingsId(location.hash.slice(1)||"device");
+  return {summary:`Settings / ${section}`,items:[
+    {kind:"selection",label:"Section",value:section},
+    {kind:"setting",label:"Device label",value:deviceLabelValue(info)},
+    {kind:"status",label:"Firmware",value:`v${UI.VERSION}`},
+    {kind:"status",label:"Board",value:info.board?.name||info.board_profile||info.hardware?.board||"unknown"},
+    {kind:"status",label:"Silicon",value:info.chip?.revision||info.silicon_revision||"unknown"},
+  ]};
+});
+async function boot(){
+  fillUsernames(API.username);if(EMBEDDED_AGENT){agentDisplayName.value="Agent";initAgentApiForm()}renderSkills();
+  bindBrowserPreference(browserFocusRefreshEnabled,"si_kvm_focus_refresh",browserPreferenceMsg);
+  bindBrowserPreference(browserAgentActionsEnabled,"si_agent_action_visualization",agentBrowserPreferenceMsg);
+  setupSettingsNavigation();
+  UI.status.subscribe(status=>{if(["device","advanced"].includes(activeSettingsSection()))renderSettingsRuntime(status)});
+  UI.info.subscribe(info=>{const active=activeSettingsSection();if(active==="device")renderDiagnostics(UI.status.value,info);else if(active==="advanced")renderStorage(info)});
+  if(await AuthUI.checkRequired())await loadSettingsSection(activeSettingsSection(),{force:true});
+  UI.lifecycle.interval(()=>{if(!document.hidden&&!document.getElementById("authModal")?.classList.contains("show")&&["device","target","security","system","advanced"].includes(activeSettingsSection()))refreshActiveSection(activeSettingsSection())},10000);
+  UI.lifecycle.interval(()=>{if(!document.hidden&&!document.getElementById("authModal")?.classList.contains("show"))AuthUI.checkRequired()},10000);
+}
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Access via KVM"
+  short_description: "Bootstrap UART and SSH access through the target KVM console"
+  default_prompt: "Use $configure-access-via-kvm to establish and verify UART and SSH access from the KVM console."
