@@ -81,9 +81,9 @@ schematic, or test from another board is not hardware evidence.
 | 4 | ExoAnchor PrototypeV2.3 | b4-labelled assembly using b6 mapping; bring-up verified, not production-final |
 | 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | Formal Dev product profile available; flashing and HIL not yet completed |
 
-See the
-[ESP32-P4 implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
-for each board's firmware profile, ESP32-P4 revision, and validation status.
+See the [ESP32-P4 platform overview](device/ESP32P4/README.md). The detailed
+[implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
+records each board's firmware profile, ESP32-P4 revision, and validation status.
 
 The project confirms that `a6` identifies the V2.4 PCB layer count only; V2.4
 and V2.4a6 have the same schematic/GPIO mapping and use
