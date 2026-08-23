@@ -5,9 +5,9 @@ description: Safely inspect and operate an ExoAnchor ESP32-P4 through the canoni
 
 # ExoAnchor MCP Control
 
-Use `integrations/exoanchor-mcp` as the only ExoAnchor MCP implementation. DSH,
-Codex and other clients are adapters around this bridge; do not copy device
-logic into a client plugin.
+This skill ships with `integrations/exoanchor-mcp`, the only ExoAnchor MCP
+implementation. DSH, Codex and other clients are adapters around this bridge;
+do not copy device logic into a client plugin.
 
 In Codex the raw tools are named `exoanchor_*`. In DSH they are exposed by the
 official MCP client as `mcp__exoanchor__exoanchor_*`.

@@ -201,6 +201,8 @@ ExoAnchor/
 │   ├── reproduction/                # 制造与复刻
 │   └── guides/                      # 实用指南
 ├── integrations/exoanchor-mcp/      # 可选外部 MCP 控制器
+│   ├── exoanchor_mcp/               # canonical stdio 服务
+│   └── skills/exoanchor-mcp-control/ # Codex 与 DSH 共用操作技能
 └── LICENSE
 
 ExoAnchor-Hardware/                  # 独立硬件源工程仓库

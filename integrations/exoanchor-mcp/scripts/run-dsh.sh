@@ -128,8 +128,7 @@ esac
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 export EXOANCHOR_MCP_ROOT
 EXOANCHOR_MCP_ROOT=$(cd "$script_dir/.." && pwd -P)
-repo_root=$(cd "$EXOANCHOR_MCP_ROOT/../.." && pwd -P)
-export EXOANCHOR_SKILL_ROOT="$repo_root/skills"
+export EXOANCHOR_SKILL_ROOT="$EXOANCHOR_MCP_ROOT/skills"
 patch_file="$EXOANCHOR_MCP_ROOT/docs/dsh/exoanchor.patch.yml"
 
 if [[ ! -f "$patch_file" || ! -f "$EXOANCHOR_SKILL_ROOT/exoanchor-mcp-control/SKILL.md" ]]; then

@@ -157,7 +157,7 @@ python3 -m unittest discover -s tests -v
 
 - [`docs/dsh/README_zh.md`](docs/dsh/README_zh.md)
 - [`scripts/run-dsh.sh`](scripts/run-dsh.sh)
-- [`../../skills/exoanchor-mcp-control/SKILL.md`](../../skills/exoanchor-mcp-control/SKILL.md)
+- [`skills/exoanchor-mcp-control/SKILL.md`](skills/exoanchor-mcp-control/SKILL.md)
 
 先运行 `./scripts/run-dsh.sh --read-only --check` 验证组合配置，再进行只读冒烟。
 当前 DSH DeepSeek chat adapter 不向模型投影 JPEG 内容，KVM 截图步骤需要人工页面

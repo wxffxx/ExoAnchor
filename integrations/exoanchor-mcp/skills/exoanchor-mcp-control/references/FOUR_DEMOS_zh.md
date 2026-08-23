@@ -1,7 +1,8 @@
 # ExoAnchor MCP 四项演示运行手册
 
-本文定义 Codex 与 DeepSeek Harness 共用的演示合同。它是一份执行手册，不会扩大
-用户授权。所有工具均来自 canonical `integrations/exoanchor-mcp`。
+本文随 `integrations/exoanchor-mcp` 一起发布，定义 Codex 与 DeepSeek Harness
+共用的演示合同。它是一份执行手册，不会扩大用户授权；所有工具均来自该
+canonical MCP 实现。
 
 ## 共同预检
 

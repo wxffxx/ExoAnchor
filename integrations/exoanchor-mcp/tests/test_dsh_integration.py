@@ -10,13 +10,12 @@ from exoanchor_mcp.contracts import TOOLS
 
 
 INTEGRATION_ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY_ROOT = INTEGRATION_ROOT.parents[1]
 PATCH_PATH = INTEGRATION_ROOT / "docs" / "dsh" / "exoanchor.patch.yml"
 LAUNCHER_PATH = INTEGRATION_ROOT / "scripts" / "run-dsh.sh"
-SKILL_PATH = REPOSITORY_ROOT / "skills" / "exoanchor-mcp-control" / "SKILL.md"
+SKILL_ROOT = INTEGRATION_ROOT / "skills"
+SKILL_PATH = SKILL_ROOT / "exoanchor-mcp-control" / "SKILL.md"
 DEMO_PATH = (
-    REPOSITORY_ROOT
-    / "skills"
+    SKILL_ROOT
     / "exoanchor-mcp-control"
     / "references"
     / "FOUR_DEMOS_zh.md"
@@ -101,6 +100,10 @@ class DshIntegrationTests(unittest.TestCase):
             launcher = LAUNCHER_PATH.read_text(encoding="utf-8")
             self.assertIn("export EXOANCHOR_ALLOW_WRITE=0", launcher)
             self.assertIn("export DSH_PERMISSION_MODE=read-only", launcher)
+            self.assertIn(
+                'EXOANCHOR_SKILL_ROOT="$EXOANCHOR_MCP_ROOT/skills"',
+                launcher,
+            )
 
     def test_supervised_launcher_only_opens_device_write_gate(self):
         with tempfile.TemporaryDirectory() as temp_dir:

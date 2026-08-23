@@ -198,6 +198,8 @@ ExoAnchor/
 │   ├── reproduction/                # Manufacturing and reproduction
 │   └── guides/                      # Practical guides
 ├── integrations/exoanchor-mcp/      # Optional external MCP controller
+│   ├── exoanchor_mcp/               # Canonical stdio server
+│   └── skills/exoanchor-mcp-control/ # Shared Codex and DSH operating skill
 └── LICENSE
 
 ExoAnchor-Hardware/                  # Independent hardware source repository

@@ -52,7 +52,7 @@ export EXOANCHOR_PASSWORD_FILE="$HOME/.codex/secrets/exoanchor-password"
 
 四项演示的公开步骤与验收矩阵：
 
-- [`../../../../skills/exoanchor-mcp-control/references/FOUR_DEMOS_zh.md`](../../../../skills/exoanchor-mcp-control/references/FOUR_DEMOS_zh.md)
+- [`../../skills/exoanchor-mcp-control/references/FOUR_DEMOS_zh.md`](../../skills/exoanchor-mcp-control/references/FOUR_DEMOS_zh.md)
 - 操作者自己的设备身份、提示词扩展和现场记录必须保存在仓库外的受控工作区，
   不得复制进公开提交。
 
