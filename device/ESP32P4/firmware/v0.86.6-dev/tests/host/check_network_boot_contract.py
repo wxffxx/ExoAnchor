@@ -78,7 +78,7 @@ def main() -> int:
     if "si_network_settings_rollback()" in manager_body:
         failures.append("PSRAM timeout path still enters NVS directly")
     timeout_body = manager_body.split("if (timeout) {", 1)[1].split(
-        "static_acd_result_t acd_result", 1
+        "poll_static_acd();", 1
     )[0]
     for marker in (
         "xSemaphoreTake(s_operation_lock, portMAX_DELAY)",

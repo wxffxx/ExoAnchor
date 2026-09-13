@@ -8,6 +8,19 @@ retain their respective upstream licenses and notices.
 None of the components listed in this file is licensed under the GPL.
 
 
+cJSON host-test dependency
+-------------------------
+
+Source: https://github.com/DaveGamble/cJSON
+Revision: b2890c8d76bbb64e710585ebc0a917196b9c67e7
+License: MIT
+Bundled files: tests/host/vendor/cjson/cJSON.c and cJSON.h
+The complete upstream license and source hashes are retained alongside these
+files in tests/host/vendor/cjson/LICENSE and README.md. This unmodified copy
+matches ESP-IDF v5.5.5 and is compiled only by the host tests. Firmware builds
+continue to use the ESP-IDF JSON component.
+
+
 libssh2_esp 1.0.0
 -----------------
 

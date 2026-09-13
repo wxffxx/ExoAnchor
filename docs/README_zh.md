@@ -12,6 +12,7 @@
 
 ## 项目文档
 
+- [固件修改验证规程](guides/FIRMWARE_VALIDATION_zh.md)
 - [固件版本历史](../device/ESP32P4/firmware/docs/FIRMWARE_VERSION_HISTORY_zh.md)
 - [双系统启动目标编排方案](../device/ESP32P4/firmware/docs/DUAL_BOOT_ORCHESTRATION_zh.md)
 - [硬件设计与生产资料](https://github.com/wxffxx/ExoAnchor-Hardware)

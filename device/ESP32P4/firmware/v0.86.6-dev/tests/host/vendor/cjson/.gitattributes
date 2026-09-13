@@ -1,0 +1,4 @@
+# Preserve the exact upstream bytes recorded in README.md, including whitespace.
+cJSON.c -whitespace
+cJSON.h -whitespace
+LICENSE -whitespace

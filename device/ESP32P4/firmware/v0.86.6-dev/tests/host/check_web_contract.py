@@ -1969,7 +1969,7 @@ def main() -> int:
     for marker in (
         "UI.lifecycle.mount(activePage)",
         "UI.lifecycle.navigate(destination)",
-        "UI.lifecycle.logout()",
+        "UI.session.logout()",
         'UI.lifecycle.destroy("logout")',
     ):
         if marker not in shell_js_text:

@@ -20,3 +20,6 @@
 
 设备内 Agent 或模型不可用时，人工 KVM 仍可独立使用。需要从外部 AI Agent
 连接设备时，使用可选的 [ExoAnchor MCP](../../integrations/exoanchor-mcp/README.md)。
+
+修改固件后的主机测试、完整构建和人工验收步骤见
+[固件修改验证规程](FIRMWARE_VALIDATION_zh.md)。
