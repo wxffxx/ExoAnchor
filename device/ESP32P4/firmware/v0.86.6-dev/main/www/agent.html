@@ -1306,7 +1306,7 @@ sendPrompt.onclick=()=>sendAgentMessage();stopPrompt.onclick=()=>stopAgentRun();
 agentKvmPermission.onchange=()=>{localStorage.setItem(AGENT_KVM_PERMISSION_KEY,agentKvmPermission.checked?"1":"0");updateAgentManualPermissions()};
 agentWebPermission.onchange=()=>{localStorage.setItem(AGENT_WEB_PERMISSION_KEY,agentWebPermission.checked?"1":"0");updateAgentManualPermissions()};
 updateAgentManualPermissions();
-document.addEventListener("exoanchor:logout",()=>stopAgentStream(true));
+document.addEventListener("exoanchor:logout",()=>stopAgentStream());
 document.addEventListener("exoanchor:agent-request-changed",event=>{if(event.detail?.source!=="workspace")refreshAgentRequestQueue().catch(()=>{})});
 UI.lifecycle.addCleanup(()=>{stopAgentStream(true);clearAgentPoll()});
 async function bootAgentPage(){if(!await API.ensure())return;workspaceState.ready=true;await Promise.all([refreshAgentConfig(),refreshAgentIdentity()]);await Promise.all([loadAgentToolSettings().catch(()=>null),loadAgentSessions().catch(e=>{terminalLine("warn",`会话列表读取失败: ${e.message||e}`);return null}),loadWorkspaceData()]);await loadAgentHistory().catch(e=>terminalLine("warn",`历史记录读取失败: ${e.message||e}`));await resumeAgentJob();await syncDeviceAgentState(true);refreshStatus();workspaceState.booted=true;if(activeLeftView==="screen"&&previewEnabled)startAgentStream();UI.lifecycle.interval(syncDeviceAgentState,4000)}

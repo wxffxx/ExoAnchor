@@ -13,6 +13,7 @@ synchronize this English mirror.
 
 ## Project documents
 
+- [Firmware change validation procedure (Chinese)](guides/FIRMWARE_VALIDATION_zh.md)
 - [Firmware version history](../device/ESP32P4/firmware/docs/FIRMWARE_VERSION_HISTORY_zh.md)
 - [Hardware design and manufacturing files](https://github.com/wxffxx/ExoAnchor-Hardware)
 

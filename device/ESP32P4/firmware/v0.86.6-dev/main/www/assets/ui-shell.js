@@ -469,11 +469,8 @@
   function hideLogout() { byId("shellLogoutModal").classList.remove("show"); }
   async function performLogout() {
     hideLogout();
-    UI.lifecycle.logout();
-    try { await UI.api.post("/api/auth/logout", {}); } catch (error) {}
+    try { await UI.session.logout(); } catch (error) {}
     UI.lifecycle.destroy("logout");
-    UI.api.setSession("", UI.api.username);
-    localStorage.removeItem("ea_auth_confirmed");
     window.location.assign("/");
   }
 

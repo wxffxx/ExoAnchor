@@ -710,8 +710,8 @@ function bindBrowserPreference(input,key,messageEl){
   };
 }
 AuthUI.bindForm(async()=>{settingsSectionLoaded.delete(activeSettingsSection());await loadSettingsSection(activeSettingsSection(),{force:true})});
-function row(name,value){return `<div class="row"><b>${name}</b><span>${value}</span></div>`}
-function diagnosticRow(name,value,state=null){const kind=state===true?"ok":state===false?"":state==="idle"?"idle":"idle";return `<div class="row diagnostic-row"><b><span class="diagnostic-dot ${kind}"></span>${name}</b><span>${value}</span></div>`}
+function row(name,value){return UI.row(name,value)}
+function diagnosticRow(name,value,state=null){const kind=state===true?"ok":state===false?"":state==="idle"?"idle":"idle";return `<div class="row diagnostic-row"><b><span class="diagnostic-dot ${kind}"></span>${esc(name)}</b><span>${esc(value)}</span></div>`}
 function msg(el,text,kind){el.textContent=text||"";el.className="msg "+(text?(kind||"ok"):"")}
 let ms2109Available=false,ms2109Busy=false,lastMs2109Status=null;
 function ms2109CapabilityAvailable(capabilities={}){

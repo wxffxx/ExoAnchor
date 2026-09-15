@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  const LOGIN_TIMEOUT_MS = 75000;
+
   const VERSION = String(window.ExoAnchorBuild?.version || "0.87.6-dev");
   const FEATURES = Object.freeze({
     embeddedAgent: window.ExoAnchorBuild?.embeddedAgent !== false,
@@ -44,6 +46,7 @@
       this.username = username || this.username || "admin";
       if (this.token) {
         localStorage.setItem("ea_auth_token", this.token);
+        localStorage.removeItem("ea_auth_logged_out");
         localStorage.setItem("si_auth_last_active", String(Date.now()));
         localStorage.setItem("ea_auth_confirmed", "1");
       } else {
@@ -55,47 +58,94 @@
     }
 
     async login(username, password) {
+      // Finish revoking the previous Cookie before a new login can replace it.
+      if (session.loggedOut()) await session.logout();
+      const logoutGeneration = localStorage.getItem("ea_auth_logout_generation");
       const requestId = globalThis.crypto?.randomUUID?.().replaceAll("-", "") ||
         (Date.now().toString(16) + Math.random().toString(16).slice(2));
+      // Password derivation can take over 30 seconds on the device. Bound the
+      // entire exchange, including response bodies, while leaving it headroom.
+      const controller = new AbortController();
+      const baseSignal = lifecycle.signal();
+      const forwardAbort = () => controller.abort();
+      document.addEventListener("exoanchor:logout", forwardAbort);
+      if (baseSignal?.aborted) controller.abort();
+      else baseSignal?.addEventListener("abort", forwardAbort, { once: true });
+      let timedOut = false;
+      const deadline = Date.now() + LOGIN_TIMEOUT_MS;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, LOGIN_TIMEOUT_MS);
       const request = () => fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password, request_id: requestId }),
-          cache: "no-store",
-          credentials: "same-origin",
-        });
-      let response;
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, request_id: requestId }),
+        cache: "no-store",
+        credentials: "same-origin",
+        signal: controller.signal,
+      });
       try {
-        response = await request();
-      } catch (error) {
-        await new Promise(resolve => setTimeout(resolve, 180));
-        response = await request();
-      }
-      if (response.status === 202) {
-        let pending = await response.json();
-        const jobId = String(pending.job_id || "");
-        if (!jobId) throw new Error("login job was not created");
-        const deadline = Date.now() + 30000;
-        while (Date.now() < deadline) {
-          await new Promise(resolve =>
-            setTimeout(resolve, Math.max(50, Number(pending.poll_after_ms) || 100)));
-          response = await fetch("/api/auth/login/status?job_id=" +
-            encodeURIComponent(jobId), {
-              cache: "no-store",
-              credentials: "same-origin",
-            });
-          if (response.status !== 202) break;
-          pending = await response.json();
+        let response;
+        try {
+          response = await request();
+        } catch (error) {
+          if (controller.signal.aborted) throw error;
+          await new Promise(resolve => setTimeout(resolve, 180));
+          response = await request();
         }
-        if (response.status === 202) throw new Error("login timed out");
+        if (response.status === 202) {
+          let pending = await response.json();
+          const jobId = String(pending.job_id || "");
+          if (!jobId) throw new Error("login job was not created");
+          while (Date.now() < deadline && !controller.signal.aborted) {
+            const delay = Math.max(50, Math.min(1000, Number(pending.poll_after_ms) || 100));
+            await new Promise(resolve => setTimeout(resolve, delay));
+            if (Date.now() >= deadline || controller.signal.aborted) break;
+            response = await fetch("/api/auth/login/status?job_id=" +
+              encodeURIComponent(jobId), {
+                cache: "no-store",
+                credentials: "same-origin",
+                signal: controller.signal,
+              });
+            if (response.status !== 202) break;
+            pending = await response.json();
+          }
+          if (response.status === 202) {
+            if (controller.signal.aborted && !timedOut) {
+              throw new DOMException("login cancelled", "AbortError");
+            }
+            throw new Error("login timed out");
+          }
+        }
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        if (controller.signal.aborted || logoutGeneration !==
+            localStorage.getItem("ea_auth_logout_generation")) {
+          throw new DOMException("login superseded by logout", "AbortError");
+        }
+        this.setSession(result.token, result.username || username);
+        return result;
+      } catch (error) {
+        if (timedOut) {
+          const timeoutError = new Error("login timed out");
+          timeoutError.name = "TimeoutError";
+          throw timeoutError;
+        }
+        throw error;
+      } finally {
+        clearTimeout(timer);
+        document.removeEventListener("exoanchor:logout", forwardAbort);
+        baseSignal?.removeEventListener("abort", forwardAbort);
       }
-      if (!response.ok) throw new Error(await response.text());
-      const result = await response.json();
-      this.setSession(result.token, result.username || username);
-      return result;
     }
 
     async request(method, path, body, promptAuth = true, options = {}) {
+      // Logout must still let page cleanup release its existing video lease.
+      const releasesVideoLease = method === "POST" && path === "/api/video/lease" &&
+        body?.active === false && !promptAuth;
+      if (path !== "/api/auth/status" && path !== "/api/auth/logout" &&
+          !releasesVideoLease && !session.active()) throw new Error("login required");
       const baseSignal = options.signal === undefined ? lifecycle.signal() : options.signal;
       const configuredTimeout = options.timeoutMs;
       const timeoutMs = Math.max(
@@ -134,7 +184,11 @@
           attemptOptions.signal = baseSignal;
         }
         try {
-          return await fetch(path, attemptOptions);
+          const response = await fetch(path, attemptOptions);
+          const type = response.headers.get("Content-Type") || "";
+          const value = response.ok && type.includes("application/json") ?
+            await response.json() : await response.text();
+          return { response, value };
         } catch (error) {
           if (timedOut) {
             const timeoutError = new Error("request timed out");
@@ -149,25 +203,25 @@
           }
         }
       };
-      let response;
+      let result;
       try {
-        response = await request();
+        result = await request();
       } catch (error) {
         if (method !== "GET" ||
             error?.name === "AbortError" ||
             error?.name === "TimeoutError") throw error;
         await new Promise(resolve => setTimeout(resolve, 120));
-        response = await request();
+        result = await request();
       }
+      const { response, value } = result;
       if (response.status === 401 && promptAuth && auth.mounted) {
         if (await auth.requireLogin()) {
           return this.request(method, path, body, false, options);
         }
         throw new Error("login required");
       }
-      if (!response.ok) throw new Error(await response.text());
-      const type = response.headers.get("Content-Type") || "";
-      return type.includes("application/json") ? response.json() : response.text();
+      if (!response.ok) throw new Error(value);
+      return value;
     }
 
     req(method, path, body, options) {
@@ -492,10 +546,23 @@
         return false;
       }
       if (!state.enabled) {
+        localStorage.removeItem("ea_auth_logged_out");
         session.apply(state);
         status.start();
         info.start();
         return true;
+      }
+      // An old or in-flight status response must never undo an explicit or
+      // idle logout, including when only the HttpOnly Cookie remains.
+      if (session.loggedOut()) {
+        session.logout().catch(() => {});
+        return await this.requireLogin(state);
+      }
+      session.apply(state);
+      if (state.token_valid) {
+        localStorage.setItem("ea_auth_confirmed", "1");
+        if (!localStorage.getItem("si_auth_last_active")) session.touch();
+        if (!session.active()) return await this.requireLogin(state);
       }
       if (state.must_change_credentials && state.token_valid) {
         return await this.requireChange(state);
@@ -511,6 +578,8 @@
           if (!state || state.token_valid) break;
         }
       }
+      if (!state) return false;
+      if (session.loggedOut()) return await this.requireLogin(state);
       if (!state.token_valid) {
         api.setSession("", api.username);
         return await this.requireLogin(state);
@@ -593,6 +662,36 @@
   const session = {
     cfg: { enabled: false, minutes: 15, loaded: false },
     started: false,
+    logoutPending: null,
+    logoutGeneration: localStorage.getItem("ea_auth_logout_generation"),
+
+    loggedOut() { return localStorage.getItem("ea_auth_logged_out") === "1"; },
+
+    logout(reason = "logout") {
+      if (this.logoutPending) return this.logoutPending;
+      // Persist the local lock before any network work; an offline reload must
+      // not restore the still-valid Cookie while revocation is being retried.
+      this.logoutGeneration = Date.now().toString(16) + Math.random().toString(16).slice(2);
+      localStorage.setItem("ea_auth_logout_generation", this.logoutGeneration);
+      localStorage.setItem("ea_auth_logged_out", "1");
+      // Another tab may have replaced the session since this ApiClient was
+      // created. Revoke the shared current token, or fall back to the Cookie.
+      api.token = localStorage.getItem("ea_auth_token") || "";
+      const revoke = api.request("POST", "/api/auth/logout", {}, false, {
+        signal: null,
+        keepalive: true,
+        timeoutMs: 8000,
+      });
+      api.setSession("", api.username);
+      status.stop();
+      info.stop();
+      lifecycle.logout();
+      if (reason === "expired") {
+        document.dispatchEvent(new CustomEvent("exoanchor:session-expired"));
+      }
+      this.logoutPending = revoke.finally(() => { this.logoutPending = null; });
+      return this.logoutPending;
+    },
 
     apply(config) {
       this.cfg = {
@@ -612,16 +711,22 @@
     },
 
     touch() {
-      if (api.token) localStorage.setItem("si_auth_last_active", String(Date.now()));
+      // The first interaction after an idle/background interval must expire
+      // the old session before it can record fresh activity.
+      if (this.active() && (api.token ||
+          localStorage.getItem("ea_auth_confirmed") === "1")) {
+        localStorage.setItem("si_auth_last_active", String(Date.now()));
+      }
     },
 
     active() {
-      if (!this.enabled() || !api.token) return true;
+      if (this.loggedOut()) return false;
+      if (!this.enabled() || (!api.token &&
+          localStorage.getItem("ea_auth_confirmed") !== "1")) return true;
       const last = Number(localStorage.getItem("si_auth_last_active") || Date.now());
       if (Date.now() - last <= this.minutes() * 60000) return true;
-      api.setSession("", api.username);
-      document.dispatchEvent(new CustomEvent("exoanchor:session-expired"));
-      if (auth.mounted) auth.requireLogin();
+      this.logout("expired").catch(() => {});
+      if (auth.mounted) auth.show("login");
       return false;
     },
 
@@ -630,6 +735,20 @@
       this.started = true;
       ["click", "keydown", "pointerdown", "touchstart"].forEach(name => {
         document.addEventListener(name, () => this.touch(), { passive: true, capture: true });
+      });
+      window.addEventListener("storage", event => {
+        if (event.key !== "ea_auth_logged_out" || event.newValue !== "1" ||
+            !this.loggedOut()) return;
+        const generation = localStorage.getItem("ea_auth_logout_generation");
+        if (generation === this.logoutGeneration) return;
+        this.logoutGeneration = generation;
+        // The originating tab owns revocation and shared storage. Only clear
+        // this tab; a delayed event must not mutate a newer browser session.
+        api.token = "";
+        status.stop();
+        info.stop();
+        lifecycle.logout();
+        if (auth.mounted) auth.show("login");
       });
       lifecycle.interval(() => this.active(), 10000);
     },
@@ -700,8 +819,15 @@
     element.className = "data-state " + (kind || "neutral");
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    })[char]);
+  }
+
   function row(name, value) {
-    return '<div class="row"><b>' + name + '</b><span>' + value + '</span></div>';
+    return '<div class="row"><b>' + escapeHtml(name) + '</b><span>' +
+      escapeHtml(value) + '</span></div>';
   }
 
   function message(element, text, kind) {

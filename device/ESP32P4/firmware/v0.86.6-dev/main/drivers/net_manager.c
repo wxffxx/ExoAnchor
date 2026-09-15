@@ -58,6 +58,9 @@ static SemaphoreHandle_t s_operation_lock;
 static TaskHandle_t s_manager_task;
 static int64_t s_pending_deadline_us;
 static int64_t s_static_acd_deadline_us;
+/* Protected by s_operation_lock; an ACD callback alone never makes a
+ * candidate eligible for persistence. */
+static bool s_pending_applied;
 static int s_logged_speed_mbps;
 static bool s_logged_full_duplex;
 static struct acd s_static_acd;
@@ -170,14 +173,18 @@ static void static_acd_callback(struct netif *netif,
                                 acd_callback_enum_t state)
 {
     (void)netif;
-    if (s_static_acd_result != STATIC_ACD_WAITING) {
+    static_acd_result_t result;
+    if (state == ACD_IP_OK) {
+        result = STATIC_ACD_OK;
+    } else if (state == ACD_DECLINE || state == ACD_RESTART_CLIENT) {
+        result = STATIC_ACD_CONFLICT;
+    } else {
         return;
     }
-    if (state == ACD_IP_OK) {
-        s_static_acd_result = STATIC_ACD_OK;
-    } else if (state == ACD_DECLINE || state == ACD_RESTART_CLIENT) {
-        s_static_acd_result = STATIC_ACD_CONFLICT;
-    }
+    static_acd_result_t expected = STATIC_ACD_WAITING;
+    (void)__atomic_compare_exchange_n(&s_static_acd_result, &expected,
+                                      result, false, __ATOMIC_ACQ_REL,
+                                      __ATOMIC_ACQUIRE);
 }
 
 typedef struct {
@@ -223,20 +230,22 @@ static void stop_static_acd(void)
         (void)esp_netif_tcpip_exec(static_acd_stop_tcpip, NULL);
     }
     s_static_acd_deadline_us = 0;
-    s_static_acd_result = STATIC_ACD_IDLE;
+    __atomic_store_n(&s_static_acd_result, STATIC_ACD_IDLE, __ATOMIC_RELEASE);
 }
 
 static esp_err_t start_static_acd(const si_network_config_t *config)
 {
     if (!config || config->mode != SI_NETWORK_MODE_STATIC ||
-        s_static_acd_result != STATIC_ACD_IDLE) {
+        __atomic_load_n(&s_static_acd_result, __ATOMIC_ACQUIRE) !=
+            STATIC_ACD_IDLE) {
         return ESP_ERR_INVALID_STATE;
     }
     static_acd_start_context_t context = {0};
     if (!ip4addr_aton(config->address, &context.address)) {
         return ESP_ERR_INVALID_ARG;
     }
-    s_static_acd_result = STATIC_ACD_WAITING;
+    __atomic_store_n(&s_static_acd_result, STATIC_ACD_WAITING,
+                     __ATOMIC_RELEASE);
     esp_err_t ret = esp_netif_tcpip_exec(static_acd_start_tcpip, &context);
     if (ret != ESP_OK) {
         stop_static_acd();
@@ -501,34 +510,37 @@ static esp_err_t apply_config(const si_network_config_t *config)
     return ret;
 }
 
+/* Caller owns s_operation_lock from observing the result through applying
+ * or rejecting it, so an old observation cannot complete a newer probe. */
 static void finish_static_acd(static_acd_result_t result)
 {
     if (!s_operation_lock || result == STATIC_ACD_IDLE ||
         result == STATIC_ACD_WAITING) {
         return;
     }
-    xSemaphoreTake(s_operation_lock, portMAX_DELAY);
-    if (s_static_acd_result != result) {
-        xSemaphoreGive(s_operation_lock);
+    if (__atomic_load_n(&s_static_acd_result, __ATOMIC_ACQUIRE) != result) {
         return;
     }
     stop_static_acd();
 
     si_network_settings_status_t settings = {0};
     esp_err_t ret = si_network_settings_get(&settings);
-    if (ret == ESP_OK && !settings.have_staged) {
+    if (ret == ESP_OK && (!settings.have_staged || !settings.pending)) {
         ret = ESP_ERR_INVALID_STATE;
     }
-    if (ret == ESP_OK && result == STATIC_ACD_OK) {
+    bool apply_attempted = ret == ESP_OK && result == STATIC_ACD_OK;
+    if (apply_attempted) {
         ret = apply_config(&settings.staged);
     }
     if (ret == ESP_OK && result == STATIC_ACD_OK) {
+        s_pending_applied = true;
         status_lock();
         update_config_status_locked(&settings.staged, "pending");
         status_unlock();
         ESP_LOGI(TAG, "Static IPv4 address conflict check passed: %s",
                  settings.staged.address);
     } else {
+        s_pending_applied = false;
         esp_err_t rollback_ret = ESP_OK;
         if (ret == ESP_OK) {
             ret = result == STATIC_ACD_CONFLICT
@@ -546,18 +558,42 @@ static void finish_static_acd(static_acd_result_t result)
             update_config_status_locked(&settings.active, "active");
         }
         status_unlock();
+        if (apply_attempted) {
+            /* A failed DNS/IP step may have changed the live interface even
+             * though apply_config did not publish a new runtime snapshot. */
+            (void)apply_config(&settings.active);
+        }
         if (result == STATIC_ACD_CONFLICT) {
             ESP_LOGE(TAG, "Static IPv4 address is already in use: %s",
                      settings.staged.address);
-        } else {
+        } else if (result == STATIC_ACD_TIMEOUT) {
             ESP_LOGE(TAG, "Static IPv4 address conflict check timed out");
+        } else {
+            ESP_LOGE(TAG, "Static IPv4 configuration apply failed: %s",
+                     esp_err_to_name(ret));
         }
     }
-    xSemaphoreGive(s_operation_lock);
     set_last_error(ret,
                    result == STATIC_ACD_CONFLICT
                        ? "static IPv4 address conflict"
                        : "static IPv4 conflict check");
+}
+
+static void poll_static_acd(void)
+{
+    xSemaphoreTake(s_operation_lock, portMAX_DELAY);
+    static_acd_result_t result =
+        __atomic_load_n(&s_static_acd_result, __ATOMIC_ACQUIRE);
+    if (result == STATIC_ACD_WAITING && s_static_acd_deadline_us > 0 &&
+        esp_timer_get_time() >= s_static_acd_deadline_us) {
+        static_acd_result_t expected = STATIC_ACD_WAITING;
+        (void)__atomic_compare_exchange_n(
+            &s_static_acd_result, &expected, STATIC_ACD_TIMEOUT, false,
+            __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+        result = __atomic_load_n(&s_static_acd_result, __ATOMIC_ACQUIRE);
+    }
+    finish_static_acd(result);
+    xSemaphoreGive(s_operation_lock);
 }
 
 /* Caller owns s_operation_lock. Keeping the decision and mutation under the
@@ -565,6 +601,7 @@ static void finish_static_acd(static_acd_result_t result)
  * staged generation or racing a just-completed confirmation. */
 static esp_err_t rollback_pending_locked(void)
 {
+    s_pending_applied = false;
     stop_static_acd();
     si_network_settings_status_t settings;
     esp_err_t ret = si_network_settings_get(&settings);
@@ -748,18 +785,7 @@ static void manager_task(void *arg)
             }
         }
 
-        static_acd_result_t acd_result = s_static_acd_result;
-        if (acd_result == STATIC_ACD_WAITING &&
-            s_static_acd_deadline_us > 0 &&
-            esp_timer_get_time() >= s_static_acd_deadline_us) {
-            s_static_acd_result = STATIC_ACD_TIMEOUT;
-            acd_result = STATIC_ACD_TIMEOUT;
-        }
-        if (acd_result == STATIC_ACD_OK ||
-            acd_result == STATIC_ACD_CONFLICT ||
-            acd_result == STATIC_ACD_TIMEOUT) {
-            finish_static_acd(acd_result);
-        }
+        poll_static_acd();
         vTaskDelay(pdMS_TO_TICKS(NETWORK_MANAGER_INTERVAL_MS));
     }
 }
@@ -948,8 +974,18 @@ esp_err_t si_net_stage_config(const si_network_config_t *config)
         return ESP_ERR_INVALID_ARG;
     }
     xSemaphoreTake(s_operation_lock, portMAX_DELAY);
-    esp_err_t ret = si_network_settings_stage(config);
+    si_network_settings_status_t settings;
+    esp_err_t ret = si_network_settings_get(&settings);
+    /* A probe and its later apply must refer to the same immutable candidate.
+     * Resolve the current transaction before staging a replacement. */
+    if (ret == ESP_OK && settings.pending) {
+        ret = ESP_ERR_INVALID_STATE;
+    }
     if (ret == ESP_OK) {
+        ret = si_network_settings_stage(config);
+    }
+    if (ret == ESP_OK) {
+        s_pending_applied = false;
         status_lock();
         strlcpy(s_status.config_state, "staged",
                 sizeof(s_status.config_state));
@@ -969,6 +1005,11 @@ esp_err_t si_net_apply_staged(void)
     si_network_settings_status_t settings;
     esp_err_t ret = si_network_settings_get(&settings);
     bool have_settings = ret == ESP_OK;
+    if (ret == ESP_OK && settings.pending) {
+        xSemaphoreGive(s_operation_lock);
+        set_last_error(ESP_ERR_INVALID_STATE, "apply config");
+        return ESP_ERR_INVALID_STATE;
+    }
     if (ret == ESP_OK && !settings.have_staged) {
         ret = ESP_ERR_INVALID_STATE;
     }
@@ -983,6 +1024,7 @@ esp_err_t si_net_apply_staged(void)
         status_unlock();
     }
     if (ret == ESP_OK) {
+        s_pending_applied = false;
         status_lock();
         s_status.pending_confirmation = true;
         s_status.confirm_remaining_seconds =
@@ -995,8 +1037,10 @@ esp_err_t si_net_apply_staged(void)
             (int64_t)NETWORK_CONFIRM_TIMEOUT_SECONDS * 1000000LL;
         ret = run_static_acd ? start_static_acd(&settings.staged)
                              : apply_config(&settings.staged);
+        s_pending_applied = ret == ESP_OK && !run_static_acd;
     }
     if (ret != ESP_OK && have_settings) {
+        s_pending_applied = false;
         si_network_settings_rollback();
         s_pending_deadline_us = 0;
         status_lock();
@@ -1017,10 +1061,20 @@ esp_err_t si_net_commit_pending(void)
         return ESP_ERR_INVALID_STATE;
     }
     xSemaphoreTake(s_operation_lock, portMAX_DELAY);
-    esp_err_t ret = s_static_acd_result == STATIC_ACD_WAITING
-                        ? ESP_ERR_INVALID_STATE
-                        : si_network_settings_confirm();
+    si_network_settings_status_t settings;
+    esp_err_t ret = si_network_settings_get(&settings);
+    if (ret == ESP_OK &&
+        (!s_pending_applied || !settings.pending || !settings.have_staged ||
+         settings.staged.generation != s_runtime_config.generation ||
+         __atomic_load_n(&s_static_acd_result, __ATOMIC_ACQUIRE) !=
+             STATIC_ACD_IDLE)) {
+        ret = ESP_ERR_INVALID_STATE;
+    }
     if (ret == ESP_OK) {
+        ret = si_network_settings_confirm();
+    }
+    if (ret == ESP_OK) {
+        s_pending_applied = false;
         s_pending_deadline_us = 0;
         status_lock();
         s_status.pending_confirmation = false;
@@ -1051,6 +1105,7 @@ esp_err_t si_net_reset_config(void)
         return ESP_ERR_INVALID_STATE;
     }
     xSemaphoreTake(s_operation_lock, portMAX_DELAY);
+    s_pending_applied = false;
     stop_static_acd();
     esp_err_t ret = si_network_settings_reset(&s_factory_config);
     if (ret == ESP_OK) {

@@ -56,9 +56,12 @@
 #define SI_H264_STREAM_LOCK_TIMEOUT_MS 250U
 #define SI_H264_WORKER_IO_TIMEOUT_MS 250U
 #define SI_H264_WORKER_STOP_TIMEOUT_MS (SI_H264_JPEG_TIMEOUT_MS + 500U)
-#define SI_H264_EGRESS_STOP_TIMEOUT_MS 1500U
 #define SI_H264_SEND_EAGAIN_RETRY_MS 5U
-#define SI_H264_SEND_EAGAIN_TIMEOUT_MS 1000U
+#define SI_H264_SEND_TIMEOUT_MS 1000U
+/* HTTPD sends the WebSocket header and payload in two override calls. The
+ * in-flight work must finish both budgets before teardown frees AU storage;
+ * later queued work observes send_stopping and returns without sending. */
+#define SI_H264_EGRESS_STOP_TIMEOUT_MS (2U * SI_H264_SEND_TIMEOUT_MS + 500U)
 #define SI_H264_RESTORE_RETRY_INITIAL_MS 100U
 #define SI_H264_RESTORE_RETRY_MAX_MS 1000U
 #define SI_H264_RESOURCE_RESERVE_WAIT_MS 10000U
@@ -444,22 +447,33 @@ static int h264_socket_send_all(httpd_handle_t handle, int socket_fd,
     size_t sent = 0;
     const int64_t deadline_us =
         esp_timer_get_time() +
-        (int64_t)SI_H264_SEND_EAGAIN_TIMEOUT_MS * 1000LL;
+        (int64_t)SI_H264_SEND_TIMEOUT_MS * 1000LL;
     while (sent < length) {
-        ssize_t result = send(socket_fd, buffer + sent, length - sent, flags);
+        /* One deadline covers positive short writes and EINTR as well as
+         * backpressure. Per-call nonblocking I/O prevents SO_SNDTIMEO from
+         * consuming a fresh timeout on every attempt without changing the
+         * socket's receive behavior for HTTPD control frames. */
+        if (esp_timer_get_time() >= deadline_us) {
+            errno = ETIMEDOUT;
+            return -1;
+        }
+        ssize_t result = send(socket_fd, buffer + sent, length - sent,
+                              flags | MSG_DONTWAIT);
         if (result < 0 && errno == EINTR) {
             continue;
         }
-        if (result < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) &&
-            esp_timer_get_time() < deadline_us) {
-            vTaskDelay(pdMS_TO_TICKS(SI_H264_SEND_EAGAIN_RETRY_MS));
+        if (result < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            TickType_t retry_ticks =
+                pdMS_TO_TICKS(SI_H264_SEND_EAGAIN_RETRY_MS);
+            vTaskDelay(retry_ticks > 0 ? retry_ticks : 1);
             continue;
         }
         if (result <= 0) {
             if (result == 0) {
                 errno = EPIPE;
             }
-            return (int)result;
+            /* HTTPD treats any nonnegative override result as success. */
+            return -1;
         }
         sent += (size_t)result;
     }

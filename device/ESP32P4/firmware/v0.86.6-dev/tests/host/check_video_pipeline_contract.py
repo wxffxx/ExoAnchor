@@ -3917,10 +3917,12 @@ def main() -> int:
         "static esp_h264_enc_handle_t s_preallocated_encoder")
     if not ordered(
         send_all,
-        "SI_H264_SEND_EAGAIN_TIMEOUT_MS",
+        "SI_H264_SEND_TIMEOUT_MS",
+        "esp_timer_get_time() >= deadline_us",
+        "flags | MSG_DONTWAIT",
         "errno == EAGAIN || errno == EWOULDBLOCK",
-        "vTaskDelay(",
         "SI_H264_SEND_EAGAIN_RETRY_MS",
+        "vTaskDelay(",
     ):
         failures.append("H.264 send-all must bound transient EAGAIN retries")
 

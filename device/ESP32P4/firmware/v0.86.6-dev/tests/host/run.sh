@@ -3,6 +3,31 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+CJSON_DIR="$SCRIPT_DIR/vendor/cjson"
+
+# Host tests use the same pinned cJSON source as ESP-IDF 5.5.5, without
+# requiring an SDK checkout or a network download on contributors' machines.
+for tool in "${CC:-cc}" python3 node; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "host tests require $tool; see the firmware README" >&2
+        exit 1
+    fi
+done
+if ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+    echo "host tests require Python 3.10+" >&2
+    exit 1
+fi
+if ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) < 18 ? 1 : 0)'; then
+    echo "host tests require Node.js 18+" >&2
+    exit 1
+fi
+for source in cJSON.c cJSON.h; do
+    if [ ! -f "$CJSON_DIR/$source" ]; then
+        echo "host test dependency missing: vendor/cjson/$source" >&2
+        exit 1
+    fi
+done
+
 TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-core-tests-$$"
 STORE_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-settings-store-tests-$$"
 SSH_HOSTKEY_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-ssh-hostkey-tests-$$"
@@ -167,9 +192,9 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -Werror \
     -I"$SCRIPT_DIR/idf_stubs" \
     -I"$PROJECT_DIR/main/core" \
-    -I"${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON" \
+    -I"$CJSON_DIR" \
     "$PROJECT_DIR/main/core/agent_page_context_checkpoint.c" \
-    "${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON/cJSON.c" \
+    "$CJSON_DIR/cJSON.c" \
     "$SCRIPT_DIR/test_agent_page_context_checkpoint.c" \
     -o "$PAGE_CONTEXT_CHECKPOINT_TEST_BIN"
 
@@ -184,9 +209,9 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -I"$PROJECT_DIR/main/adapters" \
     -I"$PROJECT_DIR/main/core" \
     -I"$PROJECT_DIR/main/drivers" \
-    -I"${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON" \
+    -I"$CJSON_DIR" \
     "$PROJECT_DIR/main/adapters/hid_json.c" \
-    "${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON/cJSON.c" \
+    "$CJSON_DIR/cJSON.c" \
     "$SCRIPT_DIR/test_hid_json.c" \
     -o "$HID_JSON_TEST_BIN"
 
@@ -241,11 +266,11 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -I"$PROJECT_DIR/main/core" \
     -I"$PROJECT_DIR/main/infrastructure" \
     -I"$PROJECT_DIR/main/config" \
-    -I"${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON" \
+    -I"$CJSON_DIR" \
     "$PROJECT_DIR/main/core/agent_task_runtime.c" \
     "$PROJECT_DIR/main/core/agent_verifier.c" \
     "$PROJECT_DIR/main/core/authorization.c" \
-    "${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON/cJSON.c" \
+    "$CJSON_DIR/cJSON.c" \
     "$SCRIPT_DIR/test_agent_task_service.c" \
     -o "$AGENT_TASK_SERVICE_TEST_BIN"
 
@@ -262,11 +287,11 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -I"$PROJECT_DIR/main/core" \
     -I"$PROJECT_DIR/main/infrastructure" \
     -I"$PROJECT_DIR/main/config" \
-    -I"${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON" \
+    -I"$CJSON_DIR" \
     "$PROJECT_DIR/main/core/agent_task_runtime.c" \
     "$PROJECT_DIR/main/core/agent_verifier.c" \
     "$PROJECT_DIR/main/core/authorization.c" \
-    "${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON/cJSON.c" \
+    "$CJSON_DIR/cJSON.c" \
     "$SCRIPT_DIR/test_agent_task_service_cancel_after_started_gate.c" \
     -o "$AGENT_TASK_CANCEL_GATE_TEST_BIN"
 
@@ -320,9 +345,9 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -I"$SCRIPT_DIR/idf_stubs" \
     -I"$PROJECT_DIR/main/infrastructure" \
     -I"$PROJECT_DIR/main/config" \
-    -I"${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON" \
+    -I"$CJSON_DIR" \
     "$PROJECT_DIR/main/infrastructure/agent_event_store.c" \
-    "${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON/cJSON.c" \
+    "$CJSON_DIR/cJSON.c" \
     "$SCRIPT_DIR/test_agent_event_store.c" \
     -o "$AGENT_EVENT_STORE_TEST_BIN"
 
@@ -336,8 +361,8 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -I"$SCRIPT_DIR/idf_stubs" \
     -I"$PROJECT_DIR/main/application" \
     -I"$PROJECT_DIR/main/infrastructure" \
-    -I"${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON" \
-    "${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON/cJSON.c" \
+    -I"$CJSON_DIR" \
+    "$CJSON_DIR/cJSON.c" \
     "$SCRIPT_DIR/test_agent_history_writer.c" \
     -o "$AGENT_HISTORY_WRITER_TEST_BIN"
 
@@ -364,8 +389,8 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -Werror \
     -I"$SCRIPT_DIR/idf_stubs" \
     -I"$PROJECT_DIR/main/core" \
-    -I"${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON" \
-    "${IDF_PATH:-$HOME/esp/esp-idf-v5.5.5}/components/json/cJSON/cJSON.c" \
+    -I"$CJSON_DIR" \
+    "$CJSON_DIR/cJSON.c" \
     "$SCRIPT_DIR/test_agent_result_error.c" \
     -o "$AGENT_RESULT_ERROR_TEST_BIN"
 
@@ -384,6 +409,8 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -o "$DIAGNOSTICS_FORMATTER_TEST_BIN"
 
 "$DIAGNOSTICS_FORMATTER_TEST_BIN"
+python3 "$SCRIPT_DIR/test_net_manager_runtime.py"
+python3 "$SCRIPT_DIR/test_h264_send_runtime.py"
 python3 "$SCRIPT_DIR/check_web_contract.py"
 python3 "$SCRIPT_DIR/check_agent_auth_liveness_contract.py"
 python3 "$SCRIPT_DIR/check_direct_hid_guard_contract.py"
@@ -415,19 +442,16 @@ python3 "$SCRIPT_DIR/check_agent_runtime_shadow_cutover_gate.py"
 python3 "$SCRIPT_DIR/check_agent_degraded_control_contract.py"
 python3 "$SCRIPT_DIR/check_agent_http_exact_control_contract.py"
 python3 "$SCRIPT_DIR/test_agent_runtime_http_cli.py"
-if command -v node >/dev/null 2>&1; then
-    node "$SCRIPT_DIR/test_ui_feature_gating.js"
-    node "$SCRIPT_DIR/test_ui_lifecycle.mjs"
-    node "$SCRIPT_DIR/test_ui_shell_agent_gate.mjs"
-    node "$SCRIPT_DIR/test_ui_shell_status_menus.mjs"
-    node "$SCRIPT_DIR/test_global_automation_control.mjs"
-    node "$SCRIPT_DIR/test_kvm_focus_refresh.mjs"
-    node "$SCRIPT_DIR/test_kvm_agent_video_boundary.mjs"
-    node "$SCRIPT_DIR/test_kvm_ms_power_state.mjs"
-    node "$SCRIPT_DIR/test_settings_review_runtime.mjs"
-    node "$SCRIPT_DIR/test_uart_terminal_handshake.mjs"
-    node "$SCRIPT_DIR/test_ssh_terminal_handshake.mjs"
-    node "$SCRIPT_DIR/test_terminal_automation_control.mjs"
-else
-    echo "UI runtime tests: SKIP (node is not installed)"
-fi
+node "$SCRIPT_DIR/test_ui_feature_gating.js"
+node "$SCRIPT_DIR/test_ui_lifecycle.mjs"
+node "$SCRIPT_DIR/test_ui_auth_requests.mjs"
+node "$SCRIPT_DIR/test_ui_shell_agent_gate.mjs"
+node "$SCRIPT_DIR/test_ui_shell_status_menus.mjs"
+node "$SCRIPT_DIR/test_global_automation_control.mjs"
+node "$SCRIPT_DIR/test_kvm_focus_refresh.mjs"
+node "$SCRIPT_DIR/test_kvm_agent_video_boundary.mjs"
+node "$SCRIPT_DIR/test_kvm_ms_power_state.mjs"
+node "$SCRIPT_DIR/test_settings_review_runtime.mjs"
+node "$SCRIPT_DIR/test_uart_terminal_handshake.mjs"
+node "$SCRIPT_DIR/test_ssh_terminal_handshake.mjs"
+node "$SCRIPT_DIR/test_terminal_automation_control.mjs"
