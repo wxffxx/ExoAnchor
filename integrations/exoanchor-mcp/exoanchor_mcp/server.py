@@ -1441,6 +1441,8 @@ class McpServer:
             return self._error(None, -32600, "invalid JSON-RPC request")
         method = message.get("method")
         msg_id = message.get("id")
+        if not isinstance(method, str):
+            return self._error(msg_id, -32600, "JSON-RPC method must be a string")
         if method in {"notifications/initialized", "notifications/cancelled"}:
             return None
         try:
@@ -1514,12 +1516,14 @@ class McpServer:
                 continue
             try:
                 message = json.loads(line)
-            except json.JSONDecodeError as exc:
+            except (ValueError, RecursionError) as exc:
                 response = self._error(None, -32700, f"parse error: {exc}")
             else:
                 response = self.handle(message)
             if response is not None:
-                sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+                # Escaping also handles unpaired surrogates accepted by the
+                # JSON decoder, without failing UTF-8 stdout or changing data.
+                sys.stdout.write(json.dumps(response, ensure_ascii=True) + "\n")
                 sys.stdout.flush()
 
 
