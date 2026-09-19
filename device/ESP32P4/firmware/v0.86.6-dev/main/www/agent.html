@@ -871,12 +871,14 @@ function projectAgentHistory(records,draft){
   draft.turns.forEach(turn=>{const key=`${agentHistoryRecordRole(turn)}\u0000${agentHistoryRecordContent(turn)}`;const count=available.get(key)||0;if(count>0)available.set(key,count-1);else projected.push(turn)});
   return projected;
 }
+let agentHistoryLoadGeneration=0;
 async function loadAgentHistory(){
+  const generation=++agentHistoryLoadGeneration;
   if(!activeSessionId){renderBlankThread();return null}
   const sessionId=activeSessionId;
   try{
     const h=await API.get(`/api/agent/history?session_id=${encodeURIComponent(sessionId)}`);
-    if(activeSessionId!==sessionId)return h;
+    if(activeSessionId!==sessionId||generation!==agentHistoryLoadGeneration)return h;
     const records=projectAgentHistory(Array.isArray(h.records)?h.records:[],provisionalAgentSessions.get(sessionId));
     chatLog.className="chat";chatLog.dataset.sessionId=sessionId;chatLog.innerHTML="";
     records.forEach(renderHistoryRecord);
@@ -886,7 +888,7 @@ async function loadAgentHistory(){
     if(!h.supported&&h.error)terminalLine("warn",`历史记录暂不可用: ${h.error}`,sessionId);
     return h;
   }catch(e){
-    if(activeSessionId!==sessionId)return null;
+    if(activeSessionId!==sessionId||generation!==agentHistoryLoadGeneration)return null;
     const reason=String(e?.message||e||"unknown");
     if(chatLog.dataset.sessionId!==sessionId){
       chatLog.className="chat";chatLog.dataset.sessionId=sessionId;chatLog.innerHTML="";

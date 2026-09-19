@@ -527,6 +527,7 @@
     pollTimer: 0,
     context: null,
     historyLoaded: false,
+    historyGeneration: 0,
     lastEventSeq: 0,
     streamJobId: "",
     streamNode: null,
@@ -543,7 +544,11 @@
   }
 
   function assistantSetSession(value) {
-    assistant.sessionId = assistantSessionId(value);
+    const nextSession = assistantSessionId(value);
+    if (assistant.sessionId !== nextSession) {
+      assistant.historyGeneration = (assistant.historyGeneration || 0) + 1;
+    }
+    assistant.sessionId = nextSession;
     if (assistant.sessionId) localStorage.setItem("ea_agent_session", assistant.sessionId);
     else localStorage.removeItem("ea_agent_session");
     const label = byId("eaAssistantThread");
@@ -570,6 +575,7 @@
   function assistantAddMessage(kind, text) {
     const log = byId("eaAssistantLog");
     if (!log || text === undefined || text === null) return null;
+    assistant.historyGeneration = (assistant.historyGeneration || 0) + 1;
     log.querySelector(".ea-assistant-empty")?.remove();
     const item = document.createElement("div");
     item.className = "ea-assistant-message " + kind;
@@ -767,7 +773,12 @@
   }
 
   async function assistantLoadHistory() {
+    if (UI.lifecycle?.destroyed) return;
     assistantSetSession(localStorage.getItem("ea_agent_session"));
+    const sessionId = assistant.sessionId;
+    const generation = assistant.historyGeneration = (assistant.historyGeneration || 0) + 1;
+    const current = () => generation === assistant.historyGeneration &&
+      sessionId === assistant.sessionId && !UI.lifecycle?.destroyed;
     if (!assistant.sessionId) {
       assistantRenderHistory([]);
       assistant.historyLoaded = true;
@@ -775,10 +786,12 @@
     }
     try {
       const history = await UI.api.get("/api/agent/history?session_id=" +
-        encodeURIComponent(assistant.sessionId));
+        encodeURIComponent(sessionId));
+      if (!current()) return;
       assistantRenderHistory(history.records || []);
       assistant.historyLoaded = true;
     } catch (error) {
+      if (!current()) return;
       assistantAddMessage("system", "对话记录暂不可用：" + (error.message || error));
     }
   }
