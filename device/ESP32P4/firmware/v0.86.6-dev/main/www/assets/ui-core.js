@@ -782,12 +782,16 @@
       this.listeners = new Set();
       this.timer = 0;
       this.inFlight = null;
+      this.requestController = null;
       this.lastDurationMs = null;
     }
 
     subscribe(listener, immediate = true) {
       this.listeners.add(listener);
-      if (immediate && this.value) listener(this.value, null);
+      if (immediate && this.value) {
+        try { listener(this.value, null); }
+        catch (error) { console.error("poll listener failed", error); }
+      }
       return () => this.listeners.delete(listener);
     }
 
@@ -799,21 +803,34 @@
     }
 
     async refresh() {
+      if (lifecycle.destroyed) throw new DOMException("page destroyed", "AbortError");
       if (this.inFlight) return this.inFlight;
+      const controller = new AbortController();
+      this.requestController = controller;
+      const release = lifecycle.addCleanup(() => controller.abort());
       const startedAt = performance.now();
-      this.inFlight = api.getSilent(this.path).then(value => {
+      const request = api.getSilent(this.path, { signal: controller.signal }).then(value => {
+        if (controller.signal.aborted) throw new DOMException("poll stopped", "AbortError");
         this.lastDurationMs = Math.max(0, performance.now() - startedAt);
         this.value = value;
         this.error = null;
         this.notify();
         return value;
       }).catch(error => {
+        if (controller.signal.aborted) throw error;
         this.lastDurationMs = null;
         this.error = error;
         this.notify();
         throw error;
-      }).finally(() => { this.inFlight = null; });
-      return this.inFlight;
+      }).finally(() => {
+        release();
+        if (this.inFlight === request) {
+          this.inFlight = null;
+          this.requestController = null;
+        }
+      });
+      this.inFlight = request;
+      return request;
     }
 
     start() {
@@ -829,6 +846,9 @@
     stop() {
       if (this.timer) lifecycle.clearTimer(this.timer);
       this.timer = 0;
+      this.requestController?.abort();
+      this.requestController = null;
+      this.inFlight = null;
     }
   }
 
