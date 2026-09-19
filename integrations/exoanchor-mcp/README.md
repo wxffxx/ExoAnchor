@@ -80,7 +80,7 @@ python3 -m exoanchor_mcp.server --list-tools
 | `EXOANCHOR_PASSWORD_FILE` | 未设置 | 保存本地设备密码的文件，优先于命令行内嵌 |
 | `EXOANCHOR_TOKEN` | 未设置 | 可选 bearer token |
 | `EXOANCHOR_TOKEN_FILE` | 未设置 | 保存 bearer token 的文件 |
-| `EXOANCHOR_TIMEOUT` | `75` | HTTP 超时秒数；同步 SSH 最长仍为 60 秒 |
+| `EXOANCHOR_TIMEOUT` | `75` | HTTP socket 超时秒数；密码登录提交、等待和轮询共用此预算；同步 SSH 最长仍为 60 秒 |
 | `EXOANCHOR_ALLOW_WRITE` | `0` | 设为 `1` 后才允许改变 UART、SSH、HID、电源或视频状态 |
 | `EXOANCHOR_CONTROL_OWNER` | `mcp` | 控制租约 owner |
 | `EXOANCHOR_DEVICE_ID` | URL hostname | 写工具校验的稳定设备身份 |

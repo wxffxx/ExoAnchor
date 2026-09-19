@@ -11,7 +11,7 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 
@@ -117,6 +117,7 @@ class ExoAnchorClient:
         *,
         raw: bool = False,
         retry_auth: bool = True,
+        timeout: float | None = None,
     ) -> Any:
         url = urljoin(self.config.base_url + "/", path.lstrip("/"))
         headers = {"X-ExoAnchor-Client": "exoanchor-mcp"}
@@ -129,7 +130,7 @@ class ExoAnchorClient:
             headers["Authorization"] = f"Bearer {request_token}"
         req = Request(url, data=data, headers=headers, method=method)
         try:
-            with urlopen(req, timeout=self.config.timeout) as resp:
+            with urlopen(req, timeout=self.config.timeout if timeout is None else timeout) as resp:
                 payload = resp.read()
                 if raw:
                     return payload, dict(resp.headers)
@@ -154,7 +155,7 @@ class ExoAnchorClient:
                 exc.close()
             if exc.code == 401 and retry_auth:
                 self._ensure_authenticated(request_token)
-                return self._request(method, path, body, raw=raw, retry_auth=False)
+                return self._request(method, path, body, raw=raw, retry_auth=False, timeout=timeout)
             raise ExoAnchorError(f"HTTP {exc.code} {path}: {text or exc.reason}") from exc
         except URLError as exc:
             raise ExoAnchorError(f"connect failed {url}: {exc.reason}") from exc
@@ -175,6 +176,7 @@ class ExoAnchorClient:
             )
         if not self.config.username:
             raise ExoAnchorError("password login requires EXOANCHOR_USERNAME")
+        deadline = time.monotonic() + self.config.timeout
         resp = self._request(
             "POST",
             "/api/auth/login",
@@ -184,25 +186,39 @@ class ExoAnchorClient:
                 "request_id": secrets.token_hex(16),
             },
             retry_auth=False,
+            timeout=self.config.timeout,
         )
         # Password verification is intentionally performed by an asynchronous
         # device job.  On a loaded ESP32-P4 the configured PBKDF2 verifier can
         # take longer than 30 seconds, so the polling lifetime must follow the
         # transport timeout instead of imposing a shorter hidden deadline.
-        deadline = time.monotonic() + self.config.timeout
+        # Submission, backoff and status requests share that budget. urllib's
+        # timeout bounds socket operations, so also reject a late response.
         while isinstance(resp, dict) and resp.get("pending"):
             job_id = str(resp.get("job_id") or "")
             if not job_id:
                 raise ExoAnchorError("login response did not include job_id")
-            if time.monotonic() >= deadline:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 raise ExoAnchorError("login timed out")
-            delay = max(0.05, min(float(resp.get("poll_after_ms", 100)) / 1000, 1.0))
-            time.sleep(delay)
+            try:
+                delay = float(resp.get("poll_after_ms", 100)) / 1000
+            except (TypeError, ValueError, OverflowError):
+                delay = 0.1
+            if not math.isfinite(delay):
+                delay = 0.1
+            time.sleep(min(max(0.05, min(delay, 1.0)), remaining))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ExoAnchorError("login timed out")
             resp = self._request(
                 "GET",
-                f"/api/auth/login/status?job_id={job_id}",
+                "/api/auth/login/status?" + urlencode({"job_id": job_id}),
                 retry_auth=False,
+                timeout=remaining,
             )
+        if time.monotonic() >= deadline:
+            raise ExoAnchorError("login timed out")
         token = resp.get("token") if isinstance(resp, dict) else None
         if not token:
             raise ExoAnchorError("login response did not include token")

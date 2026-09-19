@@ -83,7 +83,7 @@ class LoginPollingTests(unittest.TestCase):
         ]
 
         with patch.object(client, "_request", side_effect=responses), \
-             patch("exoanchor_mcp.client.time.monotonic", side_effect=[0.0, 31.0]), \
+             patch("exoanchor_mcp.client.time.monotonic", side_effect=[0.0, 31.0, 31.1, 31.2]), \
              patch("exoanchor_mcp.client.time.sleep"):
             result = client.login()
 
