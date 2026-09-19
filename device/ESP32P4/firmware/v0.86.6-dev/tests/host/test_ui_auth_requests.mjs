@@ -440,6 +440,64 @@ for (const trigger of ["local", "undelivered-peer-event"]) {
   assert.equal(await probe, null);
   assert.equal(UI.auth.authProbe, null);
 }
+function authBrowser() {
+  const env = browser();
+  const elements = new Map();
+  env.context.document.body = { insertAdjacentHTML() {} };
+  env.context.document.getElementById = id => {
+    if (!elements.has(id)) {
+      const classes = new Set();
+      elements.set(id, {
+        value: "", textContent: "", style: {}, focus() {},
+        classList: {
+          add: name => classes.add(name), remove: name => classes.delete(name),
+          contains: name => classes.has(name),
+        },
+      });
+    }
+    return elements.get(id);
+  };
+  return env;
+}
+async function assertModalCancelled(response, message) {
+  let result = "pending";
+  response.then(value => { result = value; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(result, false, message);
+}
+// Different callers may discover that login must advance to account change.
+// Changing the visible mode must not orphan the earlier authentication wait.
+for (const methods of [["requireLogin", "requireChange"], ["requireChange", "requireLogin"]]) {
+  const { UI } = authBrowser();
+  const first = UI.auth[methods[0]]({});
+  const second = UI.auth[methods[1]]({});
+  assert.equal(first, second, "all callers wait for the same authentication gate");
+  UI.auth.hide(false);
+  await assertModalCancelled(first, "mode changes must preserve the earlier caller");
+  UI.lifecycle.destroy("test");
+}
+// Navigation must settle callers waiting for either authentication modal.
+for (const method of ["requireLogin", "requireChange"]) {
+  const { UI, context } = authBrowser();
+  const first = UI.auth[method]({});
+  assert.equal(UI.auth[method]({}), first, "live modal callers share one response");
+  UI.lifecycle.destroy("navigate");
+  await assertModalCancelled(first,
+    `${method}: navigation must settle the modal response`);
+  assert.equal(UI.auth.pending, null);
+  assert.equal(UI.auth.waiting, null);
+  assert.equal(context.document.getElementById("authModal").classList.contains("show"), false);
+  await assertModalCancelled(UI.auth[method]({}),
+    `${method}: a destroyed page cannot start another modal wait`);
+  let lateInitializations = 0;
+  UI.auth.onAuthenticated = () => { lateInitializations += 1; };
+  UI.auth.finishAuthentication({});
+  UI.auth.show("login", {});
+  assert.equal(lateInitializations, 0, "late authentication cannot restart page initialization");
+  assert.equal(context.document.getElementById("authModal").classList.contains("show"), false);
+  assert.equal(UI.lifecycle.timers.size, 0, "modal focus timers belong to the page");
+}
+
 // XHR.abort() before open/send is a no-op: an already destroyed page must
 // refuse uploads explicitly, and setup failures must release cleanup owners.
 function uploadBrowser(failureAt = "") {

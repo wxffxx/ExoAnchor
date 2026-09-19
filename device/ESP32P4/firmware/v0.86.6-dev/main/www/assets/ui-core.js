@@ -459,9 +459,11 @@
           '<div class="actions"><button id="authSubmit" class="primary" type="submit">登录</button></div><div id="authMsg" class="msg"></div>' +
         '</form></div>');
       this.mounted = true;
+      lifecycle.addCleanup(() => this.hide(false));
     },
 
     show(mode, state) {
+      if (lifecycle.destroyed) return;
       this.mount();
       this.mode = mode;
       this.state = state || {};
@@ -483,7 +485,9 @@
       byId("authConfirmPassword").value = "";
       status.stop();
       info.stop();
-      setTimeout(() => byId("authCurrentPassword").focus(), 0);
+      lifecycle.timeout(() => {
+        if (byId("authModal")?.classList.contains("show")) byId("authCurrentPassword")?.focus();
+      }, 0);
     },
 
     hide(ok) {
@@ -500,20 +504,23 @@
     },
 
     requireLogin(state = {}) {
+      if (lifecycle.destroyed) return Promise.resolve(false);
       if (byId("authModal")?.classList.contains("show") && this.mode === "login" && this.waiting) return this.waiting;
       this.show("login", state);
-      this.waiting = new Promise(resolve => { this.pending = resolve; });
+      if (!this.waiting) this.waiting = new Promise(resolve => { this.pending = resolve; });
       return this.waiting;
     },
 
     requireChange(state) {
+      if (lifecycle.destroyed) return Promise.resolve(false);
       if (byId("authModal")?.classList.contains("show") && this.mode === "change" && this.waiting) return this.waiting;
       this.show("change", state);
-      this.waiting = new Promise(resolve => { this.pending = resolve; });
+      if (!this.waiting) this.waiting = new Promise(resolve => { this.pending = resolve; });
       return this.waiting;
     },
 
     finishAuthentication(result) {
+      if (lifecycle.destroyed) return;
       const hadWaitingCaller = !!this.pending;
       this.hide(true);
       session.load().catch(() => {});
