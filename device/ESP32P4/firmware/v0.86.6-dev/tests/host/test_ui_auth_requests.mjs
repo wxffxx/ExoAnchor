@@ -440,4 +440,55 @@ for (const trigger of ["local", "undelivered-peer-event"]) {
   assert.equal(await probe, null);
   assert.equal(UI.auth.authProbe, null);
 }
+// XHR.abort() before open/send is a no-op: an already destroyed page must
+// refuse uploads explicitly, and setup failures must release cleanup owners.
+function uploadBrowser(failureAt = "") {
+  const requests = [];
+  class FakeXHR {
+    constructor() { this.upload = {}; this.sent = false; requests.push(this); }
+    open() { if (failureAt === "open") throw new Error("open failed"); }
+    setRequestHeader() { if (failureAt === "headers") throw new Error("headers failed"); }
+    send() { if (failureAt === "send") throw new Error("send failed"); this.sent = true; }
+    abort() { if (this.sent) this.onabort?.(); }
+  }
+  return { ...browser({ XMLHttpRequest: FakeXHR }), requests };
+}
+{
+  const { UI, requests } = uploadBrowser();
+  UI.lifecycle.destroy("navigate");
+  const uploading = UI.api.upload("/test-upload", new Uint8Array([1]));
+  const rejected = assert.rejects(uploading, error => error.name === "AbortError");
+  // Settle an incorrectly sent upload so the pre-fix test fails immediately.
+  requests.forEach(request => request.abort());
+  await rejected;
+  assert.equal(requests.length, 0, "destroyed pages must not create uploads");
+}
+for (const failureAt of ["open", "headers", "send"]) {
+  const { UI } = uploadBrowser(failureAt);
+  await assert.rejects(UI.api.upload("/test-upload", new Uint8Array([1])), /failed/);
+  assert.equal(UI.lifecycle.cleanups.size, 0, `${failureAt}: no cleanup owner may leak`);
+}
+{
+  const { UI, requests } = uploadBrowser();
+  const uploading = UI.api.upload("/test-upload", new Uint8Array([1]));
+  assert.equal(UI.lifecycle.cleanups.size, 1);
+  const rejected = assert.rejects(uploading, error => error.name === "AbortError");
+  UI.lifecycle.destroy("navigate");
+  await rejected;
+  assert.equal(requests[0].sent, true);
+  assert.equal(UI.lifecycle.cleanups.size, 0);
+}
+{
+  const { UI, requests } = uploadBrowser();
+  let progress;
+  const uploading = UI.api.upload("/test-upload", new Uint8Array([1]), value => { progress = value; });
+  const request = requests[0];
+  request.upload.onprogress({ lengthComputable: true, loaded: 1, total: 2 });
+  assert.equal(progress, 0.5);
+  request.status = 200;
+  request.responseText = '{"ok":true}';
+  request.onload();
+  assert.equal((await uploading).ok, true);
+  assert.equal(UI.lifecycle.cleanups.size, 0);
+}
 console.log("UI auth, timeout and settings text runtime tests: PASS");

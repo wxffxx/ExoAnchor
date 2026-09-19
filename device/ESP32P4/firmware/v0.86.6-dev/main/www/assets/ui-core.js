@@ -276,6 +276,9 @@
     }
 
     upload(path, file, onProgress) {
+      if (lifecycle.destroyed) return Promise.reject(
+        new DOMException("upload cancelled by page lifecycle", "AbortError")
+      );
       if (!session.active()) return Promise.reject(new Error("login required"));
       return new Promise((resolve, reject) => {
         const request = new XMLHttpRequest();
@@ -284,28 +287,32 @@
           release();
           callback(value);
         };
-        request.open("POST", path);
-        request.withCredentials = true;
-        if (this.token) request.setRequestHeader("Authorization", "Bearer " + this.token);
-        request.setRequestHeader("Content-Type", "application/octet-stream");
-        request.upload.onprogress = event => {
-          if (event.lengthComputable && onProgress) onProgress(event.loaded / event.total);
-        };
-        request.onload = () => {
-          if (request.status >= 200 && request.status < 300) {
-            try { finish(resolve)(JSON.parse(request.responseText || "{}")); }
-            catch (error) { finish(resolve)({ ok: true }); }
-          } else {
-            finish(reject)(
-              new Error(request.responseText || request.statusText || "upload failed")
-            );
-          }
-        };
-        request.onerror = () => finish(reject)(new Error("upload failed"));
-        request.onabort = () => finish(reject)(
-          new DOMException("upload cancelled by page lifecycle", "AbortError")
-        );
-        request.send(file);
+        try {
+          request.open("POST", path);
+          request.withCredentials = true;
+          if (this.token) request.setRequestHeader("Authorization", "Bearer " + this.token);
+          request.setRequestHeader("Content-Type", "application/octet-stream");
+          request.upload.onprogress = event => {
+            if (event.lengthComputable && onProgress) onProgress(event.loaded / event.total);
+          };
+          request.onload = () => {
+            if (request.status >= 200 && request.status < 300) {
+              try { finish(resolve)(JSON.parse(request.responseText || "{}")); }
+              catch (error) { finish(resolve)({ ok: true }); }
+            } else {
+              finish(reject)(
+                new Error(request.responseText || request.statusText || "upload failed")
+              );
+            }
+          };
+          request.onerror = () => finish(reject)(new Error("upload failed"));
+          request.onabort = () => finish(reject)(
+            new DOMException("upload cancelled by page lifecycle", "AbortError")
+          );
+          request.send(file);
+        } catch (error) {
+          finish(reject)(error);
+        }
       });
     }
   }
