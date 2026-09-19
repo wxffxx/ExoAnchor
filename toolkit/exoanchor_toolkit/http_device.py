@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import math
 import secrets
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from http.client import HTTPException
 from typing import Callable
 
 from .errors import ToolkitError
@@ -88,8 +90,8 @@ class DeviceHttpClient:
         opener: Callable[..., object] | None = None,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
-        if timeout <= 0:
-            raise ToolkitError("device HTTP timeout must be positive")
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ToolkitError("device HTTP timeout must be finite and positive")
         self.target = parse_device_target(target)
         self.username = username.strip() or "admin"
         self.password = password
@@ -131,8 +133,13 @@ class DeviceHttpClient:
                 content = response.read(MAX_JSON_RESPONSE_BYTES + 1)
                 status = int(getattr(response, "status", 200))
         except urllib.error.HTTPError as exc:
-            detail = exc.read(4096).decode("utf-8", errors="replace").strip()
-            if exc.code == 401 and retry_login and self.password:
+            try:
+                detail = exc.read(4096).decode("utf-8", errors="replace").strip()
+            except (OSError, HTTPException):
+                detail = "response body unavailable"
+            finally:
+                exc.close()
+            if exc.code == 401 and method == "GET" and retry_login and self.password:
                 self.login()
                 return self._request(
                     method,
@@ -148,6 +155,8 @@ class DeviceHttpClient:
             raise ToolkitError(
                 f"device returned HTTP {exc.code}: {detail or exc.reason}"
             ) from exc
+        except HTTPException as exc:
+            raise ToolkitError(f"device HTTP response failed: {exc}") from exc
         except (urllib.error.URLError, OSError) as exc:
             raise ToolkitError(
                 f"cannot reach ExoAnchor at {self.target.base_url}: {exc}"
@@ -160,7 +169,7 @@ class DeviceHttpClient:
     def _decode_json(content: bytes) -> dict[str, object]:
         try:
             value = json.loads(content.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        except (ValueError, RecursionError) as exc:
             raise ToolkitError("device returned invalid JSON") from exc
         if not isinstance(value, dict):
             raise ToolkitError("device JSON response must be an object")
@@ -232,6 +241,7 @@ class DeviceHttpClient:
             path,
             body=body,
             content_type="application/json",
+            retry_login=False,
         )
         return self._decode_json(content)
 
@@ -242,6 +252,7 @@ class DeviceHttpClient:
             path,
             body=payload,
             content_type="application/octet-stream",
+            retry_login=False,
         )
         return self._decode_json(content)
 
