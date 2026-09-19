@@ -125,6 +125,7 @@ class DeviceHttpClient:
         body: bytes | None = None,
         content_type: str | None = None,
         retry_login: bool = True,
+        timeout: float | None = None,
     ) -> tuple[int, bytes]:
         if not path.startswith("/") or path.startswith("//"):
             raise ToolkitError("device API path is invalid")
@@ -143,7 +144,7 @@ class DeviceHttpClient:
             method=method,
         )
         try:
-            with self._opener(request, timeout=self.timeout) as response:
+            with self._opener(request, timeout=self.timeout if timeout is None else timeout) as response:
                 content = response.read(MAX_JSON_RESPONSE_BYTES + 1)
                 status = int(getattr(response, "status", 200))
         except urllib.error.HTTPError as exc:
@@ -161,6 +162,7 @@ class DeviceHttpClient:
                     body=body,
                     content_type=content_type,
                     retry_login=False,
+                    timeout=timeout,
                 )
             if exc.code == 401:
                 raise ToolkitError(
@@ -190,6 +192,16 @@ class DeviceHttpClient:
         return value
 
     def login(self) -> None:
+        # Submission, waits and polling share one budget. urllib timeouts bound
+        # socket operations, so also reject a response that arrives too late.
+        deadline = time.monotonic() + LOGIN_TIMEOUT_SECONDS
+
+        def remaining_budget() -> float:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ToolkitError("device login timed out")
+            return remaining
+
         body = json.dumps(
             {
                 "username": self.username,
@@ -204,25 +216,31 @@ class DeviceHttpClient:
             body=body,
             content_type="application/json",
             retry_login=False,
+            timeout=min(self.timeout, remaining_budget()),
         )
         result = self._decode_json(content)
-        deadline = time.monotonic() + LOGIN_TIMEOUT_SECONDS
         while status == 202:
             job_id = result.get("job_id")
             if not isinstance(job_id, str) or not job_id:
                 raise ToolkitError("device did not create a login job")
             delay_ms = result.get("poll_after_ms", 100)
-            delay = max(0.05, min(1.0, float(delay_ms) / 1000.0))
-            if time.monotonic() + delay > deadline:
-                raise ToolkitError("device login timed out")
-            self._sleep(delay)
+            try:
+                delay = float(delay_ms) / 1000.0
+            except (TypeError, ValueError, OverflowError):
+                delay = 0.1
+            if not math.isfinite(delay):
+                delay = 0.1
+            delay = max(0.05, min(1.0, delay))
+            self._sleep(min(delay, remaining_budget()))
             status, content = self._request(
                 "GET",
                 "/api/auth/login/status?job_id="
                 + urllib.parse.quote(job_id, safe=""),
                 retry_login=False,
+                timeout=min(self.timeout, remaining_budget()),
             )
             result = self._decode_json(content)
+        remaining_budget()
         token = result.get("token")
         if token is not None and not isinstance(token, str):
             raise ToolkitError("device returned an invalid login token")
