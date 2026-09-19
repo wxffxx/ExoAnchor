@@ -259,13 +259,19 @@ const token=new URLSearchParams(location.search).get("token")||"";
 const $=id=>document.getElementById(id);
 const state={busy:false,transport:"network",serialBaud:115200,networkMode:"dhcp",networkConnected:false,devices:[],selectedDevice:null,releases:[],versionsLoaded:false};
 const apiButtons=()=>[...document.querySelectorAll("button")].filter(button=>!button.closest(".nav")&&!button.closest(".segmented"));
+let activityScrollPending=false;
 
 function log(message,kind="info"){
   const row=document.createElement("div");row.className=`log-line ${kind}`;
   const time=document.createElement("span");time.className="log-time";time.textContent=new Date().toLocaleTimeString("zh-CN",{hour12:false});
   const type=document.createElement("span");type.className="log-kind";type.textContent=kind==="bad"?"ERROR":kind==="ok"?"OK":kind==="warn"?"WARN":"INFO";
   const body=document.createElement("span");body.textContent=String(message);
-  row.append(time,type,body);$("activityLog").append(row);$("activityLog").scrollTop=$("activityLog").scrollHeight;
+  row.append(time,type,body);const activityLog=$("activityLog");activityLog.append(row);
+  // A batch of operation output needs one layout read, not one per line.
+  if(!activityScrollPending){
+    activityScrollPending=true;
+    requestAnimationFrame(()=>{activityScrollPending=false;activityLog.scrollTop=activityLog.scrollHeight});
+  }
 }
 function syncControlState(){
   if(state.busy)return;

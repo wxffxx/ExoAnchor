@@ -9,3 +9,4 @@ export PYTHON
 "$ROOT/device/ESP32P4/firmware/v0.86-stable-kvm/tests/host/run.sh"
 (cd "$ROOT/integrations/exoanchor-mcp" && "$PYTHON" -m unittest discover -s tests -q)
 (cd "$ROOT/toolkit" && "$PYTHON" -m unittest discover -s tests -q)
+node "$ROOT/toolkit/tests/test_ui_activity_log.mjs"
