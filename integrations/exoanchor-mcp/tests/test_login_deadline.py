@@ -26,7 +26,7 @@ class LoginDeadlineTests(unittest.TestCase):
         response.__enter__.return_value = response
         response.headers = {"Content-Type": "application/json"}
         response.read.return_value = b'{"token":"fresh"}'
-        with patch("exoanchor_mcp.client.urlopen", return_value=response) as transport:
+        with patch.object(self.client._opener, "open", return_value=response) as transport:
             self.client._request("GET", "/api/auth/login/status", timeout=0.25)
         self.assertEqual(transport.call_args.kwargs["timeout"], 0.25)
 

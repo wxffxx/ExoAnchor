@@ -33,7 +33,7 @@ class TransportTests(unittest.TestCase):
         client = ExoAnchorClient(client_config(token="expired"))
         body = io.BytesIO(b"authentication required")
         error = HTTPError("http://device.test", 401, "Unauthorized", {}, body)
-        with patch("exoanchor_mcp.client.urlopen", side_effect=error) as request, \
+        with patch.object(client._opener, "open", side_effect=error) as request, \
              patch.object(client, "login") as login:
             with self.assertRaisesRegex(ExoAnchorError, "HTTP 401"):
                 client.post_json("/api/power", {"action": "reset"})

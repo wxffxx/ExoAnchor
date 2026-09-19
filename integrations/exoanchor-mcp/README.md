@@ -162,6 +162,10 @@ python3 -m unittest discover -s tests -v
 
 测试包含可重放的本地 HTTP 设备，覆盖读取与观察、frame-bound HID、清理流程、结构化 SSH 作业和幂等行为，不会触碰真实硬件。
 
+HTTP 请求不跟随重定向（包括同源重定向），避免转发 Bearer 凭据或把 POST 改成 GET。
+请将 `EXOANCHOR_BASE_URL` 配置为最终 API 地址；截断响应、socket 错误和无效 JSON
+会作为工具执行错误返回，JSON 解析错误不会回显响应正文。
+
 ## DeepSeek Harness
 
 本机 DSH 通过官方 MCP client 插件复用本服务器，不维护第二套设备控制逻辑。项目

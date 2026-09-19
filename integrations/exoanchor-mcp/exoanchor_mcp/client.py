@@ -9,10 +9,11 @@ import secrets
 import time
 import threading
 from dataclasses import dataclass
+from http.client import HTTPException
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 JSON = dict[str, Any]
@@ -20,6 +21,13 @@ JSON = dict[str, Any]
 
 class ExoAnchorError(RuntimeError):
     pass
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """Keep requests and bearer credentials at the explicitly selected URL."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -103,6 +111,7 @@ class ExoAnchorClient:
         self.config = config
         self.token = config.token
         self._auth_lock = threading.RLock()
+        self._opener = build_opener(_NoRedirect())
 
     def web_url(self, path: str = "/") -> str:
         if not path.startswith("/"):
@@ -130,7 +139,7 @@ class ExoAnchorClient:
             headers["Authorization"] = f"Bearer {request_token}"
         req = Request(url, data=data, headers=headers, method=method)
         try:
-            with urlopen(req, timeout=self.config.timeout if timeout is None else timeout) as resp:
+            with self._opener.open(req, timeout=self.config.timeout if timeout is None else timeout) as resp:
                 payload = resp.read()
                 if raw:
                     return payload, dict(resp.headers)
@@ -151,6 +160,8 @@ class ExoAnchorClient:
         except HTTPError as exc:
             try:
                 text = exc.read().decode("utf-8", errors="replace")
+            except (OSError, HTTPException):
+                text = "response body unavailable"
             finally:
                 exc.close()
             if exc.code == 401 and retry_auth:
@@ -159,6 +170,10 @@ class ExoAnchorClient:
             raise ExoAnchorError(f"HTTP {exc.code} {path}: {text or exc.reason}") from exc
         except URLError as exc:
             raise ExoAnchorError(f"connect failed {url}: {exc.reason}") from exc
+        except (OSError, HTTPException) as exc:
+            raise ExoAnchorError(f"response failed {path}: {exc}") from exc
+        except json.JSONDecodeError as exc:
+            raise ExoAnchorError(f"invalid JSON from {path}") from exc
 
     def _ensure_authenticated(self, rejected_token: str | None = None) -> None:
         with self._auth_lock:
