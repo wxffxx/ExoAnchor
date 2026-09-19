@@ -43,6 +43,7 @@ run_toolkit_tests() {
 )
 
 run_toolkit_tests
+node "$REPO_DIR/toolkit/tests/test_ui_activity_log.mjs"
 "$REPO_DIR/scripts/check-repository-hygiene.sh"
 
 if git -C "$REPO_DIR" rev-parse --verify main >/dev/null 2>&1; then
