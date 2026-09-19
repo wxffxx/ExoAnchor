@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import threading
+import time
 import uuid
 from copy import deepcopy
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -17,6 +19,7 @@ from .observations import utc_now
 
 
 JSON = dict[str, Any]
+LOGGER = logging.getLogger(__name__)
 JobRunner = Callable[[], JSON]
 TERMINAL_STATES = {"succeeded", "failed", "cancelled", "interrupted"}
 OPS_TERMINAL_STATES = {
@@ -78,6 +81,14 @@ def _valid_ops_definition(job: JSON) -> bool:
     interval = trigger.get("interval_seconds")
     return (trigger.get("type") == "interval" and type(interval) is int
             and 60 <= interval <= 604800)
+
+
+def _persist_outcome(record: JSON, persist: Callable[[JSON], None]) -> None:
+    """Keep the observed outcome distinct from a failure to save its journal."""
+    try:
+        persist(record)
+    except OSError as exc:
+        record["journal_error"] = str(exc)
 
 
 class JobManager:
@@ -233,17 +244,17 @@ class JobManager:
             self._futures.pop(job_id, None)
 
     def _run(self, job_id: str, runner: JobRunner) -> None:
-        with self._lock:
-            record = self._jobs[job_id]
-            if record["cancel_requested"]:
-                record["state"] = "cancelled"
-                record["finished_at"] = utc_now()
-                self._persist(record)
-                return
-            record["state"] = "running"
-            record["started_at"] = utc_now()
-            self._persist(record)
         try:
+            with self._lock:
+                record = self._jobs[job_id]
+                if record["cancel_requested"]:
+                    record["state"] = "cancelled"
+                    record["finished_at"] = utc_now()
+                    _persist_outcome(record, self._persist)
+                    return
+                record["state"] = "running"
+                record["started_at"] = utc_now()
+                self._persist(record)
             result = runner()
             if not isinstance(result, dict):
                 raise RuntimeError("SSH runner returned a non-object result")
@@ -254,7 +265,7 @@ class JobManager:
                 record["state"] = "failed"
                 record["error_detail"] = str(exc)
                 record["finished_at"] = utc_now()
-                self._persist(record)
+                _persist_outcome(record, self._persist)
             return
         with self._lock:
             record = self._jobs[job_id]
@@ -263,7 +274,7 @@ class JobManager:
             if record["state"] == "failed" and not record.get("error_detail"):
                 record["error_detail"] = str(result.get("error") or "remote command failed")
             record["finished_at"] = utc_now()
-            self._persist(record)
+            _persist_outcome(record, self._persist)
 
     def status(self, job_id: str) -> JSON:
         with self._lock:
@@ -349,6 +360,7 @@ class OpsJobManager:
         self._jobs: dict[str, JSON] = {}
         self._runs: dict[str, JSON] = {}
         self._active_runs: dict[str, str] = {}
+        self._schedule_retry_at: dict[str, float] = {}
         self._futures: dict[str, Future[Any]] = {}
         self._idempotency: dict[str, str] = {}
         self._stop = threading.Event()
@@ -552,13 +564,16 @@ class OpsJobManager:
                 raise JobNotFoundError(job_id)
             if job.get("state") == "retired":
                 raise JobConflictError("retired operations job cannot be resumed")
-            job["state"] = "paused" if paused else "active"
-            job["updated_at"] = utc_now()
-            interval = job.get("trigger", {}).get("interval_seconds")
+            updated = self._job_public(job)
+            updated["state"] = "paused" if paused else "active"
+            updated["updated_at"] = utc_now()
+            interval = updated.get("trigger", {}).get("interval_seconds")
             if not paused and isinstance(interval, int):
-                job["next_run_at"] = _future_utc(interval)
-            self._persist_job(job)
-            return self._job_public(job)
+                updated["next_run_at"] = _future_utc(interval)
+            self._persist_job(updated)
+            self._jobs[job_id] = updated
+            self._schedule_retry_at.pop(job_id, None)
+            return self._job_public(updated)
 
     def _active_run_locked(self, job_id: str) -> JSON | None:
         run_id = self._active_runs.get(job_id)
@@ -611,14 +626,37 @@ class OpsJobManager:
                 "evidence": None,
                 "cancel_requested": False,
             }
-            self._runs[run_id] = run
-            job["last_run_id"] = run_id
-            job["updated_at"] = now
+            updated = self._job_public(job)
+            updated["last_run_id"] = run_id
+            updated["updated_at"] = now
             interval = job.get("trigger", {}).get("interval_seconds")
             if isinstance(interval, int):
-                job["next_run_at"] = _future_utc(interval, base=now)
+                updated["next_run_at"] = _future_utc(interval, base=now)
             self._persist_run(run)
-            self._persist_job(job)
+            self._runs[run_id] = run
+            try:
+                self._persist_job(updated)
+            except OSError as exc:
+                # No runner has been submitted. Preserve that fact even when
+                # only the first half of the journal update could be written.
+                run["state"] = run["outcome"] = "blocked"
+                run["phase"] = "needs_attention"
+                run["finished_at"] = utc_now()
+                run["finding"] = {
+                    "severity": "warning",
+                    "classification": "storage",
+                    "message": "Run was not submitted because its job journal could not be saved",
+                }
+                run["attempts"][-1].update({
+                    "state": "blocked", "finished_at": run["finished_at"],
+                    "failure_class": "storage",
+                })
+                # If this write also fails, a restart conservatively marks the
+                # older queued journal interrupted; no work is replayed.
+                _persist_outcome(run, self._persist_run)
+                raise OSError(f"could not queue {run_id}: {exc}") from exc
+            self._jobs[job_id] = updated
+            self._schedule_retry_at.pop(job_id, None)
             self._active_runs[job_id] = run_id
             future = self._executor.submit(self._run, run_id)
             self._futures[run_id] = future
@@ -632,32 +670,37 @@ class OpsJobManager:
                 self._active_runs.pop(job_id, None)
 
     def _run(self, run_id: str) -> None:
-        with self._lock:
-            run = self._runs[run_id]
-            attempt = run["attempts"][-1]
-            if run.get("cancel_requested"):
-                run["state"] = "cancelled"
-                run["phase"] = "completed"
-                run["outcome"] = "cancelled"
-                run["finished_at"] = utc_now()
-                attempt["state"] = "cancelled"
-                attempt["finished_at"] = run["finished_at"]
-                self._persist_run(run)
-                return
-            now = utc_now()
-            run["state"] = "running"
-            run["phase"] = "preflight"
-            run["started_at"] = now
-            attempt["state"] = "running"
-            attempt["started_at"] = now
-            job = self._job_public(self._jobs[run["job_id"]])
-            self._persist_run(run)
+        preflight_complete = False
         try:
+            with self._lock:
+                run = self._runs[run_id]
+                attempt = run["attempts"][-1]
+                if run.get("cancel_requested"):
+                    run["state"] = "cancelled"
+                    run["phase"] = "completed"
+                    run["outcome"] = "cancelled"
+                    run["finished_at"] = utc_now()
+                    attempt["state"] = "cancelled"
+                    attempt["finished_at"] = run["finished_at"]
+                    _persist_outcome(run, self._persist_run)
+                    return
+                now = utc_now()
+                run["state"] = "running"
+                run["phase"] = "preflight"
+                run["started_at"] = now
+                attempt["state"] = "running"
+                attempt["started_at"] = now
+                job = self._job_public(self._jobs[run["job_id"]])
+                self._persist_run(run)
+                preflight_complete = True
             result = self.runner(job)
             if not isinstance(result, dict):
                 raise RuntimeError("operations runner returned a non-object result")
         except Exception as exc:
             with self._lock:
+                failure_class = (
+                    "storage" if isinstance(exc, OSError) and not preflight_complete else "transient"
+                )
                 run = self._runs[run_id]
                 attempt = run["attempts"][-1]
                 finished = utc_now()
@@ -667,13 +710,13 @@ class OpsJobManager:
                 run["finished_at"] = finished
                 run["finding"] = {
                     "severity": "warning",
-                    "classification": "transient",
+                    "classification": failure_class,
                     "message": str(exc),
                 }
                 attempt["state"] = "failed"
                 attempt["finished_at"] = finished
-                attempt["failure_class"] = "transient"
-                self._persist_run(run)
+                attempt["failure_class"] = failure_class
+                _persist_outcome(run, self._persist_run)
             return
         with self._lock:
             run = self._runs[run_id]
@@ -693,7 +736,7 @@ class OpsJobManager:
             attempt["state"] = outcome
             attempt["finished_at"] = finished
             attempt["failure_class"] = result.get("failure_class")
-            self._persist_run(run)
+            _persist_outcome(run, self._persist_run)
 
     def run_status(self, run_id: str) -> JSON:
         with self._lock:
@@ -726,11 +769,14 @@ class OpsJobManager:
 
     def tick(self, now: str | None = None) -> list[str]:
         current = _utc_datetime(now)
+        retry_clock = time.monotonic()
         due: list[str] = []
         with self._lock:
             if self._closed:
                 return []
             for job in self._jobs.values():
+                if self._schedule_retry_at.get(job["job_id"], 0) > retry_clock:
+                    continue
                 next_run = job.get("next_run_at")
                 if (
                     job.get("state") == "active"
@@ -750,6 +796,11 @@ class OpsJobManager:
             try:
                 run, reused = self.start_run(job_id, trigger="interval")
             except (JobNotFoundError, JobConflictError):
+                continue
+            except OSError as exc:
+                with self._lock:
+                    self._schedule_retry_at[job_id] = time.monotonic() + 60
+                LOGGER.warning("Operations job %s could not be queued; retry in 60s: %s", job_id, exc)
                 continue
             if not reused:
                 started.append(run["job_run_id"])
