@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import secrets
 import time
+import threading
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -66,7 +68,7 @@ class ExoAnchorConfig:
             timeout = float(os.environ.get("EXOANCHOR_TIMEOUT", "75"))
         except ValueError as exc:
             raise ExoAnchorError("EXOANCHOR_TIMEOUT must be a number") from exc
-        if timeout <= 0 or timeout > 600:
+        if not math.isfinite(timeout) or timeout <= 0 or timeout > 600:
             raise ExoAnchorError("EXOANCHOR_TIMEOUT must be between 0 and 600 seconds")
         control_owner = os.environ.get("EXOANCHOR_CONTROL_OWNER", "mcp").strip().lower()
         if control_owner not in {"mcp", "agent"}:
@@ -100,6 +102,7 @@ class ExoAnchorClient:
     def __init__(self, config: ExoAnchorConfig):
         self.config = config
         self.token = config.token
+        self._auth_lock = threading.RLock()
 
     def web_url(self, path: str = "/") -> str:
         if not path.startswith("/"):
@@ -121,8 +124,9 @@ class ExoAnchorClient:
         if body is not None:
             data = json.dumps(body, ensure_ascii=False).encode("utf-8")
             headers["Content-Type"] = "application/json"
-        if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
+        request_token = self.token
+        if request_token:
+            headers["Authorization"] = f"Bearer {request_token}"
         req = Request(url, data=data, headers=headers, method=method)
         try:
             with urlopen(req, timeout=self.config.timeout) as resp:
@@ -144,15 +148,27 @@ class ExoAnchorClient:
                 except json.JSONDecodeError:
                     return {"ok": True, "text": text}
         except HTTPError as exc:
-            text = exc.read().decode("utf-8", errors="replace")
+            try:
+                text = exc.read().decode("utf-8", errors="replace")
+            finally:
+                exc.close()
             if exc.code == 401 and retry_auth:
-                self.login()
+                self._ensure_authenticated(request_token)
                 return self._request(method, path, body, raw=raw, retry_auth=False)
             raise ExoAnchorError(f"HTTP {exc.code} {path}: {text or exc.reason}") from exc
         except URLError as exc:
             raise ExoAnchorError(f"connect failed {url}: {exc.reason}") from exc
 
+    def _ensure_authenticated(self, rejected_token: str | None = None) -> None:
+        with self._auth_lock:
+            if not self.token or self.token == rejected_token:
+                self.login()
+
     def login(self) -> JSON:
+        with self._auth_lock:
+            return self._login()
+
+    def _login(self) -> JSON:
         if not self.config.password:
             raise ExoAnchorError(
                 "device requires auth; set EXOANCHOR_PASSWORD or EXOANCHOR_TOKEN"
@@ -202,8 +218,8 @@ class ExoAnchorClient:
         # device may accept the action and then reset or lose the response;
         # retrying that POST after a 401 would make its outcome ambiguous.
         if not self.token and self.config.password:
-            self.login()
-        resp = self._request("POST", path, body)
+            self._ensure_authenticated()
+        resp = self._request("POST", path, body, retry_auth=False)
         return resp if isinstance(resp, dict) else {"value": resp}
 
     def get_raw(self, path: str) -> tuple[bytes, dict[str, Any]]:

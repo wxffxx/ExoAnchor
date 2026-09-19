@@ -161,7 +161,9 @@
           credentials: "same-origin",
         };
       if (options.keepalive) requestOptions.keepalive = true;
+      let receivedHeaders = false;
       const request = async () => {
+        receivedHeaders = false;
         const attemptOptions = { ...requestOptions };
         let controller = null;
         let timer = 0;
@@ -185,6 +187,7 @@
         }
         try {
           const response = await fetch(path, attemptOptions);
+          receivedHeaders = true;
           const type = response.headers.get("Content-Type") || "";
           const value = response.ok && type.includes("application/json") ?
             await response.json() : await response.text();
@@ -207,7 +210,7 @@
       try {
         result = await request();
       } catch (error) {
-        if (method !== "GET" ||
+        if (method !== "GET" || receivedHeaders ||
             error?.name === "AbortError" ||
             error?.name === "TimeoutError") throw error;
         await new Promise(resolve => setTimeout(resolve, 120));
@@ -234,7 +237,9 @@
     }
 
     getShared(path, options = {}) {
-      const key = String(path);
+      // Caller-owned cancellation must not affect unrelated subscribers.
+      if (options.signal !== undefined) return this.get(path, options);
+      const key = JSON.stringify([String(path), this.token, options.timeoutMs ?? 8000]);
       const current = this.sharedGets.get(key);
       if (current) return current;
       const request = this.get(path, options).finally(() => {
@@ -773,7 +778,10 @@
     }
 
     notify() {
-      this.listeners.forEach(listener => listener(this.value, this.error));
+      this.listeners.forEach(listener => {
+        try { listener(this.value, this.error); }
+        catch (error) { console.error("poll listener failed", error); }
+      });
     }
 
     async refresh() {
@@ -976,7 +984,7 @@
     stop() {
       if (this.timer) lifecycle.clearTimer(this.timer);
       this.timer = 0;
-      this.inFlight = false;
+      // poll() owns inFlight until settlement, even after a resubscribe.
     },
   };
 

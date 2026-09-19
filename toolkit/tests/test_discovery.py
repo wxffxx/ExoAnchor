@@ -1,6 +1,7 @@
 import json
 import socket
 import unittest
+from unittest.mock import patch
 
 from exoanchor_toolkit.discovery import (
     DiscoveredDevice,
@@ -57,6 +58,50 @@ class FakeDiscoverySocket:
 
 
 class DiscoveryTests(unittest.TestCase):
+    def test_slow_sends_cannot_exceed_discovery_deadline(self):
+        class SlowSocket(FakeDiscoverySocket):
+            elapsed = 0.0
+            sent = 0
+            timeout = 0.0
+
+            def settimeout(self, value):
+                self.timeout = value
+
+            def sendto(self, request, target):
+                self.sent += 1
+                self.elapsed += self.timeout
+                raise socket.timeout()
+
+        sock = SlowSocket()
+        with patch("exoanchor_toolkit.discovery.time.monotonic", side_effect=lambda: sock.elapsed):
+            found = discover_devices(
+                timeout=0.3, addresses=[f"192.0.2.{i}" for i in range(1, 11)],
+                socket_factory=lambda *args: sock,
+            )
+        self.assertEqual(found, [])
+        self.assertEqual(sock.sent, 2)
+        self.assertAlmostEqual(sock.elapsed, 0.3)
+
+    def test_receive_timeout_uses_remaining_budget(self):
+        class TimedSocket(FakeDiscoverySocket):
+            elapsed = 0.0
+            timeout = 0.0
+
+            def settimeout(self, value):
+                self.timeout = value
+
+            def sendto(self, request, target):
+                self.elapsed += 0.08
+
+            def recvfrom(self, size):
+                self.elapsed += self.timeout
+                raise socket.timeout()
+
+        sock = TimedSocket()
+        with patch("exoanchor_toolkit.discovery.time.monotonic", side_effect=lambda: sock.elapsed):
+            discover_devices(timeout=0.1, socket_factory=lambda *args: sock)
+        self.assertAlmostEqual(sock.elapsed, 0.1)
+
     def test_valid_response(self):
         device = parse_discovery_response(
             response("abc"), "192.0.2.223", "abc"

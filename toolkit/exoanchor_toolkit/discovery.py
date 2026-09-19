@@ -165,15 +165,22 @@ def discover_devices(
         with socket_factory(socket.AF_INET, socket.SOCK_DGRAM) as device_socket:
             device_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             device_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            device_socket.settimeout(min(0.2, timeout))
             for target in targets:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                device_socket.settimeout(min(0.2, remaining))
                 try:
                     device_socket.sendto(request, (target, port))
                 except OSError:
                     # One unavailable interface or directed broadcast must not hide
                     # responses from the remaining targets.
                     continue
-            while time.monotonic() < deadline:
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                device_socket.settimeout(min(0.2, remaining))
                 try:
                     payload, source = device_socket.recvfrom(MAX_RESPONSE_BYTES + 1)
                 except socket.timeout:

@@ -26,4 +26,4 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN"' EXIT INT TERM
     -o "$STORE_TEST_BIN"
 "$STORE_TEST_BIN"
 
-python3 "$SCRIPT_DIR/check_web_contract.py"
+"${PYTHON:-python3}" "$SCRIPT_DIR/check_web_contract.py"

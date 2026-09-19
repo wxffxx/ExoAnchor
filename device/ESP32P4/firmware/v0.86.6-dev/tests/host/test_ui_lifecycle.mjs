@@ -74,7 +74,6 @@ UI.lifecycle.addCleanup(reason => {
 });
 
 let timerTicks = 0;
-UI.lifecycle.interval(() => { timerTicks += 1; }, 50);
 
 UI.api.token = "test-token";
 let sharedFetchCalls = 0;
@@ -101,6 +100,42 @@ globalThis.fetch = async () => ({
 const recovered = await UI.api.getShared("/shared-slow", { timeoutMs: 20 });
 assert.equal(recovered.recovered, true, "timed-out shared GET must be retryable");
 
+let bodyFetchCalls = 0;
+globalThis.fetch = async (_path, options) => {
+  bodyFetchCalls += 1;
+  return {
+    ok: true, status: 200,
+    headers: { get: () => "application/json" },
+    json: () => new Promise((_resolve, reject) => {
+      options.signal.addEventListener("abort", () => {
+        reject(new DOMException("body aborted", "AbortError"));
+      }, { once: true });
+    }),
+  };
+};
+await assert.rejects(UI.api.getSilent("/stalled-body", { timeoutMs: 15 }),
+  error => error?.name === "TimeoutError");
+assert.equal(bodyFetchCalls, 1, "a stalled body must not trigger a replay");
+
+const firstController = new AbortController();
+const secondController = new AbortController();
+const firstPrivate = UI.api.getShared("/caller-owned", { signal: firstController.signal });
+const secondPrivate = UI.api.getShared("/caller-owned", { signal: secondController.signal });
+assert.notEqual(firstPrivate, secondPrivate);
+await new Promise(resolve => setTimeout(resolve, 0));
+firstController.abort();
+await assert.rejects(firstPrivate, error => error?.name === "AbortError");
+assert.equal(secondController.signal.aborted, false);
+secondController.abort();
+await assert.rejects(secondPrivate, error => error?.name === "AbortError");
+
+globalThis.fetch = async () => ({
+  ok: true, status: 200,
+  headers: { get: () => "application/json" },
+  json: async () => { throw new SyntaxError("invalid JSON"); },
+});
+await assert.rejects(UI.api.getSilent("/invalid-json"), SyntaxError);
+
 globalThis.fetch = async () => ({
   ok: true,
   status: 200,
@@ -112,6 +147,40 @@ assert.ok(Number.isFinite(UI.status.lastDurationMs),
   "successful status refresh must expose its round-trip duration");
 assert.ok(UI.status.lastDurationMs >= 0,
   "status round-trip duration must not be negative");
+
+let notified = 0;
+const brokenListener = UI.status.subscribe(() => { throw new Error("bad widget"); }, false);
+const healthyListener = UI.status.subscribe(() => { notified += 1; }, false);
+const originalConsoleError = console.error;
+try {
+  console.error = () => {};
+  await UI.status.refresh();
+} finally {
+  console.error = originalConsoleError;
+  brokenListener();
+  healthyListener();
+}
+assert.equal(notified, 1, "one broken widget must not block the remaining listeners");
+assert.equal(UI.status.error, null, "widget errors must not become transport failures");
+
+let resolveEvents;
+let eventFetchCalls = 0;
+globalThis.fetch = async () => {
+  eventFetchCalls += 1;
+  return {
+    ok: true, status: 200,
+    headers: { get: () => "application/json" },
+    json: () => new Promise(resolve => { resolveEvents = resolve; }),
+  };
+};
+const unsubscribeFirst = UI.actionMirror.subscribe(() => {});
+await new Promise(resolve => setTimeout(resolve, 0));
+unsubscribeFirst();
+const unsubscribeSecond = UI.actionMirror.subscribe(() => {});
+assert.equal(eventFetchCalls, 1, "resubscribe must not overlap an active event poll");
+resolveEvents({ events: [] });
+await new Promise(resolve => setTimeout(resolve, 0));
+unsubscribeSecond();
 
 globalThis.fetch = async () => ({
   ok: false,
@@ -134,6 +203,7 @@ globalThis.fetch = (_path, options) => {
 };
 
 const pending = UI.api.getSilent("/slow");
+UI.lifecycle.interval(() => { timerTicks += 1; }, 50);
 UI.lifecycle.navigate("/kvm");
 await assert.rejects(pending, error => error?.name === "AbortError");
 await new Promise(resolve => setTimeout(resolve, 70));

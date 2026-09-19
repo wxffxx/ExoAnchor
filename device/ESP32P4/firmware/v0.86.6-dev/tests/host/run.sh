@@ -3,17 +3,18 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
-CJSON_DIR="$SCRIPT_DIR/vendor/cjson"
+PYTHON="${PYTHON:-python3}"
+CJSON_DIR="${CJSON_DIR:-$SCRIPT_DIR/vendor/cjson}"
 
 # Host tests use the same pinned cJSON source as ESP-IDF 5.5.5, without
 # requiring an SDK checkout or a network download on contributors' machines.
-for tool in "${CC:-cc}" python3 node; do
+for tool in "${CC:-cc}" "$PYTHON" node; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "host tests require $tool; see the firmware README" >&2
         exit 1
     fi
 done
-if ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+if ! "$PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
     echo "host tests require Python 3.10+" >&2
     exit 1
 fi
@@ -28,32 +29,39 @@ for source in cJSON.c cJSON.h; do
     fi
 done
 
-TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-core-tests-$$"
-STORE_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-settings-store-tests-$$"
-SSH_HOSTKEY_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-ssh-hostkey-tests-$$"
-HID_JSON_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-hid-json-tests-$$"
-HID_ABORT_FENCE_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-hid-abort-fence-tests-$$"
-HID_OWNER_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-hid-owner-tests-$$"
-NETWORK_SETTINGS_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-network-settings-tests-$$"
-PRODUCT_FEATURE_SETTINGS_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-product-feature-settings-tests-$$"
-RELAY_PROTOCOL_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-relay-protocol-tests-$$"
-VIDEO_MJPEG_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-video-mjpeg-tests-$$"
-VIDEO_FRAME_STORE_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-video-frame-store-tests-$$"
-PAGE_CONTEXT_CHECKPOINT_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-firmware-page-context-checkpoint-tests-$$"
-AGENT_TASK_RUNTIME_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-task-runtime-tests-$$"
-AGENT_TASK_SERVICE_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-task-service-tests-$$"
-AGENT_TASK_CANCEL_GATE_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-task-cancel-gate-tests-$$"
-AGENT_EXECUTION_GUARD_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-execution-guard-tests-$$"
-AGENT_VERIFIER_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-verifier-tests-$$"
-AGENT_REQUEST_BROKER_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-request-broker-tests-$$"
-AGENT_EVENT_STORE_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-event-store-tests-$$"
-AGENT_HISTORY_WRITER_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-history-writer-tests-$$"
-AGENT_ENDPOINT_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-endpoint-tests-$$"
-AGENT_RESULT_ERROR_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-agent-result-error-tests-$$"
-DIAGNOSTICS_FORMATTER_TEST_BIN="${TMPDIR:-/tmp}/exoanchor-diagnostics-formatter-tests-$$"
-AGENT_EVENT_STORE_TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/exoanchor-agent-event-store.XXXXXX")
-
-trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TEST_BIN" "$HID_ABORT_FENCE_TEST_BIN" "$HID_OWNER_TEST_BIN" "$NETWORK_SETTINGS_TEST_BIN" "$PRODUCT_FEATURE_SETTINGS_TEST_BIN" "$RELAY_PROTOCOL_TEST_BIN" "$VIDEO_MJPEG_TEST_BIN" "$VIDEO_FRAME_STORE_TEST_BIN" "$PAGE_CONTEXT_CHECKPOINT_TEST_BIN" "$AGENT_TASK_RUNTIME_TEST_BIN" "$AGENT_TASK_SERVICE_TEST_BIN" "$AGENT_TASK_CANCEL_GATE_TEST_BIN" "$AGENT_EXECUTION_GUARD_TEST_BIN" "$AGENT_VERIFIER_TEST_BIN" "$AGENT_REQUEST_BROKER_TEST_BIN" "$AGENT_EVENT_STORE_TEST_BIN" "$AGENT_HISTORY_WRITER_TEST_BIN" "$AGENT_ENDPOINT_TEST_BIN" "$AGENT_RESULT_ERROR_TEST_BIN" "$DIAGNOSTICS_FORMATTER_TEST_BIN"; rm -rf "$AGENT_EVENT_STORE_TEST_DIR"' EXIT INT TERM
+if ! "$PYTHON" -c 'import requests' >/dev/null 2>&1; then
+    echo "host tests: install tests/host/requirements.txt with $PYTHON -m pip" >&2
+    exit 1
+fi
+TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/exoanchor-host.XXXXXX")
+trap 'rm -rf -- "$TEST_DIR"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+TEST_BIN="$TEST_DIR/test_bin"
+STORE_TEST_BIN="$TEST_DIR/store_test_bin"
+SSH_HOSTKEY_TEST_BIN="$TEST_DIR/ssh_hostkey_test_bin"
+HID_JSON_TEST_BIN="$TEST_DIR/hid_json_test_bin"
+HID_ABORT_FENCE_TEST_BIN="$TEST_DIR/hid_abort_fence_test_bin"
+HID_OWNER_TEST_BIN="$TEST_DIR/hid_owner_test_bin"
+NETWORK_SETTINGS_TEST_BIN="$TEST_DIR/network_settings_test_bin"
+PRODUCT_FEATURE_SETTINGS_TEST_BIN="$TEST_DIR/product_feature_settings_test_bin"
+RELAY_PROTOCOL_TEST_BIN="$TEST_DIR/relay_protocol_test_bin"
+VIDEO_MJPEG_TEST_BIN="$TEST_DIR/video_mjpeg_test_bin"
+VIDEO_FRAME_STORE_TEST_BIN="$TEST_DIR/video_frame_store_test_bin"
+PAGE_CONTEXT_CHECKPOINT_TEST_BIN="$TEST_DIR/page_context_checkpoint_test_bin"
+AGENT_TASK_RUNTIME_TEST_BIN="$TEST_DIR/agent_task_runtime_test_bin"
+AGENT_TASK_SERVICE_TEST_BIN="$TEST_DIR/agent_task_service_test_bin"
+AGENT_TASK_CANCEL_GATE_TEST_BIN="$TEST_DIR/agent_task_cancel_gate_test_bin"
+AGENT_EXECUTION_GUARD_TEST_BIN="$TEST_DIR/agent_execution_guard_test_bin"
+AGENT_VERIFIER_TEST_BIN="$TEST_DIR/agent_verifier_test_bin"
+AGENT_REQUEST_BROKER_TEST_BIN="$TEST_DIR/agent_request_broker_test_bin"
+AGENT_EVENT_STORE_TEST_BIN="$TEST_DIR/agent_event_store_test_bin"
+AGENT_HISTORY_WRITER_TEST_BIN="$TEST_DIR/agent_history_writer_test_bin"
+AGENT_ENDPOINT_TEST_BIN="$TEST_DIR/agent_endpoint_test_bin"
+AGENT_RESULT_ERROR_TEST_BIN="$TEST_DIR/agent_result_error_test_bin"
+DIAGNOSTICS_FORMATTER_TEST_BIN="$TEST_DIR/diagnostics_formatter_test_bin"
+AGENT_EVENT_STORE_TEST_DIR="$TEST_DIR/agent-event-store"
+mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 
 "${CC:-cc}" \
     -std=c11 \
@@ -182,6 +190,13 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     "$PROJECT_DIR/main/drivers/video_frame_store.c" \
     "$SCRIPT_DIR/test_video_frame_store.c" \
     -o "$VIDEO_FRAME_STORE_TEST_BIN"
+
+"${CC:-cc}" -std=c11 -Wall -Wextra -Werror \
+    -I"$SCRIPT_DIR/idf_stubs" -I"$PROJECT_DIR/main/application" \
+    "$PROJECT_DIR/main/application/video_stream_metrics.c" \
+    "$SCRIPT_DIR/test_video_stream_metrics.c" \
+    -o "$TEST_DIR/video-stream-metrics"
+"$TEST_DIR/video-stream-metrics"
 
 "$VIDEO_FRAME_STORE_TEST_BIN"
 
@@ -409,39 +424,39 @@ trap 'rm -f "$TEST_BIN" "$STORE_TEST_BIN" "$SSH_HOSTKEY_TEST_BIN" "$HID_JSON_TES
     -o "$DIAGNOSTICS_FORMATTER_TEST_BIN"
 
 "$DIAGNOSTICS_FORMATTER_TEST_BIN"
-python3 "$SCRIPT_DIR/test_net_manager_runtime.py"
-python3 "$SCRIPT_DIR/test_h264_send_runtime.py"
-python3 "$SCRIPT_DIR/check_web_contract.py"
-python3 "$SCRIPT_DIR/check_agent_auth_liveness_contract.py"
-python3 "$SCRIPT_DIR/check_direct_hid_guard_contract.py"
-python3 "$SCRIPT_DIR/check_hid_owner_contract.py"
-python3 "$SCRIPT_DIR/check_refactor_boundaries.py"
-python3 "$SCRIPT_DIR/check_agent_tool_contract.py"
-python3 "$SCRIPT_DIR/check_agent_skill_contract.py"
-python3 "$SCRIPT_DIR/check_uart_mcp_contract.py"
-python3 "$SCRIPT_DIR/check_terminal_control_contract.py"
-python3 "$SCRIPT_DIR/check_diag_cli_contract.py"
-python3 "$SCRIPT_DIR/check_ms2109_test_contract.py"
-python3 "$SCRIPT_DIR/check_ms2109_power_contract.py"
-python3 "$SCRIPT_DIR/check_ms2109_composition_boundary.py"
-python3 "$SCRIPT_DIR/check_prototype_v24_product_contract.py"
-python3 "$SCRIPT_DIR/check_tf_low_speed_fallback_contract.py"
-python3 "$SCRIPT_DIR/check_frontend_semantics.py"
-python3 "$SCRIPT_DIR/check_settings_review_contract.py"
-python3 "$SCRIPT_DIR/check_resource_contract.py"
-python3 "$SCRIPT_DIR/check_video_pipeline_contract.py"
-python3 "$SCRIPT_DIR/check_build_profiles.py"
-python3 "$SCRIPT_DIR/check_network_boot_contract.py"
-python3 "$SCRIPT_DIR/check_ssh_persistence_broker_contract.py"
-python3 "$SCRIPT_DIR/check_product_feature_contract.py"
-python3 "$SCRIPT_DIR/check_page_context_revocation_contract.py"
-python3 "$SCRIPT_DIR/check_agent_checkpoint_identity_contract.py"
-python3 "$SCRIPT_DIR/check_agent_runtime_isolation_contract.py"
-python3 "$SCRIPT_DIR/check_agent_history_writer_contract.py"
-python3 "$SCRIPT_DIR/check_agent_runtime_shadow_cutover_gate.py"
-python3 "$SCRIPT_DIR/check_agent_degraded_control_contract.py"
-python3 "$SCRIPT_DIR/check_agent_http_exact_control_contract.py"
-python3 "$SCRIPT_DIR/test_agent_runtime_http_cli.py"
+"$PYTHON" "$SCRIPT_DIR/test_net_manager_runtime.py"
+"$PYTHON" "$SCRIPT_DIR/test_h264_send_runtime.py"
+"$PYTHON" "$SCRIPT_DIR/check_web_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_auth_liveness_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_direct_hid_guard_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_hid_owner_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_refactor_boundaries.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_tool_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_skill_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_uart_mcp_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_terminal_control_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_diag_cli_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_ms2109_test_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_ms2109_power_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_ms2109_composition_boundary.py"
+"$PYTHON" "$SCRIPT_DIR/check_prototype_v24_product_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_tf_low_speed_fallback_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_frontend_semantics.py"
+"$PYTHON" "$SCRIPT_DIR/check_settings_review_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_resource_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_video_pipeline_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_build_profiles.py"
+"$PYTHON" "$SCRIPT_DIR/check_network_boot_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_ssh_persistence_broker_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_product_feature_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_page_context_revocation_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_checkpoint_identity_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_runtime_isolation_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_history_writer_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_runtime_shadow_cutover_gate.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_degraded_control_contract.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_http_exact_control_contract.py"
+"$PYTHON" "$SCRIPT_DIR/test_agent_runtime_http_cli.py"
 node "$SCRIPT_DIR/test_ui_feature_gating.js"
 node "$SCRIPT_DIR/test_ui_lifecycle.mjs"
 node "$SCRIPT_DIR/test_ui_auth_requests.mjs"

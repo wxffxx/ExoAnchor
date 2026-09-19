@@ -162,13 +162,19 @@ IP 或现有固件推断身份。
 ## 测试、烧录与访问
 
 运行不依赖硬件或 ESP-IDF 的测试。需要支持 C11 的 C 编译器、Python 3.10+
-和 Node.js 18+；可用 `CC` 选择编译器。cJSON 使用仓库内与 ESP-IDF 5.5.5
+和 Node.js 18+，以及 `tests/host/requirements.txt` 中的 Python 依赖；可用
+`CC`、`PYTHON` 选择编译器和解释器。cJSON 使用仓库内与 ESP-IDF 5.5.5
 一致的[锁定副本](tests/host/vendor/cjson/README.md)，运行测试时不下载依赖，
 也不读取本机 `IDF_PATH` 下的 JSON 源码：
 
 ```bash
-./tests/host/run.sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r tests/host/requirements.txt
+PYTHON="$PWD/.venv/bin/python" ./tests/host/run.sh
 ```
+
+仓库根目录的 `scripts/test.sh` 统一运行 Dev、旧 Stable KVM、MCP 与工具箱的
+离线测试，同样支持 `PYTHON`。`CJSON_DIR` 可覆盖默认的仓库内 cJSON 路径。
 
 从仓库根目录执行 `./scripts/check-all.sh` 可以同时检查 Stable、Dev、MCP、
 Toolkit 和文档。主机测试不等于固件编译或板卡验证；检查范围与人工验收步骤见

@@ -7,6 +7,7 @@ import json
 import os
 import threading
 import uuid
+from copy import deepcopy
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -68,6 +69,10 @@ class JobManager:
         self._idempotency: dict[str, str] = {}
         self._load_journal()
 
+    def close(self) -> None:
+        """Drain accepted work before its journal directory is released."""
+        self._executor.shutdown(wait=True)
+
     def _ensure_state_dir(self) -> None:
         self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         try:
@@ -80,23 +85,24 @@ class JobManager:
 
     @staticmethod
     def _public(record: JSON, *, include_result: bool = False) -> JSON:
-        public = {key: value for key, value in record.items()
+        public = {key: deepcopy(value) for key, value in record.items()
                   if key not in {"result", "error_detail"}}
         result = record.get("result")
         if isinstance(result, dict):
             output = result.get("output", "")
-            public["artifact"] = {
-                "available": True,
-                "bytes": len(output.encode("utf-8")) if isinstance(output, str) else 0,
-                "sha256": hashlib.sha256(
-                    output.encode("utf-8") if isinstance(output, str) else b""
-                ).hexdigest(),
-                "truncated_by_device": bool(result.get("truncated")),
-            }
+            if "artifact" not in record:
+                encoded = output.encode("utf-8") if isinstance(output, str) else b""
+                record["artifact"] = {
+                    "available": True,
+                    "bytes": len(encoded),
+                    "sha256": hashlib.sha256(encoded).hexdigest(),
+                    "truncated_by_device": bool(result.get("truncated")),
+                }
+            public["artifact"] = dict(record["artifact"])
             public["exit_status"] = result.get("exit_status")
             public["remote_ok"] = result.get("ok")
         if include_result and isinstance(result, dict):
-            public["result"] = result
+            public["result"] = deepcopy(result)
         if record.get("error_detail"):
             public["error"] = record["error_detail"]
         return public
@@ -167,7 +173,7 @@ class JobManager:
                 "finished_at": None,
                 "cancel_requested": False,
                 "cancellation": "cooperative_only",
-                "request": request,
+                "request": deepcopy(request),
                 "request_sha256": request_sha256,
                 "result": None,
                 "error_detail": None,
@@ -179,7 +185,12 @@ class JobManager:
             self._persist(record)
             future = self._executor.submit(self._run, job_id, runner)
             self._futures[job_id] = future
+            future.add_done_callback(lambda _future: self._forget_future(job_id))
             return self._public(record), False
+
+    def _forget_future(self, job_id: str) -> None:
+        with self._lock:
+            self._futures.pop(job_id, None)
 
     def _run(self, job_id: str, runner: JobRunner) -> None:
         with self._lock:
@@ -194,6 +205,9 @@ class JobManager:
             self._persist(record)
         try:
             result = runner()
+            if not isinstance(result, dict):
+                raise RuntimeError("SSH runner returned a non-object result")
+            result = deepcopy(result)
         except Exception as exc:  # Runner errors are captured for later polling.
             with self._lock:
                 record = self._jobs[job_id]
@@ -253,7 +267,7 @@ class JobManager:
             next_offset = offset + len(chunk)
             public.update({
                 "result_available": True,
-                "result": {key: value for key, value in result.items() if key != "output"},
+                "result": {key: deepcopy(value) for key, value in result.items() if key != "output"},
                 "output": chunk,
                 "output_offset": offset,
                 "next_offset": next_offset if next_offset < len(output) else None,
@@ -289,6 +303,7 @@ class OpsJobManager:
         self._lock = threading.RLock()
         self._jobs: dict[str, JSON] = {}
         self._runs: dict[str, JSON] = {}
+        self._active_runs: dict[str, str] = {}
         self._futures: dict[str, Future[Any]] = {}
         self._idempotency: dict[str, str] = {}
         self._stop = threading.Event()
@@ -386,11 +401,11 @@ class OpsJobManager:
 
     @staticmethod
     def _job_public(job: JSON) -> JSON:
-        return json.loads(json.dumps(job))
+        return deepcopy(job)
 
     @staticmethod
     def _run_public(run: JSON) -> JSON:
-        return json.loads(json.dumps(run))
+        return deepcopy(run)
 
     def create(self, *, title: str, device_id: str,
                interval_seconds: int | None = None,
@@ -486,8 +501,10 @@ class OpsJobManager:
             return self._job_public(job)
 
     def _active_run_locked(self, job_id: str) -> JSON | None:
-        for run in self._runs.values():
-            if run.get("job_id") == job_id and run.get("state") not in OPS_TERMINAL_STATES:
+        run_id = self._active_runs.get(job_id)
+        if run_id is not None:
+            run = self._runs[run_id]
+            if run.get("state") not in OPS_TERMINAL_STATES:
                 return run
         return None
 
@@ -538,8 +555,17 @@ class OpsJobManager:
                 job["next_run_at"] = _future_utc(interval, base=now)
             self._persist_run(run)
             self._persist_job(job)
-            self._futures[run_id] = self._executor.submit(self._run, run_id)
+            self._active_runs[job_id] = run_id
+            future = self._executor.submit(self._run, run_id)
+            self._futures[run_id] = future
+            future.add_done_callback(lambda _future: self._forget_run(job_id, run_id))
             return self._run_public(run), False
+
+    def _forget_run(self, job_id: str, run_id: str) -> None:
+        with self._lock:
+            self._futures.pop(run_id, None)
+            if self._active_runs.get(job_id) == run_id:
+                self._active_runs.pop(job_id, None)
 
     def _run(self, run_id: str) -> None:
         with self._lock:
