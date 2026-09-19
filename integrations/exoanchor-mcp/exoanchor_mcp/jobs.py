@@ -292,7 +292,10 @@ class JobManager:
                 return self._public(record)
             record["cancel_requested"] = True
             future = self._futures.get(job_id)
-            if future is not None and future.cancel():
+            # Future.cancel() completes callbacks immediately but leaves its
+            # work item in ThreadPoolExecutor's queue. Keep it accounted for
+            # until a worker dequeues it and observes cancel_requested.
+            if future is not None and not future.running():
                 record["state"] = "cancelled"
                 record["finished_at"] = utc_now()
             else:
@@ -754,7 +757,9 @@ class OpsJobManager:
                 return self._run_public(run)
             run["cancel_requested"] = True
             future = self._futures.get(run_id)
-            if future is not None and future.cancel():
+            # Retain the queue slot until the cooperative worker drains this
+            # cancelled entry; repeated cancel/submit must not grow the queue.
+            if future is not None and not future.running():
                 run["state"] = "cancelled"
                 run["phase"] = "completed"
                 run["outcome"] = "cancelled"

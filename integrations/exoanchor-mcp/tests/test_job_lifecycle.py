@@ -9,6 +9,47 @@ from exoanchor_mcp.jobs import JobConflictError, JobManager, OpsJobManager
 
 
 class JobLifecycleTests(unittest.TestCase):
+    def test_repeated_submit_cancel_cannot_bypass_queue_capacity(self):
+        for operations in (False, True):
+            with self.subTest(operations=operations), tempfile.TemporaryDirectory() as directory:
+                release, entered = threading.Event(), threading.Event()
+                calls = []
+
+                def block(*_args):
+                    calls.append(True)
+                    entered.set()
+                    self.assertTrue(release.wait(5))
+                    return {"ok": True}
+
+                manager = (OpsJobManager(directory, block, scheduler=False, max_pending=2)
+                           if operations else JobManager(directory, max_workers=1, max_pending=2))
+                try:
+                    if operations:
+                        first, _ = manager.create(title="Running", device_id="test")
+                        pending, _ = manager.create(title="Pending", device_id="test")
+                        manager.start_run(first["job_id"])
+                    else:
+                        manager.start({}, block)
+                    self.assertTrue(entered.wait(2))
+                    accepted, rejected = 0, 0
+                    for _ in range(1000):
+                        try:
+                            if operations:
+                                run, _ = manager.start_run(pending["job_id"])
+                                manager.cancel_run(run["job_run_id"])
+                            else:
+                                job, _ = manager.start({}, block)
+                                manager.cancel(job["job_id"])
+                            accepted += 1
+                        except JobConflictError:
+                            rejected += 1
+                    self.assertEqual((accepted, rejected), (2, 998))
+                    self.assertEqual(len(manager._futures), 3)
+                finally:
+                    release.set()
+                    manager.close()
+                self.assertEqual(len(calls), 1, "cancelled queue entries must never call the runner")
+
     def test_default_capacity_bounds_a_burst_of_requests(self):
         with tempfile.TemporaryDirectory() as directory:
             release = threading.Event()
@@ -55,7 +96,7 @@ class JobLifecycleTests(unittest.TestCase):
             self.assertEqual(list(Path(directory).glob("*.json")), [])
             self.assertEqual(manager._jobs, {})
 
-    def test_queue_limit_reuses_idempotent_requests_and_recovers_capacity(self):
+    def test_cancelled_queue_entries_hold_capacity_until_drained(self):
         with tempfile.TemporaryDirectory() as directory:
             manager = JobManager(directory, max_workers=1, max_pending=1)
             entered, release = threading.Event(), threading.Event()
@@ -75,7 +116,13 @@ class JobLifecycleTests(unittest.TestCase):
                 with self.assertRaisesRegex(JobConflictError, "capacity"):
                     manager.start({"n": 3}, lambda: {"ok": True})
                 self.assertEqual(len(list(Path(directory).glob("*.json"))), 2)
+                drained = threading.Event()
+                manager._futures[queued["job_id"]].add_done_callback(lambda _: drained.set())
                 self.assertEqual(manager.cancel(queued["job_id"])["state"], "cancelled")
+                with self.assertRaisesRegex(JobConflictError, "capacity"):
+                    manager.start({"n": 3}, lambda: {"ok": True})
+                release.set()
+                self.assertTrue(drained.wait(2))
                 manager.start({"n": 3}, lambda: {"ok": True})
             finally:
                 release.set()
@@ -192,7 +239,7 @@ class OpsLifecycleTests(unittest.TestCase):
                 release.set()
                 manager.close()
 
-    def test_queue_capacity_is_released_by_cancellation(self):
+    def test_cancelled_queue_capacity_is_released_after_draining(self):
         with tempfile.TemporaryDirectory() as directory:
             release, entered = threading.Event(), threading.Event()
 
@@ -212,7 +259,13 @@ class OpsLifecycleTests(unittest.TestCase):
                 with self.assertRaisesRegex(JobConflictError, "capacity"):
                     manager.start_run(jobs[2]["job_id"])
                 self.assertIsNone(manager.status(jobs[2]["job_id"])["last_run_id"])
+                drained = threading.Event()
+                manager._futures[second["job_run_id"]].add_done_callback(lambda _: drained.set())
                 manager.cancel_run(second["job_run_id"])
+                with self.assertRaisesRegex(JobConflictError, "capacity"):
+                    manager.start_run(jobs[2]["job_id"])
+                release.set()
+                self.assertTrue(drained.wait(2))
                 manager.start_run(jobs[2]["job_id"])
             finally:
                 release.set()
