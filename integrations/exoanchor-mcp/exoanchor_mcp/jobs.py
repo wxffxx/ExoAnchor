@@ -187,12 +187,11 @@ class JobManager:
                 record["error_detail"] = (
                     "MCP bridge restarted while the request was active; remote completion is unknown"
                 )
+                _persist_outcome(record, self._persist)
             self._jobs[job_id] = record
             key = record.get("idempotency_key")
             if isinstance(key, str) and key:
                 self._idempotency[key] = job_id
-            if record.get("state") == "interrupted":
-                self._persist(record)
 
     def start(self, request: JSON, runner: JobRunner, *,
               idempotency_key: str | None = None,
@@ -466,7 +465,7 @@ class OpsJobManager:
                             attempt["state"] = "interrupted"
                             attempt["finished_at"] = finished
                             attempt["failure_class"] = "uncertain_commit"
-                    self._persist_run(run)
+                    _persist_outcome(run, self._persist_run)
                 self._runs[run_id] = run
 
     @staticmethod

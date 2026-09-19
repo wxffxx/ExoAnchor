@@ -1,13 +1,76 @@
 import json
+import hashlib
 import tempfile
 import threading
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from exoanchor_mcp.jobs import JobManager, OpsJobManager
 
 
 class JournalFailureTests(unittest.TestCase):
+    def test_terminal_recovery_records_are_read_without_rewriting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_interrupted.json"
+            original = json.dumps({
+                "job_id": "job_interrupted", "state": "interrupted",
+                "finished_at": "2026-09-18T00:00:00Z", "error": "completion unknown",
+                "output_persisted": True, "result": {"ok": False, "output": "partial output"},
+            }).encode()
+            path.write_bytes(original)
+            with patch.object(JobManager, "_persist", side_effect=OSError("read-only journal")) as persist:
+                manager = JobManager(directory)
+                try:
+                    self.assertEqual(manager.status("job_interrupted")["state"], "interrupted")
+                    self.assertEqual(manager.result("job_interrupted")["output"], "partial output")
+                    persist.assert_not_called()
+                    self.assertEqual(path.read_bytes(), original)
+                finally:
+                    manager.close()
+
+    def test_recovery_write_failure_keeps_all_history_queryable_without_replay(self):
+        for operations in (False, True):
+            with self.subTest(operations=operations), tempfile.TemporaryDirectory() as directory:
+                kind, identity = ("run", "job_run_id") if operations else ("job", "job_id")
+                root = Path(directory) / "operations" / "runs" if operations else Path(directory)
+                root.mkdir(parents=True, exist_ok=True)
+                originals = {}
+                for suffix, state in (("active", "running"), ("done", "succeeded")):
+                    record_id = f"{kind}_{suffix}"
+                    record = {identity: record_id, "state": state}
+                    if operations:
+                        record.update(job_id="job_health", attempts=[{"state": state}])
+                    elif state == "running":
+                        record.update(idempotency_key="recovered", request_sha256=hashlib.sha256(b"{}").hexdigest())
+                    path = root / f"{record_id}.json"
+                    originals[path] = json.dumps(record).encode()
+                    path.write_bytes(originals[path])
+                runner = Mock(return_value={"ok": True})
+                cls = OpsJobManager if operations else JobManager
+                method = "_persist_run" if operations else "_persist"
+                with patch.object(cls, method, side_effect=OSError("disk full during recovery")) as persist:
+                    manager = (cls(directory, runner, scheduler=False) if operations else cls(directory))
+                    try:
+                        status = manager.run_status if operations else manager.status
+                        interrupted = status(f"{kind}_active")
+                        self.assertEqual(interrupted["state"], "interrupted")
+                        self.assertIn("disk full", interrupted["journal_error"])
+                        self.assertEqual(status(f"{kind}_done")["state"], "succeeded")
+                        if operations:
+                            self.assertEqual(interrupted["attempts"][-1]["state"], "interrupted")
+                        else:
+                            existing, reused = manager.start({}, runner, idempotency_key="recovered")
+                            self.assertTrue(reused)
+                            self.assertEqual(existing["state"], "interrupted")
+                        persist.assert_called_once()
+                        self.assertEqual(manager._futures, {})
+                        for path, original in originals.items():
+                            self.assertEqual(path.read_bytes(), original)
+                    finally:
+                        manager.close()
+                runner.assert_not_called()
+
     def test_ssh_preflight_failure_is_terminal_and_does_not_call_runner(self):
         with tempfile.TemporaryDirectory() as directory:
             manager = JobManager(directory)
