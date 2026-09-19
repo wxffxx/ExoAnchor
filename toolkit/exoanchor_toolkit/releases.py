@@ -14,6 +14,7 @@ import urllib.request
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
+from http.client import HTTPException
 from pathlib import Path, PurePosixPath
 from typing import Callable, Iterator
 
@@ -171,13 +172,13 @@ def _read_json_response(
         if exc.code == 403:
             detail += "; API rate limit may be exhausted"
         raise ToolkitError(detail) from exc
-    except (urllib.error.URLError, OSError) as exc:
+    except (urllib.error.URLError, OSError, HTTPException) as exc:
         raise ToolkitError(f"cannot query GitHub releases: {exc}") from exc
     if len(content) > MAX_RELEASE_RESPONSE_BYTES:
         raise ToolkitError("GitHub release response is unexpectedly large")
     try:
         return json.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (ValueError, RecursionError) as exc:
         raise ToolkitError("GitHub returned invalid release metadata") from exc
 
 
@@ -198,7 +199,7 @@ def _asset_from_json(value: object) -> ReleaseAsset | None:
     try:
         asset_id = int(value.get("id"))
         size = int(value.get("size"))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     if asset_id <= 0 or not 0 < size <= MAX_ARCHIVE_BYTES:
         return None
@@ -234,7 +235,7 @@ def _release_from_json(
         return None
     try:
         release_id = int(value.get("id"))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     tag = value.get("tag_name")
     name = value.get("name")
@@ -395,7 +396,7 @@ def _download_archive(
         raise ToolkitError(
             f"firmware asset download returned HTTP {exc.code}"
         ) from exc
-    except (urllib.error.URLError, OSError) as exc:
+    except (urllib.error.URLError, OSError, HTTPException) as exc:
         raise ToolkitError(f"cannot download firmware asset: {exc}") from exc
     if received != asset.size:
         raise ToolkitError(

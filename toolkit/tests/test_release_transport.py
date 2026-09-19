@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import io
+import sys
 import tempfile
 import unittest
 import urllib.request
 from email.message import Message
+from http.client import BadStatusLine, IncompleteRead
 from pathlib import Path
 from unittest.mock import patch
 from urllib.response import addinfourl
@@ -12,14 +14,76 @@ from urllib.response import addinfourl
 from exoanchor_toolkit.errors import ToolkitError
 from exoanchor_toolkit.releases import (
     ReleaseAsset,
+    _asset_from_json,
     _download_archive,
     _read_json_response,
+    _release_from_json,
     download_firmware_release,
     firmware_releases,
 )
 
 
 class ReleaseTransportTests(unittest.TestCase):
+    def test_response_read_failures_use_toolkit_errors(self):
+        class BrokenResponse(io.BytesIO):
+            def read(self, size=-1):
+                raise failure
+
+        for kind in ("metadata", "archive"):
+            for failure in (IncompleteRead(b"part", 10), BadStatusLine("invalid status")):
+                with self.subTest(kind=kind, failure=type(failure).__name__), \
+                        tempfile.TemporaryDirectory() as temporary:
+                    response = BrokenResponse()
+                    with self.assertRaisesRegex(ToolkitError, "cannot (query|download)"):
+                        if kind == "metadata":
+                            _read_json_response(urllib.request.Request("https://api.github.com/test"),
+                                                opener=lambda *a, **kw: response)
+                        else:
+                            _download_archive(
+                                ReleaseAsset(1, "test.zip", "https://github.com/test.zip", 10, None),
+                                Path(temporary) / "test.zip", token="synthetic-test-token",
+                                opener=lambda *a, **kw: response,
+                            )
+                    self.assertTrue(response.closed)
+
+    def test_malformed_metadata_and_parser_depth_use_toolkit_errors(self):
+        payloads = [b"{broken", b"\xff", b"[" * 2000 + b"0" + b"]" * 2000]
+        for payload in payloads:
+            with self.subTest(bytes=len(payload)):
+                response = io.BytesIO(payload)
+                with self.assertRaisesRegex(ToolkitError, "invalid release metadata"):
+                    _read_json_response(urllib.request.Request("https://api.github.com/test"),
+                                        opener=lambda *a, **kw: response)
+                self.assertTrue(response.closed)
+
+    def test_metadata_integer_limit_uses_toolkit_error(self):
+        limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+        if not limit:
+            self.skipTest("interpreter has no integer digit limit")
+        with self.assertRaisesRegex(ToolkitError, "invalid release metadata"):
+            _read_json_response(urllib.request.Request("https://api.github.com/test"),
+                                opener=lambda *a, **kw: io.BytesIO(b"9" * (limit + 1)))
+
+    def test_nonfinite_identifiers_and_asset_sizes_are_ignored(self):
+        asset = {
+            "id": 1, "size": 10, "state": "uploaded",
+            "name": "exoanchor-firmware-test.zip",
+            "browser_download_url": "https://github.com/test/package.zip",
+        }
+        release = {
+            "id": 1, "assets": [asset], "tag_name": "vtest", "name": "test",
+            "published_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://github.com/test/releases/vtest",
+        }
+        self.assertIsNotNone(_release_from_json(release, include_prerelease=True))
+        for value in (float("inf"), float("-inf")):
+            for field in ("id", "size"):
+                with self.subTest(kind="asset", field=field, value=value):
+                    self.assertIsNone(_asset_from_json({**asset, field: value}))
+            with self.subTest(kind="release", value=value):
+                self.assertIsNone(_release_from_json({**release, "id": value},
+                                                     include_prerelease=True))
+
     def exercise_redirect(self, kind, destination, code, *, retain_token=False):
         requests = []
         streams = []
