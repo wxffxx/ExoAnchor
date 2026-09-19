@@ -83,8 +83,7 @@
       launcher.classList.toggle("runtime-disabled", !enabled);
     }
     if (!enabled) {
-      clearTimeout(assistant.pollTimer);
-      assistant.pollTimer = 0;
+      assistantInvalidateRunPolling();
       assistant.open = false;
       byId("eaAssistantWindow")?.classList.remove("show");
       launcher?.classList.remove("active");
@@ -524,6 +523,7 @@
     sessionId: "",
     jobId: "",
     polling: false,
+    pollOwner: null,
     pollTimer: 0,
     context: null,
     historyLoaded: false,
@@ -555,10 +555,15 @@
     if (label) label.textContent = assistant.sessionId || "新对话";
   }
 
-  function assistantResetForDataClear() {
-    clearTimeout(assistant.pollTimer);
+  function assistantInvalidateRunPolling() {
+    UI.lifecycle.clearTimer(assistant.pollTimer);
     assistant.pollTimer = 0;
+    assistant.pollOwner = null;
     assistant.polling = false;
+  }
+
+  function assistantResetForDataClear() {
+    assistantInvalidateRunPolling();
     assistant.jobId = "";
     assistant.lastEventSeq = 0;
     assistant.streamJobId = "";
@@ -643,13 +648,15 @@
     assistantScrollToTail();
   }
 
-  async function assistantPullEvents() {
+  async function assistantPullEvents(owner) {
     if (!assistant.jobId) return;
+    const jobId = assistant.jobId;
     const replay = await UI.api.getShared(
       "/api/agent/run/events?job_id=" +
-      encodeURIComponent(assistant.jobId) + "&after_seq=" +
+      encodeURIComponent(jobId) + "&after_seq=" +
       assistant.lastEventSeq,
       { timeoutMs: 5000 });
+    if (UI.lifecycle.destroyed || jobId !== assistant.jobId || owner !== assistant.pollOwner) return;
     (Array.isArray(replay.events) ? replay.events : []).forEach(assistantAppendEvent);
     const next = Number(replay.next_after_seq || replay.latest_seq || 0);
     if (next > assistant.lastEventSeq) assistant.lastEventSeq = next;
@@ -833,9 +840,13 @@
   }
 
   function assistantSchedulePoll(delay) {
-    clearTimeout(assistant.pollTimer);
-    if (!assistant.open || document.hidden || !assistant.jobId) return;
-    assistant.pollTimer = setTimeout(() => assistantPollRun(), delay || 1000);
+    UI.lifecycle.clearTimer(assistant.pollTimer);
+    assistant.pollTimer = 0;
+    if (UI.lifecycle.destroyed || !assistant.open || document.hidden || !assistant.jobId) return;
+    assistant.pollTimer = UI.lifecycle.timeout(() => {
+      assistant.pollTimer = 0;
+      assistantPollRun();
+    }, delay || 1000);
   }
 
   async function assistantReadRunStatus() {
@@ -847,20 +858,28 @@
     return status;
   }
 
-  async function assistantPollRun() {
-    if (assistant.polling || !assistant.open || document.hidden) return;
+  async function assistantPollRun(force = false) {
+    if (UI.lifecycle.destroyed || document.hidden ||
+        (!force && (assistant.polling || !assistant.open))) return;
+    UI.lifecycle.clearTimer(assistant.pollTimer);
+    assistant.pollTimer = 0;
+    const owner = {};
+    assistant.pollOwner = owner;
+    const current = () => owner === assistant.pollOwner && !UI.lifecycle.destroyed;
     assistant.polling = true;
     try {
       const [status] = await Promise.all([
         assistantReadRunStatus(),
         assistantSyncRequests(),
       ]);
+      if (!current()) return;
       const active = !!status.busy || ["running", "waiting_request", "paused"].includes(status.state);
       if (active && status.job_id) {
         assistant.jobId = String(status.job_id);
         if (status.session_id) assistantSetSession(status.session_id);
         assistantUpdateStream(status);
-        await assistantPullEvents().catch(() => {});
+        await assistantPullEvents(owner).catch(() => {});
+        if (!current()) return;
         const elapsed = Math.max(0, Number(status.elapsed_ms || 0));
         assistantStatus((status.paused ? "PAUSED" : status.waiting_request ? "WAITING" : "RUNNING") + " · " +
           (status.stage || "Agent") + " · " + Math.round(elapsed / 1000) + "s",
@@ -872,8 +891,10 @@
       if (assistant.jobId && status.job_id === assistant.jobId &&
           ["done", "failed", "aborted"].includes(status.state)) {
         const ok = status.state === "done" && status.result?.ok !== false;
-        await assistantPullEvents().catch(() => {});
+        await assistantPullEvents(owner).catch(() => {});
+        if (!current()) return;
         await assistantFinishStream(status);
+        if (!current()) return;
         assistantStatus(ok ? "DONE" : String(status.state || "CHECK").toUpperCase(),
           ok ? "ok" : "bad");
         localStorage.setItem("ea_assistant_last_job", assistant.jobId);
@@ -886,34 +907,19 @@
       assistantTaskControls(false);
       assistantStatus("IDLE", "");
     } catch (error) {
+      if (!current()) return;
       assistantStatus("OFFLINE", "bad");
       assistantAddMessage("system", "后台任务状态暂不可用：" + (error.message || error));
     } finally {
-      assistant.polling = false;
+      if (owner === assistant.pollOwner) {
+        assistant.pollOwner = null;
+        assistant.polling = false;
+      }
     }
   }
 
   async function assistantSyncRun() {
-    try {
-      const [status] = await Promise.all([
-        assistantReadRunStatus(),
-        assistantSyncRequests(),
-      ]);
-      if ((status.busy || ["running", "waiting_request", "paused"].includes(status.state)) && status.job_id) {
-        assistant.jobId = String(status.job_id);
-        if (status.session_id) assistantSetSession(status.session_id);
-        assistantUpdateStream(status);
-        await assistantPullEvents().catch(() => {});
-        assistantStatus("FOLLOWING · " + (status.stage || status.state), "live");
-        assistantTaskControls(true);
-        assistantSchedulePoll(100);
-      } else {
-        assistantStatus("IDLE", "");
-        assistantTaskControls(false);
-      }
-    } catch (error) {
-      assistantStatus("OFFLINE", "bad");
-    }
+    return assistantPollRun(true);
   }
 
   function assistantRequestPending(status) {
@@ -1128,6 +1134,7 @@
       if (!started.accepted && started.busy) {
         assistantAddMessage("system", "设备已有后台 Agent 任务；已切换为跟随该任务，本条消息未发送。");
       }
+      assistantInvalidateRunPolling();
       assistant.jobId = String(started.job_id || "");
       if (started.session_id) assistantSetSession(started.session_id);
       if (assistant.jobId) assistantEnsureStream(assistant.jobId);
@@ -1182,7 +1189,7 @@
     byId("eaAssistantLauncher")?.classList.toggle("active", assistant.open);
     byId("eaAssistantLauncher")?.setAttribute("aria-expanded", assistant.open ? "true" : "false");
     if (!assistant.open) {
-      clearTimeout(assistant.pollTimer);
+      assistantInvalidateRunPolling();
       return;
     }
     assistant.page = UI.pageContext.detect();
@@ -1192,7 +1199,7 @@
       assistantLoadHistory().catch(() => {});
     }
     UI.api.ensure().then(ok => {
-      if (ok) assistantSyncRun();
+      if (ok && assistant.open) assistantSyncRun();
     });
     setTimeout(() => byId("eaAssistantInput")?.focus(), 0);
   }
@@ -1226,6 +1233,7 @@
 
   function mountAssistant(activePage) {
     assistant.page = activePage;
+    UI.lifecycle.addCleanup(assistantInvalidateRunPolling);
     document.body.insertAdjacentHTML("beforeend",
       '<button id="eaAssistantLauncher" class="ea-assistant-launcher" type="button" aria-expanded="false" aria-controls="eaAssistantWindow">' +
         '<span aria-hidden="true">' + BRAND_MARK_HTML + '</span><b id="eaAssistantLauncherName"></b>' +
@@ -1259,6 +1267,7 @@
       assistantSchedulePoll(100);
     };
     byId("eaAssistantNew").onclick = () => {
+      assistantInvalidateRunPolling();
       assistantSetSession("");
       assistant.jobId = "";
       assistant.historyLoaded = true;
@@ -1327,7 +1336,8 @@
       }
     });
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && assistant.open) assistantSyncRun();
+      if (document.hidden) assistantInvalidateRunPolling();
+      else if (assistant.open) assistantSyncRun();
     });
     window.addEventListener("resize", () => {
       if (assistant.open) assistantApplyPosition();
