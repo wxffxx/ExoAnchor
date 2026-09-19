@@ -606,6 +606,7 @@
     if (!item) return null;
     item.classList.add("ea-assistant-stream");
     item.dataset.jobId = String(jobId || "");
+    item.dataset.sessionId = assistant.sessionId;
     item.innerHTML =
       '<div class="ea-assistant-stream-head">' +
         '<span class="ea-assistant-stream-dot" aria-hidden="true"></span>' +
@@ -776,9 +777,12 @@
     if (UI.lifecycle?.destroyed) return;
     assistantSetSession(localStorage.getItem("ea_agent_session"));
     const sessionId = assistant.sessionId;
+    const hasLiveStream = () => assistant.jobId && assistant.jobId === assistant.streamJobId &&
+      assistant.streamNode?.isConnected && assistant.streamNode.dataset.sessionId === sessionId;
+    if (hasLiveStream()) return;
     const generation = assistant.historyGeneration = (assistant.historyGeneration || 0) + 1;
     const current = () => generation === assistant.historyGeneration &&
-      sessionId === assistant.sessionId && !UI.lifecycle?.destroyed;
+      sessionId === assistant.sessionId && !UI.lifecycle?.destroyed && !hasLiveStream();
     if (!assistant.sessionId) {
       assistantRenderHistory([]);
       assistant.historyLoaded = true;
@@ -878,8 +882,8 @@
       const active = !!status.busy || ["running", "waiting_request", "paused"].includes(status.state);
       if (active && status.job_id) {
         assistant.jobId = String(status.job_id);
-        assistantUpdateStream(status);
         if (status.session_id) assistantSetSession(status.session_id);
+        assistantUpdateStream(status);
         await assistantPullEvents().catch(() => {});
         const elapsed = Math.max(0, Number(status.elapsed_ms || 0));
         assistantStatus((status.paused ? "PAUSED" : status.waiting_request ? "WAITING" : "RUNNING") + " · " +
@@ -921,8 +925,8 @@
       ]);
       if ((status.busy || ["running", "waiting_request", "paused"].includes(status.state)) && status.job_id) {
         assistant.jobId = String(status.job_id);
-        assistantUpdateStream(status);
         if (status.session_id) assistantSetSession(status.session_id);
+        assistantUpdateStream(status);
         await assistantPullEvents().catch(() => {});
         assistantStatus("FOLLOWING · " + (status.stage || status.state), "live");
         assistantTaskControls(true);
@@ -1149,8 +1153,8 @@
         assistantAddMessage("system", "设备已有后台 Agent 任务；已切换为跟随该任务，本条消息未发送。");
       }
       assistant.jobId = String(started.job_id || "");
-      if (assistant.jobId) assistantEnsureStream(assistant.jobId);
       if (started.session_id) assistantSetSession(started.session_id);
+      if (assistant.jobId) assistantEnsureStream(assistant.jobId);
       assistant.context = null;
       assistantRenderContext();
       assistantStatus(started.busy ? "RUNNING · " + (started.stage || "Agent") :

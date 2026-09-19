@@ -81,11 +81,38 @@ requests[5].resolve({ records: ["late page"] });
 await destroyed;
 assert.equal(rendered.length, 1);
 
+// Reopening the shell during a run must not replace the existing live bubble.
+context.UI.lifecycle.destroyed = false;
+context.assistant.jobId = "run-1";
+context.assistant.streamJobId = "run-1";
+context.assistant.streamNode = { isConnected: true, dataset: { sessionId: "s_new" } };
+const requestCount = requests.length;
+const reopened = context.load();
+assert.equal(requests.length, requestCount, "active conversation should defer history refresh");
+await reopened;
+assert.equal(rendered.length, 1);
+context.assistant.jobId = "";
+const afterRun = context.load();
+requests.at(-1).resolve({ records: ["completed run"] });
+await afterRun;
+assert.equal(rendered.at(-1)[0], "completed run");
+const liveArrives = context.load();
+context.assistant.jobId = "run-1";
+requests.at(-1).resolve({ records: ["snapshot before resumed stream"] });
+await liveArrives;
+assert.equal(rendered.at(-1)[0], "completed run", "a resumed stream must invalidate an in-flight snapshot");
+context.assistant.streamNode.dataset.sessionId = "different-session";
+const unrelatedStream = context.load();
+requests.at(-1).resolve({ records: ["selected session"] });
+await unrelatedStream;
+assert.equal(rendered.at(-1)[0], "selected session");
+
 // Main workspace already guards session IDs; newest load must also win within an ID.
 const mainRequests = [];
 const records = [];
 const main = {
   activeSessionId: "same", agentHistoryLoadGeneration: 0,
+  activeAgentJob: null, activeAgentContext: null, activeAgentPending: null,
   API: { get() { const request = pending(); mainRequests.push(request); return request.promise; } },
   provisionalAgentSessions: new Map(), projectAgentHistory: value => value,
   chatLog: { dataset: {} }, renderHistoryRecord: value => records.push(value),
@@ -107,4 +134,28 @@ await succeededNewer;
 mainRequests[2].reject(new Error("outdated network error"));
 await failedOlder;
 assert.deepEqual(records, ["current", "latest after retry"]);
+const liveBubble = { isConnected: true };
+main.activeAgentJob = "run-2";
+main.activeAgentContext = { sessionId: "same" };
+main.activeAgentPending = liveBubble;
+const appended = [];
+main.chatLog.appendChild = node => appended.push(node);
+const duringRun = main.load();
+mainRequests.at(-1).resolve({ records: ["earlier messages"], supported: true });
+await duringRun;
+assert.deepEqual(appended, [liveBubble], "history refresh must reattach the live bubble");
+main.activeSessionId = "other";
+const otherSession = main.load();
+mainRequests.at(-1).resolve({ records: [], supported: true });
+main.addBubble = () => ({});
+await otherSession;
+assert.deepEqual(appended, [liveBubble], "another session must not display this run's bubble");
+main.activeSessionId = "same";
+liveBubble.isConnected = false;
+main.chatLog.querySelector = () => null;
+main.addBubble = () => ({ classList: { add() {} } });
+const failedReturn = main.load();
+mainRequests.at(-1).reject(new Error("history unavailable"));
+await failedReturn;
+assert.deepEqual(appended, [liveBubble, liveBubble], "returning to a run must restore its bubble even if history fails");
 console.log("Assistant and workspace history race tests: PASS");

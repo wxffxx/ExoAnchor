@@ -876,15 +876,18 @@ async function loadAgentHistory(){
   const generation=++agentHistoryLoadGeneration;
   if(!activeSessionId){renderBlankThread();return null}
   const sessionId=activeSessionId;
+  const pendingForSession=()=>activeAgentJob&&activeAgentContext?.sessionId===sessionId?activeAgentPending:null;
   try{
     const h=await API.get(`/api/agent/history?session_id=${encodeURIComponent(sessionId)}`);
     if(activeSessionId!==sessionId||generation!==agentHistoryLoadGeneration)return h;
     const records=projectAgentHistory(Array.isArray(h.records)?h.records:[],provisionalAgentSessions.get(sessionId));
     chatLog.className="chat";chatLog.dataset.sessionId=sessionId;chatLog.innerHTML="";
     records.forEach(renderHistoryRecord);
-    if(!records.length)addBubble("system","此会话还没有消息。");
+    const pending=pendingForSession();
+    if(pending)chatLog.appendChild(pending);
+    if(!records.length&&!pending)addBubble("system","此会话还没有消息。");
     showAgentHistoryNotice(sessionId);
-    setBadge(badgeAgent,"AGENT",h.supported?"IDLE":"LIMITED",h.supported?"":"warn");
+    if(!pending)setBadge(badgeAgent,"AGENT",h.supported?"IDLE":"LIMITED",h.supported?"":"warn");
     if(!h.supported&&h.error)terminalLine("warn",`历史记录暂不可用: ${h.error}`,sessionId);
     return h;
   }catch(e){
@@ -893,6 +896,8 @@ async function loadAgentHistory(){
     if(chatLog.dataset.sessionId!==sessionId){
       chatLog.className="chat";chatLog.dataset.sessionId=sessionId;chatLog.innerHTML="";
       projectAgentHistory([],provisionalAgentSessions.get(sessionId)).forEach(renderHistoryRecord);
+      const pending=pendingForSession();
+      if(pending)chatLog.appendChild(pending);
     }
     let notice=chatLog.querySelector(".history-read-error");
     if(!notice){notice=addBubble("system","");notice.classList.add("history-read-error")}
