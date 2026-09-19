@@ -34,12 +34,12 @@ class JobConflictError(ValueError):
 
 
 def _utc_datetime(value: str | None = None) -> datetime:
-    if value:
-        try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            pass
-    return datetime.now(timezone.utc)
+    if value is None:
+        return datetime.now(timezone.utc)
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("schedule timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc)
 
 
 def _future_utc(seconds: int, *, base: str | None = None) -> str:
@@ -58,6 +58,26 @@ def _read_record(path: Path, identity_key: str) -> JSON | None:
             or not isinstance(record.get("state"), str)):
         return None
     return record
+
+
+def _valid_ops_definition(job: JSON) -> bool:
+    """Require executable fields without discarding older optional metadata."""
+    generation, target, trigger, policy = (
+        job.get(key) for key in ("generation", "target", "trigger", "policy")
+    )
+    if (type(generation) is not int or generation < 1
+            or not isinstance(target, dict)
+            or not isinstance(trigger, dict)
+            or not isinstance(policy, dict)):
+        return False
+    device_id = target.get("device_id")
+    if not isinstance(device_id, str) or not device_id.strip():
+        return False
+    if trigger.get("type") == "manual":
+        return True
+    interval = trigger.get("interval_seconds")
+    return (trigger.get("type") == "interval" and type(interval) is int
+            and 60 <= interval <= 604800)
 
 
 class JobManager:
@@ -397,7 +417,7 @@ class OpsJobManager:
         if self.jobs_dir.is_dir():
             for path in sorted(self.jobs_dir.glob("job_*.json")):
                 job = _read_record(path, "job_id")
-                if job is None:
+                if job is None or not _valid_ops_definition(job):
                     continue
                 job_id = job["job_id"]
                 self._jobs[job_id] = job
@@ -451,7 +471,8 @@ class OpsJobManager:
             raise JobConflictError("operations job title must be 1 to 120 characters")
         if not device_id or len(device_id) > 128:
             raise JobConflictError("operations job requires an exact device_id")
-        if interval_seconds is not None and not 60 <= interval_seconds <= 604800:
+        if interval_seconds is not None and (
+                type(interval_seconds) is not int or not 60 <= interval_seconds <= 604800):
             raise JobConflictError("interval_seconds must be between 60 and 604800")
         fingerprint = hashlib.sha256(json.dumps({
             "title": title,
@@ -707,15 +728,23 @@ class OpsJobManager:
         current = _utc_datetime(now)
         due: list[str] = []
         with self._lock:
+            if self._closed:
+                return []
             for job in self._jobs.values():
                 next_run = job.get("next_run_at")
                 if (
                     job.get("state") == "active"
                     and job.get("trigger", {}).get("type") == "interval"
                     and isinstance(next_run, str)
-                    and _utc_datetime(next_run) <= current
                 ):
-                    due.append(job["job_id"])
+                    try:
+                        scheduled = _utc_datetime(next_run)
+                    except (ValueError, OverflowError):
+                        # An unreadable schedule must not run immediately or
+                        # prevent healthy jobs from being considered.
+                        continue
+                    if scheduled <= current:
+                        due.append(job["job_id"])
         started: list[str] = []
         for job_id in due:
             try:

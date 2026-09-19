@@ -166,6 +166,10 @@ HTTP 请求不跟随重定向（包括同源重定向），避免转发 Bearer �
 请将 `EXOANCHOR_BASE_URL` 配置为最终 API 地址；截断响应、socket 错误和无效 JSON
 会作为工具执行错误返回，JSON 解析错误不会回显响应正文。
 
+恢复 operations 任务时，会校验执行所需的 generation、target、trigger 和 policy 结构，
+忽略损坏定义并保留原文件。无法解析或不含时区的计划时间不会触发自动运行，也不会阻塞
+其他有效任务；有效定义可以通过暂停后恢复来重新生成下一次计划时间。
+
 ## DeepSeek Harness
 
 本机 DSH 通过官方 MCP client 插件复用本服务器，不维护第二套设备控制逻辑。项目
