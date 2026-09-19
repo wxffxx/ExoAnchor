@@ -36,8 +36,17 @@ NETWORK_OTA_BOARD_ALLOWLIST = frozenset(
 
 MAX_JSON_RESPONSE_BYTES = 2 * 1024 * 1024
 LOGIN_TIMEOUT_SECONDS = 30.0
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Keep device requests and credentials at the explicitly selected URL."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 DIRECT_HTTP_OPENER = urllib.request.build_opener(
-    urllib.request.ProxyHandler({})
+    urllib.request.ProxyHandler({}), _NoRedirect()
 ).open
 
 
@@ -56,9 +65,12 @@ def parse_device_target(value: str) -> DeviceTarget:
     candidate = value.strip()
     if not candidate:
         raise ToolkitError("network device IP is required")
-    parsed = urllib.parse.urlsplit(
-        candidate if "://" in candidate else "http://" + candidate
-    )
+    try:
+        parsed = urllib.parse.urlsplit(
+            candidate if "://" in candidate else "http://" + candidate
+        )
+    except ValueError as exc:
+        raise ToolkitError("network target must be a valid HTTP IPv4 address") from exc
     if (
         parsed.scheme != "http"
         or parsed.username is not None
@@ -70,7 +82,9 @@ def parse_device_target(value: str) -> DeviceTarget:
         raise ToolkitError("network target must be an HTTP IPv4 address")
     try:
         address = str(ipaddress.IPv4Address(parsed.hostname or ""))
-        port = parsed.port or 80
+        port = parsed.port
+        if port is None:
+            port = 80
     except (ipaddress.AddressValueError, ValueError) as exc:
         raise ToolkitError("network target must be a valid IPv4 address") from exc
     if not 1 <= port <= 65535:
