@@ -61,6 +61,35 @@ class TransportTests(unittest.TestCase):
 
 
 class LoginPollingTests(unittest.TestCase):
+    def test_invalid_token_type_does_not_replace_an_existing_session(self):
+        for token in (True, 7, ["not-a-token"], {"secret": "do-not-echo"}):
+            with self.subTest(token_type=type(token).__name__):
+                client = ExoAnchorClient(client_config(token="existing-token"))
+                with patch.object(client, "_request", return_value={"token": token}):
+                    with self.assertRaisesRegex(ExoAnchorError, "token") as caught:
+                        client.login()
+                self.assertEqual(client.token, "existing-token")
+                self.assertNotIn("do-not-echo", str(caught.exception))
+
+    def test_invalid_login_response_does_not_allow_the_original_post(self):
+        client = ExoAnchorClient(client_config())
+        with patch.object(client, "_request", return_value={"token": {"bad": True}}) as request:
+            with self.assertRaises(ExoAnchorError):
+                client.post_json("/api/example", {"message": "test"})
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(request.call_args.args[:2], ("POST", "/api/auth/login"))
+        self.assertIsNone(client.token)
+
+    def test_polled_login_response_has_the_same_token_validation(self):
+        client = ExoAnchorClient(client_config(token="existing-token"))
+        with patch.object(client, "_request", side_effect=[
+            {"pending": True, "job_id": "login-job"}, {"token": ["invalid"]},
+        ]) as request, patch("exoanchor_mcp.client.time.sleep"):
+            with self.assertRaises(ExoAnchorError):
+                client.login()
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(client.token, "existing-token")
+
     def test_login_polling_uses_configured_transport_timeout(self):
         config = ExoAnchorConfig(
             base_url="http://device.test",

@@ -238,6 +238,8 @@ class ExoAnchorClient:
         token = resp.get("token") if isinstance(resp, dict) else None
         if not token:
             raise ExoAnchorError("login response did not include token")
+        if not isinstance(token, str):
+            raise ExoAnchorError("login response token must be a string")
         self.token = token
         return resp
 
