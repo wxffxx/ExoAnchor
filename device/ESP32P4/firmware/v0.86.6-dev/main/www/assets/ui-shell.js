@@ -979,9 +979,32 @@
   function assistantRenderRequests(requests) {
     const host = byId("eaAssistantRequests");
     if (!host) return;
-    host.innerHTML = "";
+    const previous = assistant.requestCards || new Map();
+    const next = new Map();
+    const cards = [];
+    const focused = document.activeElement;
+    const selection = focused && host.contains(focused) ?
+      [focused.selectionStart, focused.selectionEnd, focused.selectionDirection] : null;
     for (const request of requests) {
+      const status = request.status;
+      // Reuse only the same request and displayed decision context. Poll-only
+      // metadata may change without destroying an answer being typed.
+      const key = JSON.stringify([
+        request.kind, status.request_id, status.plan_id, status.argument_hash,
+        status.kind, status.resource, status.risk, status.reason,
+        status.target?.connector, status.target?.width, status.target?.height,
+        status.target?.refresh_hz, status.profile?.target,
+        status.profile?.key_code, status.profile?.trigger,
+      ]);
+      const existing = previous.get(key);
+      if (existing) {
+        existing.request = request;
+        next.set(key, existing);
+        cards.push(existing.card);
+        continue;
+      }
       const card = document.createElement("section");
+      const entry = { card, request };
       card.className = "ea-assistant-request";
       const asksAnswer = request.kind === "agent" &&
         request.status.kind === "context" &&
@@ -1005,7 +1028,7 @@
       reject.textContent = asksAnswer ? "跳过" : "拒绝";
       approve.textContent = asksAnswer ? "回答" : "批准";
       approve.className = "primary";
-      reject.onclick = () => assistantResolveRequest(request.kind, request.status, false)
+      reject.onclick = () => assistantResolveRequest(entry.request.kind, entry.request.status, false)
         .catch(error => assistantAddMessage("system", error.message || "请求取消失败"));
       let answerInput = null;
       if (asksAnswer) {
@@ -1021,14 +1044,28 @@
           return;
         }
         assistantResolveRequest(
-          request.kind, request.status, true, answerInput?.value || "")
+          entry.request.kind, entry.request.status, true, answerInput?.value || "")
         .catch(error => assistantAddMessage("system", error.message || "请求批准失败"));
       };
       actions.append(reject, approve);
       if (!asksAnswer) card.append(copy);
       card.append(actions);
-      host.appendChild(card);
+      next.set(key, entry);
+      cards.push(card);
     }
+    cards.forEach((card, index) => {
+      if (host.children[index] !== card) {
+        host.insertBefore(card, host.children[index] || null);
+      }
+    });
+    while (host.children.length > cards.length) host.removeChild(host.lastChild);
+    if (selection && host.contains(focused) && document.activeElement !== focused) {
+      focused.focus({ preventScroll: true });
+      if (typeof focused.setSelectionRange === "function") {
+        focused.setSelectionRange(...selection);
+      }
+    }
+    assistant.requestCards = next;
     host.classList.toggle("show", requests.length > 0);
   }
 
