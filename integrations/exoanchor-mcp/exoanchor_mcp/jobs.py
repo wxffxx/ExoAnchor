@@ -699,6 +699,7 @@ class OpsJobManager:
             result = self.runner(job)
             if not isinstance(result, dict):
                 raise RuntimeError("operations runner returned a non-object result")
+            result = deepcopy(result)
         except Exception as exc:
             with self._lock:
                 failure_class = (

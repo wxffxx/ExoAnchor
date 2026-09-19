@@ -11,6 +11,7 @@ import hashlib
 import json
 import threading
 from collections import OrderedDict
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
@@ -75,6 +76,7 @@ def make_observation(kind: str, source: str, data: Any, *,
                      captured_at: str | None = None,
                      derived: JSON | None = None) -> JSON:
     captured = captured_at or utc_now()
+    data = deepcopy(data)
     content_sha256 = canonical_hash(data)
     identity = canonical_hash({
         "kind": kind,
@@ -92,7 +94,7 @@ def make_observation(kind: str, source: str, data: Any, *,
         "data": data,
     }
     if derived:
-        observation["derived"] = derived
+        observation["derived"] = deepcopy(derived)
     return observation
 
 
@@ -105,11 +107,14 @@ class ObservationStore:
         self._lock = threading.Lock()
 
     def put(self, observation: JSON) -> JSON:
-        observation_id = observation.get("observation_id")
+        # Stored evidence is never exposed for callers to mutate. Copy before
+        # acquiring the store lock; payload size must not delay unrelated gets.
+        owned = deepcopy(observation)
+        observation_id = owned.get("observation_id")
         if not isinstance(observation_id, str):
             raise ValueError("observation_id is required")
         with self._lock:
-            self._items[observation_id] = observation
+            self._items[observation_id] = owned
             self._items.move_to_end(observation_id)
             while len(self._items) > self.maximum:
                 self._items.popitem(last=False)
@@ -120,14 +125,15 @@ class ObservationStore:
             observation = self._items.get(observation_id)
             if observation is not None:
                 self._items.move_to_end(observation_id)
-            return observation
+        return deepcopy(observation)
 
     def list_metadata(self) -> list[JSON]:
         with self._lock:
-            return [
+            metadata = [
                 {key: value for key, value in observation.items() if key != "data"}
                 for observation in reversed(self._items.values())
             ]
+        return deepcopy(metadata)
 
 
 def condition_value(status: JSON, condition: str) -> bool:
