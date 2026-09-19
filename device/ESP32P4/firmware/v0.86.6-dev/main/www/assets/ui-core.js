@@ -1225,9 +1225,11 @@
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && byId("uiConfirmModal")?.classList.contains("show")) closeConfirm(false);
     });
+    lifecycle.addCleanup(() => closeConfirm(false));
   }
 
   function confirmAction(options) {
+    if (lifecycle.destroyed) return Promise.resolve(false);
     ensureConfirm();
     if (confirmResolve) closeConfirm(false);
     const config = typeof options === "string" ? { message: options } : (options || {});
@@ -1236,7 +1238,9 @@
     byId("uiConfirmSubmit").textContent = config.confirmLabel || "确认";
     byId("uiConfirmSubmit").classList.toggle("danger", config.danger !== false);
     byId("uiConfirmModal").classList.add("show");
-    setTimeout(() => byId("uiConfirmCancel").focus(), 0);
+    lifecycle.timeout(() => {
+      if (byId("uiConfirmModal")?.classList.contains("show")) byId("uiConfirmCancel")?.focus();
+    }, 0);
     return new Promise(resolve => { confirmResolve = resolve; });
   }
 

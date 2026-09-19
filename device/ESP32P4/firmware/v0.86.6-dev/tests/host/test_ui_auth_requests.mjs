@@ -440,23 +440,25 @@ for (const trigger of ["local", "undelivered-peer-event"]) {
   assert.equal(await probe, null);
   assert.equal(UI.auth.authProbe, null);
 }
-function authBrowser() {
+function modalBrowser() {
   const env = browser();
   const elements = new Map();
-  env.context.document.body = { insertAdjacentHTML() {} };
-  env.context.document.getElementById = id => {
-    if (!elements.has(id)) {
-      const classes = new Set();
-      elements.set(id, {
-        value: "", textContent: "", style: {}, focus() {},
-        classList: {
-          add: name => classes.add(name), remove: name => classes.delete(name),
-          contains: name => classes.has(name),
-        },
-      });
-    }
-    return elements.get(id);
+  env.context.document.body = {
+    insertAdjacentHTML(_position, html) {
+      for (const match of html.matchAll(/id="([^"]+)"/g)) {
+        const classes = new Set();
+        elements.set(match[1], {
+          value: "", textContent: "", style: {}, focus() {},
+          classList: {
+            add: name => classes.add(name), remove: name => classes.delete(name),
+            contains: name => classes.has(name),
+            toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); },
+          },
+        });
+      }
+    },
   };
+  env.context.document.getElementById = id => elements.get(id) || null;
   return env;
 }
 async function assertModalCancelled(response, message) {
@@ -468,7 +470,7 @@ async function assertModalCancelled(response, message) {
 // Different callers may discover that login must advance to account change.
 // Changing the visible mode must not orphan the earlier authentication wait.
 for (const methods of [["requireLogin", "requireChange"], ["requireChange", "requireLogin"]]) {
-  const { UI } = authBrowser();
+  const { UI } = modalBrowser();
   const first = UI.auth[methods[0]]({});
   const second = UI.auth[methods[1]]({});
   assert.equal(first, second, "all callers wait for the same authentication gate");
@@ -478,7 +480,7 @@ for (const methods of [["requireLogin", "requireChange"], ["requireChange", "req
 }
 // Navigation must settle callers waiting for either authentication modal.
 for (const method of ["requireLogin", "requireChange"]) {
-  const { UI, context } = authBrowser();
+  const { UI, context } = modalBrowser();
   const first = UI.auth[method]({});
   assert.equal(UI.auth[method]({}), first, "live modal callers share one response");
   UI.lifecycle.destroy("navigate");
@@ -496,6 +498,28 @@ for (const method of ["requireLogin", "requireChange"]) {
   assert.equal(lateInitializations, 0, "late authentication cannot restart page initialization");
   assert.equal(context.document.getElementById("authModal").classList.contains("show"), false);
   assert.equal(UI.lifecycle.timers.size, 0, "modal focus timers belong to the page");
+}
+
+// Confirmations are page-owned too; replacement still cancels the old question.
+{
+  const { UI, context } = modalBrowser();
+  const first = UI.confirmAction("first question");
+  const second = UI.confirmAction("second question");
+  await assertModalCancelled(first, "replacement must cancel the earlier confirmation");
+  UI.lifecycle.destroy("navigate");
+  await assertModalCancelled(second, "navigation must cancel the visible confirmation");
+  await assertModalCancelled(UI.confirmAction("late question"),
+    "a destroyed page cannot ask another confirmation");
+  assert.equal(context.document.getElementById("uiConfirmModal").classList.contains("show"), false);
+  assert.equal(UI.lifecycle.timers.size, 0);
+}
+for (const accepted of [true, false]) {
+  const { UI, context } = modalBrowser();
+  const response = UI.confirmAction({ message: "live question", danger: false });
+  context.document.getElementById(accepted ? "uiConfirmSubmit" : "uiConfirmCancel").onclick();
+  assert.equal(await response, accepted, "live confirmation buttons must keep their meaning");
+  assert.equal(context.document.getElementById("uiConfirmModal").classList.contains("show"), false);
+  UI.lifecycle.destroy("test");
 }
 
 // XHR.abort() before open/send is a no-op: an already destroyed page must
