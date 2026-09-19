@@ -496,6 +496,7 @@ let agentSessions=[];
 let agentSessionsLoadError="";
 const provisionalAgentSessions=new Map();
 let activeSessionId=optionalSessionId(localStorage.getItem("ea_agent_session"));
+let activeSessionGeneration=0;
 const AGENT_PROFILE_LABELS={deepseek:"DeepSeek",openai:"OpenAI",qwen:"阿里云百炼 Qwen",kimi:"Kimi K3",custom:"Custom"};
 const AGENT_MODEL_DEFAULTS={deepseek:"deepseek-v4-pro",openai:"gpt-4o",qwen:"qwen3-vl-flash",kimi:"kimi-k3",custom:"gpt-4o"};
 let agentModelRequestSeq=0;
@@ -521,7 +522,7 @@ function streamTextInto(node,text){return UI.streamText(node,text,()=>{chatLog.s
 async function finishRunBubble(el,ok,text){if(!el||!el.dataset?.runBubble)return;el.classList.toggle("done",!!ok);el.classList.toggle("failed",!ok);el.classList.remove("paused");const label=el.querySelector(".agent-stream-label");const elapsed=el.querySelector(".agent-stream-elapsed");if(label)label.textContent=ok?"已完成":"任务结束，需要检查";if(elapsed)elapsed.textContent="";await streamTextInto(el.querySelector(".agent-stream-answer"),text)}
 function safeSessionId(id){return String(id||"default").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,24)||"default"}
 function optionalSessionId(id){const raw=String(id||"").trim();return raw?safeSessionId(raw):""}
-function setActiveSession(id){activeSessionId=optionalSessionId(id);if(activeSessionId)localStorage.setItem("ea_agent_session",activeSessionId);else localStorage.removeItem("ea_agent_session");return activeSessionId}
+function setActiveSession(id){const next=optionalSessionId(id);if(next!==activeSessionId)activeSessionGeneration++;activeSessionId=next;if(activeSessionId)localStorage.setItem("ea_agent_session",activeSessionId);else localStorage.removeItem("ea_agent_session");return activeSessionId}
 function agentSessionId(session){return optionalSessionId(session?.session_id||session?.id)}
 function agentHistoryPersistenceState(run={}){if(run.history_saved===true)return"saved";if(run.history_pending===true||run.history?.pending===true)return"pending";if(run.history_saved===false)return"unsaved";return"pending"}
 function agentHistoryStateLabel(state){if(state==="unsaved")return"未保存";if(state==="saved")return"已保存，列表同步中";return"保存中"}
@@ -908,6 +909,7 @@ async function loadAgentHistory(){
   }
 }
 let activeAgentJob=null;
+let agentSendOwner=null;
 let activeAgentPoll=null;
 let activeAgentPollBusy=false;
 let activeAgentPollGeneration=0;
@@ -988,7 +990,7 @@ async function cancelBootKeyPlan(){
 async function cancelAgentRun(){return controlAgentRun("abort")}
 function agentStatusFinished(status){return status&&["done","failed","aborted"].includes(status.state)}
 function clearAgentPoll(){activeAgentPollGeneration++;if(activeAgentPoll){UI.lifecycle.clearTimer(activeAgentPoll);activeAgentPoll=null}activeAgentPollBusy=false}
-function setAgentButtonRunning(running){sendPrompt.disabled=false;sendPrompt.textContent=running?"Send update":"Send";stopPrompt.hidden=!running}
+function setAgentButtonRunning(running){sendPrompt.disabled=!!agentSendOwner;sendPrompt.textContent=running?"Send update":"Send";stopPrompt.hidden=!running}
 function renderAgentEvents(status,sessionId){
   const events=Array.isArray(status?.events)?status.events:[];
   events.forEach(ev=>{
@@ -1247,37 +1249,51 @@ function validateOutgoingPrompt(text){
   return false;
 }
 async function sendAgentMessage(){
-  const text=promptBox.value.trim();
-  if(!text)return;
+  const draft=promptBox.value,text=draft.trim();
+  if(!text||agentSendOwner||UI.lifecycle.destroyed)return;
   if(!validateOutgoingPrompt(text))return;
+  const owner={};
+  agentSendOwner=owner;
+  let sessionId=activeSessionId,generation=activeSessionGeneration;
+  const current=()=>agentSendOwner===owner&&activeSessionId===sessionId&&
+    activeSessionGeneration===generation&&!UI.lifecycle.destroyed;
   if(activeAgentJob){
+    const jobId=activeAgentJob;
     sendPrompt.disabled=true;
     try{
-      const steered=await API.post("/api/agent/run/steer",{run_id:activeAgentJob,message:text});
+      const steered=await API.post("/api/agent/run/steer",{run_id:jobId,message:text});
+      if(!current()||activeAgentJob!==jobId)return;
       if(!steered.accepted)throw new Error("当前任务没有接受补充要求");
-      addBubble("user",text);promptBox.value="";
+      addBubble("user",text);if(promptBox.value===draft)promptBox.value="";
       terminalLine("info",`steer accepted · intent revision ${steered.intent_revision||"--"}`,activeAgentContext?.sessionId||activeSessionId);
       renderWorkspaceRun(steered);
     }catch(e){
+      if(!current()||activeAgentJob!==jobId)return;
       terminalLine("bad",e.message||"补充要求发送失败",activeAgentContext?.sessionId||activeSessionId);
       addBubble("system",`补充要求未送达：${e.message||e}`);
-    }finally{sendPrompt.disabled=false}
+    }finally{
+      if(agentSendOwner===owner){
+        agentSendOwner=null;
+        if(!UI.lifecycle.destroyed)setAgentButtonRunning(!!activeAgentJob);
+      }
+    }
     return;
   }
-  let sessionId=activeSessionId;
-  const profile=agentProfile.value||"-";
-  const model=agentModel.value||localStorage.getItem("ea_agent_model")||"";
-  const dryRun=false;
-  const includeScreenshot=!agentKvmPermission.disabled&&agentKvmPermission.checked;
-  const includeWebSearch=!agentWebPermission.disabled&&agentWebPermission.checked;
   sendPrompt.disabled=true;
   sendPrompt.textContent="Starting";
-  if(model)localStorage.setItem("ea_agent_model",model);
   try{
+    const profile=agentProfile.value||"-";
+    const model=agentModel.value||localStorage.getItem("ea_agent_model")||"";
+    const dryRun=false;
+    const includeScreenshot=!agentKvmPermission.disabled&&agentKvmPermission.checked;
+    const includeWebSearch=!agentWebPermission.disabled&&agentWebPermission.checked;
+    if(model)localStorage.setItem("ea_agent_model",model);
     if(!sessionId)sessionId=materializeSession(text);
+    generation=activeSessionGeneration;
     terminalLine("cmd",`agent run --session ${sessionId} --profile ${profile} --model ${model||"(default)"} ${dryRun?"--dry-run":"--execute"}${includeScreenshot?" --screenshot":""}${includeWebSearch?" --web-search":""}`,sessionId);
     terminalLine("info",`user: ${compactTerminalText(text,260)}`,sessionId);
     const started=await postAgentRun({session_id:sessionId,message:text,profile,model,authority_mode:"policy",dry_run:dryRun,include_screenshot:includeScreenshot,include_web_search:includeWebSearch,page_context:currentPageContext()});
+    if(!current())return;
     if(started.busy&&!started.accepted){
       terminalLine("warn","device already has an active agent run; attaching to it",sessionId);
       await attachAgentJob(started,{sessionId,profile,model,dryRun,includeScreenshot,includeWebSearch,userText:"(已有后台任务)"});
@@ -1288,18 +1304,23 @@ async function sendAgentMessage(){
     addBubble("user",text);
     rememberProvisionalAgentTurn(sessionId,"user",text);
     agentSessions=projectAgentSessions(agentSessions);renderSessions();
-    promptBox.value="";
+    if(promptBox.value===draft)promptBox.value="";
     const pending=addRunBubble("ESP32 Agent 已进入设备后台运行...");
     terminalLine("info","agent run accepted by device; polling status",sessionId);
     await attachAgentJob(started,{pending,sessionId,profile,model,dryRun,includeScreenshot,includeWebSearch,userText:text});
   }catch(e){
+    if(!current())return;
     const msg=e.message||"Agent request failed";
     terminalLine("bad",msg,sessionId);
     addBubble("system",`Agent 启动失败\n原因: ${msg}`);
-    await loadAgentSessions();
+    await loadAgentSessions().catch(()=>{});
+    if(!current())return;
     setBadge(badgeAgent,"AGENT","ERROR","bad");
   }finally{
-    if(!activeAgentJob)setAgentButtonRunning(false);
+    if(agentSendOwner===owner){
+      agentSendOwner=null;
+      if(!UI.lifecycle.destroyed)setAgentButtonRunning(!!activeAgentJob);
+    }
   }
 }
 async function resumeAgentJob(){
