@@ -140,14 +140,26 @@ class JobManager:
         result = record.get("result")
         if isinstance(result, dict):
             output = result.get("output", "")
-            if "artifact" not in record:
-                encoded = output.encode("utf-8") if isinstance(output, str) else b""
-                record["artifact"] = {
+            coerced_output = not isinstance(output, str)
+            if coerced_output:
+                output = str(output)
+            if coerced_output or not isinstance(record.get("artifact"), dict):
+                artifact: JSON = {
                     "available": True,
-                    "bytes": len(encoded),
-                    "sha256": hashlib.sha256(encoded).hexdigest(),
+                    "bytes": None,
+                    "sha256": None,
                     "truncated_by_device": bool(result.get("truncated")),
                 }
+                try:
+                    encoded = output.encode("utf-8")
+                except UnicodeEncodeError:
+                    # Retain the exact JSON text and observed remote outcome;
+                    # inventing replacement bytes would misrepresent evidence.
+                    artifact["encoding_error"] = "output is not valid Unicode; UTF-8 hash unavailable"
+                else:
+                    artifact["bytes"] = len(encoded)
+                    artifact["sha256"] = hashlib.sha256(encoded).hexdigest()
+                record["artifact"] = artifact
             public["artifact"] = dict(record["artifact"])
             public["exit_status"] = result.get("exit_status")
             public["remote_ok"] = result.get("ok")
@@ -164,7 +176,7 @@ class JobManager:
         path = self._path(record["job_id"])
         temporary = path.with_suffix(".tmp")
         temporary.write_text(
-            json.dumps(persisted, ensure_ascii=False, indent=2) + "\n",
+            json.dumps(persisted, ensure_ascii=True, indent=2) + "\n",
             encoding="utf-8",
         )
         try:
@@ -410,7 +422,7 @@ class OpsJobManager:
     def _atomic_json(path: Path, record: JSON) -> None:
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(
-            json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+            json.dumps(record, ensure_ascii=True, indent=2) + "\n",
             encoding="utf-8",
         )
         try:

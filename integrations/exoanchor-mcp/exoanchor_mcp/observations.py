@@ -24,12 +24,14 @@ def utc_now() -> str:
 
 
 def canonical_hash(value: Any) -> str:
+    # Keep existing UTF-8 canonical bytes for valid Unicode; lone surrogates
+    # remain representable as JSON escapes instead of losing observation data.
     encoded = json.dumps(
         value,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
-    ).encode("utf-8")
+    ).encode("utf-8", errors="backslashreplace")
     return hashlib.sha256(encoded).hexdigest()
 
 
