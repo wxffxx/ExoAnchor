@@ -910,6 +910,7 @@ async function loadAgentHistory(){
 let activeAgentJob=null;
 let activeAgentPoll=null;
 let activeAgentPollBusy=false;
+let activeAgentPollGeneration=0;
 let activeAgentPending=null;
 let activeAgentContext=null;
 let activeAgentLastStage="";
@@ -986,7 +987,7 @@ async function cancelBootKeyPlan(){
 }
 async function cancelAgentRun(){return controlAgentRun("abort")}
 function agentStatusFinished(status){return status&&["done","failed","aborted"].includes(status.state)}
-function clearAgentPoll(){if(activeAgentPoll){UI.lifecycle.clearTimer(activeAgentPoll);activeAgentPoll=null}activeAgentPollBusy=false}
+function clearAgentPoll(){activeAgentPollGeneration++;if(activeAgentPoll){UI.lifecycle.clearTimer(activeAgentPoll);activeAgentPoll=null}activeAgentPollBusy=false}
 function setAgentButtonRunning(running){sendPrompt.disabled=false;sendPrompt.textContent=running?"Send update":"Send";stopPrompt.hidden=!running}
 function renderAgentEvents(status,sessionId){
   const events=Array.isArray(status?.events)?status.events:[];
@@ -1064,11 +1065,14 @@ function runFromStatus(status,context){
   return result;
 }
 async function finishAgentJob(status){
+  const jobId=activeAgentJob;
+  if(!jobId||status.job_id!==jobId||UI.lifecycle.destroyed)return;
   const context=activeAgentContext||{};
   const sessionId=safeSessionId(status.session_id||context.sessionId||activeSessionId);
   const run=runFromStatus(status,context);
   const finalText=summarizeRun(run);
   clearAgentPoll();
+  const generation=activeAgentPollGeneration;
   renderAgentRunStatus(status,activeAgentPending,context);
   logRunResult(run,run.model||context.model,run.profile||context.profile,sessionId);
   settleTerminalProgress(sessionId);
@@ -1081,6 +1085,7 @@ async function finishAgentJob(status){
   const historyError=run.history?.error||run.history_error||"";
   setProvisionalAgentHistoryState(sessionId,historyState,historyError);
   agentSessions=projectAgentSessions(agentSessions);
+  if(activeAgentJob!==jobId||generation!==activeAgentPollGeneration||UI.lifecycle.destroyed)return;
   renderSessions();
   activeAgentJob=null;
   activeAgentPending=null;
@@ -1090,15 +1095,19 @@ async function finishAgentJob(status){
   activeAgentHeartbeats=new Set();
   setAgentButtonRunning(false);
   await loadAgentSessions();
+  if(activeAgentJob||generation!==activeAgentPollGeneration||UI.lifecycle.destroyed)return;
   showAgentHistoryNotice(sessionId);
   setBadge(badgeAgent,"AGENT",run.ok?(run.dry_run?"DRY-RUN":"DONE"):"CHECK",run.ok?(run.dry_run?"warn":"ok"):"bad");
   refreshStatus().catch(()=>{});
 }
 async function pollAgentRun(){
-  if(!activeAgentJob||activeAgentPollBusy)return;
+  if(!activeAgentJob||activeAgentPollBusy||UI.lifecycle.destroyed)return;
+  const jobId=activeAgentJob,generation=activeAgentPollGeneration;
+  const current=()=>activeAgentJob===jobId&&generation===activeAgentPollGeneration&&!UI.lifecycle.destroyed;
   activeAgentPollBusy=true;
   try{
     const status=await getAgentRunStatus();
+    if(!current())return;
     if(!status.job_id||status.job_id!==activeAgentJob){
       const sessionId=activeAgentContext?.sessionId||activeSessionId;
       terminalLine("warn","agent run status changed; current job is no longer active",sessionId);
@@ -1112,24 +1121,26 @@ async function pollAgentRun(){
       return;
     }
     try{
-      const replay=await getAgentRunEvents(activeAgentJob,activeAgentLastEventSeq);
+      const replay=await getAgentRunEvents(jobId,activeAgentLastEventSeq);
+      if(!current())return;
       if(Array.isArray(replay.events))status.events=replay.events;
       if(replay.history_lost)terminalLine("warn","部分早期 Run 事件已从内存 ring 淘汰",activeAgentContext?.sessionId||activeSessionId);
     }catch(e){}
+    if(!current())return;
     renderAgentRunStatus(status,activeAgentPending,activeAgentContext);
     if(!status.request&&(status.waiting_request||status.state==="waiting_request"))refreshAgentRequestQueue().catch(()=>{});
     loadHostDisplayPlan().catch(()=>{});loadBootKeyPlan().catch(()=>{});
     if(agentStatusFinished(status))await finishAgentJob(status);
   }catch(e){
-    terminalLine("warn",`status poll failed: ${e.message||e}`,activeAgentContext?.sessionId||activeSessionId);
+    if(current())terminalLine("warn",`status poll failed: ${e.message||e}`,activeAgentContext?.sessionId||activeSessionId);
   }finally{
-    activeAgentPollBusy=false;
+    if(generation===activeAgentPollGeneration)activeAgentPollBusy=false;
   }
 }
 async function attachAgentJob(status,context){
   const sessionId=safeSessionId(status.session_id||context?.sessionId||activeSessionId);
   const nextJob=status.job_id||activeAgentJob;
-  if(nextJob!==activeAgentJob)activeAgentLastEventSeq=0;
+  if(nextJob!==activeAgentJob){activeAgentLastEventSeq=0;activeAgentPending=null}
   activeAgentJob=nextJob;
   activeAgentContext=Object.assign({},context||{},{
     sessionId,
