@@ -524,6 +524,7 @@
     jobId: "",
     polling: false,
     pollOwner: null,
+    sendOwner: null,
     pollTimer: 0,
     context: null,
     historyLoaded: false,
@@ -563,6 +564,7 @@
   }
 
   function assistantResetForDataClear() {
+    assistantInvalidateSend();
     assistantInvalidateRunPolling();
     assistant.jobId = "";
     assistant.lastEventSeq = 0;
@@ -1093,20 +1095,35 @@
     return requests;
   }
 
+  function assistantInvalidateSend() {
+    assistant.sendOwner = null;
+    const input = byId("eaAssistantInput");
+    const send = byId("eaAssistantSend");
+    if (input) input.disabled = false;
+    if (send) send.disabled = false;
+  }
+
   async function assistantSend() {
     const input = byId("eaAssistantInput");
     const send = byId("eaAssistantSend");
     const text = String(input?.value || "").trim();
-    if (!text) return;
-    if (!(await UI.api.ensure())) return;
+    if (!text || !input || !send || assistant.sendOwner || UI.lifecycle.destroyed) return;
+    const owner = {};
+    assistant.sendOwner = owner;
+    let sessionId = assistant.sessionId;
+    const current = () => assistant.sendOwner === owner &&
+      assistant.sessionId === sessionId && !UI.lifecycle.destroyed;
     send.disabled = true;
     input.disabled = true;
     try {
+      if (!(await UI.api.ensure()) || !current()) return;
       if (assistant.jobId) {
+        const jobId = assistant.jobId;
         const steered = await UI.api.post("/api/agent/run/steer", {
-          run_id: assistant.jobId,
+          run_id: jobId,
           message: text,
         });
+        if (!current() || assistant.jobId !== jobId) return;
         if (!steered.accepted) throw new Error("当前任务没有接受补充要求");
         assistantAddMessage("user", text);
         input.value = "";
@@ -1115,7 +1132,7 @@
         return;
       }
       assistantSetSession(localStorage.getItem("ea_agent_session"));
-      const sessionId = assistantMaterializeSession();
+      sessionId = assistantMaterializeSession();
       assistantAddMessage("user", text);
       input.value = "";
       const attach = !!byId("eaAssistantAttachContext")?.checked;
@@ -1131,12 +1148,14 @@
         authority_mode: "policy",
         page_context: pageContext,
       });
+      if (!current()) return;
       if (!started.accepted && started.busy) {
         assistantAddMessage("system", "设备已有后台 Agent 任务；已切换为跟随该任务，本条消息未发送。");
       }
       assistantInvalidateRunPolling();
       assistant.jobId = String(started.job_id || "");
       if (started.session_id) assistantSetSession(started.session_id);
+      sessionId = assistant.sessionId;
       if (assistant.jobId) assistantEnsureStream(assistant.jobId);
       assistant.context = null;
       assistantRenderContext();
@@ -1145,12 +1164,18 @@
         (started.accepted ? "warn" : ""));
       if (assistant.jobId) assistantSchedulePoll(300);
     } catch (error) {
+      if (!current()) return;
       assistantStatus("CHECK", "bad");
       assistantAddMessage("system", error.message || "消息发送失败");
     } finally {
-      send.disabled = false;
-      input.disabled = false;
-      input.focus();
+      if (assistant.sendOwner === owner) {
+        assistant.sendOwner = null;
+        if (!UI.lifecycle.destroyed) {
+          send.disabled = false;
+          input.disabled = false;
+          if (assistant.open && assistant.sessionId === sessionId) input.focus();
+        }
+      }
     }
   }
 
@@ -1267,6 +1292,7 @@
       assistantSchedulePoll(100);
     };
     byId("eaAssistantNew").onclick = () => {
+      assistantInvalidateSend();
       assistantInvalidateRunPolling();
       assistantSetSession("");
       assistant.jobId = "";

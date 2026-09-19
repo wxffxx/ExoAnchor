@@ -22,6 +22,7 @@ function harness() {
   const context = {
     assistant: { open: true, jobId: "old", sessionId: "old-session", polling: false, pollTimer: 0, lastEventSeq: 10 },
     document: { hidden: false },
+    byId: () => null,
     localStorage: { setItem: (key, value) => stored.set(key, value) },
     clearTimeout: id => timers.delete(id), setTimeout: fn => { timers.set(++timerId, fn); return timerId; },
     UI: { lifecycle: { destroyed: false,
@@ -42,6 +43,7 @@ function harness() {
   };
   const names = ["assistantReadRunStatus", "assistantPullEvents", "assistantPollRun", "assistantSyncRun", "assistantSchedulePoll", "assistantResetForDataClear"];
   if (source.includes("function assistantInvalidateRunPolling(")) names.push("assistantInvalidateRunPolling");
+  if (source.includes("function assistantInvalidateSend(")) names.push("assistantInvalidateSend");
   vm.runInNewContext(names.map(extract).join("\n"), context);
   return { context, statuses, updates, messages, renderedEvents, timers, stored };
 }
