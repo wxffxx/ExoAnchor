@@ -672,31 +672,7 @@
   }
 
   function assistantStreamText(node, text) {
-    const value = String(text || "");
-    if (!node) return Promise.resolve();
-    if (document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches ||
-        value.length < 2) {
-      node.textContent = value;
-      return Promise.resolve();
-    }
-    node.textContent = "";
-    node.classList.add("streaming");
-    let offset = 0;
-    return new Promise(resolve => {
-      const step = () => {
-        const remaining = value.length - offset;
-        const size = remaining > 180 ? 5 : remaining > 60 ? 3 : 1;
-        node.textContent += value.slice(offset, offset + size);
-        offset += size;
-        assistantScrollToTail();
-        if (offset < value.length) requestAnimationFrame(step);
-        else {
-          node.classList.remove("streaming");
-          resolve();
-        }
-      };
-      requestAnimationFrame(step);
-    });
+    return UI.streamText(node, text, assistantScrollToTail);
   }
 
   async function assistantFinishStream(status) {

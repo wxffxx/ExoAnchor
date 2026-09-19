@@ -1133,6 +1133,63 @@
     }, { once: true });
   }
 
+  const textAnimations = new WeakMap();
+
+  function streamText(node, text, onUpdate) {
+    if (!node) return Promise.resolve();
+    textAnimations.get(node)?.();
+    const value = String(text || "");
+    const update = () => {
+      if (!node.isConnected || lifecycle.destroyed || typeof onUpdate !== "function") return;
+      try { onUpdate(); } catch (error) { console.error("text animation update failed", error); }
+    };
+    if (lifecycle.destroyed || !node.isConnected || document.hidden ||
+        matchMedia("(prefers-reduced-motion: reduce)").matches || value.length < 2) {
+      node.textContent = value;
+      node.classList.remove("streaming");
+      update();
+      return Promise.resolve();
+    }
+    // This animates an already complete answer; it must not delay run cleanup
+    // in proportion to response length or wait for a background tab to repaint.
+    const duration = Math.min(1500, value.length * 12);
+    const started = performance.now();
+    node.textContent = "";
+    node.classList.add("streaming");
+    return new Promise(resolve => {
+      let frame = 0, finished = false, release = () => {};
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        cancelAnimationFrame(frame);
+        document.removeEventListener("visibilitychange", visibility);
+        release();
+        textAnimations.delete(node);
+        node.textContent = value;
+        node.classList.remove("streaming");
+        update();
+        resolve();
+      };
+      const visibility = () => { if (document.hidden) finish(); };
+      const step = timestamp => {
+        if (finished) return;
+        if (lifecycle.destroyed || !node.isConnected || document.hidden ||
+            timestamp - started >= duration) { finish(); return; }
+        let end = Math.max(1, Math.ceil(value.length * Math.max(0, timestamp - started) / duration));
+        // Avoid briefly displaying a replacement glyph for a split emoji.
+        const last = value.charCodeAt(end - 1);
+        if (last >= 0xd800 && last <= 0xdbff) end += 1;
+        node.textContent = value.slice(0, end);
+        update();
+        frame = requestAnimationFrame(step);
+      };
+      textAnimations.set(node, finish);
+      document.addEventListener("visibilitychange", visibility);
+      release = lifecycle.addCleanup(finish);
+      frame = requestAnimationFrame(step);
+    });
+  }
+
   let confirmResolve = null;
 
   function closeConfirm(result) {
@@ -1182,6 +1239,7 @@
     setStatus,
     row,
     message,
+    streamText,
     confirmAction,
     pageContext,
     actionMirror,
