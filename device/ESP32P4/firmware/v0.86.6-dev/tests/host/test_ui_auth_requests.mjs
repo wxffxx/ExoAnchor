@@ -384,4 +384,60 @@ for (const trigger of ["local", "undelivered-peer-event"]) {
   assert.match(UI.row("计数", 0), /<span>0<\/span>/);
   assert.match(UI.row("空", null), /<span><\/span>/);
 }
+// An authentication retry belongs to the page, including its backoff timer.
+{
+  const { UI, context } = browser();
+  let requests = 0;
+  let retryReady;
+  const retryStarted = new Promise(resolve => { retryReady = resolve; });
+  const activeTimers = new Set();
+  context.setTimeout = (callback, delay) => {
+    const timer = setTimeout(() => { activeTimers.delete(timer); callback(); }, delay);
+    activeTimers.add(timer);
+    retryReady();
+    return timer;
+  };
+  context.clearTimeout = timer => { activeTimers.delete(timer); clearTimeout(timer); };
+  UI.api.getSilent = async () => { requests += 1; throw new TypeError("offline"); };
+  const first = UI.auth.readAuthState();
+  const second = UI.auth.readAuthState();
+  await retryStarted;
+  UI.lifecycle.destroy("navigate");
+  assert.equal(await first, null);
+  assert.equal(await second, null);
+  assert.equal(UI.auth.authProbe, null);
+  assert.equal(activeTimers.size, 0, "page destruction must cancel authentication backoff");
+  assert.equal(requests, 1, "no request may restart after page destruction");
+  assert.equal(await UI.auth.readAuthState(), null);
+  assert.equal(requests, 1, "a destroyed page must not probe authentication");
+  assert.equal(UI.lifecycle.interval(() => assert.fail("late interval"), 1), 0);
+  assert.equal(UI.lifecycle.timeout(() => assert.fail("late timeout"), 1), 0);
+  assert.equal(UI.lifecycle.timers.size, 0);
+}
+
+// Transient failures on a live page still recover; a hidden page sends nothing.
+{
+  const { UI, context } = browser();
+  let requests = 0;
+  UI.api.getSilent = async () => {
+    if (++requests === 1) throw new TypeError("offline");
+    return { enabled: true, token_valid: true };
+  };
+  assert.equal((await UI.auth.readAuthState()).token_valid, true);
+  assert.equal(requests, 2);
+  context.document.hidden = true;
+  assert.equal(await UI.auth.readAuthState(), null);
+  assert.equal(requests, 2);
+}
+// A transport that completes despite cancellation cannot revive the old page.
+{
+  const { UI } = browser();
+  let respond;
+  UI.api.getSilent = () => new Promise(resolve => { respond = resolve; });
+  const probe = UI.auth.readAuthState();
+  UI.lifecycle.destroy("navigate");
+  respond({ enabled: true, token_valid: true });
+  assert.equal(await probe, null);
+  assert.equal(UI.auth.authProbe, null);
+}
 console.log("UI auth, timeout and settings text runtime tests: PASS");

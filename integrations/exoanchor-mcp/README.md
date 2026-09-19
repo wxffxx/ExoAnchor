@@ -142,6 +142,18 @@ EXOANCHOR_PASSWORD_FILE = "/path/to/private/device-password"
 
 ## 验证
 
+MCP 主机任务池默认允许 2 个 SSH 执行线程或 1 个 operations 执行线程，并分别
+最多保留 32 个额外待处理任务。达到容量时，新请求会返回可读错误，不会写入
+未被接受的任务记录；相同幂等键或同一 operations Job 的在途 Run 仍会复用。
+直接使用 Python 管理器时，可通过 `max_workers` / `max_pending` 调整容量。
+历史审计记录继续保留，容量上限仅针对在途和排队工作。
+
+标准输入关闭、服务循环异常或 probe 退出时，MCP 入口会关闭任务管理器：
+SSH 已接受的工作会完成；operations 尚未开始的 Run 会记录为 cancelled，
+已开始的 Run 会完成并保存实际结果。关闭后拒绝新增工作，状态和结果仍可查询。
+读取日志时，非对象 JSON、无效编码或文件名与记录 ID 不一致的记录会被忽略，
+原文件保留，不猜测其身份或重放操作。
+
 不连接真机的协议与安全测试：
 
 ```bash

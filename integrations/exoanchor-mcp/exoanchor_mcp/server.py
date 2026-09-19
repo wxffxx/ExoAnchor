@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import uuid
 from typing import Any
@@ -81,6 +82,21 @@ class ToolRuntime:
         self._snapshot_observed_at: dict[str, float] = {}
         self._jobs: JobManager | None = None
         self._ops_jobs: OpsJobManager | None = None
+        self._lifecycle_lock = threading.RLock()
+        self._closed = False
+
+    def close(self) -> None:
+        with self._lifecycle_lock:
+            self._closed = True
+            jobs, ops_jobs = self._jobs, self._ops_jobs
+        # Never hold the runtime lock while waiting for a worker. A worker may
+        # need it to discover that shutdown has already started.
+        try:
+            if ops_jobs is not None:
+                ops_jobs.close()
+        finally:
+            if jobs is not None:
+                jobs.close()
 
     @property
     def device_id(self) -> str:
@@ -88,33 +104,39 @@ class ToolRuntime:
 
     @property
     def jobs(self) -> JobManager:
-        if self._jobs is None:
-            self._jobs = JobManager(
-                str(getattr(
-                    self.client.config,
-                    "state_dir",
-                    os.path.expanduser("~/.local/state/exoanchor-mcp"),
-                )),
-                persist_output=bool(getattr(
-                    self.client.config,
-                    "persist_job_output",
-                    False,
-                )),
-            )
-        return self._jobs
+        with self._lifecycle_lock:
+            if self._closed:
+                raise ExoAnchorError("MCP runtime is closed")
+            if self._jobs is None:
+                self._jobs = JobManager(
+                    str(getattr(
+                        self.client.config,
+                        "state_dir",
+                        os.path.expanduser("~/.local/state/exoanchor-mcp"),
+                    )),
+                    persist_output=bool(getattr(
+                        self.client.config,
+                        "persist_job_output",
+                        False,
+                    )),
+                )
+            return self._jobs
 
     @property
     def ops_jobs(self) -> OpsJobManager:
-        if self._ops_jobs is None:
-            self._ops_jobs = OpsJobManager(
-                str(getattr(
-                    self.client.config,
-                    "state_dir",
-                    os.path.expanduser("~/.local/state/exoanchor-mcp"),
-                )),
-                self._run_ops_health_job,
-            )
-        return self._ops_jobs
+        with self._lifecycle_lock:
+            if self._closed:
+                raise ExoAnchorError("MCP runtime is closed")
+            if self._ops_jobs is None:
+                self._ops_jobs = OpsJobManager(
+                    str(getattr(
+                        self.client.config,
+                        "state_dir",
+                        os.path.expanduser("~/.local/state/exoanchor-mcp"),
+                    )),
+                    self._run_ops_health_job,
+                )
+            return self._ops_jobs
 
     def _run_ops_health_job(self, job: JSON) -> JSON:
         expected = str(job.get("target", {}).get("device_id") or "")
@@ -1516,12 +1538,15 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"tools": TOOLS}, ensure_ascii=False, indent=2))
         return 0
     server = build_server()
-    if args.probe:
-        payload = server.runtime.call("exoanchor_status", {"include_system": True})
-        print(json.dumps(payload["text"], ensure_ascii=False, indent=2))
+    try:
+        if args.probe:
+            payload = server.runtime.call("exoanchor_status", {"include_system": True})
+            print(json.dumps(payload["text"], ensure_ascii=False, indent=2))
+            return 0
+        server.serve()
         return 0
-    server.serve()
-    return 0
+    finally:
+        server.runtime.close()
 
 
 if __name__ == "__main__":

@@ -364,12 +364,14 @@
     },
 
     interval(callback, delay) {
+      if (this.destroyed) return 0;
       const timer = window.setInterval(callback, delay);
       this.timers.add(["interval", timer]);
       return timer;
     },
 
     timeout(callback, delay) {
+      if (this.destroyed) return 0;
       let entry;
       const timer = window.setTimeout(() => {
         this.timers.delete(entry);
@@ -518,20 +520,32 @@
     async readAuthState() {
       if (this.authProbe) return this.authProbe;
       this.authProbe = (async () => {
+        const signal = lifecycle.signal();
         let delay = 100;
-        while (true) {
+        while (!document.hidden && !lifecycle.destroyed && !signal.aborted) {
           try {
-            return await api.getSilent("/api/auth/status");
+            const state = await api.getSilent("/api/auth/status");
+            return lifecycle.destroyed || signal.aborted ? null : state;
           } catch (error) {
             // A navigation abort, a temporarily full socket queue, or a network
             // transition is not proof that the session is invalid. Keep the
             // current UI/session and retry until the visible page can ask the
             // device authoritatively.
-            if (document.hidden) return null;
-            await new Promise(resolve => setTimeout(resolve, delay));
+            if (document.hidden || lifecycle.destroyed || signal.aborted) return null;
+            await new Promise(resolve => {
+              const finish = () => {
+                clearTimeout(timer);
+                signal.removeEventListener("abort", finish);
+                resolve();
+              };
+              const timer = setTimeout(finish, delay);
+              signal.addEventListener("abort", finish, { once: true });
+              if (signal.aborted) finish();
+            });
             delay = Math.min(Math.round(delay * 1.7), 1000);
           }
         }
+        return null;
       })();
       try {
         return await this.authProbe;
@@ -803,7 +817,7 @@
     }
 
     start() {
-      if (this.timer) return;
+      if (this.timer || lifecycle.destroyed) return;
       const tick = () => {
         if (document.hidden || byId("authModal")?.classList.contains("show")) return;
         this.refresh().catch(() => {});
@@ -976,7 +990,7 @@
     },
 
     start() {
-      if (!this.available || this.timer) return;
+      if (!this.available || this.timer || lifecycle.destroyed) return;
       this.poll();
       this.timer = lifecycle.interval(() => this.poll(), 800);
     },

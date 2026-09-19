@@ -47,6 +47,19 @@ def _future_utc(seconds: int, *, base: str | None = None) -> str:
     return value.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _read_record(path: Path, identity_key: str) -> JSON | None:
+    """Ignore damaged records without rewriting them or guessing identity."""
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if (not isinstance(record, dict)
+            or record.get(identity_key) != path.stem
+            or not isinstance(record.get("state"), str)):
+        return None
+    return record
+
+
 class JobManager:
     """Runs a small number of bounded jobs and journals honest recovery state.
 
@@ -56,7 +69,9 @@ class JobManager:
     """
 
     def __init__(self, state_dir: str, *, persist_output: bool = False,
-                 max_workers: int = 2):
+                 max_workers: int = 2, max_pending: int = 32):
+        if not isinstance(max_pending, int) or max_pending < 0:
+            raise ValueError("max_pending must be a non-negative integer")
         self.state_dir = Path(state_dir).expanduser()
         self.persist_output = persist_output
         self._executor = ThreadPoolExecutor(
@@ -64,6 +79,8 @@ class JobManager:
             thread_name_prefix="exoanchor-ssh-job",
         )
         self._lock = threading.RLock()
+        self._closed = False
+        self._capacity = max_workers + max_pending
         self._jobs: dict[str, JSON] = {}
         self._futures: dict[str, Future[Any]] = {}
         self._idempotency: dict[str, str] = {}
@@ -71,6 +88,8 @@ class JobManager:
 
     def close(self) -> None:
         """Drain accepted work before its journal directory is released."""
+        with self._lock:
+            self._closed = True
         self._executor.shutdown(wait=True)
 
     def _ensure_state_dir(self) -> None:
@@ -127,13 +146,10 @@ class JobManager:
         if not self.state_dir.is_dir():
             return
         for path in sorted(self.state_dir.glob("job_*.json")):
-            try:
-                record = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
+            record = _read_record(path, "job_id")
+            if record is None:
                 continue
-            job_id = record.get("job_id")
-            if not isinstance(job_id, str):
-                continue
+            job_id = record["job_id"]
             if record.get("state") not in TERMINAL_STATES:
                 record["state"] = "interrupted"
                 record["finished_at"] = utc_now()
@@ -151,6 +167,8 @@ class JobManager:
               idempotency_key: str | None = None,
               audit_id: str | None = None) -> tuple[JSON, bool]:
         with self._lock:
+            if self._closed:
+                raise JobConflictError("SSH job manager is closed")
             request_sha256 = hashlib.sha256(
                 json.dumps(request, ensure_ascii=False, sort_keys=True,
                            separators=(",", ":")).encode("utf-8")
@@ -162,6 +180,8 @@ class JobManager:
                         "idempotency key was already used for a different SSH request"
                     )
                 return self._public(existing), True
+            if len(self._futures) >= self._capacity:
+                raise JobConflictError("SSH job capacity reached; retry after an active job finishes")
             job_id = f"job_{uuid.uuid4().hex[:24]}"
             record: JSON = {
                 "job_id": job_id,
@@ -179,10 +199,10 @@ class JobManager:
                 "error_detail": None,
                 "output_persisted": self.persist_output,
             }
+            self._persist(record)
             self._jobs[job_id] = record
             if idempotency_key:
                 self._idempotency[idempotency_key] = job_id
-            self._persist(record)
             future = self._executor.submit(self._run, job_id, runner)
             self._futures[job_id] = future
             future.add_done_callback(lambda _future: self._forget_future(job_id))
@@ -291,7 +311,10 @@ class OpsJobManager:
     """
 
     def __init__(self, state_dir: str, runner: OpsRunner, *,
-                 scheduler: bool = True, max_workers: int = 1):
+                 scheduler: bool = True, max_workers: int = 1,
+                 max_pending: int = 32):
+        if not isinstance(max_pending, int) or max_pending < 0:
+            raise ValueError("max_pending must be a non-negative integer")
         self.root = Path(state_dir).expanduser() / "operations"
         self.jobs_dir = self.root / "jobs"
         self.runs_dir = self.root / "runs"
@@ -301,6 +324,8 @@ class OpsJobManager:
             thread_name_prefix="exoanchor-ops-run",
         )
         self._lock = threading.RLock()
+        self._closed = False
+        self._capacity = max_workers + max_pending
         self._jobs: dict[str, JSON] = {}
         self._runs: dict[str, JSON] = {}
         self._active_runs: dict[str, str] = {}
@@ -319,9 +344,25 @@ class OpsJobManager:
 
     def close(self) -> None:
         self._stop.set()
-        if self._scheduler and self._scheduler.is_alive():
-            self._scheduler.join(timeout=2)
-        self._executor.shutdown(wait=True, cancel_futures=True)
+        failure = None
+        try:
+            with self._lock:
+                self._closed = True
+                # Journal cancellation before shutdown. Even if storage fails,
+                # continue cancelling the remaining queued observations.
+                for run_id, future in list(self._futures.items()):
+                    if not future.running():
+                        try:
+                            self.cancel_run(run_id)
+                        except Exception as exc:
+                            if failure is None:
+                                failure = exc
+        finally:
+            if self._scheduler and self._scheduler.is_alive():
+                self._scheduler.join(timeout=2)
+            self._executor.shutdown(wait=True)
+        if failure is not None:
+            raise failure
 
     def _ensure_dirs(self) -> None:
         for path in (self.root, self.jobs_dir, self.runs_dir):
@@ -355,26 +396,20 @@ class OpsJobManager:
     def _load_journal(self) -> None:
         if self.jobs_dir.is_dir():
             for path in sorted(self.jobs_dir.glob("job_*.json")):
-                try:
-                    job = json.loads(path.read_text(encoding="utf-8"))
-                except (OSError, json.JSONDecodeError):
+                job = _read_record(path, "job_id")
+                if job is None:
                     continue
-                job_id = job.get("job_id")
-                if not isinstance(job_id, str):
-                    continue
+                job_id = job["job_id"]
                 self._jobs[job_id] = job
                 key = job.get("idempotency_key")
                 if isinstance(key, str) and key:
                     self._idempotency[key] = job_id
         if self.runs_dir.is_dir():
             for path in sorted(self.runs_dir.glob("run_*.json")):
-                try:
-                    run = json.loads(path.read_text(encoding="utf-8"))
-                except (OSError, json.JSONDecodeError):
+                run = _read_record(path, "job_run_id")
+                if run is None:
                     continue
-                run_id = run.get("job_run_id")
-                if not isinstance(run_id, str):
-                    continue
+                run_id = run["job_run_id"]
                 if run.get("state") not in OPS_TERMINAL_STATES:
                     finished = utc_now()
                     run["state"] = "interrupted"
@@ -424,6 +459,8 @@ class OpsJobManager:
             "interval_seconds": interval_seconds,
         }, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
         with self._lock:
+            if self._closed:
+                raise JobConflictError("operations job manager is closed")
             if idempotency_key and idempotency_key in self._idempotency:
                 job = self._jobs[self._idempotency[idempotency_key]]
                 if job.get("definition_sha256") != fingerprint:
@@ -461,10 +498,10 @@ class OpsJobManager:
                 "idempotency_key": idempotency_key,
                 "definition_sha256": fingerprint,
             }
+            self._persist_job(job)
             self._jobs[job_id] = job
             if idempotency_key:
                 self._idempotency[idempotency_key] = job_id
-            self._persist_job(job)
             return self._job_public(job), False
 
     def list(self, *, state: str | None = None) -> list[JSON]:
@@ -487,6 +524,8 @@ class OpsJobManager:
 
     def set_paused(self, job_id: str, paused: bool) -> JSON:
         with self._lock:
+            if self._closed:
+                raise JobConflictError("operations job manager is closed")
             job = self._jobs.get(job_id)
             if job is None:
                 raise JobNotFoundError(job_id)
@@ -510,6 +549,8 @@ class OpsJobManager:
 
     def start_run(self, job_id: str, *, trigger: str = "manual") -> tuple[JSON, bool]:
         with self._lock:
+            if self._closed:
+                raise JobConflictError("operations job manager is closed")
             job = self._jobs.get(job_id)
             if job is None:
                 raise JobNotFoundError(job_id)
@@ -518,6 +559,8 @@ class OpsJobManager:
             active = self._active_run_locked(job_id)
             if active is not None:
                 return self._run_public(active), True
+            if len(self._futures) >= self._capacity:
+                raise JobConflictError("operations run capacity reached; retry after an active run finishes")
             now = utc_now()
             run_id = f"run_{uuid.uuid4().hex[:24]}"
             attempt_id = f"attempt_{uuid.uuid4().hex[:20]}"

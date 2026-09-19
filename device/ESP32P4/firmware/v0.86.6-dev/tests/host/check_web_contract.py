@@ -2463,7 +2463,8 @@ def main() -> int:
         'submit.textContent = this.mode === "login" ? "正在登录…" : "正在保存…";',
         "async readAuthState()",
         "if (this.authProbe) return this.authProbe;",
-        "if (document.hidden) return null;",
+        "while (!document.hidden && !lifecycle.destroyed && !signal.aborted)",
+        "if (document.hidden || lifecycle.destroyed || signal.aborted) return null;",
         "delay = Math.min(Math.round(delay * 1.7), 1000);",
         "let state = await this.readAuthState();",
     ):
