@@ -54,7 +54,7 @@ def _read_record(path: Path, identity_key: str) -> JSON | None:
     """Ignore damaged records without rewriting them or guessing identity."""
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    except (OSError, ValueError, RecursionError):
         return None
     if (not isinstance(record, dict)
             or record.get(identity_key) != path.stem

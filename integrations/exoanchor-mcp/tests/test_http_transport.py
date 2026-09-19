@@ -1,4 +1,5 @@
 import threading
+import sys
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
@@ -68,6 +69,17 @@ class HttpTransportTests(unittest.TestCase):
         with self.assertRaisesRegex(ExoAnchorError, "invalid JSON") as caught:
             self.client.get_json("/api/test")
         self.assertNotIn("do-not-echo", str(caught.exception))
+
+    def test_json_parser_limits_are_transport_errors(self):
+        bodies = [b"[" * 2000 + b"0" + b"]" * 2000]
+        integer_limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+        if integer_limit:
+            bodies.append(b"9" * (integer_limit + 1))
+        for body in bodies:
+            with self.subTest(size=len(body)):
+                self.body = body
+                with self.assertRaisesRegex(ExoAnchorError, "invalid JSON"):
+                    self.client.get_json("/api/test")
 
     def test_truncated_body_is_a_transport_error(self):
         self.declared_length = len(self.body) + 20

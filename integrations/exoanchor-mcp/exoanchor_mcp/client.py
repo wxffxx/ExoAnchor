@@ -149,13 +149,16 @@ class ExoAnchorClient:
                     # accidentally places a non-UTF-8 byte in a JSON string.
                     # Current firmware sanitizes at the source; replacement
                     # here keeps the bridge usable during mixed-version repair.
-                    return json.loads(
-                        payload.decode("utf-8", errors="replace") or "{}"
-                    )
+                    try:
+                        return json.loads(
+                            payload.decode("utf-8", errors="replace") or "{}"
+                        )
+                    except (ValueError, RecursionError) as exc:
+                        raise ExoAnchorError(f"invalid JSON from {path}") from exc
                 text = payload.decode("utf-8", errors="replace")
                 try:
                     return json.loads(text)
-                except json.JSONDecodeError:
+                except (ValueError, RecursionError):
                     return {"ok": True, "text": text}
         except HTTPError as exc:
             try:
@@ -172,8 +175,6 @@ class ExoAnchorClient:
             raise ExoAnchorError(f"connect failed {url}: {exc.reason}") from exc
         except (OSError, HTTPException) as exc:
             raise ExoAnchorError(f"response failed {path}: {exc}") from exc
-        except json.JSONDecodeError as exc:
-            raise ExoAnchorError(f"invalid JSON from {path}") from exc
 
     def _ensure_authenticated(self, rejected_token: str | None = None) -> None:
         with self._auth_lock:

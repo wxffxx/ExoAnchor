@@ -9,6 +9,22 @@ from exoanchor_mcp.jobs import JobConflictError, JobManager, OpsJobManager
 
 
 class JobLifecycleTests(unittest.TestCase):
+    def test_json_parser_limits_do_not_prevent_journal_recovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original = {}
+            for index, data in enumerate(("[" * 2000 + "0" + "]" * 2000, "9" * 10000)):
+                path = Path(directory) / f"job_invalid_{index}.json"
+                path.write_text(data)
+                original[path] = data
+            manager = JobManager(directory)
+            try:
+                self.assertEqual(manager._jobs, {})
+                for path, data in original.items():
+                    self.assertEqual(path.read_text(), data)
+                manager.start({}, lambda: {"ok": True})
+            finally:
+                manager.close()
+
     def test_repeated_submit_cancel_cannot_bypass_queue_capacity(self):
         for operations in (False, True):
             with self.subTest(operations=operations), tempfile.TemporaryDirectory() as directory:
