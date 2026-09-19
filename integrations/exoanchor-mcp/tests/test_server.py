@@ -733,6 +733,31 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(len(second["data"]["logs"]), 1)
         self.assertIsNone(second["data"]["pagination"]["next_cursor"])
 
+    def test_logs_cursor_rejects_negative_offsets(self):
+        runtime = ToolRuntime(FakeClient())
+        first = runtime.call("exoanchor_logs", {"limit": 1})["text"]
+        for offset in (-1, -100):
+            with self.subTest(offset=offset):
+                with self.assertRaisesRegex(ToolArgumentError, "cursor is invalid"):
+                    runtime.call("exoanchor_logs", {
+                        "limit": 1,
+                        "cursor": f"{first['observation_id']}:{offset}",
+                    })
+
+    def test_logs_cursor_at_or_beyond_end_finishes_pagination(self):
+        runtime = ToolRuntime(FakeClient())
+        first = runtime.call("exoanchor_logs", {"limit": 1})["text"]
+        total = first["data"]["pagination"]["total_in_observation"]
+        for offset in (total, total + 1):
+            with self.subTest(offset=offset):
+                page = runtime.call("exoanchor_logs", {
+                    "limit": 1,
+                    "cursor": f"{first['observation_id']}:{offset}",
+                })["text"]["data"]
+                self.assertEqual(page["logs"], [])
+                self.assertEqual(page["pagination"]["returned"], 0)
+                self.assertIsNone(page["pagination"]["next_cursor"])
+
     def test_wait_for_status_uses_named_condition(self):
         runtime = ToolRuntime(FakeClient())
         result = runtime.call(

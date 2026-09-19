@@ -1364,6 +1364,8 @@ class ToolRuntime:
             try:
                 observation_id, offset_text = cursor.rsplit(":", 1)
                 offset = int(offset_text)
+                if offset < 0:
+                    raise ValueError("negative log offset")
             except (ValueError, TypeError) as exc:
                 raise ToolArgumentError("cursor is invalid") from exc
             full_observation = self.observations.get(observation_id)
