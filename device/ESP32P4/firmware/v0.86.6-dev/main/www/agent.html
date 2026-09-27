@@ -198,6 +198,7 @@ AuthUI.bindForm(async()=>{
 });
 let streamTimer=0,agentStreamActive=false,agentPageLeaving=false;
 let agentStreamRequest=0;
+let agentLeaseController=null,agentLeaseReleasePending=Promise.resolve();
 const agentDocumentReady=document.readyState==="complete"?Promise.resolve():new Promise(resolve=>window.addEventListener("load",resolve,{once:true}));
 let previewEnabled=localStorage.getItem("ea_agent_preview_enabled")==="1";
 let activeLeftView=localStorage.getItem("ea_agent_left_view")||"context";
@@ -463,10 +464,30 @@ function modeCount(video){return Array.isArray(video.modes)?video.modes.length:N
 function renderAgentStatus(status){if(!status)return;const v=status.video||{},h=status.hid||{},vc=v.control||{};videoState.textContent=v.frame_ready?`${v.resolution||"--"} ${Number(v.fps||0).toFixed(1)}fps`:((v.device_connected||modeCount(v)>0)?"standby":"offline");hidState.textContent=(h.hid_ready||h.ready)?"ready":h.connected?"mounted":h.initialized?"waiting":"off";leaseState.textContent=vc.agent_takeover?"agent takeover":vc.active_owner||"off";if(!preview.getAttribute("src"))videoText.textContent=previewEnabled?(v.last_error||"waiting for stream"):"preview off"}
 function refreshStatus(){return UI.status.refresh()}
 UI.status.subscribe(renderAgentStatus);
-async function sendAgentVideoLease(active){try{const headers={"Content-Type":"application/json"};if(API.token)headers.Authorization="Bearer "+API.token;const response=await fetch("/api/video/lease",{method:"POST",headers,body:JSON.stringify({owner:"agent",active,takeover:false}),keepalive:!active});return response.ok}catch(e){return false}}
+async function sendAgentVideoLease(active,signal){return API.request("POST","/api/video/lease",{owner:"agent",active,takeover:false},active,{timeoutMs:active?5000:3000,keepalive:!active,signal:active?signal:null})}
 function updatePreviewButton(){togglePreview.checked=previewEnabled;togglePreviewText.textContent=previewEnabled?"开启":"关闭";togglePreview.setAttribute("aria-label",previewEnabled?"关闭 Agent 画面预览":"打开 Agent 画面预览");refreshShot.disabled=!previewEnabled;if(!previewEnabled&&!preview.getAttribute("src"))videoText.textContent="preview off"}
-async function startAgentStream(delay=0){if(!previewEnabled||agentPageLeaving){videoText.textContent=previewEnabled?"leaving page":"preview off";return}const request=++agentStreamRequest;clearTimeout(streamTimer);agentStreamActive=true;await Promise.all([sendAgentVideoLease(true),agentDocumentReady]);if(request!==agentStreamRequest||agentPageLeaving||!agentStreamActive)return;streamTimer=setTimeout(()=>{if(request!==agentStreamRequest||agentPageLeaving||!agentStreamActive)return;preview.src=streamUrl();videoText.textContent="streaming"},delay)}
-function stopAgentStream(leaving=false){if(leaving)agentPageLeaving=true;agentStreamRequest++;clearTimeout(streamTimer);const release=agentStreamActive||preview.hasAttribute("src");agentStreamActive=false;preview.removeAttribute("src");if(release)sendAgentVideoLease(false)}
+async function startAgentStream(delay=0){
+  if(!previewEnabled||agentPageLeaving||!Session.active()){videoText.textContent=agentPageLeaving?"leaving page":previewEnabled?"login required":"preview off";return}
+  const request=++agentStreamRequest;
+  clearTimeout(streamTimer);streamTimer=0;
+  agentLeaseController?.abort();
+  const controller=new AbortController();agentLeaseController=controller;
+  agentStreamActive=true;preview.removeAttribute("src");
+  videoText.textContent="connecting stream";
+  try{
+    // A same-page restart must not race the previous durable lease release.
+    await Promise.all([agentLeaseReleasePending,agentDocumentReady]);
+    if(request!==agentStreamRequest||controller.signal.aborted||agentPageLeaving||!agentStreamActive)return;
+    await sendAgentVideoLease(true,controller.signal);
+    if(request!==agentStreamRequest||controller.signal.aborted||agentPageLeaving||!agentStreamActive)return;
+    streamTimer=setTimeout(()=>{streamTimer=0;if(request!==agentStreamRequest||agentPageLeaving||!agentStreamActive)return;preview.src=streamUrl();videoText.textContent="streaming"},delay);
+  }catch(error){
+    if(request!==agentStreamRequest||controller.signal.aborted||agentPageLeaving||!agentStreamActive||!Session.active())return;
+    videoText.textContent="stream reconnecting";
+    streamTimer=setTimeout(()=>{streamTimer=0;if(request===agentStreamRequest&&!agentPageLeaving&&agentStreamActive)void startAgentStream()},1000);
+  }finally{if(agentLeaseController===controller)agentLeaseController=null}
+}
+function stopAgentStream(leaving=false){if(leaving)agentPageLeaving=true;agentStreamRequest++;clearTimeout(streamTimer);streamTimer=0;agentLeaseController?.abort();agentLeaseController=null;const release=agentStreamActive||preview.hasAttribute("src");agentStreamActive=false;preview.removeAttribute("src");if(release)agentLeaseReleasePending=Promise.all([agentLeaseReleasePending,sendAgentVideoLease(false).catch(()=>{})]).then(()=>{})}
 function setPreviewEnabled(active){previewEnabled=!!active;localStorage.setItem("ea_agent_preview_enabled",previewEnabled?"1":"0");updatePreviewButton();if(previewEnabled&&activeLeftView==="screen"){nosignal.classList.remove("hide");startAgentStream(0)}else{stopAgentStream();nosignal.classList.remove("hide");videoText.textContent="preview off"}}
 function setLeftView(view){
   activeLeftView=["context","screen","terminal"].includes(view)?view:"context";
