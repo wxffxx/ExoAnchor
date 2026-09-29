@@ -4,11 +4,13 @@
 
 | 地址 | 功能 |
 | --- | --- |
-| `http://<设备地址>/` | Dashboard 与设备状态 |
-| `http://<设备地址>/kvm` | 视频、键盘和鼠标 |
-| `http://<设备地址>/agent` | 设备内 Agent，仅 Dev 固件 |
-| `http://<设备地址>/terminal` | 被控端 UART，仅 Dev 固件且取决于板型 |
-| `http://<设备地址>/settings` | 设备设置 |
+| `https://<设备地址>/` | Dashboard 与设备状态 |
+| `https://<设备地址>/kvm` | 视频、键盘和鼠标 |
+| `https://<设备地址>/agent` | 设备内 Agent，仅 Dev 固件 |
+| `https://<设备地址>/terminal` | 被控端 UART，仅 Dev 固件且取决于板型 |
+| `https://<设备地址>/settings` | 设备设置 |
+
+首次使用前，请按[HTTPS 与首次配对指南](SECURITY_TRANSPORT_zh.md)核对设备证书并取得随机初始密码。
 
 首次使用依次确认：
 

@@ -472,7 +472,7 @@
       byId("authTitle").textContent = mode === "login" ? "登录本地账户" : "请修改默认账户";
       byId("authHint").textContent = mode === "login" ?
         (this.state.must_change_credentials ?
-          "首次使用请以默认账户 admin / admin 登录，随后设置新密码。" :
+          "首次使用请以本机 UART0 显示的初始凭据登录，随后设置新密码。" :
           "需要登录后才能继续。") :
         "当前账户仍使用默认凭据，请设置至少六位的新密码。";
       byId("authSubmit").textContent = mode === "login" ? "登录" : "保存并继续";

@@ -62,7 +62,7 @@ dependencies:
   idf:
     source:
       type: idf
-    version: 5.5.4
+    version: 5.5.5
 direct_dependencies:
 - espressif/esp_tinyusb
 - espressif/usb_host_uvc

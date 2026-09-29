@@ -289,9 +289,9 @@ void si_http_set_security_headers(httpd_req_t *req)
         req, "Content-Security-Policy",
         "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
         "object-src 'none'; script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https:; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
         "media-src 'self' blob:; "
-        "connect-src 'self' ws: wss: http: https:");
+        "connect-src 'self' wss: https:");
 }
 
 esp_err_t si_http_send_json(httpd_req_t *req, cJSON *root)
@@ -393,7 +393,7 @@ esp_err_t si_http_set_session_cookie(httpd_req_t *req, const char *token,
     }
     int written = snprintf(
         cookie, cookie_size,
-        "EA_SESSION=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=%u",
+        "EA_SESSION=%s; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=%u",
         token, (unsigned)SI_HTTP_SESSION_COOKIE_MAX_AGE_SECONDS);
     if (written < 0 || (size_t)written >= cookie_size) {
         return ESP_ERR_INVALID_SIZE;
@@ -437,7 +437,7 @@ void si_http_clear_session_cookie(httpd_req_t *req)
     }
     httpd_resp_set_hdr(
         req, "Set-Cookie",
-        "EA_SESSION=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");
+        "EA_SESSION=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
 

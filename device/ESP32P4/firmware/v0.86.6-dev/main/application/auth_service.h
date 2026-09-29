@@ -10,7 +10,7 @@
 #define SI_AUTH_USERNAME_MAX_LEN 32
 #define SI_AUTH_PASSWORD_MAX_LEN 64
 #define SI_AUTH_PASSWORD_MIN_LEN 6
-#define SI_AUTH_BOOTSTRAP_PASSWORD_LEN 6
+#define SI_AUTH_BOOTSTRAP_PASSWORD_LEN 32
 #define SI_AUTH_TOKEN_LEN 64
 #define SI_AUTH_SESSION_ID_MAX_LEN 20
 #define SI_AUTH_DISABLED_SESSION_GENERATION 1U
@@ -20,6 +20,7 @@ typedef struct {
     si_principal_kind_t principal;
     si_capability_set_t capabilities;
     uint32_t generation;
+    int64_t authenticated_at_us;
     char session_id[SI_AUTH_SESSION_ID_MAX_LEN + 1];
 } si_auth_session_context_t;
 
@@ -71,3 +72,6 @@ esp_err_t si_auth_set_credentials(const char *username, const char *password);
 
 void si_auth_get_status(si_auth_status_t *status);
 void si_auth_get_runtime_status(si_auth_runtime_status_t *status);
+
+uint32_t si_auth_credential_generation(void);
+esp_err_t si_auth_create_session_for_generation(const char *client, uint32_t expected_generation, char out_token[SI_AUTH_TOKEN_LEN + 1]);

@@ -222,7 +222,7 @@ class ToolkitController:
             }
 
         address = device.get("source_ip")
-        port = device.get("http_port", 80)
+        port = device.get("http_port", 443)
         if not isinstance(address, str) or not address:
             return {
                 "device_label": "",
@@ -236,7 +236,7 @@ class ToolkitController:
                 "device_label_status": "error",
                 "device_label_error": "device reported an invalid HTTP port",
             }
-        suffix = "" if http_port == 80 else f":{http_port}"
+        suffix = "" if http_port == 443 else f":{http_port}"
         target = address + suffix
         username = _string(payload, "username", default="admin", limit=32)
         password = _string(payload, "password", limit=64)
@@ -383,11 +383,7 @@ class ToolkitController:
                 configured_client = configured.client
                 if configured_client is not None:
                     client = configured_client
-                    normalized_target = configured_client.target.address + (
-                        ""
-                        if configured_client.target.port == 80
-                        else f":{configured_client.target.port}"
-                    )
+                    normalized_target = configured_client.target.base_url
                     token_key = (normalized_target, configured_client.username)
             elif action == "show":
                 result = {

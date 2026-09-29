@@ -180,11 +180,13 @@ cd ExoAnchor
 
 | 地址 | 用途 |
 | --- | --- |
-| `http://<board-ip>/` | Dashboard |
-| `http://<board-ip>/kvm` | 视频与键鼠控制 |
-| `http://<board-ip>/agent` | 设备内 Agent，仅 Dev |
-| `http://<board-ip>/terminal` | 目标机 UART，仅 Dev 且取决于板型 |
-| `http://<board-ip>/settings` | 设备设置 |
+| `https://<board-ip>/` | Dashboard |
+| `https://<board-ip>/kvm` | 视频与键鼠控制 |
+| `https://<board-ip>/agent` | 设备内 Agent，仅 Dev |
+| `https://<board-ip>/terminal` | 目标机 UART，仅 Dev 且取决于板型 |
+| `https://<board-ip>/settings` | 设备设置 |
+
+设备证书与初次登录见[HTTPS 配对指南](docs/guides/SECURITY_TRANSPORT_zh.md)。
 
 确认 Dashboard 可访问、Ethernet 已获取地址、KVM 有画面且 HID 可用。首次启动
 必须替换本地 bootstrap 凭据；共享文档不发布凭据值。

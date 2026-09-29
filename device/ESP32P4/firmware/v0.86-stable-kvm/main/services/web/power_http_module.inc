@@ -200,6 +200,8 @@ static esp_err_t power_action_handler(httpd_req_t *req)
         cJSON_Delete(root);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "action required");
     }
+    char action_copy[32];
+    strlcpy(action_copy, action, sizeof(action_copy));
     if (strcasecmp(action, "power") == 0 || strcasecmp(action, "press_power") == 0) {
         ret = si_power_press_power(duration_ms);
     } else if (strcasecmp(action, "reset") == 0 || strcasecmp(action, "press_reset") == 0) {
@@ -226,7 +228,7 @@ static esp_err_t power_action_handler(httpd_req_t *req)
     ESP_RETURN_ON_ERROR(ret, TAG, "power action");
 
     char msg[64];
-    snprintf(msg, sizeof(msg), "Power action: %s", action);
+    snprintf(msg, sizeof(msg), "Power action: %s", action_copy);
     si_web_log("INFO", msg);
     return power_status_handler(req);
 }

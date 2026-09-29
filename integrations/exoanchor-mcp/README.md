@@ -72,9 +72,13 @@ python3 -m exoanchor_mcp.server --list-tools
 
 ## 配置
 
+先按[HTTPS 与首次配对指南](../../docs/guides/SECURITY_TRANSPORT_zh.md)取得设备初始密码和证书。JSON 响应上限为 2 MiB，图像为 6 MiB，错误正文为 16 KiB；读取同时受大小和总时间预算限制。
+
 | 环境变量 | 默认值 | 含义 |
 | --- | --- | --- |
-| `EXOANCHOR_BASE_URL` | 必填 | 设备地址，例如 `http://<设备地址>` |
+| `EXOANCHOR_BASE_URL` | 必填 | 设备地址，例如 `https://<设备地址>` |
+| `EXOANCHOR_TLS_CERTIFICATE_FILE` | 未设置 | UART0 取得并核对指纹的单个设备 PEM 证书；未设置时使用系统 CA 和 hostname 校验 |
+| `EXOANCHOR_ALLOW_INSECURE_HTTP` | `0` | 仅旧固件显式设为 `1` 才接受 HTTP；没有自动降级 |
 | `EXOANCHOR_USERNAME` | 未设置 | 本地设备用户名 |
 | `EXOANCHOR_PASSWORD` | 未设置 | 本地设备密码 |
 | `EXOANCHOR_PASSWORD_FILE` | 未设置 | 保存本地设备密码的文件，优先于命令行内嵌 |
@@ -97,7 +101,7 @@ python3 -m exoanchor_mcp.server --list-tools
 
 ```bash
 python3 -m exoanchor_mcp.server --list-tools
-EXOANCHOR_BASE_URL=http://<设备地址> \
+EXOANCHOR_BASE_URL=https://<设备地址> \
 EXOANCHOR_USERNAME='<用户名>' \
 EXOANCHOR_PASSWORD_FILE=/path/to/password-file \
 python3 -m exoanchor_mcp.server --probe
@@ -133,7 +137,7 @@ enabled_tools = [
 ]
 
 [mcp_servers.exoanchor.env]
-EXOANCHOR_BASE_URL = "http://<设备地址>"
+EXOANCHOR_BASE_URL = "https://<设备地址>"
 EXOANCHOR_USERNAME = "<用户名>"
 EXOANCHOR_PASSWORD_FILE = "/path/to/private/device-password"
 ```
@@ -215,7 +219,7 @@ JSON 转义，因此异常文本仍可记录和重放，而不会与字面量反
 真机只读验收：
 
 ```bash
-EXOANCHOR_BASE_URL=http://<设备地址> \
+EXOANCHOR_BASE_URL=https://<设备地址> \
 EXOANCHOR_USERNAME='<用户名>' \
 EXOANCHOR_PASSWORD_FILE=/path/to/password.secret \
 python3 scripts/stage4_acceptance.py --output /path/to/report.json

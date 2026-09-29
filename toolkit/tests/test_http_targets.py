@@ -36,7 +36,7 @@ class HttpRedirectTests(unittest.TestCase):
         for thread in threads:
             thread.start()
         try:
-            client = DeviceHttpClient(f"127.0.0.1:{servers[0].server_port}", token="test-only-token", timeout=2)
+            client = DeviceHttpClient(f"http://127.0.0.1:{servers[0].server_port}", token="test-only-token", timeout=2)
             for method in ("GET", "POST"):
                 for status in (301, 302, 303, 307, 308):
                     for target in servers:
@@ -67,7 +67,7 @@ class HttpTargetValidationTests(unittest.TestCase):
                 parse_device_target(target)
 
     def test_valid_default_and_explicit_ports_are_preserved(self):
-        for target, port in (("192.0.2.8", 80), ("http://192.0.2.8/", 80), ("192.0.2.8:8080", 8080)):
+        for target, port in (("192.0.2.8", 443), ("http://192.0.2.8/", 80), ("192.0.2.8:8080", 8080)):
             with self.subTest(target=target):
                 parsed = parse_device_target(target)
                 self.assertEqual(parsed.address, "192.0.2.8")

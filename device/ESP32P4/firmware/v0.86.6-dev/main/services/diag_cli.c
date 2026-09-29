@@ -167,7 +167,7 @@ static void print_help(void)
     printf("  mem-clear            Clear Agent working memory file on TF card\r\n");
     printf("  agent-data-clear CONFIRM\r\n");
     printf("                       Permanently clear every Agent conversation and memory record\r\n");
-    printf("  auth-reset CONFIRM   Generate a new six-digit web bootstrap password\r\n");
+    printf("  auth-reset CONFIRM   Generate a new random web bootstrap password\r\n");
     printf("  ssh-target           Show Settings SSH target and key state\r\n");
     printf("  ssh <command>        Execute command on Settings SSH target using local credential\r\n");
     printf("  agent-run [opts] <prompt>\r\n");

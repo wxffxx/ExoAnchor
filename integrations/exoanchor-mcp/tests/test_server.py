@@ -237,9 +237,9 @@ class McpServerTests(unittest.TestCase):
     def test_config_validates_device_url_timeout_and_owner(self):
         cases = [
             ({"EXOANCHOR_BASE_URL": "device.test"}, "absolute http"),
-            ({"EXOANCHOR_BASE_URL": "http://device.test", "EXOANCHOR_TIMEOUT": "never"}, "must be a number"),
-            ({"EXOANCHOR_BASE_URL": "http://device.test", "EXOANCHOR_TIMEOUT": "0"}, "between 0 and 600"),
-            ({"EXOANCHOR_BASE_URL": "http://device.test", "EXOANCHOR_CONTROL_OWNER": "browser"}, "must be mcp or agent"),
+            ({"EXOANCHOR_BASE_URL": "https://device.test", "EXOANCHOR_TIMEOUT": "never"}, "must be a number"),
+            ({"EXOANCHOR_BASE_URL": "https://device.test", "EXOANCHOR_TIMEOUT": "0"}, "between 0 and 600"),
+            ({"EXOANCHOR_BASE_URL": "https://device.test", "EXOANCHOR_CONTROL_OWNER": "browser"}, "must be mcp or agent"),
         ]
         for environment, message in cases:
             with self.subTest(environment=environment):
@@ -1014,7 +1014,7 @@ class McpServerTests(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
         ]
         environment = os.environ.copy()
-        environment["EXOANCHOR_BASE_URL"] = "http://device.test"
+        environment["EXOANCHOR_BASE_URL"] = "https://device.test"
         completed = subprocess.run(
             [sys.executable, "-m", "exoanchor_mcp.server"],
             input="".join(json.dumps(message) + "\n" for message in messages),

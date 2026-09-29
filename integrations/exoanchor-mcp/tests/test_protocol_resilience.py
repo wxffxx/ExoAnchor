@@ -44,7 +44,7 @@ class ProtocolResilienceTests(unittest.TestCase):
             [sys.executable, "-m", "exoanchor_mcp.server"],
             input="".join(json.dumps({"jsonrpc": "2.0", "id": value, "method": "ping"}) + "\n" for value in ids),
             text=True, encoding="utf-8", capture_output=True,
-            env={**os.environ, "EXOANCHOR_BASE_URL": "http://device.test",
+            env={**os.environ, "EXOANCHOR_BASE_URL": "https://device.test",
                  "PYTHONIOENCODING": "utf-8:strict"},
             timeout=10,
         )

@@ -39,15 +39,33 @@
     }
 
     async login(username, password) {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const result = await response.json();
-      this.setSession(result.token, result.username || username);
-      return result;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 75000);
+      try {
+        let response = await fetch("/api/auth/login", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, request_id: crypto.randomUUID() }),
+          credentials: "same-origin", signal: controller.signal,
+        });
+        while (response.status === 202) {
+          const pending = await response.json();
+          if (!pending.job_id) throw new Error("invalid login job");
+          await new Promise(resolve => setTimeout(resolve, 100));
+          response = await fetch("/api/auth/login/status?job_id=" + encodeURIComponent(pending.job_id), {
+            credentials: "same-origin", cache: "no-store", signal: controller.signal,
+          });
+        }
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        this.setSession(result.token, result.username || username);
+        return result;
+      } finally { clearTimeout(timer); }
+    }
+
+    async logout() {
+      const headers = this.authHeader();
+      this.setSession("", this.username);
+      await fetch("/api/auth/logout", { method: "POST", headers, credentials: "same-origin" });
     }
 
     async request(method, path, body, promptAuth = true) {
@@ -227,7 +245,7 @@
           const confirmPassword = byId("authConfirmPassword").value;
           if (!username) throw new Error("用户名不能为空");
           if (nextPassword !== confirmPassword) throw new Error("两次密码不一致");
-          if (!api.token) await api.login(currentUsername, currentPassword);
+          await api.login(currentUsername, currentPassword);
           const result = await api.post("/api/settings/account", {
             current_username: currentUsername,
             current_password: currentPassword,
@@ -274,7 +292,7 @@
       if (!this.enabled() || !api.token) return true;
       const last = Number(localStorage.getItem("si_auth_last_active") || Date.now());
       if (Date.now() - last <= this.minutes() * 60000) return true;
-      api.setSession("", api.username);
+      api.logout().catch(() => {});
       document.dispatchEvent(new CustomEvent("exoanchor:session-expired"));
       if (auth.mounted) auth.requireLogin();
       return false;

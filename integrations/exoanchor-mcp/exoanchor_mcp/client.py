@@ -9,14 +9,55 @@ import secrets
 import time
 import threading
 from dataclasses import dataclass
-from http.client import HTTPException
+from http.client import HTTPException, HTTPResponse, IncompleteRead
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
+from .tls_transport import verified_https_handler
+
 JSON = dict[str, Any]
+JSON_RESPONSE_LIMIT = 2 * 1024 * 1024
+IMAGE_RESPONSE_LIMIT = 6 * 1024 * 1024
+ERROR_RESPONSE_LIMIT = 16 * 1024
+
+
+def _read_bounded(response, limit: int, deadline: float) -> bytes:
+    declared = response.headers.get("Content-Length")
+    expected = None
+    if declared is not None:
+        try:
+            expected = int(declared)
+        except (ValueError, TypeError) as exc:
+            raise ExoAnchorError("invalid response Content-Length") from exc
+        if expected < 0 or expected > limit:
+            raise ExoAnchorError("response exceeds size limit")
+    chunks = []
+    size = 0
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ExoAnchorError("response deadline exceeded")
+        # Bound each socket wait by the remaining total response budget.
+        wire = response.fp if isinstance(response, HTTPError) else response
+        if isinstance(wire, HTTPResponse) and wire.fp is not None:
+            sock = getattr(getattr(wire.fp, "raw", None), "_sock", None)
+            if sock is not None:
+                sock.settimeout(remaining)
+        read = wire.read1 if isinstance(wire, HTTPResponse) else response.read
+        chunk = read(min(65536, limit + 1 - size))
+        if time.monotonic() >= deadline:
+            raise ExoAnchorError("response deadline exceeded")
+        if not chunk:
+            if expected is not None and size != expected:
+                raise IncompleteRead(b"", expected - size)
+            return b"".join(chunks)
+        size += len(chunk)
+        if size > limit:
+            raise ExoAnchorError("response exceeds size limit")
+        chunks.append(chunk)
 
 
 class ExoAnchorError(RuntimeError):
@@ -63,6 +104,8 @@ class ExoAnchorConfig:
     persist_job_output: bool
     allow_unverified_ssh_host: bool
     allow_arbitrary_ssh: bool
+    tls_certificate_file: str | None = None
+    allow_insecure_http: bool = False
 
     @classmethod
     def from_env(cls) -> "ExoAnchorConfig":
@@ -103,15 +146,22 @@ class ExoAnchorConfig:
                 "EXOANCHOR_ALLOW_UNVERIFIED_SSH_HOST", False
             ),
             allow_arbitrary_ssh=_env_bool("EXOANCHOR_ALLOW_ARBITRARY_SSH", False),
+            tls_certificate_file=os.environ.get("EXOANCHOR_TLS_CERTIFICATE_FILE") or None,
+            allow_insecure_http=_env_bool("EXOANCHOR_ALLOW_INSECURE_HTTP", False),
         )
 
 
 class ExoAnchorClient:
     def __init__(self, config: ExoAnchorConfig):
+        if urlparse(config.base_url).scheme != "https" and not config.allow_insecure_http:
+            raise ExoAnchorError("HTTPS is required; legacy HTTP requires EXOANCHOR_ALLOW_INSECURE_HTTP=1")
         self.config = config
         self.token = config.token
         self._auth_lock = threading.RLock()
-        self._opener = build_opener(_NoRedirect())
+        try:
+            self._opener = build_opener(_NoRedirect(), verified_https_handler(config.tls_certificate_file))
+        except (OSError, ValueError) as exc:
+            raise ExoAnchorError("invalid device pairing certificate") from exc
 
     def web_url(self, path: str = "/") -> str:
         if not path.startswith("/"):
@@ -138,9 +188,11 @@ class ExoAnchorClient:
         if request_token:
             headers["Authorization"] = f"Bearer {request_token}"
         req = Request(url, data=data, headers=headers, method=method)
+        budget = self.config.timeout if timeout is None else timeout
+        deadline = time.monotonic() + budget
         try:
-            with self._opener.open(req, timeout=self.config.timeout if timeout is None else timeout) as resp:
-                payload = resp.read()
+            with self._opener.open(req, timeout=budget) as resp:
+                payload = _read_bounded(resp, IMAGE_RESPONSE_LIMIT if raw else JSON_RESPONSE_LIMIT, deadline)
                 if raw:
                     return payload, dict(resp.headers)
                 content_type = resp.headers.get("Content-Type", "")
@@ -162,8 +214,8 @@ class ExoAnchorClient:
                     return {"ok": True, "text": text}
         except HTTPError as exc:
             try:
-                text = exc.read().decode("utf-8", errors="replace")
-            except (OSError, HTTPException):
+                text = _read_bounded(exc, ERROR_RESPONSE_LIMIT, deadline).decode("utf-8", errors="replace")
+            except (OSError, HTTPException, ExoAnchorError):
                 text = "response body unavailable"
             finally:
                 exc.close()

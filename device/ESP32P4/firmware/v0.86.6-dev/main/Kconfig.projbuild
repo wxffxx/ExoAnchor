@@ -322,8 +322,8 @@ menu "SI ESP32-P4 Host Configuration"
         string "Optional build-specific bootstrap password"
         default ""
         help
-            Leave empty for official builds. An unclaimed device then accepts the
-            documented admin/admin factory credential only for browser setup.
+            Leave empty for official builds. An unclaimed device generates a
+            unique 128-bit bootstrap password, delivered only through UART0.
             A non-empty value must be at least six characters and is intended only
             for controlled custom builds. Device control remains locked until the
             bootstrap password is replaced.

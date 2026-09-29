@@ -13,7 +13,7 @@ def client_config(**overrides):
         base_url="http://device.test", username="admin", password="password",
         token=None, timeout=75, allow_write=False, control_owner="mcp",
         device_id="test", state_dir="/unused", persist_job_output=False,
-        allow_unverified_ssh_host=False, allow_arbitrary_ssh=False,
+        allow_unverified_ssh_host=False, allow_arbitrary_ssh=False, allow_insecure_http=True,
     )
     fields.update(overrides)
     return ExoAnchorConfig(**fields)
@@ -104,6 +104,7 @@ class LoginPollingTests(unittest.TestCase):
             persist_job_output=False,
             allow_unverified_ssh_host=False,
             allow_arbitrary_ssh=False,
+            allow_insecure_http=True,
         )
         client = ExoAnchorClient(config)
         responses = [

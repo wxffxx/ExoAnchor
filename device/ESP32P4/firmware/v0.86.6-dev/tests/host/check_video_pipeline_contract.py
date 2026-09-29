@@ -871,13 +871,13 @@ def check_h264_acceptance_gate_runtime(failures: list[str]) -> None:
     expected_upgrade_calls = [
         (
             "device.local",
-            81,
+            81 if module.LEGACY_HTTP else 444,
             "/api/ws/video/h264?stream_id=305441741",
             "session",
         ),
         (
             "device.local",
-            80,
+            80 if module.LEGACY_HTTP else 443,
             "/api/ws/hid?stream_id=305441741",
             "session",
         ),
@@ -3763,7 +3763,7 @@ def main() -> int:
         hid_connector,
         "websocket_upgrade(",
         "host,",
-        "80,",
+        "80 if LEGACY_HTTP else 443,",
         'f"/api/ws/hid?stream_id={stream_id}"',
     ):
         failures.append(

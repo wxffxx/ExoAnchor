@@ -25,7 +25,7 @@ class LoginDeadlineTests(unittest.TestCase):
         response = MagicMock()
         response.__enter__.return_value = response
         response.headers = {"Content-Type": "application/json"}
-        response.read.return_value = b'{"token":"fresh"}'
+        response.read.side_effect = [b'{"token":"fresh"}', b""]
         with patch.object(self.client._opener, "open", return_value=response) as transport:
             self.client._request("GET", "/api/auth/login/status", timeout=0.25)
         self.assertEqual(transport.call_args.kwargs["timeout"], 0.25)

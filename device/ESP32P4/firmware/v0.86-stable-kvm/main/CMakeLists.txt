@@ -13,6 +13,7 @@ set(SI_MAIN_SRCS
         "drivers/net_manager.c"
         "drivers/power_control.c"
         "drivers/video_input.c"
+        "services/tls_server.c"
         "infrastructure/secret_store.c"
         "infrastructure/settings_store.c"
         "services/diag_cli.c"
@@ -27,6 +28,7 @@ set(SI_MAIN_REQUIRES
         esp_event
         esp_driver_gpio
         esp_hw_support
+        esp_https_server
         esp_http_server
         esp_driver_jpeg
         esp_netif

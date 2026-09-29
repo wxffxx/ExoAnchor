@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import math
+import os
 import secrets
 import time
 import urllib.error
@@ -12,6 +13,7 @@ from dataclasses import dataclass
 from http.client import HTTPException
 from typing import Callable
 
+from .tls_transport import verified_https_handler
 from .errors import ToolkitError
 from .firmware import FirmwarePackage
 from .network import (
@@ -54,11 +56,12 @@ DIRECT_HTTP_OPENER = urllib.request.build_opener(
 class DeviceTarget:
     address: str
     port: int
+    scheme: str = "https"
 
     @property
     def base_url(self) -> str:
-        suffix = "" if self.port == 80 else f":{self.port}"
-        return f"http://{self.address}{suffix}"
+        suffix = "" if self.port == (443 if self.scheme == "https" else 80) else f":{self.port}"
+        return f"{self.scheme}://{self.address}{suffix}"
 
 
 def parse_device_target(value: str) -> DeviceTarget:
@@ -67,29 +70,29 @@ def parse_device_target(value: str) -> DeviceTarget:
         raise ToolkitError("network device IP is required")
     try:
         parsed = urllib.parse.urlsplit(
-            candidate if "://" in candidate else "http://" + candidate
+            candidate if "://" in candidate else "https://" + candidate
         )
     except ValueError as exc:
-        raise ToolkitError("network target must be a valid HTTP IPv4 address") from exc
+        raise ToolkitError("network target must be a valid HTTP(S) IPv4 address") from exc
     if (
-        parsed.scheme != "http"
+        parsed.scheme not in {"http", "https"}
         or parsed.username is not None
         or parsed.password is not None
         or parsed.path not in {"", "/"}
         or parsed.query
         or parsed.fragment
     ):
-        raise ToolkitError("network target must be an HTTP IPv4 address")
+        raise ToolkitError("network target must be an HTTP(S) IPv4 address")
     try:
         address = str(ipaddress.IPv4Address(parsed.hostname or ""))
         port = parsed.port
         if port is None:
-            port = 80
+            port = 443 if parsed.scheme == "https" else 80
     except (ipaddress.AddressValueError, ValueError) as exc:
         raise ToolkitError("network target must be a valid IPv4 address") from exc
     if not 1 <= port <= 65535:
         raise ToolkitError("network target port is invalid")
-    return DeviceTarget(address=address, port=port)
+    return DeviceTarget(address=address, port=port, scheme=parsed.scheme)
 
 
 class DeviceHttpClient:
@@ -103,6 +106,7 @@ class DeviceHttpClient:
         timeout: float = 10.0,
         opener: Callable[..., object] | None = None,
         sleeper: Callable[[float], None] = time.sleep,
+        tls_certificate_file: str | None = None,
     ) -> None:
         if not math.isfinite(timeout) or timeout <= 0:
             raise ToolkitError("device HTTP timeout must be finite and positive")
@@ -111,10 +115,14 @@ class DeviceHttpClient:
         self.password = password
         self.token = token
         self.timeout = timeout
+        self.tls_certificate_file = tls_certificate_file or os.environ.get("EXOANCHOR_TLS_CERTIFICATE_FILE")
         # Device targets are validated literal private/LAN IPv4 addresses.  A
         # desktop system proxy must never intercept provisioning or multi-MB
         # OTA uploads to them.
-        self._opener = opener or DIRECT_HTTP_OPENER
+        self._opener = opener or urllib.request.build_opener(
+            urllib.request.ProxyHandler({}), _NoRedirect(),
+            verified_https_handler(self.tls_certificate_file),
+        ).open
         self._sleep = sleeper
 
     def _request(

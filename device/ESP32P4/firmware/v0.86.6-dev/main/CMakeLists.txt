@@ -42,6 +42,7 @@ set(SI_MAIN_SRCS
         "drivers/video_frame_store.c"
         "drivers/video_input.c"
         "drivers/video_mjpeg.c"
+        "services/tls_server.c"
         "infrastructure/secret_store.c"
         "infrastructure/settings_schema.c"
         "infrastructure/settings_store.c"
@@ -107,6 +108,7 @@ set(SI_MAIN_REQUIRES
         esp_driver_i2c
         esp_hw_support
         esp_http_client
+        esp_https_server
         esp_http_server
         esp_driver_jpeg
         esp_driver_sdmmc

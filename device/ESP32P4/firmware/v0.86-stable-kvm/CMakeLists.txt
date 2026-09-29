@@ -31,3 +31,34 @@ list(REMOVE_ITEM si_uvc_sources "${si_uvc_upstream_isoc}")
 list(APPEND si_uvc_sources "${si_uvc_compat_isoc}")
 set_property(TARGET ${si_uvc_component} PROPERTY SOURCES "${si_uvc_sources}")
 message(STATUS "Using ExoAnchor UVC MJPEG SOI/EOI compatibility source")
+
+include("${CMAKE_CURRENT_LIST_DIR}/../security-patches/uvc-descriptor-safety.cmake")
+
+set(si_uvc_stable_host "${si_uvc_component_dir}/uvc_host.c")
+file(SHA256 "${si_uvc_stable_host}" si_uvc_stable_host_hash)
+if(NOT si_uvc_stable_host_hash STREQUAL "a9f3d4a94c95530b76f1ac84edfe3311617b272f2a947ac7bae72abc35949e4f")
+    message(FATAL_ERROR "UVC host changed; review safe close backport")
+endif()
+file(READ "${si_uvc_stable_host}" si_uvc_stable_host_source)
+set(si_uvc_release_old [=[
+    ESP_ERROR_CHECK(usb_host_interface_release(p_uvc_host_driver->usb_client_hdl, uvc_stream->constant.dev_hdl, uvc_stream->constant.bInterfaceNumber));
+]=])
+set(si_uvc_release_safe [=[
+    ret = usb_host_interface_release(p_uvc_host_driver->usb_client_hdl, uvc_stream->constant.dev_hdl, uvc_stream->constant.bInterfaceNumber);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Interface release failed: %s", esp_err_to_name(ret));
+        goto exit;
+    }
+]=])
+string(FIND "${si_uvc_stable_host_source}" "${si_uvc_release_old}" si_uvc_release_index)
+if(si_uvc_release_index EQUAL -1)
+    message(FATAL_ERROR "UVC release fragment changed; review safe close")
+endif()
+string(REPLACE "${si_uvc_release_old}" "${si_uvc_release_safe}" si_uvc_stable_host_safe "${si_uvc_stable_host_source}")
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/exoanchor-patched/usb_host_uvc")
+set(si_uvc_stable_host_replacement "${CMAKE_BINARY_DIR}/exoanchor-patched/usb_host_uvc/uvc_host.c")
+file(WRITE "${si_uvc_stable_host_replacement}" "${si_uvc_stable_host_safe}")
+get_target_property(si_uvc_stable_sources ${si_uvc_component} SOURCES)
+list(REMOVE_ITEM si_uvc_stable_sources "${si_uvc_stable_host}")
+list(APPEND si_uvc_stable_sources "${si_uvc_stable_host_replacement}")
+set_property(TARGET ${si_uvc_component} PROPERTY SOURCES "${si_uvc_stable_sources}")

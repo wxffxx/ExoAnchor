@@ -83,7 +83,7 @@ for marker in ("const char *turn_id;", "const char *run_id;"):
 # schedules TF recovery on a low-priority task. History startup is mutex-only.
 web_start = body(WEB, "esp_err_t si_web_server_start(void)")
 prepare = web_start.index("agent_task_service_prepare_shadow();")
-httpd = web_start.index("httpd_start(&s_server, &config)")
+httpd = web_start.index("si_tls_server_start(&s_server, &config)")
 async_start = web_start.index("agent_task_service_start_shadow_async();")
 if not prepare < httpd < async_start:
     raise AssertionError("Task recovery is not scheduled strictly after httpd_start")

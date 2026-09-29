@@ -168,6 +168,7 @@ typedef struct {
     char username[SI_AUTH_USERNAME_MAX_LEN + 1];
     char password[SI_AUTH_PASSWORD_MAX_LEN + 1];
     bool mcp_client;
+    uint32_t credential_generation;
     uint32_t created_ms;
 } auth_login_job_t;
 
@@ -224,7 +225,7 @@ static esp_err_t auth_login_send_pending(httpd_req_t *req,
     cJSON_Delete(root);
     return ret;
 }
-static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client)
+static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint32_t generation)
 {
     cJSON *resp = cJSON_CreateObject();
     si_auth_record_login();
@@ -234,8 +235,8 @@ static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client)
     char token[SI_AUTH_TOKEN_LEN + 1] = {0};
     char session_cookie[SI_HTTP_SESSION_COOKIE_MAX_LEN] = {0};
     if (auth_status.enabled &&
-        si_auth_create_session_for_client(mcp_client ? "exoanchor-mcp" : "web",
-                                          token) != ESP_OK) {
+        si_auth_create_session_for_generation(mcp_client ? "exoanchor-mcp" : "web",
+                                              generation, token) != ESP_OK) {
         cJSON_Delete(resp);
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                    "session creation failed");
@@ -336,7 +337,7 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
                                    "mcp disabled in settings");
     }
     if (!si_auth_is_enabled()) {
-        return auth_login_send_success(req, mcp_client);
+        return auth_login_send_success(req, mcp_client, 0);
     }
 
     char buf[SCRATCH_BUFSIZE] = {0};
@@ -420,6 +421,7 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
     strlcpy(s_auth_login_job.password, password->valuestring,
             sizeof(s_auth_login_job.password));
     s_auth_login_job.mcp_client = mcp_client;
+    s_auth_login_job.credential_generation = si_auth_credential_generation();
     s_auth_login_job.created_ms = now_ms;
     s_auth_login_job.state = AUTH_LOGIN_JOB_QUEUED;
     char job_id[AUTH_LOGIN_JOB_ID_LEN + 1] = {0};
@@ -474,8 +476,10 @@ static esp_err_t auth_login_status_handler(httpd_req_t *req)
         xSemaphoreGive(s_auth_login_lock);
         return auth_login_send_pending(req, job_id);
     }
+    uint32_t generation = s_auth_login_job.credential_generation;
     bool accepted =
-        s_auth_login_job.state == AUTH_LOGIN_JOB_ACCEPTED;
+        s_auth_login_job.state == AUTH_LOGIN_JOB_ACCEPTED &&
+        generation == si_auth_credential_generation();
     auth_login_job_reset_locked();
     xSemaphoreGive(s_auth_login_lock);
 
@@ -483,7 +487,7 @@ static esp_err_t auth_login_status_handler(httpd_req_t *req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
                                    "invalid credentials");
     }
-    return auth_login_send_success(req, mcp_client);
+    return auth_login_send_success(req, mcp_client, generation);
 }
 
 static esp_err_t auth_logout_handler(httpd_req_t *req)
@@ -589,6 +593,22 @@ static const char *json_string_any(const cJSON *obj, const char *first, const ch
 
 static esp_err_t settings_password_handler(httpd_req_t *req)
 {
+    si_auth_session_context_t session;
+    if (!si_http_get_session_context(req, &session)) {
+        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "login required");
+    }
+    if (session.principal != SI_PRINCIPAL_BROWSER ||
+        !(session.capabilities & SI_CAPABILITY_SETTINGS)) {
+        return httpd_resp_send_err(req, HTTPD_403_FORBIDDEN,
+                                   "browser settings permission required");
+    }
+    int64_t now_us = esp_timer_get_time();
+    if (session.authenticated_at_us <= 0 ||
+        now_us < session.authenticated_at_us ||
+        now_us - session.authenticated_at_us > 60000000LL) {
+        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
+                                   "sign in again before changing credentials");
+    }
     char buf[SCRATCH_BUFSIZE] = {0};
     cJSON *root = NULL;
     esp_err_t ret = si_http_recv_json(req, buf, sizeof(buf), &root);
@@ -596,20 +616,12 @@ static esp_err_t settings_password_handler(httpd_req_t *req)
         return ret;
     }
 
-    const char *current_username = json_string_any(root, "current_username", "currentUsername", "old_username");
-    const char *current = json_string_any(root, "current_password", "currentPassword", "old_password");
     const char *username = json_string_any(root, "username", "new_username", "newUsername");
     const char *password = json_string_any(root, "new_password", "newPassword", "password");
     si_auth_status_t auth_status;
     si_auth_get_status(&auth_status);
     if (!username) {
         username = auth_status.username;
-    }
-    bool authorized = si_http_check_auth(req) || !auth_status.enabled ||
-                      (current && si_auth_credentials_match(current_username, current));
-    if (!authorized) {
-        cJSON_Delete(root);
-        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "unauthorized");
     }
 
     ret = si_auth_validate_username(username);

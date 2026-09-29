@@ -200,6 +200,7 @@ class HttpIntegrationTests(unittest.TestCase):
             persist_job_output=False,
             allow_unverified_ssh_host=False,
             allow_arbitrary_ssh=False,
+            allow_insecure_http=True,
         )
         self.runtime = ToolRuntime(ExoAnchorClient(config))
 
