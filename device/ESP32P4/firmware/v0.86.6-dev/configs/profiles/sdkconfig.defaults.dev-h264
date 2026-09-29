@@ -1,0 +1,46 @@
+# This overlay is selected only by rev3 Dev builds or the explicit restricted
+# Stable H.264 candidate. Keep the feature selection here so ordinary Stable
+# builds retain the Kconfig default-off path.
+CONFIG_SI_VIDEO_H264_EXPERIMENT=y
+
+# Use ESP-IDF 5.5's maximum supported protected internal/DMA pool. The H.264
+# candidate claims its 138304-byte L1-aligned reference workspace at the very
+# start of app_main, before application tasks, and separately holds the 64 KiB
+# UVC DMA budget. Remaining startup margin is a hardware-acceptance gate;
+# ordinary allocations can use PSRAM.
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=262144
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y
+
+# ESP32-P4 rev3.2 and its in-package AP Memory HPI PSRAM are both specified
+# for 250 MHz operation.  The live MJPEG -> YUV420 -> H.264 path is bounded
+# by shared PSRAM bandwidth at 200 MHz (about 23 fps in hardware acceptance),
+# while 250 MHz restores the intended 25 fps class.  This overlay is selected
+# for rev3 Dev H.264 builds and the explicit Stable H.264 candidate; ordinary
+# Stable and rev1 profiles retain the conservative 200 MHz base setting.
+CONFIG_SPIRAM_SPEED_250M=y
+# CONFIG_SPIRAM_SPEED_200M is not set
+
+# H.264 is a PSRAM-bandwidth workload: USB-DWC writes the incoming MJPEG,
+# JPEG DMA2D writes YUV420, and the H.264 engine reads YUV and writes its
+# access unit concurrently.  ESP32-P4 has a separate flash bus, so moving all
+# application instructions and rodata into PSRAM adds avoidable traffic to
+# the same bus exactly when a high-entropy frame is largest.  Keep code and
+# constants in flash for this profile; codec/frame buffers remain in PSRAM.
+# CONFIG_SPIRAM_XIP_FROM_PSRAM is not set
+# CONFIG_SPIRAM_FETCH_INSTRUCTIONS is not set
+# CONFIG_SPIRAM_RODATA is not set
+
+# Keep the short-lived UVC transfer ring in the protected internal DMA pool.
+# Complete MJPEG/YUV/H.264 frame storage remains in PSRAM; moving the USB ring
+# itself to PSRAM only adds cache synchronization and contention on that path.
+# CONFIG_USB_HOST_DWC_DMA_CAP_MEMORY_IN_PSRAM is not set
+
+# The H.264 experiment deliberately inherits the Stable UVC ring topology.
+# Only downstream codec resources differ between the profiles.
+CONFIG_SI_VIDEO_UVC_FRAME_BUFFERS=3
+CONFIG_UVC_INTERVAL_ARRAY_SIZE=5
+
+# A maximum-size, high-entropy 1080p MJPEG can produce an IDR above 2 MiB
+# before rate control converges. Keep the full 4 MiB access-unit ceiling;
+# PSRAM still has room for the codec workspace and three full UVC frame buffers.
+CONFIG_SI_VIDEO_H264_MAX_ACCESS_UNIT=4194304

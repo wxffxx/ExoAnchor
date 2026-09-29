@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32P4 Settings</title>
+<link rel="stylesheet" href="/assets/ui-core.css">
+<link rel="stylesheet" href="/assets/ui-shell.css">
+<style>
+:root{color-scheme:dark;--bg:#0b0d10;--top:#111419;--panel:#15191f;--panel2:#1b2028;--line:#2b333e;--line2:#222832;--text:#f4f7fa;--muted:#8d98a7;--soft:#cbd3dd;--green:#54d6bd;--red:#ff7b7f;--yellow:#f2be63;--blue:#8ab8ff;--radius:11px}
+*{box-sizing:border-box}
+html{min-height:100%;background:var(--bg)}
+body{min-height:100vh;margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+.wrap{width:min(1280px,100%);margin:0 auto;padding:28px 24px 64px}
+.intro{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:22px;padding:0 2px 20px;border-bottom:1px solid var(--line)}
+.intro h1{margin:0;color:var(--text);font-size:28px;line-height:1.15;letter-spacing:-.025em}
+.intro p{max-width:720px;margin:7px 0 0;color:var(--muted)}
+.edition{display:inline-flex;align-items:center;min-height:29px;padding:6px 10px;border:1px solid #24675d;border-radius:999px;background:rgba(16,44,41,.42);color:var(--green);font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.card{min-width:0;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);box-shadow:0 14px 36px rgba(0,0,0,.16)}
+.wide{grid-column:1/-1}
+.card h2{margin:0 0 6px;color:#e4e9ef;font-size:16px}
+.card>p{margin:0 0 15px;color:var(--muted);font-size:13px}
+.field{display:grid;gap:6px;min-width:0;margin:11px 0}
+.field label{color:var(--muted);font-size:12px;font-weight:700}
+.field input,.field select{width:100%;min-width:0;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:#0d0f13;color:var(--text);font:14px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace}
+.field input::placeholder{color:#626d7b}
+.field input:focus,.field select:focus{outline:2px solid rgba(84,214,189,.26);border-color:#287367}
+.field input:disabled,.field select:disabled{opacity:.52;cursor:not-allowed}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.switchline{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0;padding:11px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}
+.switchline b,.switchline small{display:block}.switchline b{color:var(--text);font-weight:700}.switchline small{margin-top:2px;color:var(--muted);font-size:12px}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:13px}
+button{min-height:36px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:#262b34;color:var(--text);font:700 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+button:hover{border-color:#5b6370;background:#2c323d}
+button:focus-visible{outline:2px solid rgba(84,214,189,.38);outline-offset:2px}
+button.primary{border-color:#287367;background:#173b36;color:var(--green)}
+button.primary:hover{border-color:var(--green);background:#1d4b44}
+button.danger{border-color:#78383d;background:#35181c;color:#ffd0d3}
+button.danger:hover{border-color:var(--red);background:#4a1d23}
+button:disabled{opacity:.55;cursor:wait}
+.msg{min-height:18px;margin-top:9px;color:var(--muted);font-size:12px}.msg.ok{color:var(--green)}.msg.bad{color:var(--red)}
+.gpio-row{display:grid;grid-template-columns:minmax(180px,1.5fr) 110px 120px;gap:10px;align-items:end;padding:11px 0;border-bottom:1px solid var(--line2)}
+.gpio-row:last-child{border-bottom:0}.gpio-row b{color:#e4e9ef}.gpio-row.invalid input{border-color:var(--red);outline:2px solid rgba(255,123,127,.18)}.meta{margin-top:2px;color:var(--muted);font-size:12px}
+.gpio-note{margin:0 0 5px;padding:10px 12px;border:1px solid #5b4728;border-radius:8px;background:#241d13;color:#d9bf8f;font-size:12px}
+.gpio-guide{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:10px 0 3px;padding:11px 12px;border:1px dashed #3b4654;border-radius:8px;background:#11151a}.gpio-guide b,.gpio-guide small{display:block}.gpio-guide b{color:var(--soft)}.gpio-guide small{margin-top:2px;color:var(--muted);font-size:12px}.gpio-guide-placeholder{display:inline-flex;align-items:center;min-height:32px;padding:7px 10px;border:1px solid #3b4654;border-radius:7px;color:#788494;background:#181d24;font:700 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;cursor:not-allowed;user-select:none}
+.danger-zone{border-color:#78383d;background:#27171a}.danger-zone h2{color:#ffd0d3}
+code{padding:2px 5px;border:1px solid var(--line);border-radius:5px;background:#0d0f13;color:var(--soft);font:12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}
+@media(max-width:820px){.wrap{padding:20px 14px 48px}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.row,.gpio-row{grid-template-columns:1fr}.intro{align-items:flex-start;flex-direction:column}.edition{align-self:flex-start}.gpio-guide{align-items:flex-start;flex-direction:column}.gpio-guide-placeholder{white-space:normal}}
+</style>
+<script src="/assets/ui-core.js"></script>
+<script src="/assets/ui-shell.js"></script>
+</head>
+<body>
+<div id="appShell"></div><script>ExoAnchorShell.mount("settings")</script>
+<main class="wrap">
+  <div class="intro"><div><h1>ESP32P4 设置</h1><p>纯 KVM 固件的设备标识、安全、视频、GPIO 与本地维护配置。</p></div><span class="edition">STABLE KVM · 0.86</span></div>
+  <section class="grid">
+    <article class="card">
+      <h2>设备标识</h2><p>保存到设备 NVS，用于在页面与状态 API 中识别本机。</p>
+      <form id="deviceForm"><div class="field"><label for="deviceLabel">设备名称</label><input id="deviceLabel" maxlength="48" autocomplete="off" required></div><div class="actions"><button class="primary" type="submit">保存设备名称</button></div></form>
+      <div id="deviceMsg" class="msg"></div>
+    </article>
+    <article class="card">
+      <h2>本地账户</h2><p>修改 Web 管理账户；首次使用默认凭据时应立即更改。</p>
+      <form id="accountForm"><div class="field"><label for="currentPassword">当前密码</label><input id="currentPassword" type="password" autocomplete="current-password"></div><div class="field"><label for="accountUsername">新用户名</label><input id="accountUsername" maxlength="32" autocomplete="username"></div><div class="row"><div class="field"><label for="newPassword">新密码</label><input id="newPassword" type="password" minlength="6" maxlength="64" autocomplete="new-password"></div><div class="field"><label for="confirmPassword">确认密码</label><input id="confirmPassword" type="password" minlength="6" maxlength="64" autocomplete="new-password"></div></div><div class="actions"><button class="primary" type="submit">更新账户</button></div></form>
+      <div id="accountMsg" class="msg"></div>
+    </article>
+    <article class="card">
+      <h2>会话安全</h2><p>浏览器空闲后要求重新认证。</p>
+      <div class="switchline"><div><b>启用自动退出</b><small>浏览器空闲达到设定时间后结束本地会话</small></div><label class="ui-switch"><input id="autoLogoutEnabled" type="checkbox" role="switch" aria-label="启用自动退出"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div><div class="field"><label for="autoLogoutMinutes">空闲分钟数</label><input id="autoLogoutMinutes" type="number" min="1" max="1440" step="1"></div><div class="actions"><button id="saveSession" class="primary" type="button">保存会话设置</button></div>
+      <div id="sessionMsg" class="msg"></div>
+    </article>
+    <article class="card">
+      <h2>视频运行</h2><p>设置 Overview 预览刷新率与常在线采集策略。</p>
+      <div class="switchline"><div><b>保持视频常在线</b><small>没有打开 KVM 页面时也维持 UVC 采集</small></div><label class="ui-switch"><input id="videoAlwaysOnline" type="checkbox" role="switch" aria-label="保持视频常在线"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div><div class="field"><label for="previewFps">Overview 预览 FPS</label><select id="previewFps"><option value="100">1 FPS</option><option value="200">2 FPS</option><option value="300">3 FPS</option><option value="500">5 FPS</option><option value="1000">10 FPS</option></select></div><div class="actions"><button id="saveVideo" class="primary" type="button">保存视频设置</button></div>
+      <div id="videoMsg" class="msg"></div>
+    </article>
+    <article class="card wide">
+      <h2>GPIO 映射</h2><p>为固定功能角色分配 GPIO 与有效电平；保存后立即应用并写入 NVS。</p>
+      <div class="gpio-note">GPIO 必须在 -1～54 之间且不得重复；-1 仅用于停用可选角色。修改前请确认目标板接线，避免占用 USB、RMII 或启动相关引脚。</div>
+      <div class="gpio-guide"><div><b>GitHub GPIO 映射指导</b><small>映射表发布后将在此提供连接与接线说明。</small></div><!-- Future GitHub mapping guide URL placeholder: replace this span with an anchor only after publication. --><span id="gpioGithubGuidePlaceholder" class="gpio-guide-placeholder" role="link" aria-disabled="true" data-future-url="">链接待发布</span></div>
+      <div id="gpioRows"></div><div class="actions"><button id="saveGpio" class="primary" type="button">保存 GPIO 映射</button><button id="resetGpio" type="button">恢复板型默认值</button></div>
+      <div id="gpioMsg" class="msg"></div>
+    </article>
+    <article class="card wide danger-zone">
+      <h2>恢复出厂设置</h2><p>清除 NVS 中的本地凭据、设备名称、视频和 GPIO 设置，然后重启。</p>
+      <div class="field"><label for="resetConfirm">输入 RESET EVERYTHING</label><input id="resetConfirm" autocomplete="off"></div><div class="actions"><button id="resetEverything" class="danger" type="button">清除全部设置并重启</button></div>
+      <div id="systemMsg" class="msg"></div>
+    </article>
+  </section>
+</main>
+<script>
+const UI=window.ExoAnchorUI,API=UI.api,Session=UI.session,AuthUI=UI.auth;
+const $=id=>document.getElementById(id);
+function message(id,text,ok=true){const el=$(id);el.textContent=text||"";el.className="msg "+(text?(ok?"ok":"bad"):"")}
+function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[ch])}
+async function loadDevice(){const r=await API.get("/api/settings/device");$("deviceLabel").value=r.label||""}
+async function loadAuth(){const r=await API.get("/api/auth/status");$("accountUsername").value=r.username||"admin"}
+async function loadSession(){const r=await API.get("/api/settings/session");$("autoLogoutEnabled").checked=!!r.auto_logout_enabled;$("autoLogoutMinutes").value=r.auto_logout_minutes||30}
+async function loadVideo(){const r=await API.get("/api/video/status"),c=r.control||{};$("videoAlwaysOnline").checked=!!c.always_on;$("previewFps").value=String(c.preview_mode?.fps_x100||c.preview_fps_x100||100)}
+let gpioMap=[];
+function renderGpioRows(){
+  $("gpioRows").innerHTML=gpioMap.map((item,index)=>{
+    const label=escapeHtml(item.label||item.role),role=escapeHtml(item.role),direction=item.direction==="output"?"输出":"输入",required=item.required?"必填":"可选",state=escapeHtml(item.state||"--"),gpio=Number.isInteger(Number(item.gpio))?Number(item.gpio):-1;
+    return `<div class="gpio-row" data-gpio-row="${index}"><div><b>${label}</b><div class="meta">${role} · ${direction} · ${required} · ${state}</div></div><div class="field"><label for="gpio-${index}">GPIO</label><input id="gpio-${index}" data-gpio-index="${index}" aria-label="${label} GPIO" type="number" min="-1" max="54" step="1" value="${gpio}"></div><div class="field"><label for="gpio-level-${index}">有效电平</label><select id="gpio-level-${index}" data-level-index="${index}" aria-label="${label} 有效电平"><option value="high" ${item.active_high?"selected":""}>High</option><option value="low" ${!item.active_high?"selected":""}>Low</option></select></div></div>`;
+  }).join("")||'<div class="meta">当前板型没有 GPIO 映射。</div>';
+  document.querySelectorAll("[data-gpio-index]").forEach(input=>input.addEventListener("input",()=>{input.setCustomValidity("");input.closest(".gpio-row")?.classList.remove("invalid");message("gpioMsg","")}));
+}
+async function loadGpio(){const r=await API.get("/api/settings/gpio-map");gpioMap=Array.isArray(r.gpio_map)?r.gpio_map:[];renderGpioRows()}
+function collectGpioUpdates(){
+  const used=new Map();
+  return gpioMap.map((item,index)=>{
+    const input=document.querySelector(`[data-gpio-index="${index}"]`),level=document.querySelector(`[data-level-index="${index}"]`),raw=input?.value.trim()||"",gpio=Number(raw),label=item.label||item.role;
+    let error="";
+    if(!/^-?\d+$/.test(raw)||!Number.isInteger(gpio))error=`${label} 的 GPIO 必须是整数`;
+    else if(gpio<-1||gpio>54)error=`${label} 的 GPIO 必须在 -1～54 之间`;
+    else if(item.required&&gpio<0)error=`${label} 是必填角色，不能设为 -1`;
+    else if(gpio>=0&&used.has(gpio))error=`GPIO ${gpio} 已被 ${used.get(gpio)} 占用`;
+    if(error){input?.setCustomValidity(error);input?.closest(".gpio-row")?.classList.add("invalid");input?.reportValidity();throw new Error(error)}
+    if(gpio>=0)used.set(gpio,label);
+    return{role:item.role,gpio,active_high:level?.value==="high"};
+  });
+}
+async function loadAll(){for(const fn of [loadDevice,loadAuth,loadSession,loadVideo,loadGpio]){try{await fn()}catch(e){console.error(e)}}}
+$("deviceForm").onsubmit=async e=>{e.preventDefault();try{await API.post("/api/settings/device",{label:$("deviceLabel").value.trim()});message("deviceMsg","设备名称已保存");await UI.info.refresh()}catch(err){message("deviceMsg",err.message,false)}};
+$("accountForm").onsubmit=async e=>{e.preventDefault();const password=$("newPassword").value;if(password!==$("confirmPassword").value){message("accountMsg","两次密码不一致",false);return}try{const r=await API.post("/api/settings/account",{current_password:$("currentPassword").value,username:$("accountUsername").value.trim(),new_password:password});if(r.token)API.setSession(r.token,r.username);message("accountMsg","本地账户已更新");$("currentPassword").value=$("newPassword").value=$("confirmPassword").value=""}catch(err){message("accountMsg",err.message,false)}};
+$("saveSession").onclick=async()=>{try{await API.post("/api/settings/session",{auto_logout_enabled:$("autoLogoutEnabled").checked,auto_logout_minutes:Number($("autoLogoutMinutes").value)});message("sessionMsg","会话设置已保存");await Session.load()}catch(err){message("sessionMsg",err.message,false)}};
+$("saveVideo").onclick=async()=>{try{await API.post("/api/video/settings",{always_on:$("videoAlwaysOnline").checked,preview_fps_x100:Number($("previewFps").value)});message("videoMsg","视频设置已保存");await UI.status.refresh()}catch(err){message("videoMsg",err.message,false)}};
+$("saveGpio").onclick=async()=>{const button=$("saveGpio");try{const updates=collectGpioUpdates();button.disabled=true;await API.post("/api/settings/gpio-map",{gpio_map:updates});await loadGpio();message("gpioMsg","GPIO 映射已保存并立即生效")}catch(err){message("gpioMsg",err.message,false)}finally{button.disabled=false}};
+$("resetGpio").onclick=async()=>{try{await API.post("/api/settings/gpio-map",{reset:true});message("gpioMsg","已恢复板型默认 GPIO");await loadGpio()}catch(err){message("gpioMsg",err.message,false)}};
+$("resetEverything").onclick=async()=>{const phrase=$("resetConfirm").value;if(phrase!=="RESET EVERYTHING"){message("systemMsg","确认短语不匹配",false);return}if(!(await UI.confirmAction({title:"清除全部设置？",message:"设备将清除本地设置并立即重启。",confirmLabel:"RESET"})))return;try{await API.post("/api/settings/system",{reset_everything:true,confirm:phrase});message("systemMsg","正在清除并重启…")}catch(err){message("systemMsg",err.message,false)}};
+AuthUI.bindForm(async()=>{await Session.load();await loadAll()});
+async function boot(){if(await AuthUI.checkRequired()){await Session.load();await loadAll()}}
+boot();
+</script>
+</body>
+</html>

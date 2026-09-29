@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor Settings Demo</title>
+<style>
+:root{color-scheme:dark;--bg:#101114;--rail:#15171b;--panel:#181b20;--panel2:#20242b;--line:#303640;--text:#f1f4f7;--muted:#98a2ae;--soft:#cbd2dc;--ok:#35d0a2;--warn:#f0b84c;--bad:#ee6b6e;--focus:#75b7ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}
+.top{height:60px;border-bottom:1px solid var(--line);background:var(--rail);display:flex;align-items:center;gap:18px;padding:0 20px;position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:11px;min-width:235px}.logo{width:32px;height:32px;border:1px solid #4b5563;border-radius:7px;background:#21242b;display:grid;place-items:center;font-weight:800}.title{font-weight:760}.sub{font-size:12px;color:var(--muted);margin-top:-2px}
+.nav{display:flex;gap:6px}.nav a{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}.nav a.active,.nav a:hover{background:var(--panel2);color:var(--text)}
+.top-status{margin-left:auto;display:flex;gap:8px;align-items:center;min-width:0;flex-wrap:wrap}.pill{border:1px solid var(--line);background:#252a32;color:var(--soft);border-radius:999px;padding:6px 10px;font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.pill.ok{border-color:#236e5b;color:var(--ok)}.pill.warn{border-color:#755a20;color:var(--warn)}.pill.bad{border-color:#77373b;color:var(--bad)}
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1380px;margin:0 auto;min-height:calc(100vh - 60px)}
+.side{border-right:1px solid var(--line);padding:18px 14px;background:#111316}.side h1{font-size:20px;margin:0 0 4px}.side p{margin:0 0 16px;color:var(--muted);font-size:13px}.side button{width:100%;border:1px solid transparent;background:transparent;color:var(--muted);text-align:left;border-radius:6px;padding:10px 11px;cursor:pointer;margin-bottom:4px}.side button.active,.side button:hover{background:var(--panel2);border-color:var(--line);color:var(--text)}.side b{display:block;font-weight:720}.side span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.main{padding:22px;min-width:0}.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:16px}.page-head h2{font-size:22px;line-height:1.15;margin:0}.page-head p{margin:7px 0 0;color:var(--muted);max-width:780px}.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#252a32;color:var(--text);border-radius:6px;padding:10px 12px;cursor:pointer;font-weight:700}.btn.primary{background:#17352f;border-color:#23745e;color:#dffbf2}.btn.danger{border-color:#79373b;color:#ffd5d7}.btn:hover{border-color:#596272;background:#2b313b}.btn:disabled{opacity:.45;cursor:not-allowed}
+.notice{border:1px solid var(--line);background:#171a1f;border-radius:8px;padding:13px 14px;margin-bottom:14px;display:grid;grid-template-columns:10px minmax(0,1fr);gap:10px}.notice i{width:9px;height:9px;border-radius:50%;background:var(--ok);margin-top:6px}.notice.warn i{background:var(--warn)}.notice.bad i{background:var(--bad)}.notice b{display:block}.notice span{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.grid{display:grid;gap:14px}.two{grid-template-columns:1fr 1fr}.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:16px;min-width:0}.panel h3{font-size:14px;margin:0 0 12px;color:#e0e5eb}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.panel-head h3{margin:0}
+.field{display:grid;gap:6px;margin-bottom:12px}.field label,.check{font-size:12px;color:var(--muted)}.field input,.field select{width:100%;min-width:0;border:1px solid var(--line);background:#0e1014;color:var(--text);border-radius:6px;padding:11px 12px;font:15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.field input:focus,.field select:focus{outline:2px solid rgba(117,183,255,.3);border-color:#4c7daa}.check{display:flex;align-items:center;gap:8px;margin:5px 0 12px}.check input{width:16px;height:16px;accent-color:var(--ok)}
+.rows{display:grid;gap:8px}.row{display:flex;justify-content:space-between;align-items:center;gap:14px;border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:10px}.row b{font-weight:660}.row span{text-align:right;color:var(--soft);overflow-wrap:anywhere}.row.muted span{color:var(--muted)}
+.cap{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border-bottom:1px solid #252a31;padding:10px 0}.cap:last-child{border-bottom:0}.cap b{font-weight:660}.cap small{display:block;color:var(--muted);font-size:12px;margin-top:2px}.tag{border:1px solid var(--line);border-radius:999px;padding:5px 8px;font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);white-space:nowrap}.tag.ok{border-color:#236e5b;color:var(--ok)}.tag.warn{border-color:#755a20;color:var(--warn)}
+.progress{height:8px;background:#0e1014;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:9px}.bar{height:100%;width:0;background:var(--ok);transition:width .2s}.msg{min-height:20px;margin-top:10px;color:var(--muted)}.msg.ok{color:var(--ok)}.msg.warn{color:var(--warn)}.msg.bad{color:var(--bad)}
+.log{height:148px;overflow:auto;background:#0c0d10;border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#cdd4de}.log div{display:grid;grid-template-columns:62px 54px 1fr;gap:8px;padding:3px 0;border-bottom:1px solid #1d2026}.hidden{display:none}
+@media(max-width:980px){.top{height:auto;align-items:flex-start;flex-direction:column;padding:14px}.top-status{margin-left:0}.layout{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid var(--line)}.two,.three{grid-template-columns:1fr}.page-head{flex-direction:column}.main{padding:14px}.brand{min-width:0}}
+</style>
+</head>
+<body>
+<nav class="top">
+  <div class="brand"><div class="logo">EA</div><div><div class="title">ExoAnchor ESP32-P4</div><div class="sub">Desk Node</div></div></div>
+  <div class="nav"><a href="#">Overview</a><a href="#">KVM</a><a class="active" href="#">Settings</a></div>
+  <div class="top-status"><span class="pill ok">Video ready</span><span class="pill ok">Control ready</span><span class="pill">v0.84.1</span></div>
+</nav>
+<div class="layout">
+  <aside class="side">
+    <h1>Settings</h1>
+    <p>设备配置、安全设置和维护操作。</p>
+    <button class="active" data-view="device"><b>Device</b><span>名称、地址和硬件形态</span></button>
+    <button data-view="security"><b>Account & Security</b><span>本地账户和会话策略</span></button>
+    <button data-view="firmware"><b>Firmware Update</b><span>上传固件、重启应用</span></button>
+    <button data-view="hardware"><b>Hardware Capabilities</b><span>当前板型支持什么</span></button>
+    <button data-view="diagnostics"><b>Diagnostics</b><span>日志和运行摘要</span></button>
+  </aside>
+  <main class="main">
+    <section id="device" class="view">
+      <div class="page-head">
+        <div><h2>Device</h2><p>给设备一个容易识别的名字，并确认当前访问地址和板型。</p></div>
+        <div class="actions"><button class="btn primary">Save device</button></div>
+      </div>
+      <div class="notice"><i></i><div><b>设备在线</b><span>Ethernet 已连接，当前地址可访问。</span></div></div>
+      <div class="grid two">
+        <div class="panel">
+          <h3>Identity</h3>
+          <div class="field"><label>设备标注名</label><input value="Desk Node" maxlength="48"></div>
+          <div class="field"><label>主机名</label><input value="si-bmc-p4" disabled></div>
+          <div class="actions"><button class="btn primary">保存标注名</button><button class="btn">恢复默认</button></div>
+        </div>
+        <div class="panel">
+          <h3>Connection</h3>
+          <div class="rows">
+            <div class="row"><b>IP 地址</b><span>192.0.2.10</span></div>
+            <div class="row"><b>Ethernet</b><span>100M full duplex</span></div>
+            <div class="row"><b>MAC</b><span>02:00:00:00:00:01</span></div>
+            <div class="row"><b>Firmware</b><span>0.84.1</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="security" class="view hidden">
+      <div class="page-head">
+        <div><h2>Account & Security</h2><p>本地账户只保护这台设备的 Web UI 和控制 API。</p></div>
+        <div class="actions"><button class="btn danger">Logout</button></div>
+      </div>
+      <div class="notice"><i></i><div><b>默认密码已修改</b><span>当前用户名是 operator，会话令牌保存在当前浏览器。</span></div></div>
+      <div class="grid two">
+        <div class="panel">
+          <h3>Local Account</h3>
+          <div class="field"><label>当前密码</label><input type="password" placeholder="Required to save changes"></div>
+          <div class="field"><label>用户名</label><input value="operator" maxlength="32"></div>
+          <div class="field"><label>新密码</label><input type="password" placeholder="4-64 printable characters"></div>
+          <div class="field"><label>确认新密码</label><input type="password"></div>
+          <div class="actions"><button class="btn primary">保存账户</button></div>
+        </div>
+        <div class="panel">
+          <h3>Session</h3>
+          <label class="check"><input type="checkbox" checked> 空闲后自动要求重新登录</label>
+          <div class="field"><label>空闲时间</label><select><option>15 minutes</option><option>30 minutes</option><option>1 hour</option><option>Never</option></select></div>
+          <div class="rows">
+            <div class="row"><b>当前会话</b><span>Active</span></div>
+            <div class="row"><b>最近登录次数</b><span>11</span></div>
+          </div>
+          <div class="actions"><button class="btn primary">保存会话</button><button class="btn danger">Logout now</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="firmware" class="view hidden">
+      <div class="page-head">
+        <div><h2>Firmware Update</h2><p>本地上传适合手动升级；远程 manifest 和 channel 放在 Advanced。</p></div>
+      </div>
+      <div id="otaNotice" class="notice warn"><i></i><div><b>上传期间 KVM 会暂停</b><span>安装完成后需要重启应用分区才能运行新固件。</span></div></div>
+      <div class="grid two">
+        <div class="panel">
+          <div class="panel-head"><h3>Current Firmware</h3><span id="otaBadge" class="tag ok">Ready</span></div>
+          <div class="rows">
+            <div class="row"><b>当前版本</b><span>0.84.1</span></div>
+            <div class="row"><b>运行分区</b><span>factory</span></div>
+            <div class="row"><b>下次启动</b><span>factory</span></div>
+            <div class="row"><b>最近结果</b><span id="otaResult">No update installed</span></div>
+          </div>
+          <div class="actions" style="margin-top:12px"><button id="mockInstalled" class="btn">模拟安装完成</button><button id="rebootBtn" class="btn danger" disabled>Reboot to apply</button></div>
+        </div>
+        <div class="panel">
+          <h3>Upload Firmware</h3>
+          <div class="field"><label>固件文件</label><input type="file" accept=".bin,application/octet-stream"></div>
+          <div class="actions"><button id="mockUpload" class="btn primary">上传并安装</button></div>
+          <div class="progress"><div id="uploadBar" class="bar"></div></div>
+          <div id="uploadMsg" class="msg">No file selected</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <div class="panel-head"><h3>Advanced OTA</h3><span class="tag warn">Advanced</span></div>
+        <div class="grid two">
+          <div class="field"><label>Manifest URL</label><input value=""></div>
+          <div class="field"><label>Channel</label><input value="stable" maxlength="16"></div>
+        </div>
+        <div class="actions"><button class="btn">Check manifest</button><button class="btn" disabled>Install remote update</button></div>
+      </div>
+    </section>
+
+    <section id="hardware" class="view hidden">
+      <div class="page-head">
+        <div><h2>Hardware Capabilities</h2><p>当前 demo 按 Waveshare ESP32-P4-NANO DIY 形态展示，不把未接线能力显示成故障。</p></div>
+      </div>
+      <div class="notice warn"><i></i><div><b>Power / Reset 不属于这个硬件形态</b><span>如果需要远程开机，当前方案应使用主机侧 Wake-on-LAN。</span></div></div>
+      <div class="panel">
+        <div class="cap"><div><b>UVC video capture</b><small>MS2109 插在 ESP32-P4 USB-A host 口</small></div><span class="tag ok">Available</span></div>
+        <div class="cap"><div><b>Keyboard / mouse HID</b><small>USB FS GPIO26(D-) / GPIO27(D+)</small></div><span class="tag ok">Available</span></div>
+        <div class="cap"><div><b>Ethernet Web UI</b><small>RJ45 / IP101GRI / DHCP</small></div><span class="tag ok">Available</span></div>
+        <div class="cap"><div><b>Power button</b><small>DIY 方案没有 ATX PWR 继电器后端</small></div><span class="tag warn">Not available</span></div>
+        <div class="cap"><div><b>Reset button</b><small>DIY 方案没有 RST 继电器后端</small></div><span class="tag warn">Not available</span></div>
+        <div class="cap"><div><b>12V / 3V3AUX detect</b><small>需要自研板或扩展硬件提供 ADC/GPIO 后端</small></div><span class="tag warn">Not available</span></div>
+      </div>
+    </section>
+
+    <section id="diagnostics" class="view hidden">
+      <div class="page-head">
+        <div><h2>Diagnostics</h2><p>默认只展示摘要；需要排查时再复制状态或查看最近日志。</p></div>
+        <div class="actions"><button class="btn">Copy status JSON</button><button class="btn">Download logs</button></div>
+      </div>
+      <div class="grid three">
+        <div class="panel"><h3>Memory</h3><div class="rows"><div class="row"><b>Heap</b><span>412 KB free</span></div><div class="row"><b>PSRAM</b><span>6.8 MB free</span></div></div></div>
+        <div class="panel"><h3>Video</h3><div class="rows"><div class="row"><b>Mode</b><span>1280x720 @ 30</span></div><div class="row"><b>Drop rate</b><span>0.2%</span></div></div></div>
+        <div class="panel"><h3>Control</h3><div class="rows"><div class="row"><b>HID</b><span>Ready</span></div><div class="row"><b>Messages</b><span>218 sent</span></div></div></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h3>Recent Logs</h3>
+        <div class="log">
+          <div><span>00:00:02</span><span>INFO</span><span>USB HID device initialized on GPIO26/27</span></div>
+          <div><span>00:00:04</span><span>INFO</span><span>Ethernet got IP: 192.0.2.10</span></div>
+          <div><span>00:00:08</span><span>INFO</span><span>USB UVC stream started</span></div>
+          <div><span>00:02:11</span><span>INFO</span><span>HTTP server started</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+document.querySelectorAll(".side button").forEach(button=>{
+  button.onclick=()=>{
+    document.querySelectorAll(".side button").forEach(item=>item.classList.toggle("active",item===button));
+    document.querySelectorAll(".view").forEach(view=>view.classList.toggle("hidden",view.id!==button.dataset.view));
+  };
+});
+mockUpload.onclick=()=>{
+  uploadMsg.textContent="Uploading firmware...";
+  uploadMsg.className="msg warn";
+  uploadBar.style.width="0";
+  let progress=0;
+  const timer=setInterval(()=>{
+    progress+=25;
+    uploadBar.style.width=progress+"%";
+    if(progress>=100){
+      clearInterval(timer);
+      uploadMsg.textContent="Firmware installed. Reboot to apply.";
+      uploadMsg.className="msg ok";
+      otaResult.textContent="Uploaded firmware installed";
+      otaBadge.textContent="Reboot required";
+      otaBadge.className="tag warn";
+      rebootBtn.disabled=false;
+    }
+  },180);
+};
+mockInstalled.onclick=()=>{
+  otaResult.textContent="Firmware installed";
+  otaBadge.textContent="Reboot required";
+  otaBadge.className="tag warn";
+  rebootBtn.disabled=false;
+};
+</script>
+</body>
+</html>

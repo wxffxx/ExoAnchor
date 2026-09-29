@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor Settings Ergonomic Demo</title>
+<style>
+:root{color-scheme:dark;--bg:#101114;--top:#15171b;--rail:#171a1f;--panel:#1b1e24;--panel2:#232730;--line:#343a45;--line2:#252a32;--text:#eef2f6;--muted:#98a2ae;--soft:#cbd3de;--ok:#2dd4bf;--warn:#f6bd4b;--bad:#f87171;--blue:#8ab4ff}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+button,input,select,textarea{font:inherit}
+.top{height:58px;display:flex;align-items:center;gap:18px;padding:0 22px;background:var(--top);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:12px;min-width:235px}.logo{width:32px;height:32px;border-radius:7px;border:1px solid #4b5563;background:#222731;display:grid;place-items:center;font-weight:850}.title{font-weight:750;white-space:nowrap}.sub{margin-top:-3px;color:var(--muted);font-size:12px;white-space:nowrap}
+.nav{display:flex;align-items:center;gap:8px}.nav a{color:var(--muted);text-decoration:none;border-radius:6px;padding:7px 10px}.nav a.active,.nav a:hover{color:var(--text);background:var(--panel2)}
+.status{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin-left:auto;flex-wrap:wrap}.pill{border:1px solid var(--line);border-radius:999px;color:var(--muted);padding:6px 9px;font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.pill.ok{border-color:#1f766d;color:var(--ok)}.pill.warn{border-color:#7c5d16;color:var(--warn)}.pill.bad{border-color:#7f2d2d;color:var(--bad)}
+.wrap{max-width:1460px;margin:0 auto;display:grid;grid-template-columns:232px minmax(0,1fr);gap:0;min-height:calc(100vh - 58px)}
+.side{position:sticky;top:58px;height:calc(100vh - 58px);overflow:auto;background:var(--rail);border-right:1px solid var(--line);padding:16px 12px}.side h1{font-size:18px;margin:0 0 12px}.side a{display:grid;grid-template-columns:1fr auto;gap:8px;color:var(--muted);text-decoration:none;border:1px solid transparent;border-radius:7px;padding:10px 10px;margin-bottom:5px}.side a:hover,.side a.active{background:#20242b;border-color:var(--line);color:var(--text)}.side b{font-weight:720}.side small{grid-column:1/-1;color:var(--muted);line-height:1.35}.side .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);margin-top:7px}.side .dot.ok{background:var(--ok)}.side .dot.warn{background:var(--warn)}.side .dot.bad{background:var(--bad)}
+.main{padding:22px;min-width:0}.head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}.head h2{font-size:22px;margin:0;line-height:1.15}.head p{margin:6px 0 0;color:var(--muted);max-width:760px}.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#262b34;color:var(--text);border-radius:7px;padding:10px 12px;font-weight:720;cursor:pointer}.btn:hover{border-color:#5b6370;background:#2c323d}.btn.primary{border-color:#1f766d;background:#17302f;color:#dffcf7}.btn.danger{border-color:#7f2d2d;color:#fecaca}.btn.ghost{background:transparent}.btn:disabled{opacity:.45;cursor:not-allowed}.savebar{position:sticky;top:72px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);background:rgba(27,30,36,.96);backdrop-filter:blur(12px);border-radius:8px;padding:11px 12px;margin-bottom:16px}.savebar b{font-size:13px}.savebar span{color:var(--muted);font-size:13px}
+.section{scroll-margin-top:134px;margin-bottom:28px}.section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;border-top:1px solid var(--line);padding-top:20px;margin-bottom:12px}.section:first-of-type .section-title{border-top:0;padding-top:0}.section-title h3{font-size:17px;margin:0}.section-title p{margin:3px 0 0;color:var(--muted)}
+.grid{display:grid;gap:14px}.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.three{grid-template-columns:repeat(3,minmax(0,1fr))}.span{grid-column:1/-1}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:15px;min-width:0}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.card h4{font-size:14px;margin:0}.note{color:var(--muted);font-size:12px;margin:-5px 0 12px}.kv{display:grid;gap:8px}.row{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--line2);background:var(--panel2);border-radius:7px;padding:10px 11px;min-width:0}.row b{font-weight:650}.row span{text-align:right;color:var(--soft);overflow-wrap:anywhere}.row.muted span{color:var(--muted)}
+.field{display:grid;gap:6px;margin-bottom:12px}.field label,.check{font-size:12px;color:var(--muted)}.field input,.field select,.field textarea{width:100%;min-width:0;border:1px solid var(--line);background:#0d0f13;color:var(--text);border-radius:7px;padding:10px 11px}.field textarea{min-height:150px;line-height:1.45;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}.field input,.field select{font:14px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace}.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid rgba(138,180,255,.32);border-color:#547db8}.check{display:flex;align-items:center;gap:8px;margin:4px 0 12px}.check input{width:16px;height:16px;accent-color:var(--ok)}
+.toggle-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;border:1px solid var(--line2);background:var(--panel2);border-radius:7px;padding:11px}.toggle-row b{display:block}.toggle-row span{display:block;color:var(--muted);font-size:12px;margin-top:2px}.switch{position:relative;width:50px;height:28px;display:inline-block}.switch input{opacity:0;width:0;height:0}.knob{position:absolute;inset:0;border-radius:999px;background:#353b46;border:1px solid #4a5260;transition:.16s}.knob:before{content:"";position:absolute;width:20px;height:20px;left:4px;top:3px;border-radius:50%;background:#d7dde7;transition:.16s}.switch input:checked+.knob{background:#155a52;border-color:#1f766d}.switch input:checked+.knob:before{transform:translateX(21px);background:var(--ok)}
+.tag{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;color:var(--muted);padding:5px 8px;font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.tag.ok{color:var(--ok);border-color:#1f766d}.tag.warn{color:var(--warn);border-color:#7c5d16}.tag.bad{color:var(--bad);border-color:#7f2d2d}.tag.blue{color:var(--blue);border-color:#3d5f9b}
+.stack{display:grid;gap:10px}.profile-list{display:grid;gap:8px}.profile{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid var(--line2);border-radius:7px;background:var(--panel2);padding:10px 11px}.profile.active{border-color:#1f766d;background:#18302f}.profile b{display:block}.profile small{display:block;color:var(--muted);margin-top:2px}.tool-line{display:grid;grid-template-columns:minmax(120px,1fr) 96px 96px minmax(0,1.4fr);gap:8px;align-items:center;border-bottom:1px solid var(--line2);padding:10px 0}.tool-line:last-child{border-bottom:0}.tool-line b{font-weight:650}.tool-line span{color:var(--muted)}
+details{border:1px solid var(--line2);background:#16191e;border-radius:8px;margin-top:12px}summary{cursor:pointer;padding:11px 12px;font-weight:720;color:var(--soft)}details>div{border-top:1px solid var(--line2);padding:12px}.danger-zone{border-color:#7f2d2d;background:#201719}.danger-zone .card-head h4{color:#fecaca}
+.drawer{position:fixed;inset:0;display:none;background:rgba(5,6,8,.62);z-index:30}.drawer.show{display:block}.drawer-panel{position:absolute;right:0;top:0;width:min(560px,100%);height:100%;background:var(--panel);border-left:1px solid var(--line);padding:20px;overflow:auto}.drawer-panel h3{margin:0 0 8px;font-size:18px}.drawer-panel p{margin:0 0 18px;color:var(--muted)}
+@media(max-width:1040px){.top{height:auto;align-items:flex-start;flex-direction:column;padding:14px}.brand{min-width:0}.status{margin-left:0;justify-content:flex-start}.wrap{display:block}.side{position:sticky;top:0;height:auto;border-right:0;border-bottom:1px solid var(--line);display:flex;gap:8px;overflow:auto}.side h1{display:none}.side a{min-width:145px}.main{padding:14px}.savebar{top:8px}.two,.three{grid-template-columns:1fr}.tool-line{grid-template-columns:1fr 90px}.tool-line span:last-child{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<nav class="top">
+  <div class="brand"><div class="logo">EA</div><div><div class="title">ExoAnchor ESP32-P4</div><div class="sub">Lab Node</div></div></div>
+  <div class="nav"><a href="#">Dashboard</a><a href="#">KVM</a><a href="#">Agent</a><a href="#">Terminal</a><a class="active" href="#">Settings</a></div>
+  <div class="status"><span class="pill ok">VIDEO READY</span><span class="pill ok">HID READY</span><span class="pill warn">2 UNSAVED</span><span class="pill">v0.85.8</span></div>
+</nav>
+<div class="wrap">
+  <aside class="side" aria-label="Settings sections">
+    <h1>Settings</h1>
+    <a class="active" href="#overview"><b>概览</b><span class="dot ok"></span><small>状态摘要和跳转</small></a>
+    <a href="#account"><b>账户与会话</b><span class="dot ok"></span><small>Web 控制台身份</small></a>
+    <a href="#hardware"><b>硬件与 GPIO</b><span class="dot warn"></span><small>接线和设备形态</small></a>
+    <a href="#kvm"><b>KVM 与视频</b><span class="dot ok"></span><small>采集、HID 和默认行为</small></a>
+    <a href="#control"><b>控制接入</b><span class="dot ok"></span><small>SSH、MCP、控制租约</small></a>
+    <a href="#agent"><b>Agent 与模型</b><span class="dot warn"></span><small>模型、工具、技能</small></a>
+    <a href="#maintenance"><b>固件与维护</b><span class="dot ok"></span><small>OTA、重启、授权</small></a>
+  </aside>
+  <main class="main">
+    <div class="head">
+      <div><h2>设置控制台</h2><p>把常用设置放在每个分区顶部，凭据、策略和危险操作折叠到明确的二级区域。</p></div>
+      <div class="actions"><button class="btn ghost">Discard</button><button id="saveAll" class="btn primary">Save changes</button></div>
+    </div>
+    <div class="savebar">
+      <div><b>2 个修改未保存</b><span>视频常在线、MCP 外部控制器</span></div>
+      <div class="actions"><button class="btn ghost">Review</button><button class="btn primary">Apply all</button></div>
+    </div>
+
+    <section id="overview" class="section">
+      <div class="section-title"><div><h3>概览</h3><p>只看健康状态，不编辑底层参数。</p></div><span class="tag ok">HEALTHY</span></div>
+      <div class="grid three">
+        <div class="card"><div class="card-head"><h4>网络与设备</h4><span class="tag ok">ONLINE</span></div><div class="kv"><div class="row"><b>IP</b><span>192.0.2.10</span></div><div class="row"><b>Ethernet</b><span>100M full duplex</span></div><div class="row"><b>标注名</b><span>Lab Node</span></div></div></div>
+        <div class="card"><div class="card-head"><h4>KVM</h4><span class="tag ok">READY</span></div><div class="kv"><div class="row"><b>视频</b><span>1920x1080 @ 30</span></div><div class="row"><b>HID</b><span>ready</span></div><div class="row"><b>采集策略</b><span>on demand</span></div></div></div>
+        <div class="card"><div class="card-head"><h4>控制接入</h4><span class="tag ok">READY</span></div><div class="kv"><div class="row"><b>SSH</b><span>operator@192.0.2.20</span></div><div class="row"><b>MCP</b><span>enabled</span></div><div class="row"><b>租约</b><span>free</span></div></div></div>
+        <div class="card"><div class="card-head"><h4>Agent</h4><span class="tag warn">NEEDS CHECK</span></div><div class="kv"><div class="row"><b>Profile</b><span>DeepSeek</span></div><div class="row"><b>Model</b><span>deepseek-v4-pro</span></div><div class="row"><b>联网搜索</b><span>off</span></div></div></div>
+        <div class="card"><div class="card-head"><h4>存储</h4><span class="tag ok">OK</span></div><div class="kv"><div class="row"><b>Flash</b><span>3.88 MB free</span></div><div class="row"><b>TF 卡</b><span>mounted</span></div><div class="row"><b>历史</b><span>active</span></div></div></div>
+        <div class="card"><div class="card-head"><h4>维护</h4><span class="tag ok">READY</span></div><div class="kv"><div class="row"><b>固件</b><span>0.85.8</span></div><div class="row"><b>启动分区</b><span>ota_0</span></div><div class="row"><b>更新</b><span>not checked</span></div></div></div>
+      </div>
+    </section>
+
+    <section id="account" class="section">
+      <div class="section-title"><div><h3>账户与会话</h3><p>只管理 Web UI 和设备 API 的本地登录。</p></div><span class="tag ok">SECURED</span></div>
+      <div class="grid two">
+        <div class="card"><div class="card-head"><h4>本地账户</h4><button class="btn" data-drawer="accountDrawer">Edit</button></div><div class="kv"><div class="row"><b>用户名</b><span>operator</span></div><div class="row"><b>凭据</b><span>custom</span></div><div class="row"><b>最近登录</b><span>today 21:16</span></div></div></div>
+        <div class="card"><div class="card-head"><h4>会话</h4><span class="tag ok">ON</span></div><label class="toggle-row"><span><b>自动 Logout</b><span>浏览器空闲后重新认证</span></span><span class="switch"><input type="checkbox" checked><span class="knob"></span></span></label><div class="field"><label>空闲时间</label><select><option>15 minutes</option><option>30 minutes</option><option>1 hour</option><option>Never</option></select></div></div>
+      </div>
+    </section>
+
+    <section id="hardware" class="section">
+      <div class="section-title"><div><h3>硬件与 GPIO</h3><p>只处理板子身份、存储状态和接线映射。</p></div><span class="tag warn">PARTIAL POWER</span></div>
+      <div class="grid two">
+        <div class="card"><div class="card-head"><h4>设备身份</h4><span class="tag ok">SAVED</span></div><div class="field"><label>设备标注名</label><input value="Lab Node"></div><div class="actions"><button class="btn primary">Save identity</button></div></div>
+        <div class="card"><div class="card-head"><h4>存储</h4><span class="tag ok">OK</span></div><div class="kv"><div class="row"><b>内部 Flash</b><span>app 2.7 MB / data 3.88 MB</span></div><div class="row"><b>TF 卡</b><span>mounted, writable</span></div></div></div>
+        <div class="card span"><div class="card-head"><h4>GPIO 映射</h4><button class="btn">Edit pins</button></div><div class="grid three"><div class="row"><b>Power</b><span>GPIO12</span></div><div class="row"><b>Reset</b><span>GPIO13</span></div><div class="row"><b>Detect</b><span>not wired</span></div><div class="row"><b>HID D-</b><span>GPIO26 fixed</span></div><div class="row"><b>HID D+</b><span>GPIO27 fixed</span></div><div class="row"><b>Active level</b><span>active high</span></div></div></div>
+      </div>
+    </section>
+
+    <section id="kvm" class="section">
+      <div class="section-title"><div><h3>KVM 与视频</h3><p>配置传统 KVM 的默认采集和输入行为。</p></div><span class="tag ok">READY</span></div>
+      <div class="grid two">
+        <div class="card"><div class="card-head"><h4>视频默认值</h4><span class="tag ok">MS2109</span></div><div class="field"><label>默认模式</label><select><option>MJPEG 1920x1080 @ 30fps</option><option>MJPEG 1280x720 @ 30fps</option><option>YUYV 640x480 @ 30fps</option></select></div><label class="toggle-row"><span><b>保持视频常在线</b><span>不依赖页面租约持续采集</span></span><span class="switch"><input class="dirty" type="checkbox" checked><span class="knob"></span></span></label></div>
+        <div class="card"><div class="card-head"><h4>输入默认值</h4><span class="tag ok">HID READY</span></div><label class="toggle-row"><span><b>键盘直通</b><span>KVM 打开后默认捕获键盘</span></span><span class="switch"><input type="checkbox" checked><span class="knob"></span></span></label><label class="toggle-row"><span><b>Direct click</b><span>画面点击直接映射到目标主机</span></span><span class="switch"><input type="checkbox" checked><span class="knob"></span></span></label></div>
+      </div>
+    </section>
+
+    <section id="control" class="section">
+      <div class="section-title"><div><h3>控制接入</h3><p>设备控制目标和外部控制入口集中在这里。</p></div><span class="tag ok">READY</span></div>
+      <div class="grid two">
+        <div class="card span"><div class="card-head"><h4>维护目标主机</h4><div class="actions"><button class="btn">Test SSH</button><button class="btn primary" data-drawer="sshDrawer">Edit target</button></div></div><div class="grid three"><div class="row"><b>Host</b><span>192.0.2.20:22</span></div><div class="row"><b>User</b><span>operator</span></div><div class="row"><b>Auth</b><span>password + sudo</span></div></div><details><summary>高级凭据</summary><div class="grid two"><div class="row"><b>Password</b><span>saved locally</span></div><div class="row"><b>SSH Key</b><span>not configured</span></div></div></details></div>
+        <div class="card"><div class="card-head"><h4>外部 MCP 控制器</h4><span class="tag ok">ENABLED</span></div><label class="toggle-row"><span><b>允许 MCP 客户端</b><span>Codex / Claude 通过设备 API 操作</span></span><span class="switch"><input class="dirty" type="checkbox" checked><span class="knob"></span></span></label><div class="kv"><div class="row"><b>控制身份</b><span>mcp</span></div><div class="row"><b>租约隔离</b><span>KVM / Agent / MCP</span></div></div></div>
+        <div class="card"><div class="card-head"><h4>控制租约</h4><span class="tag ok">FREE</span></div><div class="kv"><div class="row"><b>当前 owner</b><span>none</span></div><div class="row"><b>超时</b><span>30s</span></div><div class="row"><b>冲突策略</b><span>reject unless force</span></div></div></div>
+      </div>
+    </section>
+
+    <section id="agent" class="section">
+      <div class="section-title"><div><h3>Agent 与模型</h3><p>Agent 的大脑、工具策略和可复用技能。</p></div><span class="tag warn">SEARCH OFF</span></div>
+      <div class="grid two">
+        <div class="card"><div class="card-head"><h4>API Profiles</h4><button class="btn primary">Add profile</button></div><div class="profile-list"><div class="profile active"><div><b>DeepSeek</b><small>deepseek-v4-pro</small></div><span class="tag ok">key saved</span></div><div class="profile"><div><b>阿里云百炼 Qwen</b><small>qwen3-vl-flash</small></div><span class="tag ok">key saved</span></div><div class="profile"><div><b>OpenAI</b><small>not configured</small></div><span class="tag warn">empty</span></div></div></div>
+        <div class="card"><div class="card-head"><h4>运行默认值</h4><span class="tag blue">AUTONOMOUS</span></div><div class="field"><label>默认 Profile</label><select><option>DeepSeek</option><option>阿里云百炼 Qwen</option></select></div><div class="field"><label>默认 Model</label><select><option>deepseek-v4-pro</option><option>deepseek-v4-flash</option></select></div><label class="toggle-row"><span><b>联网搜索工具</b><span>作为 tool call 由运行时执行</span></span><span class="switch"><input type="checkbox"><span class="knob"></span></span></label></div>
+        <div class="card span"><div class="card-head"><h4>System Prompt</h4><button class="btn" data-drawer="promptDrawer">Edit prompt</button></div><div class="kv"><div class="row"><b>状态</b><span>custom prompt saved</span></div><div class="row"><b>大小</b><span>1.7 KB / 2 KB</span></div><div class="row"><b>生效</b><span>next run</span></div></div></div>
+        <div class="card span"><div class="card-head"><h4>工具与 Skills</h4><div class="actions"><button class="btn">Edit policy</button><button class="btn">Edit skills</button></div></div><div class="tool-line"><b>ssh_exec</b><span class="tag ok">enabled</span><span>high</span><span>执行在控制接入中配置的目标主机</span></div><div class="tool-line"><b>hid_actions</b><span class="tag ok">enabled</span><span>medium</span><span>需要控制租约</span></div><div class="tool-line"><b>web_search</b><span class="tag warn">off</span><span>medium</span><span>只作为运行时工具，不让模型私自联网</span></div><details><summary>高级策略 JSON</summary><div><textarea spellcheck="false">{"version":1,"default_mode":"autonomous","tools":{"ssh_exec":{"enabled":true,"risk":"high"}}}</textarea></div></details></div>
+      </div>
+    </section>
+
+    <section id="maintenance" class="section">
+      <div class="section-title"><div><h3>固件与维护</h3><p>升级、重启、恢复和许可信息集中在底部。</p></div><span class="tag ok">READY</span></div>
+      <div class="grid two">
+        <div class="card"><div class="card-head"><h4>固件更新</h4><span class="tag ok">0.85.8</span></div><div class="field"><label>固件 bin</label><input type="file" accept=".bin,application/octet-stream"></div><div class="actions"><button class="btn primary">Upload</button><button class="btn">Check OTA</button><button class="btn danger">Reboot</button></div></div>
+        <div class="card danger-zone"><div class="card-head"><h4>危险操作</h4><span class="tag bad">CONFIRM</span></div><div class="kv"><div class="row"><b>Reset Everything</b><span>账户、API、视频、会话、设备设置</span></div></div><div class="actions"><button class="btn danger">Reset everything</button></div></div>
+        <div class="card span"><div class="card-head"><h4>About</h4><span class="tag">SYSTEM</span></div><div class="row"><b>Frontend font</b><span>Browser and operating system font stack</span></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="accountDrawer" class="drawer"><div class="drawer-panel"><h3>编辑本地账户</h3><p>保存后当前浏览器会刷新会话令牌。</p><div class="field"><label>当前密码</label><input type="password"></div><div class="field"><label>用户名</label><input value="operator"></div><div class="field"><label>新密码</label><input type="password"></div><div class="field"><label>确认新密码</label><input type="password"></div><div class="actions"><button class="btn ghost drawer-close">Cancel</button><button class="btn primary drawer-close">Save account</button></div></div></div>
+<div id="sshDrawer" class="drawer"><div class="drawer-panel"><h3>编辑维护目标主机</h3><p>凭据只保存在设备本地，不进入模型请求。</p><div class="field"><label>Host / IPv4</label><input value="192.0.2.20"></div><div class="field"><label>Port</label><input value="22"></div><div class="field"><label>Username</label><input value="operator"></div><div class="field"><label>Auth</label><select><option>Password</option><option>Stored Key</option><option>Auto</option></select></div><div class="field"><label>Password</label><input type="password" placeholder="leave blank to keep saved password"></div><div class="field"><label>Sudo Password</label><input type="password" placeholder="leave blank to keep saved sudo password"></div><div class="actions"><button class="btn ghost drawer-close">Cancel</button><button class="btn primary drawer-close">Save target</button></div></div></div>
+<div id="promptDrawer" class="drawer"><div class="drawer-panel"><h3>编辑 System Prompt</h3><p>下一次 Agent run 生效。</p><div class="field"><label>Prompt</label><textarea spellcheck="false">You are ExoAnchor KVM operations agent. Use local tools carefully, keep passwords local, and summarize outcomes.</textarea></div><div class="actions"><button class="btn ghost drawer-close">Cancel</button><button class="btn">Restore default</button><button class="btn primary drawer-close">Save prompt</button></div></div></div>
+
+<script>
+const links=[...document.querySelectorAll(".side a")];
+const sections=links.map(link=>document.querySelector(link.getAttribute("href"))).filter(Boolean);
+function syncActive(){
+  let active=sections[0];
+  for(const section of sections){if(section.getBoundingClientRect().top<160)active=section}
+  links.forEach(link=>link.classList.toggle("active",link.getAttribute("href")==="#"+active.id));
+}
+window.addEventListener("scroll",syncActive,{passive:true});
+document.querySelectorAll("[data-drawer]").forEach(button=>button.onclick=()=>document.getElementById(button.dataset.drawer).classList.add("show"));
+document.querySelectorAll(".drawer").forEach(drawer=>drawer.onclick=e=>{if(e.target===drawer||e.target.classList.contains("drawer-close"))drawer.classList.remove("show")});
+document.querySelectorAll(".dirty").forEach(input=>input.addEventListener("change",()=>{saveAll.textContent="Save changes";saveAll.disabled=false}));
+</script>
+</body>
+</html>

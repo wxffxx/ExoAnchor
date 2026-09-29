@@ -1,0 +1,23 @@
+CONFIG_SI_BUILD_PROFILE_DEV=y
+# CONFIG_SI_BUILD_PROFILE_STABLE is not set
+CONFIG_SI_EMBEDDED_AGENT=y
+CONFIG_SI_UART_TERMINAL=y
+
+# The embedded Agent worker deliberately keeps its FreeRTOS stack in internal
+# RAM. Let mbedTLS follow the project's size-tiered malloc policy instead of
+# forcing its 16 KiB RX record buffer into that same constrained heap. With
+# CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096, the large record buffer prefers
+# PSRAM while small control and crypto allocations prefer internal RAM.
+# Dynamic records are allocated only while needed. A 2 KiB TX record is safe
+# because esp-tls fragments larger writes before passing them to mbedTLS.
+# CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC is not set
+CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC=y
+CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
+CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048
+
+# The ESP32-P4 hardware AES path needs per-operation DMA descriptors and may
+# also need bounce buffers for non-DMA pointers. In the Dev H.264 image that
+# heap is shared with the capture pipeline and can be too fragmented even while
+# ordinary internal metrics look healthy. Keep Dev on software AES/GCM;
+# Stable/production profiles retain independent crypto configuration.
+# CONFIG_MBEDTLS_HARDWARE_AES is not set

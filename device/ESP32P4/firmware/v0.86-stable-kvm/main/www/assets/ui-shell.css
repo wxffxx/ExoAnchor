@@ -1,0 +1,263 @@
+.ea-shell {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+  gap: 18px;
+  width: 100%;
+  height: 64px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line, #2b333e);
+  background: rgba(17, 20, 25, .95);
+  backdrop-filter: blur(18px);
+}
+
+.ea-shell .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.ea-shell .logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #4b5563;
+  border-radius: 9px;
+  background: linear-gradient(145deg, #252c36, #171b21);
+  color: var(--text, #f4f7fa);
+  font-weight: 800;
+}
+
+.ea-shell .title {
+  color: var(--text, #f4f7fa);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ea-shell .sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  margin-top: -2px;
+  color: var(--muted, #8d98a7);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ea-shell .device-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ea-shell .device-version {
+  flex: 0 0 auto;
+  color: #aeb7c3;
+  font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.ea-shell .nav {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: 5px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ea-shell .nav::-webkit-scrollbar {
+  display: none;
+}
+
+.ea-shell .nav a,
+.ea-shell .nav button {
+  width: auto;
+  min-height: 0;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted, #8d98a7);
+  box-shadow: none;
+  font: 650 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ea-shell .nav a:hover,
+.ea-shell .nav a.active,
+.ea-shell .nav button:hover {
+  background: var(--panel2, #1b2028);
+  color: var(--text, #f4f7fa);
+}
+
+.ea-shell .nav a.active {
+  box-shadow: inset 0 0 0 1px #3b4654;
+}
+
+.ea-shell #logoutNav:hover,
+.ea-shell #logoutNav:focus-visible {
+  background: #4b1f25;
+  color: #fff1f2;
+  box-shadow: inset 0 0 0 1px #a44a52;
+}
+
+.ea-shell .version-pill {
+  display: none;
+}
+
+.ea-shell .status-strip {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.ea-shell .badge,
+.ea-shell .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 27px;
+  padding: 5px 9px;
+  border: 1px solid #3b4654;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted, #8d98a7);
+  font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+
+.ea-shell .badge::before,
+.ea-shell .status::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.ea-shell .badge.ok,
+.ea-shell .status.ok {
+  border-color: #24675d;
+  background: rgba(16, 44, 41, .42);
+  color: var(--green, #54d6bd);
+}
+
+.ea-shell .badge.warn,
+.ea-shell .status.warn {
+  border-color: #705720;
+  background: rgba(50, 38, 16, .42);
+  color: var(--yellow, #f2be63);
+}
+
+.ea-shell .badge.bad,
+.ea-shell .status.bad {
+  border-color: #78383d;
+  background: rgba(53, 24, 28, .42);
+  color: var(--red, #ff7b7f);
+}
+
+.ea-shell .badge.unknown,
+.ea-shell .status.unknown {
+  border-color: #424b57;
+  background: rgba(51, 57, 66, .32);
+  color: #7f8996;
+}
+
+.ea-shell .power-menu {
+  position: relative;
+}
+
+.ea-shell .power-menu > button {
+  min-height: 30px;
+  padding: 6px 9px;
+  border: 1px solid #3b4654;
+  border-radius: 999px;
+  background: #1b2028;
+  color: var(--text, #f4f7fa);
+  font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+
+.ea-shell .power-menu-list {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 6px;
+  min-width: 132px;
+  padding: 8px;
+  border: 1px solid var(--line, #2b333e);
+  border-radius: 8px;
+  background: #15181e;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .45);
+}
+
+.ea-shell .power-menu-list.hide {
+  display: none;
+}
+
+.ea-shell .power-menu-list button {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #2b333e);
+  border-radius: 7px;
+  background: #242832;
+  color: var(--text, #f4f7fa);
+  font: 650 13px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ea-shell .power-menu-list button:hover {
+  border-color: #59606d;
+  background: #2a303b;
+}
+
+.ea-shell .power-menu button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .ea-shell {
+    position: static;
+    height: auto;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .ea-shell .brand {
+    width: 100%;
+  }
+
+  .ea-shell .nav {
+    width: 100%;
+  }
+
+  .ea-shell .status-strip {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    overflow-x: auto;
+  }
+}

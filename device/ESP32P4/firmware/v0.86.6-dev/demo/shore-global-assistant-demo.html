@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>ExoAnchor 0.86 + ExoAnchor Agent Floating Assistant</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0b0d10;
+  --panel:#15191f;
+  --panel2:#1b2028;
+  --line:#2b333e;
+  --line-strong:#3b4654;
+  --text:#f4f7fa;
+  --muted:#8d98a7;
+  --green:#54d6bd;
+  --yellow:#f2be63;
+  --red:#ff7b7f;
+}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--bg)}
+body{color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+button,textarea{font:inherit}
+button:focus-visible,textarea:focus-visible{outline:2px solid rgba(84,214,189,.55);outline-offset:2px}
+.host-demo{display:block;width:100%;height:100%;border:0;background:var(--bg)}
+.assistant-launcher{
+  position:fixed;
+  right:20px;
+  bottom:20px;
+  z-index:60;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:44px;
+  padding:5px 12px 5px 5px;
+  border:1px solid #287367;
+  border-radius:999px;
+  background:#173b36;
+  color:#e7fffa;
+  box-shadow:0 16px 40px rgba(0,0,0,.42);
+  cursor:pointer;
+  font-weight:750;
+}
+.assistant-launcher:hover{border-color:var(--green);background:#1d4b44}
+.launcher-mark{
+  display:grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  background:var(--green);
+  color:#0a1715;
+  font-weight:850;
+}
+.launcher-copy{display:grid;text-align:left;line-height:1.15}
+.launcher-copy small{margin-top:2px;color:#a5cfc7;font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}
+body.assistant-open .assistant-launcher{display:none}
+.assistant-window{
+  position:fixed;
+  top:84px;
+  right:20px;
+  z-index:70;
+  display:flex;
+  width:min(420px,calc(100vw - 28px));
+  height:min(620px,calc(100vh - 104px));
+  min-height:420px;
+  flex-direction:column;
+  overflow:hidden;
+  border:1px solid var(--line-strong);
+  border-radius:12px;
+  background:var(--panel);
+  box-shadow:0 22px 70px rgba(0,0,0,.48);
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(10px) scale(.985);
+  transform-origin:90% 0;
+  visibility:hidden;
+  transition:opacity .15s,transform .15s,visibility .15s;
+}
+body.assistant-open .assistant-window{
+  opacity:1;
+  pointer-events:auto;
+  transform:none;
+  visibility:visible;
+}
+.assistant-window.dragging{transition:none;box-shadow:0 28px 90px rgba(0,0,0,.58),0 0 0 1px rgba(84,214,189,.25)}
+.assistant-head{
+  display:flex;
+  min-height:60px;
+  align-items:center;
+  gap:10px;
+  padding:10px 11px;
+  border-bottom:1px solid var(--line);
+  background:#11151b;
+  cursor:grab;
+  touch-action:none;
+  user-select:none;
+}
+.assistant-window.dragging .assistant-head{cursor:grabbing}
+.assistant-icon{
+  display:grid;
+  width:34px;
+  height:34px;
+  flex:0 0 auto;
+  place-items:center;
+  border:1px solid #287367;
+  border-radius:9px;
+  background:#173b36;
+  color:var(--green);
+  font-weight:850;
+}
+.assistant-title{min-width:0;flex:1}
+.assistant-title b{display:block;font-size:13px}
+.assistant-title span{display:block;margin-top:2px;color:var(--muted);font:10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:25px;
+  padding:5px 8px;
+  border:1px solid #24675d;
+  border-radius:999px;
+  background:rgba(16,44,41,.42);
+  color:var(--green);
+  font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+.badge:before{width:6px;height:6px;border-radius:50%;background:currentColor;content:""}
+.head-button{
+  display:grid;
+  width:32px;
+  height:32px;
+  place-items:center;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:8px;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  font-weight:800;
+}
+.head-button:hover{border-color:var(--line);background:var(--panel2);color:var(--text)}
+.assistant-context{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:42px;
+  padding:7px 10px;
+  overflow-x:auto;
+  border-bottom:1px solid var(--line);
+  background:#101319;
+  scrollbar-width:none;
+}
+.context-chip{
+  display:inline-flex;
+  min-height:26px;
+  flex:0 0 auto;
+  align-items:center;
+  gap:5px;
+  padding:5px 8px;
+  border:1px solid var(--line-strong);
+  border-radius:999px;
+  background:var(--panel2);
+  color:var(--muted);
+  font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+.context-chip strong{color:var(--green)}
+.conversation{
+  display:flex;
+  min-height:0;
+  flex:1;
+  flex-direction:column;
+  gap:10px;
+  overflow:auto;
+  padding:14px;
+  background:#0d1014;
+  scrollbar-color:#3b4654 transparent;
+}
+.bubble{
+  max-width:90%;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#151920;
+  color:#dfe5ec;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.bubble.user{align-self:flex-end;border-color:#286c62;background:#12312d}
+.bubble.agent{align-self:flex-start}
+.bubble.system{
+  align-self:center;
+  max-width:100%;
+  border-style:dashed;
+  background:#11141a;
+  color:var(--muted);
+  font-size:11px;
+}
+.bubble-meta{margin-bottom:4px;color:var(--muted);font-size:10px;font-weight:700}
+.evidence{
+  display:grid;
+  gap:6px;
+  margin-top:9px;
+  padding:8px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  background:#0d1014;
+}
+.evidence-row{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font:10px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}
+.evidence-row b{color:#cbd5e1;font-weight:650}
+.action-card{
+  margin-top:9px;
+  overflow:hidden;
+  border:1px solid #365d58;
+  border-radius:8px;
+  background:#11171b;
+}
+.action-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:8px 9px;
+  border-bottom:1px solid #28443f;
+  background:#12231f;
+  font-size:11px;
+  font-weight:750;
+}
+.risk{color:var(--green);font:9px/1 ui-monospace,SFMono-Regular,Menlo,monospace}
+.action-body{padding:9px}
+.action-body ol{margin:0;padding-left:17px;color:var(--muted);font-size:11px}
+.action-buttons{display:flex;gap:7px;margin-top:9px}
+.button{
+  min-height:32px;
+  padding:7px 10px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  background:#242a33;
+  color:var(--text);
+  cursor:pointer;
+  font-size:11px;
+  font-weight:700;
+}
+.button:hover{border-color:#55606f;background:#2b323d}
+.button.primary{border-color:#24675d;background:#12312d;color:var(--green)}
+.composer{
+  padding:10px;
+  border-top:1px solid var(--line);
+  background:#11151b;
+}
+.composer-box{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+.composer textarea{
+  width:100%;
+  height:58px;
+  resize:none;
+  padding:9px 10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  outline:0;
+  background:#0b0e12;
+  color:var(--text);
+}
+.composer textarea:focus{border-color:#287367}
+.composer-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;color:var(--muted);font-size:10px}
+.permission{color:var(--yellow);font:700 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace}
+.toast{
+  position:fixed;
+  bottom:18px;
+  left:50%;
+  z-index:90;
+  padding:9px 12px;
+  border:1px solid var(--line-strong);
+  border-radius:8px;
+  background:#1b2027;
+  color:var(--text);
+  box-shadow:0 16px 38px rgba(0,0,0,.42);
+  opacity:0;
+  pointer-events:none;
+  transform:translate(-50%,8px);
+  transition:.16s;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:700px){
+  .assistant-window{
+    top:8px;
+    right:8px;
+    width:calc(100vw - 16px);
+    height:calc(100dvh - 16px);
+    min-height:0;
+  }
+  .assistant-head{cursor:default;touch-action:auto}
+  .assistant-launcher{right:12px;bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*:before,*:after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+  <iframe
+    class="host-demo"
+    id="hostDemo"
+    src="./overview-v0.86.5-demo.html"
+    title="ExoAnchor 0.86.5 Overview"
+  ></iframe>
+
+  <button class="assistant-launcher" id="assistantLauncher" type="button" aria-label="打开 ExoAnchor Agent" aria-expanded="false">
+    <span class="launcher-mark">H</span>
+    <span class="launcher-copy">ExoAnchor Agent<small>⌘/ 随时呼出</small></span>
+  </button>
+
+  <aside class="assistant-window" id="assistantWindow" role="dialog" aria-label="ExoAnchor Agent" aria-modal="false">
+    <header class="assistant-head" id="assistantDragHandle" title="拖动以移动窗口，双击恢复位置">
+      <span class="assistant-icon">H</span>
+      <span class="assistant-title"><b>ExoAnchor Agent</b><span id="assistantStatus">READY · SUPERVISED</span></span>
+      <span class="badge">ONLINE</span>
+      <button class="head-button" id="newThreadButton" type="button" aria-label="新建对话">＋</button>
+      <button class="head-button" id="closeAssistantButton" type="button" aria-label="关闭助手">×</button>
+    </header>
+
+    <div class="assistant-context" aria-label="当前上下文">
+      <span class="context-chip"><strong>PAGE</strong> <span id="pageContext">Overview</span></span>
+      <span class="context-chip"><strong>DEVICE</strong> ESP32-P4</span>
+      <span class="context-chip"><strong>MODE</strong> Supervised</span>
+    </div>
+
+    <section class="conversation" id="conversation" aria-label="对话记录" aria-live="polite">
+      <div class="bubble system">这是叠加在 0.86 界面上的助手原型。底层页面及其交互保持不变。</div>
+      <div class="bubble user">UART 已稳定在 115200，但画面偶尔还会抖。下一步检查什么？</div>
+      <div class="bubble agent">
+        <div class="bubble-meta">ExoAnchor Agent · 当前设备</div>
+        我建议先做只读采样，把串口链路和 UVC 采集路径分开判断。
+        <div class="evidence">
+          <div class="evidence-row"><span>UART1</span><b>115200 · stable</b></div>
+          <div class="evidence-row"><span>UVC</span><b>1080p25 · 3 jitters</b></div>
+          <div class="evidence-row"><span>权限</span><b>等待批准</b></div>
+        </div>
+        <div class="action-card" id="diagnosticAction">
+          <div class="action-head"><span>采集 60 秒只读诊断</span><span class="risk">LOW RISK</span></div>
+          <div class="action-body">
+            <ol>
+              <li>记录帧间隔和丢帧计数</li>
+              <li>同步 PSRAM 与 USB 事件</li>
+              <li>生成时间对齐摘要</li>
+            </ol>
+            <div class="action-buttons">
+              <button class="button primary" id="approveActionButton" type="button">批准</button>
+              <button class="button" id="rejectActionButton" type="button">暂不执行</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="composer">
+      <div class="composer-box">
+        <textarea id="composerInput" placeholder="询问当前设备或页面…" aria-label="发送给 ExoAnchor Agent 的消息"></textarea>
+        <button class="button primary" id="sendButton" type="button">发送</button>
+      </div>
+      <div class="composer-foot"><span>⌘/Ctrl + Enter 发送</span><span class="permission">高风险操作始终询问</span></div>
+    </footer>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const body = document.body;
+  const assistant = document.getElementById("assistantWindow");
+  const handle = document.getElementById("assistantDragHandle");
+  const launcher = document.getElementById("assistantLauncher");
+  const closeButton = document.getElementById("closeAssistantButton");
+  const newThreadButton = document.getElementById("newThreadButton");
+  const input = document.getElementById("composerInput");
+  const sendButton = document.getElementById("sendButton");
+  const conversation = document.getElementById("conversation");
+  const hostDemo = document.getElementById("hostDemo");
+  const pageContext = document.getElementById("pageContext");
+  const toast = document.getElementById("toast");
+  const mobileQuery = window.matchMedia("(max-width: 700px)");
+  let drag = null;
+  let toastTimer = 0;
+
+  function setOpen(open) {
+    body.classList.toggle("assistant-open", open);
+    launcher.setAttribute("aria-expanded", String(open));
+    if (open) requestAnimationFrame(() => input.focus({ preventScroll: true }));
+  }
+
+  function toggle() {
+    setOpen(!body.classList.contains("assistant-open"));
+  }
+
+  function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+
+  function appendBubble(kind, text) {
+    const bubble = document.createElement("div");
+    bubble.className = `bubble ${kind}`;
+    bubble.textContent = text;
+    conversation.appendChild(bubble);
+    conversation.scrollTop = conversation.scrollHeight;
+    return bubble;
+  }
+
+  function replyForPage(page) {
+    const replies = {
+      Overview: "我会结合当前设备状态、性能和最近异常给出建议。Demo 中不会执行真实设备操作。",
+      KVM: "我可以引用当前 KVM 页面上下文，但在人工控制期间不会抢占 HID 控制权。",
+      Agent: "当前对话会继续保留；完整 Workspace 仍可用于查看 Threads、Runs 和 Capabilities。",
+      Terminal: "我可以分析 SSH 或 UART 输出。需要发送命令时，会先显示命令和权限等级。",
+      Settings: "我可以解释设置影响；保存、重启和烧录等操作仍然需要明确批准。"
+    };
+    return replies[page] || replies.Overview;
+  }
+
+  function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+    appendBubble("user", text);
+    input.value = "";
+    const pending = appendBubble("system", "ExoAnchor Agent 正在读取已附加的页面上下文…");
+    setTimeout(() => {
+      pending.remove();
+      appendBubble("agent", replyForPage(pageContext.textContent));
+    }, 420);
+  }
+
+  function resetPosition() {
+    assistant.style.removeProperty("left");
+    assistant.style.removeProperty("top");
+    assistant.style.removeProperty("right");
+  }
+
+  function startDrag(event) {
+    if (mobileQuery.matches || event.button !== 0 || event.target.closest("button")) return;
+    const rect = assistant.getBoundingClientRect();
+    drag = {
+      id: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top
+    };
+    assistant.style.left = `${rect.left}px`;
+    assistant.style.top = `${rect.top}px`;
+    assistant.style.right = "auto";
+    assistant.classList.add("dragging");
+    handle.setPointerCapture(event.pointerId);
+  }
+
+  function moveDrag(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    const rect = assistant.getBoundingClientRect();
+    const maxLeft = Math.max(8, innerWidth - rect.width - 8);
+    const maxTop = Math.max(8, innerHeight - rect.height - 8);
+    assistant.style.left = `${Math.min(Math.max(8, event.clientX - drag.offsetX), maxLeft)}px`;
+    assistant.style.top = `${Math.min(Math.max(8, event.clientY - drag.offsetY), maxTop)}px`;
+  }
+
+  function stopDrag(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    assistant.classList.remove("dragging");
+    drag = null;
+  }
+
+  function bindShortcut(target) {
+    target.addEventListener("keydown", event => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "/") {
+        event.preventDefault();
+        toggle();
+      } else if (event.key === "Escape" && body.classList.contains("assistant-open")) {
+        setOpen(false);
+      }
+    });
+  }
+
+  function bindHostDemo() {
+    try {
+      const doc = hostDemo.contentDocument;
+      if (!doc) return;
+      bindShortcut(doc);
+      doc.querySelectorAll(".nav-button").forEach(button => {
+        button.addEventListener("click", () => {
+          pageContext.textContent = button.textContent.trim();
+        });
+      });
+      doc.querySelectorAll("[data-go]").forEach(button => {
+        button.addEventListener("click", () => {
+          const page = button.dataset.go;
+          pageContext.textContent = page ? page.charAt(0).toUpperCase() + page.slice(1) : "Overview";
+        });
+      });
+    } catch (error) {
+      pageContext.textContent = "0.86 UI";
+    }
+  }
+
+  launcher.addEventListener("click", () => setOpen(true));
+  closeButton.addEventListener("click", () => setOpen(false));
+  sendButton.addEventListener("click", sendMessage);
+  input.addEventListener("keydown", event => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      sendMessage();
+    }
+  });
+  newThreadButton.addEventListener("click", () => {
+    conversation.replaceChildren();
+    appendBubble("system", "已创建新的本地演示对话；0.86 页面状态没有变化。");
+    showToast("新对话已创建");
+  });
+  document.getElementById("approveActionButton").addEventListener("click", event => {
+    const card = event.currentTarget.closest(".action-card");
+    card.innerHTML = '<div class="action-head"><span>只读诊断已批准</span><span class="risk">SIMULATED</span></div><div class="action-body">Demo 已记录审批流程；没有向设备发送命令。</div>';
+    appendBubble("system", "只读诊断模拟完成：UART 无帧错误；UVC 检测到 3 次帧间隔偏差。");
+  });
+  document.getElementById("rejectActionButton").addEventListener("click", event => {
+    event.currentTarget.closest(".action-card").remove();
+    appendBubble("system", "已取消建议操作，没有执行任何命令。");
+  });
+  handle.addEventListener("pointerdown", startDrag);
+  handle.addEventListener("pointermove", moveDrag);
+  handle.addEventListener("pointerup", stopDrag);
+  handle.addEventListener("pointercancel", stopDrag);
+  handle.addEventListener("dblclick", resetPosition);
+  hostDemo.addEventListener("load", bindHostDemo);
+  bindShortcut(document);
+  mobileQuery.addEventListener("change", resetPosition);
+})();
+</script>
+</body>
+</html>

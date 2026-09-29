@@ -1,0 +1,7 @@
+# Experimental override for a PrototypeV2.3 board with physical EEPROM U5
+# deliberately depopulated. Include this after the normal V2.3 board overlay.
+# Never use it on an assembled b6 board: U5 and the ESP32-P4 emulator would
+# contend for the MS2109 EEPROM bus at address 0x50.
+CONFIG_SI_MS2109_EEPROM_EMULATOR_ENABLE=y
+CONFIG_SI_MS2109_EEPROM_SCL_GPIO=47
+CONFIG_SI_MS2109_EEPROM_SDA_GPIO=48

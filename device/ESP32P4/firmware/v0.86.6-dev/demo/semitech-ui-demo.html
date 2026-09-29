@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExoAnchor ESP32-P4 UI Demo</title>
+<style>
+:root{color-scheme:dark;--bg:#111214;--surface:#181a1e;--surface2:#202329;--line:#32363f;--text:#f2f4f7;--muted:#9ba3af;--soft:#c9ced6;--ok:#35d0a2;--warn:#f0b84c;--bad:#ee6b6e;--info:#75b7ff;--chip:#262a31}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}
+.top{height:60px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:18px;padding:0 20px;background:#15171a;position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:11px;min-width:220px}
+.mark{width:32px;height:32px;border-radius:7px;border:1px solid #4b5563;display:grid;place-items:center;background:#21242b;font-weight:800}
+.brand-title{font-weight:750;letter-spacing:0}.brand-sub{font-size:12px;color:var(--muted);margin-top:-2px}
+.nav{display:flex;align-items:center;gap:6px}.nav a{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}.nav a.active,.nav a:hover{background:var(--surface2);color:var(--text)}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0}.pill{border:1px solid var(--line);background:var(--chip);color:var(--soft);border-radius:999px;padding:6px 10px;font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.pill.ok{border-color:#236e5b;color:var(--ok)}.pill.warn{border-color:#755a20;color:var(--warn)}.pill.bad{border-color:#77373b;color:var(--bad)}
+.wrap{max-width:1320px;margin:0 auto;padding:22px}
+.hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,.6fr);gap:14px;margin-bottom:14px}
+.status-panel{border:1px solid var(--line);background:linear-gradient(180deg,#1c1f24 0%,#181a1e 100%);border-radius:8px;padding:18px;min-width:0}
+.state-line{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.state-text h1{margin:0;font-size:24px;line-height:1.15;letter-spacing:0}.state-text p{margin:8px 0 0;color:var(--muted);max-width:760px}
+.state-dot{width:12px;height:12px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 5px rgba(53,208,162,.12);margin-top:7px;flex:0 0 auto}
+.state-panel.warn .state-dot{background:var(--warn);box-shadow:0 0 0 5px rgba(240,184,76,.12)}.state-panel.bad .state-dot{background:var(--bad);box-shadow:0 0 0 5px rgba(238,107,110,.12)}
+.quick-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.btn{border:1px solid var(--line);background:#252932;color:var(--text);border-radius:6px;padding:10px 12px;cursor:pointer;font-weight:700}.btn.primary{background:#17352f;border-color:#23745e;color:#dffbf2}.btn:hover{border-color:#5b636f;background:#2b303a}.btn:disabled{opacity:.48;cursor:not-allowed}
+.attention{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:16px}.attention h2,.section h2,.panel h2{font-size:14px;margin:0 0 12px;color:#dfe3e9}.task{display:grid;grid-template-columns:12px minmax(0,1fr);gap:9px;padding:10px 0;border-bottom:1px solid #252932}.task:last-child{border-bottom:0}.task i{width:9px;height:9px;border-radius:50%;background:var(--ok);margin-top:6px}.task.warn i{background:var(--warn)}.task.bad i{background:var(--bad)}.task b{display:block;font-weight:700}.task span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(330px,.45fr);gap:14px}.section,.panel{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:16px;min-width:0}
+.console{aspect-ratio:16/9;border:1px solid #30343b;border-radius:6px;background:#050607;position:relative;overflow:hidden;display:grid;place-items:center}
+.screen{width:86%;height:74%;border:1px solid #28323d;background:linear-gradient(180deg,#0a1017,#101924);box-shadow:0 18px 55px rgba(0,0,0,.45);padding:18px;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#b9f7df}
+.screen .line{height:10px;margin:8px 0;background:#193631;border-radius:2px}.screen .line:nth-child(2){width:76%;background:#2a3d54}.screen .line:nth-child(3){width:54%;background:#3a3322}.screen .line:nth-child(4){width:68%}.screen .prompt{position:absolute;left:7%;bottom:8%;color:#66717e;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}
+.console-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.meta{display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface2);border-radius:6px;padding:8px 10px;color:var(--soft)}.meta i{width:8px;height:8px;border-radius:50%;background:var(--ok)}.meta.warn i{background:var(--warn)}.meta.bad i{background:var(--bad)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}.card{border:1px solid var(--line);background:#191c21;border-radius:8px;padding:14px;min-width:0}.card .label{font-size:12px;color:var(--muted)}.card .value{font-size:22px;font-weight:800;margin-top:4px;overflow-wrap:anywhere}.card .small{font-size:12px;color:var(--muted);margin-top:6px}
+.rows{display:grid;gap:9px}.row{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid var(--line);background:var(--surface2);border-radius:6px;padding:10px}.row b{font-weight:680}.row span{color:var(--soft);text-align:right;overflow-wrap:anywhere}.row.muted span{color:var(--muted)}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tab{border:1px solid var(--line);background:#232730;color:var(--muted);border-radius:6px;padding:8px 10px;cursor:pointer}.tab.active{color:var(--text);border-color:#4b5563;background:#2d333d}
+.diag{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.diag .row{min-height:46px}
+.scenario{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}.scenario button{border:1px solid var(--line);background:#20242b;color:var(--muted);border-radius:6px;padding:7px 10px;cursor:pointer}.scenario button.active{color:var(--text);border-color:#4e5968;background:#2a303a}
+@media(max-width:980px){.hero,.grid{grid-template-columns:1fr}.cards,.diag{grid-template-columns:1fr}.top{height:auto;align-items:flex-start;flex-direction:column;padding:14px}.top-right{margin-left:0;flex-wrap:wrap}.brand{min-width:0}.state-line{align-items:flex-start}.state-text h1{font-size:21px}}
+</style>
+</head>
+<body>
+<nav class="top">
+  <div class="brand"><div class="mark">EA</div><div><div class="brand-title">ExoAnchor ESP32-P4</div><div class="brand-sub">Desk Node</div></div></div>
+  <div class="nav"><a class="active" href="#">Overview</a><a href="#">KVM</a><a href="#">Settings</a></div>
+  <div class="top-right"><span id="topVideo" class="pill ok">Video ready</span><span id="topHid" class="pill ok">HID ready</span><span class="pill">v0.84.1</span></div>
+</nav>
+<main class="wrap">
+  <div class="scenario" aria-label="demo states">
+    <button class="active" data-state="ready">Ready</button>
+    <button data-state="warning">Needs attention</button>
+    <button data-state="offline">Video missing</button>
+  </div>
+  <section class="hero">
+    <div id="statePanel" class="status-panel state-panel">
+      <div class="state-line">
+        <div class="state-text">
+          <h1 id="stateTitle">可以接管这台主机</h1>
+          <p id="stateCopy">视频、键盘鼠标和网络都已连接。当前硬件是 Waveshare NANO DIY，电源控制不可用。</p>
+        </div>
+        <div class="state-dot" aria-hidden="true"></div>
+      </div>
+      <div class="quick-actions">
+        <button class="btn primary">进入 KVM</button>
+        <button class="btn">刷新画面</button>
+        <button class="btn">查看诊断</button>
+        <button class="btn" disabled>电源控制</button>
+      </div>
+    </div>
+    <aside class="attention">
+      <h2>需要关注</h2>
+      <div id="tasks">
+        <div class="task"><i></i><div><b>安全状态正常</b><span>本地账户已替换默认密码。</span></div></div>
+        <div class="task"><i></i><div><b>视频流稳定</b><span>1280x720 MJPEG，最近无丢帧告警。</span></div></div>
+        <div class="task warn"><i></i><div><b>硬件能力有限</b><span>DIY 版本不支持 Power / Reset。</span></div></div>
+      </div>
+    </aside>
+  </section>
+  <section class="grid">
+    <div class="section">
+      <h2>主机画面</h2>
+      <div class="console">
+        <div class="screen" id="screenMock">
+          ExoAnchor remote console<br>
+          host login: _
+          <div class="line"></div>
+          <div class="line"></div>
+          <div class="line"></div>
+          <div class="line"></div>
+          <div class="prompt">HDMI via MS2109</div>
+        </div>
+      </div>
+      <div class="console-meta">
+        <div id="videoMeta" class="meta"><i></i><span>Video 1280x720 @ 30fps</span></div>
+        <div id="hidMeta" class="meta"><i></i><span>Keyboard and mouse ready</span></div>
+        <div class="meta warn"><i></i><span>Power unavailable on DIY hardware</span></div>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="label">IP 地址</div><div class="value">192.0.2.10</div><div class="small">Ethernet / DHCP</div></div>
+        <div class="card"><div class="label">运行时间</div><div class="value">0d 3h 18m</div><div class="small">Last boot stable</div></div>
+        <div class="card"><div class="label">帧状态</div><div id="frameValue" class="value">30 fps</div><div id="frameSmall" class="small">MJPEG stream active</div></div>
+      </div>
+    </div>
+    <aside class="panel">
+      <div class="tabs"><button class="tab active">Status</button><button class="tab">Advanced</button></div>
+      <div class="rows">
+        <div class="row"><b>Device</b><span>Desk Node</span></div>
+        <div id="videoRow" class="row"><b>Video</b><span>Ready</span></div>
+        <div id="hidRow" class="row"><b>Control</b><span>Ready</span></div>
+        <div class="row"><b>Network</b><span>100M full duplex</span></div>
+        <div class="row muted"><b>Power / Reset</b><span>Not available</span></div>
+      </div>
+      <h2 style="margin-top:18px">诊断摘要</h2>
+      <div class="diag">
+        <div class="row"><b>Heap</b><span>412 KB free</span></div>
+        <div class="row"><b>PSRAM</b><span>6.8 MB free</span></div>
+        <div class="row"><b>Clients</b><span>2 active</span></div>
+        <div class="row"><b>Errors</b><span>0 recent</span></div>
+      </div>
+    </aside>
+  </section>
+</main>
+<script>
+const states={
+  ready:{
+    cls:"",title:"可以接管这台主机",copy:"视频、键盘鼠标和网络都已连接。当前硬件是 Waveshare NANO DIY，电源控制不可用。",
+    video:["Video ready","ok"],hid:["HID ready","ok"],videoRow:"Ready",hidRow:"Ready",frame:"30 fps",frameSmall:"MJPEG stream active",
+    tasks:`<div class="task"><i></i><div><b>安全状态正常</b><span>本地账户已替换默认密码。</span></div></div><div class="task"><i></i><div><b>视频流稳定</b><span>1280x720 MJPEG，最近无丢帧告警。</span></div></div><div class="task warn"><i></i><div><b>硬件能力有限</b><span>DIY 版本不支持 Power / Reset。</span></div></div>`
+  },
+  warning:{
+    cls:"warn",title:"可以访问，但控制线需要检查",copy:"网络和视频在线，USB HID 尚未被主机枚举。通常是 D+/D- 接线、5V/GND 或被控主机 USB 口问题。",
+    video:["Video ready","ok"],hid:["HID waiting","warn"],videoRow:"Ready",hidRow:"Waiting for host",frame:"30 fps",frameSmall:"Video active, input waiting",
+    tasks:`<div class="task warn"><i></i><div><b>USB HID 未就绪</b><span>检查 GPIO26/GPIO27、5V 和 GND。</span></div></div><div class="task"><i></i><div><b>视频正常</b><span>HDMI 画面正在刷新。</span></div></div><div class="task warn"><i></i><div><b>电源控制不可用</b><span>DIY 版本需要主机侧 Wake-on-LAN。</span></div></div>`
+  },
+  offline:{
+    cls:"bad",title:"没有检测到可用画面",copy:"设备在线，键鼠控制可用，但采集卡还没有输出完整帧。优先检查 HDMI 输入和 MS2109 是否插在 USB-A host 口。",
+    video:["Video missing","bad"],hid:["HID ready","ok"],videoRow:"No frame",hidRow:"Ready",frame:"--",frameSmall:"Waiting for complete MJPEG frame",
+    tasks:`<div class="task bad"><i></i><div><b>没有画面</b><span>检查 HDMI 线、被控主机输出和采集卡。</span></div></div><div class="task"><i></i><div><b>键鼠可用</b><span>USB HID 已被主机枚举。</span></div></div><div class="task warn"><i></i><div><b>网络在线</b><span>可继续查看诊断日志。</span></div></div>`
+  }
+};
+function setPill(el,text,kind){el.textContent=text;el.className="pill "+(kind==="ok"?"ok":kind==="warn"?"warn":"bad")}
+document.querySelectorAll(".scenario button").forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll(".scenario button").forEach(b=>b.classList.toggle("active",b===btn));
+  const s=states[btn.dataset.state];
+  statePanel.className="status-panel state-panel "+s.cls;
+  stateTitle.textContent=s.title;stateCopy.textContent=s.copy;tasks.innerHTML=s.tasks;
+  setPill(topVideo,s.video[0],s.video[1]);setPill(topHid,s.hid[0],s.hid[1]);
+  videoRow.querySelector("span").textContent=s.videoRow;hidRow.querySelector("span").textContent=s.hidRow;
+  frameValue.textContent=s.frame;frameSmall.textContent=s.frameSmall;
+  videoMeta.className="meta "+(s.video[1]==="ok"?"":s.video[1]);videoMeta.querySelector("span").textContent=s.video[0]==="Video missing"?"No complete frame yet":"Video 1280x720 @ 30fps";
+  hidMeta.className="meta "+(s.hid[1]==="ok"?"":s.hid[1]);hidMeta.querySelector("span").textContent=s.hid[0]==="HID waiting"?"Keyboard and mouse waiting":"Keyboard and mouse ready";
+});
+</script>
+</body>
+</html>

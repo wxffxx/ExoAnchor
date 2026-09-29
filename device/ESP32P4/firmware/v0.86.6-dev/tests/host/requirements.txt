@@ -1,0 +1,2 @@
+# Imported by the offline H.264 acceptance contract tests.
+requests>=2.32,<3

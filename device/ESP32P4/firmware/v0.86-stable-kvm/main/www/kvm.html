@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32P4 KVM</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0c0f;--panel:#15181e;--panel2:#20242c;--line:#30343d;--text:#eef2f6;--muted:#98a2af;--green:#2dd4bf;--red:#f87171;--yellow:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;overflow:hidden}
+body.touch-capture,body.touch-capture *{cursor:none!important}
+.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:flex-start;gap:22px;padding:0 18px;background:#12151a}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}.logo{width:32px;height:32px;border:1px solid #4b5563;border-radius:6px;display:grid;place-items:center;font-weight:800;background:#20242c;flex:0 0 auto}.title{font-weight:700;white-space:nowrap}.sub{font-size:12px;color:var(--muted);margin-top:-2px}
+.nav{display:flex;align-items:center;gap:8px;flex:0 0 auto}.nav a,.nav button{color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:6px}.nav a.active,.nav a:hover,.nav button:hover{background:#20242c;color:var(--text)}.nav button{border:0;background:transparent;font:inherit;cursor:pointer}#logoutNav:hover{background:#3a171b;color:#fecaca;box-shadow:inset 0 0 0 1px #7f2d2d}.version-pill{color:var(--muted);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:7px 0}
+.status-strip{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-left:auto}.power-menu{position:relative}.power-menu>button{min-height:30px;padding:6px 9px;border-radius:999px;font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.power-menu-list{position:absolute;right:0;top:calc(100% + 8px);z-index:15;display:grid;gap:6px;min-width:132px;padding:8px;border:1px solid var(--line);border-radius:8px;background:#15181e;box-shadow:0 16px 42px rgba(0,0,0,.45)}.power-menu-list.hide{display:none}.power-menu-list button{width:100%;justify-content:flex-start;text-align:left}.power-menu-list button:disabled,.power-menu>button:disabled{opacity:.45;cursor:not-allowed}
+.lease-banner{position:absolute;top:12px;right:12px;z-index:4;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #705720;border-radius:9px;background:#322610e8;color:var(--yellow);font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 10px 28px rgba(0,0,0,.35)}.lease-banner.hide{display:none}.lease-banner button{min-height:30px;padding:7px 9px}
+button,select{border:1px solid var(--line);background:#232732;color:var(--text);border-radius:6px;padding:8px 10px;font-weight:650;line-height:1;min-height:34px}button{cursor:pointer}select{max-width:190px}button:hover,select:hover{border-color:#59606d;background:#2a303b}button.active{color:var(--green);border-color:#1f766d;background:#17302f}button.danger{border-color:#7f2d2d;color:#fecaca}
+.stage{height:calc(100vh - 58px);display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,280px);gap:14px;padding:14px;background:#090a0d}.screen{position:relative;display:grid;place-items:center;overflow:hidden;background:#020203;border:1px solid #252a33;border-radius:8px;box-shadow:0 18px 46px rgba(0,0,0,.42);min-width:0;min-height:0;padding:0}.screen img{position:absolute;left:8px;top:8px;width:calc(100% - 16px);height:calc(100% - 16px);min-width:0;min-height:0;object-fit:contain;object-position:center;display:block}body.keyboard-capture .screen{border-color:#1f766d;box-shadow:0 0 0 2px rgba(45,212,191,.18),0 18px 46px rgba(0,0,0,.42)}body.kvm-readonly .screen{border-color:#7c5d16;box-shadow:0 0 0 2px rgba(251,191,36,.16),0 18px 46px rgba(0,0,0,.42)}
+.nosignal{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);text-align:center;background:#050506;pointer-events:none}.nosignal.hide{display:none}.nosignal b{display:block;color:var(--text);font-size:28px;margin-bottom:6px}
+.screen-pad{position:absolute;inset:0;cursor:crosshair;outline:none}body.kvm-readonly .screen-pad{pointer-events:none;cursor:default}.cursor{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--green);border:1px solid white;transform:translate(-50%,-50%);pointer-events:none;opacity:0}
+.side{border-left:1px solid var(--line);background:#121419;padding:10px;display:flex;flex-direction:column;gap:10px;overflow:hidden auto;min-width:0}.panel{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:10px}.panel h2{font-size:13px;margin:0 0 10px;color:#dce1e8}.row{display:flex;justify-content:space-between;gap:12px;color:var(--muted);padding:7px 0;border-bottom:1px solid #242832}.row:last-child{border-bottom:0}.row b{color:var(--text);font-weight:650;text-align:right;word-break:break-word}
+.side-field{display:grid;gap:6px;margin-bottom:10px}.side-field label{font-size:12px;color:var(--muted);font-weight:650}.side select{width:100%;max-width:none}.control-grid,.shortcut-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.shortcut-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.control-grid button,.shortcut-grid button{min-width:0;padding:8px 5px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.shortcut-grid .combo{grid-column:1/-1}.side-hint{margin-top:8px;color:var(--muted);font-size:11px;line-height:1.35}
+.tool-window{position:fixed;right:18px;bottom:18px;width:min(380px,calc(100vw - 28px));max-height:min(680px,calc(100vh - 120px));z-index:12;border:1px solid var(--line);border-radius:8px;background:#121419;box-shadow:0 18px 60px rgba(0,0,0,.48);display:flex;flex-direction:column;overflow:hidden}.tool-window.hide{display:none}.tool-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);background:#171a20}.tool-head h2{font-size:13px;margin:0;color:#dce1e8}.tool-head button{min-height:30px;padding:7px 9px}.tool-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);background:#121419}.tool-tabs button{min-width:0}.tool-body{padding:12px;overflow:auto}.tool-body.hide{display:none}
+.mouse-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}.mouse-tabs button{min-width:0}.mouse-pane{display:grid;gap:10px}.mouse-pane.hide{display:none}
+.joystick{position:relative;width:min(190px,100%);aspect-ratio:1;margin:0 auto;border:1px solid #3a404b;border-radius:50%;background:#171b21;touch-action:none;outline:none}.joystick:focus-visible,.touchpad:focus-visible,.screen-pad:focus-visible{box-shadow:0 0 0 2px rgba(45,212,191,.55)}
+.joy-axis{position:absolute;inset:18%;border:1px solid #343a44;border-radius:50%;pointer-events:none}.joy-axis:before,.joy-axis:after{content:"";position:absolute;background:#343a44;opacity:.75}.joy-axis:before{left:50%;top:0;bottom:0;width:1px}.joy-axis:after{top:50%;left:0;right:0;height:1px}
+.joy-thumb{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:50%;border:1px solid #6b7280;background:#d8dee8;box-shadow:0 8px 18px rgba(0,0,0,.35);transform:translate(-50%,-50%);pointer-events:none}
+.touchpad{position:relative;height:156px;border:1px solid #3a404b;border-radius:8px;background:#1b2028;touch-action:none;overflow:hidden;outline:none}.touchpad:before{content:"触控板";position:absolute;inset:0;display:grid;place-items:center;color:#687180;font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0}.touchpad.locked{border-color:#1f766d;cursor:none;background:#172522}
+.touch-dot{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--green);border:1px solid white;transform:translate(-50%,-50%);opacity:0;pointer-events:none}.mouse-speed{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px;color:var(--muted);font-size:12px}input[type=range]{width:100%;accent-color:var(--green)}
+.mouse-buttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.mouse-buttons.three{grid-template-columns:repeat(3,minmax(0,1fr))}.mouse-buttons button{min-width:0;padding:8px 4px;font-size:12px}
+.capture-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;color:#dce1e8;font-weight:650}.switch-control{display:inline-flex;align-items:center;gap:8px;min-height:34px;color:var(--text);font-weight:650;cursor:pointer;user-select:none}.switch-control input{position:absolute;opacity:0;pointer-events:none}.switch-track{position:relative;width:48px;height:28px;border:1px solid #3b414c;border-radius:999px;background:#30343d;transition:background .18s,border-color .18s}.switch-thumb{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#d8dee8;box-shadow:0 3px 8px rgba(0,0,0,.35);transition:transform .18s,background .18s}.switch-control input:checked+.switch-track{background:#17302f;border-color:#1f766d}.switch-control input:checked+.switch-track .switch-thumb{transform:translateX(20px);background:var(--green)}.switch-control input:focus-visible+.switch-track{outline:2px solid rgba(45,212,191,.45);outline-offset:2px}.switch-text{font-size:13px;color:var(--muted);min-width:34px}.capture-msg{min-height:18px;margin:-2px 0 8px;color:var(--muted);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}.capture-msg.ok{color:var(--green)}.capture-msg.bad{color:var(--red)}.capture-msg.warn{color:var(--yellow)}
+.keys{display:grid;gap:5px;min-width:0}.keyrow{display:flex;gap:5px;min-width:0}.key{flex:1 1 0;min-width:0;height:32px;padding:0 3px;font-size:10px;white-space:nowrap;overflow:hidden}.wide{flex:3 1 0}.modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,6,8,.72);z-index:20;padding:18px}.modal.show{display:grid}.dialog{width:min(430px,100%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45)}.dialog h2{font-size:16px;margin:0 0 6px}.dialog p{margin:0 0 14px;color:var(--muted)}.dialog .field{display:grid;gap:6px;margin-bottom:10px}.dialog label{font-size:12px;color:var(--muted)}.dialog input{width:100%;border:1px solid var(--line);background:#0e1014;color:var(--text);border-radius:6px;padding:11px 12px;font:15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.dialog input:focus{outline:2px solid rgba(45,212,191,.35);border-color:#1f766d}.dialog .msg{min-height:20px;color:var(--muted);margin-top:10px}.dialog .msg.bad{color:var(--red)}.dialog .msg.ok{color:var(--green)}
+@media(max-width:900px){body{overflow:hidden}.top{height:auto;align-items:flex-start;flex-direction:column;padding:12px;gap:10px}.status-strip{justify-content:flex-start;margin-left:0}.stage{height:calc(100vh - 106px);grid-template-columns:1fr;grid-template-rows:minmax(220px,50vh) minmax(0,1fr);gap:12px;padding:12px}.side{border-left:0;border-top:1px solid var(--line);min-height:0}.tool-window{right:8px;bottom:8px;width:calc(100vw - 16px);max-height:calc(100vh - 84px)}}
+/* Control Center workspace */
+:root{--bg:#0b0d10;--panel:#15191f;--panel2:#1b2028;--line:#2b333e;--text:#f4f7fa;--muted:#8d98a7;--green:#54d6bd;--red:#ff7b7f;--yellow:#f2be63}
+.top{height:64px;padding:0 20px;gap:18px;background:rgba(17,20,25,.95);backdrop-filter:blur(18px)}.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(145deg,#252c36,#171b21)}.nav{gap:5px;overflow:auto;scrollbar-width:none}.nav a,.nav button{padding:8px 11px;border-radius:8px;font-weight:650;white-space:nowrap}.version-pill{display:none}.stage{height:calc(100vh - 64px);grid-template-columns:minmax(0,1fr) 300px;padding:14px;gap:14px;background:#080a0d}.screen{border-color:#2a4e48;border-radius:12px;box-shadow:inset 0 0 0 3px rgba(84,214,189,.035),0 22px 70px rgba(0,0,0,.28)}.side{padding:14px;background:#101319}.panel{padding:13px;border-radius:10px}.tool-window{border-radius:11px}
+@media(max-width:900px){.top{height:auto}.nav{width:100%}.stage{height:calc(100vh - 118px);grid-template-rows:minmax(260px,55vh) minmax(0,1fr);overflow:auto}.screen{min-height:260px}.side{overflow:visible}}
+</style>
+<link rel="stylesheet" href="/assets/ui-core.css">
+<link rel="stylesheet" href="/assets/ui-shell.css">
+<script src="/assets/ui-core.js"></script>
+<script src="/assets/ui-shell.js"></script>
+</head>
+<body>
+<div id="appShell"></div><script>ExoAnchorShell.mount("kvm")</script>
+<main class="stage">
+  <section id="screen" class="screen">
+    <div id="externalTakeoverBanner" class="lease-banner hide"><span>EXTERNAL CONTROL OWNER</span><button id="reclaimKvm" type="button">接管回来</button></div>
+    <img id="video" alt="">
+    <div id="nosignal" class="nosignal"><div><b>No Video</b><div id="videoText">waiting for USB UVC frame</div></div></div>
+    <div id="screenPad" class="screen-pad" tabindex="0"></div>
+    <div id="cursor" class="cursor"></div>
+  </section>
+  <aside class="side">
+    <div class="panel">
+      <h2>KVM 设置</h2>
+      <div class="side-field"><label for="resolutionSelect">视频模式</label><select id="resolutionSelect"></select></div>
+      <div class="capture-row"><span>键盘直通</span><label class="ui-switch"><input id="keyboardPassthrough" type="checkbox" role="switch" aria-label="键盘直通"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span id="keyboardPassthroughText" class="ui-switch-state">关闭</span></label></div>
+      <div class="capture-row"><span>Direct Click</span><label class="ui-switch"><input id="directClickToggle" type="checkbox" role="switch" aria-label="Direct Click"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span id="directClickText" class="ui-switch-state">关闭</span></label></div>
+      <div id="keyboardCaptureMsg" class="capture-msg">待机</div>
+      <div class="control-grid"><button id="controlPopupToggle">鼠标/键盘</button><button id="syncPointer" title="Move the absolute pointer to the hovered video position">Sync</button><button id="snapshot">Snapshot</button><button id="release">Release</button><button id="reload">Reload</button><button id="fs">Fullscreen</button></div>
+    </div>
+    <div class="panel">
+      <h2>快捷键</h2>
+      <div class="shortcut-grid"><button class="combo" data-combo="ctrl-alt-del">Ctrl Alt Del</button><button class="combo" data-combo="alt-tab">Alt Tab</button><button class="combo" data-combo="alt-f4">Alt F4</button><button data-shortcut-key="ControlLeft" title="单击发送，双击 Hold">Ctrl</button><button data-shortcut-key="AltLeft" title="单击发送，双击 Hold">Alt</button><button data-shortcut-key="MetaLeft" title="单击发送，双击 Hold">Win</button><button data-shortcut-key="ShiftLeft" title="单击发送，双击 Hold">Shift</button><button data-shortcut-key="PrintScreen" title="单击发送，双击 Hold">PrtSc</button><button data-shortcut-key="F8" title="单击发送，双击 Hold">F8</button><button data-shortcut-key="F11" title="单击发送，双击 Hold">F11</button><button data-shortcut-key="Delete" title="单击发送，双击 Hold">Del</button></div>
+      <div class="side-hint">快捷键单击发送；Ctrl / Alt / Win / Shift / PrtSc / F8 / F11 / Del 双击 Hold。</div>
+    </div>
+  </aside>
+</main>
+<div id="controlWindow" class="tool-window hide">
+  <div class="tool-head"><h2>鼠标/键盘</h2><button id="controlPopupClose" type="button">关闭</button></div>
+  <div class="tool-tabs"><button id="toolMouseTab" class="active" type="button">鼠标</button><button id="toolKeyboardTab" type="button">软键盘</button></div>
+  <section id="mouseTool" class="tool-body">
+    <div class="mouse-tabs"><button id="modeJoy" data-mode="joy">摇杆</button><button id="modeTouch" class="active" data-mode="touch">触控板</button></div>
+    <div id="joyPane" class="mouse-pane hide"><div id="joystick" class="joystick" tabindex="0"><div class="joy-axis"></div><div id="joyThumb" class="joy-thumb"></div></div></div>
+    <div id="touchPane" class="mouse-pane"><div id="touchPad" class="touchpad" tabindex="0"><span id="touchDot" class="touch-dot"></span></div></div>
+    <div class="mouse-speed"><span>速度</span><input id="mouseSpeed" type="range" min="1" max="10" value="5"><b id="speedText">5</b></div>
+    <div class="mouse-buttons three"><button data-mouse-button="0">左键</button><button data-mouse-button="1">中键</button><button data-mouse-button="2">右键</button></div>
+    <div class="mouse-buttons"><button id="dragLock">拖拽</button><button data-mouse-click="0">单击</button><button data-mouse-dblclick="0">双击</button><button data-wheel="-1">滚轮</button></div>
+  </section>
+  <section id="keyboardTool" class="tool-body hide">
+    <div id="keyboard" class="keys"></div>
+  </section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const screenEl=$("screen"),screenPad=$("screenPad"),cursor=$("cursor"),video=$("video"),nosignal=$("nosignal");
+const keyboardPassthrough=$("keyboardPassthrough"),keyboardPassthroughText=$("keyboardPassthroughText"),keyboardCaptureMsg=$("keyboardCaptureMsg"),directClickToggle=$("directClickToggle"),directClickText=$("directClickText");
+const controlWindow=$("controlWindow"),controlPopupToggle=$("controlPopupToggle"),controlPopupClose=$("controlPopupClose"),toolMouseTab=$("toolMouseTab"),toolKeyboardTab=$("toolKeyboardTab"),mouseTool=$("mouseTool"),keyboardTool=$("keyboardTool");
+const externalTakeoverBanner=$("externalTakeoverBanner"),reclaimKvm=$("reclaimKvm");
+let kvmReadOnly=false;
+const UI=window.ExoAnchorUI,API=UI.api,Session=UI.session,AuthUI=UI.auth;
+API.send=function(o){if(kvmReadOnly||!Session.active())return;Session.touch();if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(o))};
+API.connect=async function(){if(!(await this.ensureToken())){setTimeout(()=>this.connect(),this.retry);return}const proto=location.protocol==="https:"?"wss:":"ws:";const qs=this.token?"?auth="+encodeURIComponent(this.token):"";this.ws=new WebSocket(proto+"//"+location.host+"/api/ws/hid"+qs);this.ws.onopen=()=>{this.retry=1000;syncKeyboardCaptureConnection()};this.ws.onclose=()=>{syncKeyboardCaptureConnection();setTimeout(()=>this.connect(),this.retry);this.retry=Math.min(this.retry*1.5,10000)};this.ws.onerror=syncKeyboardCaptureConnection};
+AuthUI.bindForm(async()=>{await Session.load();if(!API.ws||API.ws.readyState>1)API.connect()});
+function fmtBytes(n){if(!n)return"--";if(n>1048576)return Math.round(n/1048576)+" MB";return Math.round(n/1024)+" KB"}
+const DEFAULT_DEVICE_LABEL="ESP32-P4";
+function deviceLabelValue(info){const label=String(info?.device_label||info?.label||localStorage.getItem("si_device_label")||DEFAULT_DEVICE_LABEL).trim();return label||DEFAULT_DEVICE_LABEL}
+function applyDeviceLabel(label){const value=String(label||DEFAULT_DEVICE_LABEL).trim()||DEFAULT_DEVICE_LABEL;localStorage.setItem("si_device_label",value);deviceLabelText.textContent=value}
+UI.info.subscribe(info=>applyDeviceLabel(deviceLabelValue(info)));
+API.connect();
+function setToolPanel(panel){const mouse=panel!=="keyboard";toolMouseTab.classList.toggle("active",mouse);toolKeyboardTab.classList.toggle("active",!mouse);mouseTool.classList.toggle("hide",!mouse);keyboardTool.classList.toggle("hide",mouse);if(mouse)touchPad.focus({preventScroll:true})}
+function setControlWindow(open){controlWindow.classList.toggle("hide",!open);controlPopupToggle.classList.toggle("active",open);if(open)setToolPanel(mouseTool.classList.contains("hide")?"keyboard":"mouse");else{stopJoy();stopTouch(null,false);if(dragLock.classList.contains("active")){dragLock.classList.remove("active");API.send({type:"mouseup",button:0})}}}
+controlPopupToggle.onclick=()=>setControlWindow(controlWindow.classList.contains("hide"));
+controlPopupClose.onclick=()=>setControlWindow(false);
+toolMouseTab.onclick=()=>setToolPanel("mouse");
+toolKeyboardTab.onclick=()=>setToolPanel("keyboard");
+let videoTimer=0;
+function authUrl(path){return path+(path.includes("?")?"&":"?")+"auth="+encodeURIComponent(API.token||"")}
+function streamUrl(){const host=location.hostname||location.host.split(":")[0];return authUrl(location.protocol+"//"+host+":81/api/stream?t="+Date.now())}
+function startVideo(delay=0){clearTimeout(videoTimer);videoTimer=setTimeout(()=>{video.src=streamUrl()},delay)}
+video.onload=()=>nosignal.classList.add("hide");
+video.onerror=()=>{nosignal.classList.remove("hide");startVideo(1000)};
+let kvmLeaseTimer=0;
+async function sendKvmLease(active,force=false){try{const headers={"Content-Type":"application/json"};if(API.token)headers.Authorization="Bearer "+API.token;const body={owner:"kvm",active};if(force)body.force=true;const r=await fetch("/api/video/lease",{method:"POST",headers,body:JSON.stringify(body),keepalive:!active});if(!r.ok&&force)throw new Error(await r.text());return r.ok?await r.json().catch(()=>null):null}catch(e){if(force)throw e;return null}}
+async function touchKvm(){if(kvmReadOnly)return null;return sendKvmLease(true)}
+function startKvmLease(){if(kvmReadOnly)return;touchKvm();startVideo(0);if(!kvmLeaseTimer)kvmLeaseTimer=setInterval(touchKvm,2000)}
+function releaseKvmLease(send=true){if(kvmLeaseTimer){clearInterval(kvmLeaseTimer);kvmLeaseTimer=0}if(send)sendKvmLease(false)}
+function setKvmControlsDisabled(disabled){[resolutionSelect,keyboardPassthrough,directClickToggle,controlPopupToggle,syncPointer,snapshot,release,reload,fs].forEach(el=>{if(el)el.disabled=disabled});document.querySelectorAll("[data-combo],[data-shortcut-key],#keyboard button,#mouseTool button,#mouseTool input").forEach(el=>{el.disabled=disabled})}
+function setKvmReadOnly(on){on=!!on;const changed=on!==kvmReadOnly;if(on&&changed){releaseAll();setKeyboardCapture(false);setControlWindow(false)}kvmReadOnly=on;document.body.classList.toggle("kvm-readonly",on);externalTakeoverBanner.classList.toggle("hide",!on);setKvmControlsDisabled(on);if(on){if(changed)releaseKvmLease();setKeyboardCaptureMsg("外部控制接管中","warn")}else if(!kvmLeaseTimer){startKvmLease()}}
+async function reclaimKvmControl(){reclaimKvm.disabled=true;try{setKvmReadOnly(false);await sendKvmLease(true,true);startKvmLease();startVideo(0);setTimeout(status,250)}catch(e){videoText.textContent=e.message||"reclaim failed";nosignal.classList.remove("hide");setKvmReadOnly(true)}finally{reclaimKvm.disabled=false}}
+reclaimKvm.onclick=reclaimKvmControl;
+window.addEventListener("pagehide",releaseKvmLease);
+startKvmLease();
+function modeFpsX100(m){return Number(m.fps_x100||Math.round(Number(m.fps||0)*100))}
+function modeFormat(m){return String(m.pixel_format||"MJPEG").toUpperCase()}
+function modeValue(m){return `${modeFormat(m)}:${m.width}x${m.height}@${modeFpsX100(m)}`}
+function modeLabel(m){const fps=modeFpsX100(m)/100;return `${modeFormat(m)} ${m.width}x${m.height} @ ${fps%1?fps.toFixed(1):fps.toFixed(0)}fps`}
+const COMMON_VIDEO_MODES=[["MJPEG",1920,1080,50],["MJPEG",1920,1080,30],["MJPEG",1920,1080,25],["MJPEG",1280,720,50],["MJPEG",1280,720,30],["MJPEG",640,480,30]];
+function commonModes(modes){const list=Array.isArray(modes)?modes:[];return COMMON_VIDEO_MODES.map(([fmt,w,h,fps])=>list.find(m=>modeFormat(m)===fmt&&m.width===w&&m.height===h&&modeFpsX100(m)===fps*100)).filter(Boolean)}
+let resolutionSignature="";
+function renderResolution(v){const allModes=Array.isArray(v.modes)?v.modes:[],modes=commonModes(allModes),kvm=v.control?.kvm_mode||{};const saved=`${kvm.width||0}x${kvm.height||0}@${kvm.fps_x100||0}`;const signature=saved+"|"+modes.map(m=>`${modeValue(m)}:${m.selected?1:0}`).join("|");if(document.activeElement===resolutionSelect&&resolutionSelect.options.length)return;if(signature===resolutionSignature)return;resolutionSignature=signature;resolutionSelect.disabled=modes.length===0;resolutionSelect.innerHTML=modes.length?modes.map(m=>`<option value="${modeValue(m)}">${modeLabel(m)}</option>`).join(""):`<option value="">No common mode</option>`;if(modes.length){const selected=modes.find(m=>m.width===kvm.width&&m.height===kvm.height&&modeFpsX100(m)===(kvm.fps_x100||0))||modes.find(m=>m.selected)||modes.find(m=>m.width===v.width&&m.height===v.height)||modes[0];resolutionSelect.value=modeValue(selected)}}
+resolutionSelect.onchange=async()=>{const m=/^([A-Z0-9]+):(\d+)x(\d+)@(\d+)$/.exec(resolutionSelect.value||"");if(!m)return;const pixel_format=m[1],w=Number(m[2]),h=Number(m[3]),fps_x100=Number(m[4]);try{await API.post("/api/video/resolution",{pixel_format,width:w,height:h,fps_x100});nosignal.classList.remove("hide");videoText.textContent="switching video mode";startVideo(500);setTimeout(status,800)}catch(e){videoText.textContent=e.message||"video mode switch failed";nosignal.classList.remove("hide")}};
+snapshot.onclick=()=>window.open(authUrl("/api/snapshot?t="+Date.now()),"_blank");
+reload.onclick=()=>{nosignal.classList.remove("hide");startVideo(0)};
+fs.onclick=()=>document.fullscreenElement?document.exitFullscreen():screenEl.requestFullscreen();
+function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function speed(){return Number(mouseSpeed.value||5)}
+const direct={enabled:localStorage.getItem("si_direct_click")!=="0",hover:null,drag:false,pointer:null,button:0};
+function activeVideoRect(){const r=video.getBoundingClientRect();const vw=video.naturalWidth||16,vh=video.naturalHeight||9,ar=vw/vh;let w=r.width,h=w/ar;if(h>r.height){h=r.height;w=h*ar}const left=r.left+(r.width-w)/2,top=r.top+(r.height-h)/2;return{left,top,width:w,height:h}}
+function screenPoint(e){const r=activeVideoRect();const x=e.clientX-r.left,y=e.clientY-r.top;if(x<0||y<0||x>r.width||y>r.height)return null;return{x,y,u:r.width?x/r.width:.5,v:r.height?y/r.height:.5,rect:r}}
+function setDirectEnabled(on){direct.enabled=!!on;localStorage.setItem("si_direct_click",direct.enabled?"1":"0");directClickToggle.checked=direct.enabled;directClickText.textContent=direct.enabled?"开启":"关闭"}
+function absPoint(p){return{x:Math.round(clamp(p.u,0,1)*32767),y:Math.round(clamp(p.v,0,1)*32767)}}
+function directMoveTo(p){const a=absPoint(p);API.send({type:"absmove",x:a.x,y:a.y})}
+function syncDirectPointer(){if(direct.hover)directMoveTo(direct.hover);syncPointer.classList.add("active");setTimeout(()=>syncPointer.classList.remove("active"),220)}
+function sendMove(dx,dy){const x=Math.round(clamp(dx,-127,127));const y=Math.round(clamp(dy,-127,127));if(x||y)API.send({type:"mousemove",unit:"hid",dx:x,dy:y})}
+function sendWheel(deltaY){API.send({type:"wheel",deltaY:deltaY,deltaX:0})}
+function sendClick(button=0){API.send({type:"click",button})}
+function sendDblClick(button=0){sendClick(button);setTimeout(()=>sendClick(button),90)}
+const textKeys={" ":"Space","\n":"Enter","\t":"Tab","a":"KeyA","b":"KeyB","c":"KeyC","d":"KeyD","e":"KeyE","f":"KeyF","g":"KeyG","h":"KeyH","i":"KeyI","j":"KeyJ","k":"KeyK","l":"KeyL","m":"KeyM","n":"KeyN","o":"KeyO","p":"KeyP","q":"KeyQ","r":"KeyR","s":"KeyS","t":"KeyT","u":"KeyU","v":"KeyV","w":"KeyW","x":"KeyX","y":"KeyY","z":"KeyZ","0":"Digit0","1":"Digit1","2":"Digit2","3":"Digit3","4":"Digit4","5":"Digit5","6":"Digit6","7":"Digit7","8":"Digit8","9":"Digit9","-":"Minus","=":"Equal","[":"BracketLeft","]":"BracketRight","\\":"Backslash",";":"Semicolon","'":"Quote","`":"Backquote",",":"Comma",".":"Period","/":"Slash"};
+const shiftedTextKeys={"A":"KeyA","B":"KeyB","C":"KeyC","D":"KeyD","E":"KeyE","F":"KeyF","G":"KeyG","H":"KeyH","I":"KeyI","J":"KeyJ","K":"KeyK","L":"KeyL","M":"KeyM","N":"KeyN","O":"KeyO","P":"KeyP","Q":"KeyQ","R":"KeyR","S":"KeyS","T":"KeyT","U":"KeyU","V":"KeyV","W":"KeyW","X":"KeyX","Y":"KeyY","Z":"KeyZ","!":"Digit1","@":"Digit2","#":"Digit3","$":"Digit4","%":"Digit5","^":"Digit6","&":"Digit7","*":"Digit8","(":"Digit9",")":"Digit0","_":"Minus","+":"Equal","{":"BracketLeft","}":"BracketRight","|":"Backslash",":":"Semicolon","\"":"Quote","~":"Backquote","<":"Comma",">":"Period","?":"Slash"};
+function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+async function tapCode(code,mods=[]){for(const mod of mods)API.send({type:"keydown",code:mod});API.send({type:"keydown",code});await wait(5);API.send({type:"keyup",code});for(let i=mods.length-1;i>=0;i--)API.send({type:"keyup",code:mods[i]});await wait(6)}
+async function typeText(value){const text=String(value||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");let sent=0,skipped=0;for(const ch of text){if(textKeys[ch]){await tapCode(textKeys[ch]);sent++;continue}if(shiftedTextKeys[ch]){await tapCode(shiftedTextKeys[ch],["ShiftLeft"]);sent++;continue}if(ch==="\b"){await tapCode("Backspace");sent++;continue}skipped++}return{sent,skipped}}
+const modifierCodes=new Set(["ControlLeft","ControlRight","ShiftLeft","ShiftRight","AltLeft","AltRight","MetaLeft","MetaRight"]);
+const keyboardCapture={enabled:false,pendingMods:new Set(),pressed:new Set(),pastePending:false,pasteTimer:0,pasting:false};
+function keyboardWsReady(){return API.ws&&API.ws.readyState===1}
+function setKeyboardCaptureMsg(text,kind=""){keyboardCaptureMsg.textContent=text||"";keyboardCaptureMsg.className="capture-msg "+kind}
+function isCaptureEditableTarget(e){const t=e.target;if(document.getElementById("authModal")?.classList.contains("show"))return true;if(!t||!t.closest)return false;return !!(t.closest("input,textarea,select")||t.isContentEditable)}
+function isLocalPasteShortcut(e){return e.code==="KeyV"&&(e.ctrlKey||e.metaKey)&&!e.altKey}
+function releaseKeyboardCaptureKeys(){const keys=Array.from(keyboardCapture.pressed).reverse();keyboardCapture.pendingMods.clear();for(const code of keys)API.send({type:"keyup",code});keyboardCapture.pressed.clear()}
+function flushPendingModifiers(){for(const code of Array.from(keyboardCapture.pendingMods)){if(!keyboardCapture.pressed.has(code)){API.send({type:"keydown",code});keyboardCapture.pressed.add(code)}keyboardCapture.pendingMods.delete(code)}}
+function updateKeyboardCaptureState(){keyboardPassthrough.checked=keyboardCapture.enabled;keyboardPassthroughText.textContent=keyboardCapture.enabled?"开启":"关闭";document.body.classList.toggle("keyboard-capture",keyboardCapture.enabled)}
+function setKeyboardCapture(on){keyboardCapture.enabled=!!on;updateKeyboardCaptureState();if(keyboardCapture.enabled){screenPad.focus({preventScroll:true});setKeyboardCaptureMsg(keyboardWsReady()?"捕获中":"HID 未连接",keyboardWsReady()?"ok":"bad")}else{releaseKeyboardCaptureKeys();setKeyboardCaptureMsg("待机")}}
+function syncKeyboardCaptureConnection(){if(!keyboardCapture.enabled)return;const ready=keyboardWsReady();if(ready&&keyboardCaptureMsg.textContent==="HID 未连接")setKeyboardCaptureMsg("捕获中","ok");else if(!ready&&keyboardCaptureMsg.textContent!=="HID 未连接")setKeyboardCaptureMsg("HID 未连接","bad")}
+setInterval(syncKeyboardCaptureConnection,500);
+function releaseKeyboardCapture(reason=""){releaseKeyboardCaptureKeys();keyboardCapture.pastePending=false;clearTimeout(keyboardCapture.pasteTimer);if(keyboardCapture.enabled&&reason)setKeyboardCaptureMsg(reason,"warn")}
+async function sendLocalClipboardText(text){keyboardCapture.pastePending=false;clearTimeout(keyboardCapture.pasteTimer);releaseKeyboardCaptureKeys();const value=String(text||"");if(!value){setKeyboardCaptureMsg("剪贴板为空","warn");return}if(keyboardCapture.pasting)return;keyboardCapture.pasting=true;setKeyboardCaptureMsg("粘贴中","warn");try{const r=await typeText(value);setKeyboardCaptureMsg(r.skipped?`已输入 ${r.sent} 跳过 ${r.skipped}`:`已输入 ${r.sent}`,"ok")}catch(err){setKeyboardCaptureMsg(err.message||"粘贴失败","bad")}finally{keyboardCapture.pasting=false}}
+async function readClipboardAfterShortcut(){if(!keyboardCapture.pastePending)return;keyboardCapture.pastePending=false;if(navigator.clipboard&&navigator.clipboard.readText){try{const text=await navigator.clipboard.readText();await sendLocalClipboardText(text);return}catch(e){}}releaseKeyboardCaptureKeys();setKeyboardCaptureMsg("剪贴板不可用","warn")}
+function handleKeyboardCaptureKeydown(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;if(keyboardCapture.pasting){e.preventDefault();e.stopImmediatePropagation();return}if(isLocalPasteShortcut(e)){keyboardCapture.pastePending=true;clearTimeout(keyboardCapture.pasteTimer);keyboardCapture.pasteTimer=setTimeout(readClipboardAfterShortcut,80);e.stopImmediatePropagation();return}e.preventDefault();e.stopImmediatePropagation();const code=e.code;if(!code)return;if(!keyboardWsReady()){setKeyboardCaptureMsg("HID 未连接","bad");return}if(modifierCodes.has(code)){if(!keyboardCapture.pressed.has(code))keyboardCapture.pendingMods.add(code);setKeyboardCaptureMsg("捕获中","ok");return}flushPendingModifiers();if(e.repeat&&keyboardCapture.pressed.has(code))return;if(!keyboardCapture.pressed.has(code)){keyboardCapture.pressed.add(code);API.send({type:"keydown",code})}setKeyboardCaptureMsg("捕获中","ok")}
+function handleKeyboardCaptureKeyup(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;e.preventDefault();e.stopImmediatePropagation();const code=e.code;if(!code)return;if(modifierCodes.has(code)&&keyboardCapture.pendingMods.delete(code)){setKeyboardCaptureMsg("捕获中","ok");return}if(keyboardCapture.pressed.has(code)){API.send({type:"keyup",code});keyboardCapture.pressed.delete(code)}setKeyboardCaptureMsg("捕获中","ok")}
+function handleKeyboardCapturePaste(e){if(!keyboardCapture.enabled||isCaptureEditableTarget(e))return;e.preventDefault();e.stopImmediatePropagation();const text=e.clipboardData?e.clipboardData.getData("text/plain"):"";sendLocalClipboardText(text)}
+keyboardPassthrough.onchange=()=>{localStorage.setItem("si_keyboard_capture",keyboardPassthrough.checked?"1":"0");setKeyboardCapture(keyboardPassthrough.checked)};
+document.addEventListener("keydown",handleKeyboardCaptureKeydown,true);
+document.addEventListener("keyup",handleKeyboardCaptureKeyup,true);
+document.addEventListener("paste",handleKeyboardCapturePaste,true);
+window.addEventListener("blur",()=>releaseKeyboardCapture("窗口失焦"));
+document.addEventListener("visibilitychange",()=>{if(document.hidden)releaseKeyboardCapture("页面后台")});
+window.addEventListener("pagehide",()=>{releaseKeyboardCapture("");releaseHoldKeys()});
+setKeyboardCapture(localStorage.getItem("si_keyboard_capture")!=="0");
+function stopDirectDrag(e,sendUp=true){if(!direct.drag)return;const p=e?screenPoint(e):null;if(p)directMoveTo(p);if(sendUp)API.send({type:"absmouseup",button:direct.button});try{screenPad.releasePointerCapture(direct.pointer)}catch(err){}direct.drag=false;direct.pointer=null}
+setDirectEnabled(direct.enabled);
+directClickToggle.onchange=()=>setDirectEnabled(directClickToggle.checked);
+syncPointer.onclick=syncDirectPointer;
+screenPad.addEventListener("mouseenter",()=>screenPad.focus());
+screenPad.addEventListener("pointerdown",e=>{e.preventDefault();screenPad.focus();if(!direct.enabled||e.button>2)return;const p=screenPoint(e);if(!p)return;direct.drag=true;direct.pointer=e.pointerId;direct.button=e.button;screenPad.setPointerCapture(e.pointerId);directMoveTo(p);API.send({type:"absmousedown",button:e.button})});
+screenPad.addEventListener("pointermove",e=>{const r=screenEl.getBoundingClientRect();cursor.style.left=e.clientX-r.left+"px";cursor.style.top=e.clientY-r.top+"px";cursor.style.opacity=1;const p=screenPoint(e);if(p)direct.hover={u:p.u,v:p.v};if(direct.enabled&&direct.drag&&e.pointerId===direct.pointer&&p){e.preventDefault();directMoveTo(p)}});
+screenPad.addEventListener("pointerup",e=>{if(direct.drag&&e.pointerId===direct.pointer){e.preventDefault();stopDirectDrag(e,true)}});
+screenPad.addEventListener("pointercancel",e=>{if(direct.drag&&e.pointerId===direct.pointer){e.preventDefault();stopDirectDrag(e,true)}});
+screenPad.addEventListener("pointerleave",()=>{if(!direct.drag)cursor.style.opacity=0});
+screenPad.addEventListener("wheel",e=>{e.preventDefault();if(direct.enabled)sendWheel(Math.sign(e.deltaY)*-1)},{passive:false});
+screenPad.addEventListener("contextmenu",e=>e.preventDefault());
+const joystick=$("joystick"),joyThumb=$("joyThumb");
+const joy={active:false,pointer:null,x:0,y:0,timer:0};
+function setJoy(x,y){joy.x=x;joy.y=y;joyThumb.style.left=(50+x*34)+"%";joyThumb.style.top=(50+y*34)+"%"}
+function updateJoy(e){const r=joystick.getBoundingClientRect();const radius=Math.min(r.width,r.height)*0.38;let x=(e.clientX-r.left-r.width/2)/radius;let y=(e.clientY-r.top-r.height/2)/radius;const mag=Math.hypot(x,y);if(mag>1){x/=mag;y/=mag}setJoy(x,y)}
+function stopJoy(){if(joy.pointer!==null){try{joystick.releasePointerCapture(joy.pointer)}catch(e){}}joy.active=false;joy.pointer=null;setJoy(0,0);clearInterval(joy.timer);joy.timer=0}
+joystick.addEventListener("pointerdown",e=>{e.preventDefault();joystick.focus();joy.active=true;joy.pointer=e.pointerId;joystick.setPointerCapture(e.pointerId);updateJoy(e);if(!joy.timer)joy.timer=setInterval(()=>sendMove(joy.x*speed()*4,joy.y*speed()*4),32)});
+joystick.addEventListener("pointermove",e=>{if(joy.active&&e.pointerId===joy.pointer)updateJoy(e)});
+joystick.addEventListener("pointerup",stopJoy);joystick.addEventListener("pointercancel",stopJoy);joystick.addEventListener("contextmenu",e=>e.preventDefault());
+const touchPad=$("touchPad"),touchDot=$("touchDot");
+const touch={active:false,pointer:null,lastX:0,lastY:0,startX:0,startY:0,moved:0,startAt:0,locked:false,centered:false};
+function setTouchDot(e,visible=true){const r=touchPad.getBoundingClientRect();touchDot.style.left=e.clientX-r.left+"px";touchDot.style.top=e.clientY-r.top+"px";touchDot.style.opacity=visible?1:0}
+function setTouchCenter(visible=true){const r=touchPad.getBoundingClientRect();touchDot.style.left=r.width/2+"px";touchDot.style.top=r.height/2+"px";touchDot.style.opacity=visible?1:0}
+function requestTouchLock(e){if(e.pointerType!=="mouse"||!touchPad.requestPointerLock)return false;setTouchCenter(true);try{const ret=touchPad.requestPointerLock();if(ret&&ret.catch)ret.catch(()=>{if(touch.active&&!touch.locked){try{touchPad.setPointerCapture(touch.pointer)}catch(err){}setTouchDot({clientX:touch.lastX,clientY:touch.lastY},true)}});return true}catch(err){return false}}
+function stopTouch(e,allowTap=true){if(!touch.active)return;const wasTap=allowTap&&touch.moved<7&&(Date.now()-touch.startAt)<320;if(document.pointerLockElement===touchPad&&document.exitPointerLock)document.exitPointerLock();if(e&&!touch.locked&&!touch.centered)setTouchDot(e,false);else setTouchCenter(false);try{touchPad.releasePointerCapture(touch.pointer)}catch(err){}touch.active=false;touch.pointer=null;touch.locked=false;touch.centered=false;touchPad.classList.remove("locked");document.body.classList.remove("touch-capture");if(wasTap)sendClick(0)}
+touchPad.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"&&e.button!==0)return;e.preventDefault();touchPad.focus();touch.active=true;touch.pointer=e.pointerId;touch.lastX=e.clientX;touch.lastY=e.clientY;touch.startX=e.clientX;touch.startY=e.clientY;touch.moved=0;touch.startAt=Date.now();touch.centered=e.pointerType==="mouse";document.body.classList.toggle("touch-capture",touch.centered);if(!requestTouchLock(e)){touchPad.setPointerCapture(e.pointerId);touch.centered?setTouchCenter(true):setTouchDot(e,true)}});
+touchPad.addEventListener("pointermove",e=>{if(!touch.active||touch.locked||e.pointerId!==touch.pointer)return;e.preventDefault();const dx=e.clientX-touch.lastX;const dy=e.clientY-touch.lastY;touch.lastX=e.clientX;touch.lastY=e.clientY;touch.moved=Math.max(touch.moved,Math.hypot(e.clientX-touch.startX,e.clientY-touch.startY));touch.centered?setTouchCenter(true):setTouchDot(e,true);sendMove(dx*speed()*0.55,dy*speed()*0.55)});
+touchPad.addEventListener("pointerup",stopTouch);touchPad.addEventListener("pointercancel",stopTouch);touchPad.addEventListener("wheel",e=>{e.preventDefault();sendWheel(Math.sign(e.deltaY)*-1)},{passive:false});touchPad.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("pointerlockchange",()=>{const locked=document.pointerLockElement===touchPad;const wasLocked=touch.locked;touch.locked=locked;touchPad.classList.toggle("locked",locked);if(locked)setTouchCenter(true);else if(wasLocked&&touch.active)stopTouch(null,false)});
+document.addEventListener("mousemove",e=>{if(!touch.active||document.pointerLockElement!==touchPad)return;e.preventDefault();const dx=e.movementX||0,dy=e.movementY||0;touch.moved+=Math.hypot(dx,dy);setTouchCenter(true);sendMove(dx*speed()*0.55,dy*speed()*0.55)});
+document.addEventListener("mouseup",e=>{if(touch.active&&document.pointerLockElement===touchPad&&e.button===0){e.preventDefault();stopTouch(e)}});
+function setMouseMode(mode){modeJoy.classList.toggle("active",mode==="joy");modeTouch.classList.toggle("active",mode==="touch");joyPane.classList.toggle("hide",mode!=="joy");touchPane.classList.toggle("hide",mode!=="touch");(mode==="joy"?joystick:touchPad).focus()}
+modeJoy.onclick=()=>setMouseMode("joy");modeTouch.onclick=()=>setMouseMode("touch");mouseSpeed.oninput=()=>speedText.textContent=mouseSpeed.value;
+document.querySelectorAll("[data-mouse-button]").forEach(b=>{let held=false;const button=Number(b.dataset.mouseButton);const up=()=>{if(!held)return;held=false;b.classList.remove("active");API.send({type:"mouseup",button})};b.addEventListener("pointerdown",e=>{e.preventDefault();held=true;b.classList.add("active");b.setPointerCapture(e.pointerId);API.send({type:"mousedown",button})});b.addEventListener("pointerup",up);b.addEventListener("pointercancel",up);b.addEventListener("pointerleave",up)});
+document.querySelectorAll("[data-mouse-click]").forEach(b=>b.onclick=()=>sendClick(Number(b.dataset.mouseClick)));
+document.querySelectorAll("[data-mouse-dblclick]").forEach(b=>b.onclick=()=>sendDblClick(Number(b.dataset.mouseDblclick)));
+document.querySelectorAll("[data-wheel]").forEach(b=>{let timer=0;const step=()=>sendWheel(Number(b.dataset.wheel));const stop=()=>{clearInterval(timer);timer=0;b.classList.remove("active")};b.addEventListener("pointerdown",e=>{e.preventDefault();b.classList.add("active");b.setPointerCapture(e.pointerId);step();timer=setInterval(step,90)});b.addEventListener("pointerup",stop);b.addEventListener("pointercancel",stop);b.addEventListener("pointerleave",stop)});
+dragLock.onclick=()=>{const active=!dragLock.classList.contains("active");dragLock.classList.toggle("active",active);API.send({type:active?"mousedown":"mouseup",button:0})};
+function releaseAll(){stopJoy();stopTouch();releaseKeyboardCaptureKeys();releaseHoldKeys();dragLock.classList.remove("active");API.send({type:"releaseall"})}
+release.onclick=releaseAll;
+function acceptsKeyboard(){return !keyboardCapture.enabled&&(document.activeElement===screenPad||document.activeElement===joystick||document.activeElement===touchPad)}
+document.addEventListener("keydown",e=>{if(!acceptsKeyboard())return;e.preventDefault();API.send({type:"keydown",code:e.code})});
+document.addEventListener("keyup",e=>{if(!acceptsKeyboard())return;e.preventDefault();API.send({type:"keyup",code:e.code})});
+const combos={"ctrl-alt-del":{modifiers:["ControlLeft","AltLeft"],keys:["Delete"]},"alt-tab":{modifiers:["AltLeft"],keys:["Tab"]},"alt-f4":{modifiers:["AltLeft"],keys:["F4"]}};
+document.querySelectorAll("[data-combo]").forEach(b=>b.onclick=()=>API.send({type:"combo",...combos[b.dataset.combo]}));
+const heldKeys=new Set();
+function setHeldShortcut(button,on){const code=button.dataset.shortcutKey;if(!code)return;const active=!!on;if(active===heldKeys.has(code))return;if(active){heldKeys.add(code);button.classList.add("active");API.send({type:"keydown",code})}else{heldKeys.delete(code);button.classList.remove("active");API.send({type:"keyup",code})}}
+function releaseHoldKeys(){document.querySelectorAll("[data-shortcut-key]").forEach(b=>{if(heldKeys.has(b.dataset.shortcutKey))setHeldShortcut(b,false)});for(const code of Array.from(heldKeys)){API.send({type:"keyup",code});heldKeys.delete(code)}}
+async function tapShortcutKey(button){const code=button.dataset.shortcutKey;if(!code||heldKeys.has(code))return;button.classList.add("active");await tapCode(code);if(!heldKeys.has(code))button.classList.remove("active")}
+const shortcutClickTimers=new WeakMap();
+document.querySelectorAll("[data-shortcut-key]").forEach(b=>{b.addEventListener("click",e=>{e.preventDefault();if(e.detail>1)return;clearTimeout(shortcutClickTimers.get(b));shortcutClickTimers.set(b,setTimeout(()=>tapShortcutKey(b),220))});b.addEventListener("dblclick",e=>{e.preventDefault();clearTimeout(shortcutClickTimers.get(b));setHeldShortcut(b,!heldKeys.has(b.dataset.shortcutKey))})});
+const layout=[["Escape","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"],["Backquote","Digit1","Digit2","Digit3","Digit4","Digit5","Digit6","Digit7","Digit8","Digit9","Digit0","Backspace","Delete"],["Tab","KeyQ","KeyW","KeyE","KeyR","KeyT","KeyY","KeyU","KeyI","KeyO","KeyP"],["CapsLock","KeyA","KeyS","KeyD","KeyF","KeyG","KeyH","KeyJ","KeyK","KeyL","Enter"],["ShiftLeft","KeyZ","KeyX","KeyC","KeyV","KeyB","KeyN","KeyM","ArrowUp","ShiftRight"],["ControlLeft","MetaLeft","AltLeft","Space","ArrowLeft","ArrowDown","ArrowRight"]];
+const labels={Escape:"Esc",Backspace:"Back",Delete:"Del",CapsLock:"Caps",ShiftLeft:"Shift",ShiftRight:"Shift",ControlLeft:"Ctrl",MetaLeft:"Win",AltLeft:"Alt",Space:"Space",ArrowLeft:"Left",ArrowRight:"Right",ArrowUp:"Up",ArrowDown:"Down"};
+keyboard.innerHTML=layout.map(row=>`<div class="keyrow">${row.map(code=>`<button class="key ${code==="Space"?"wide":""}" data-code="${code}">${labels[code]||code.replace("Key","").replace("Digit","")}</button>`).join("")}</div>`).join("");
+keyboard.querySelectorAll("button").forEach(b=>{b.onmousedown=e=>{e.preventDefault();b.classList.add("active");API.send({type:"keydown",code:b.dataset.code})};b.onmouseup=e=>{e.preventDefault();b.classList.remove("active");API.send({type:"keyup",code:b.dataset.code})};b.onmouseleave=()=>{b.classList.remove("active");API.send({type:"keyup",code:b.dataset.code})}});
+function renderKvmStatus(s){if(!s)return;const v=s.video||{},vc=v.control||{};const externalTakeover=!!vc.agent_takeover;renderResolution(v);setKvmReadOnly(externalTakeover);videoText.textContent=externalTakeover?"外部控制客户端正在使用视频租约":v.last_error||"waiting for USB UVC frame";if(v.connected&&!externalTakeover)nosignal.classList.add("hide")}
+function status(){return UI.status.refresh()}
+UI.status.subscribe(renderKvmStatus);
+document.addEventListener("exoanchor:logout",()=>{try{releaseKvmLease()}catch(e){}try{API.ws?.close()}catch(e){}});
+</script>
+</body>
+</html>

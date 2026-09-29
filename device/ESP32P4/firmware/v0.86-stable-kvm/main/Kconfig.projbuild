@@ -1,0 +1,436 @@
+menu "SI ESP32-P4 Host Configuration"
+
+    choice SI_BOARD_PROFILE
+        prompt "Hardware board profile"
+        default SI_BOARD_EXOANCHOR_PROTOTYPE0
+        help
+            Stable KVM defaults to the currently connected Prototype0 board.
+            Select another hardware profile explicitly before generating
+            sdkconfig. GPIO and peripheral defaults below are derived from
+            this choice.
+
+        config SI_BOARD_WAVESHARE_P4_NANO
+            bool "Waveshare ESP32-P4-NANO"
+
+        config SI_BOARD_EXOANCHOR_ESP32P4X
+            bool "Legacy ExoAnchor ESP32-P4x (frozen)"
+
+        config SI_BOARD_EXOANCHOR_PROTOTYPE0
+            bool "ExoAnchor PrototypeV0 (ESP32-P4 rev3, IP101GRI)"
+
+        config SI_BOARD_EXOANCHOR_PROTOTYPE_V21
+            bool "ExoAnchor PrototypeV2.1b compile-only reference (ESP32-P4 rev3)"
+
+        config SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+            bool "ExoAnchor PrototypeV2.3 draft, not finalized (ESP32-P4 rev3)"
+    endchoice
+
+    config SI_BOARD_EXOANCHOR_LAYOUT
+        bool
+        default y if SI_BOARD_EXOANCHOR_ESP32P4X || SI_BOARD_EXOANCHOR_PROTOTYPE0 || SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+
+    config SI_BOARD_REQUIRES_REV3
+        bool
+        default y if SI_BOARD_EXOANCHOR_PROTOTYPE0 || SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+
+    config SI_BOARD_ID
+        string
+        default "waveshare-p4-nano" if SI_BOARD_WAVESHARE_P4_NANO
+        default "exoanchor-esp32p4x" if SI_BOARD_EXOANCHOR_ESP32P4X
+        default "exoanchor-prototype0" if SI_BOARD_EXOANCHOR_PROTOTYPE0
+        default "exoanchor-prototype-v2.1" if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
+        default "exoanchor-prototype-v2.3" if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+
+    config SI_BOARD_NAME
+        string
+        default "Waveshare ESP32-P4-NANO" if SI_BOARD_WAVESHARE_P4_NANO
+        default "ExoAnchor ESP32-P4x" if SI_BOARD_EXOANCHOR_ESP32P4X
+        default "ExoAnchor PrototypeV0" if SI_BOARD_EXOANCHOR_PROTOTYPE0
+        default "ExoAnchor PrototypeV2.1" if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
+        default "ExoAnchor PrototypeV2.3" if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+
+    config SI_BOARD_HOSTNAME
+        string
+        default "si-bmc-p4" if SI_BOARD_WAVESHARE_P4_NANO
+        default "exoanchor-p4x" if SI_BOARD_EXOANCHOR_ESP32P4X
+        default "exoanchor-p0" if SI_BOARD_EXOANCHOR_PROTOTYPE0
+        default "exoanchor-v21" if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
+        default "exoanchor-v23" if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+
+    config SI_SILICON_TARGET
+        string
+        default "esp32p4-rev3" if !ESP32P4_SELECTS_REV_LESS_V3
+        default "esp32p4-rev1"
+
+    config SI_ETH_PHY_DP83825
+        bool
+        default y if SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+
+    config SI_ETH_PHY_NAME
+        string
+        default "DP83825I" if SI_ETH_PHY_DP83825
+        default "IP101GRI"
+
+    config SI_ETH_DRIVER_NAME
+        string
+        default "esp32p4-emac-generic-802.3" if SI_ETH_PHY_DP83825
+        default "esp32p4-emac-ip101"
+
+    config SI_RESET_SETTINGS_ON_NEW_IMAGE
+        bool "Reset all NVS settings once for this firmware image"
+        default n
+        help
+            Erase the default NVS partition once after booting a newly built
+            firmware image, then store a marker so normal reboots do not keep
+            resetting settings. Rebuilding/flashing a new image with this
+            option enabled will reset web credentials, device label, session
+            settings, video preferences, and GPIO mappings back
+            to firmware defaults.
+
+    config SI_ETH_ENABLE
+        bool "Enable RJ45 Ethernet"
+        default y
+        select ETH_USE_ESP32_EMAC
+        help
+            Use the selected board's RMII PHY through ESP32-P4 EMAC.
+            Prototype0 uses IP101GRI through ESP-IDF's IP101 backend.
+            PrototypeV2.1 and PrototypeV2.3 use DP83825I through ESP-IDF's
+            generic IEEE 802.3 PHY backend; frozen v1.x profiles use the
+            IP101 backend.
+
+    config SI_ETH_MDC_GPIO
+        int "Ethernet SMI MDC GPIO"
+        default 20 if SI_BOARD_EXOANCHOR_LAYOUT
+        default 31
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_MDIO_GPIO
+        int "Ethernet SMI MDIO GPIO"
+        default 21 if SI_BOARD_EXOANCHOR_LAYOUT
+        default 52
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_PHY_RST_GPIO
+        int "Ethernet PHY reset GPIO"
+        default 22 if SI_BOARD_EXOANCHOR_LAYOUT
+        default 51
+        range -1 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_PHY_ADDR
+        int "Ethernet PHY address"
+        default 1
+        range -1 31
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_RMII_CLK_GPIO
+        int "RMII external 50 MHz clock input GPIO"
+        default 32 if SI_BOARD_EXOANCHOR_LAYOUT
+        default 50
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_RMII_TX_EN_GPIO
+        int "RMII TX_EN GPIO"
+        default 33 if SI_BOARD_EXOANCHOR_LAYOUT
+        default 49
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_RMII_TXD0_GPIO
+        int "RMII TXD0 GPIO"
+        default 34
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_RMII_TXD1_GPIO
+        int "RMII TXD1 GPIO"
+        default 35
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_RMII_CRS_DV_GPIO
+        int "RMII CRS_DV GPIO"
+        default 28
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_RMII_RXD0_GPIO
+        int "RMII RXD0 GPIO"
+        default 29
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_RMII_RXD1_GPIO
+        int "RMII RXD1 GPIO"
+        default 30
+        range 0 54
+        depends on SI_ETH_ENABLE
+
+    config SI_ETH_WAIT_IP_TIMEOUT_MS
+        int "Ethernet DHCP wait timeout"
+        default 15000
+        range 0 120000
+        depends on SI_ETH_ENABLE
+
+    config SI_AUTH_USERNAME
+        string "Default web/API username"
+        default "admin"
+        help
+            Default local username used before the first account change.
+
+    config SI_AUTH_PASSWORD
+        string "Build-specific web/API bootstrap password"
+        default ""
+        help
+            Set a unique 6..64 character credential in the local generated
+            sdkconfig before building. The public defaults intentionally leave
+            this empty and production compilation rejects an empty value.
+
+    menu "ATX power control"
+
+        config SI_POWER_ENABLE
+            bool "Enable GPIO power/reset control"
+            default y
+            help
+                Drive the expansion-board ATX power and reset button outputs.
+
+        config SI_POWER_BUTTON_GPIO
+            int "Power button GPIO"
+            default 5 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
+            default 4 if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+            default 1
+            range 0 54
+            depends on SI_POWER_ENABLE
+
+        config SI_RESET_BUTTON_GPIO
+            int "Reset button GPIO"
+            default 4 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
+            default 5 if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+            default 2
+            range 0 54
+            depends on SI_POWER_ENABLE
+
+        config SI_POWER_ACTIVE_HIGH
+            bool "Power/reset outputs are active high"
+            default y
+            depends on SI_POWER_ENABLE
+            help
+                When enabled, the firmware presses a button by driving the GPIO high
+                and releases it by driving low. Disable this for active-low relay or
+                optocoupler inputs.
+
+        config SI_POWER_PRESS_MS
+            int "Short button press duration"
+            default 500
+            range 50 15000
+            depends on SI_POWER_ENABLE
+
+        config SI_POWER_FORCE_OFF_MS
+            int "Force-off power button hold duration"
+            default 5000
+            range 1000 15000
+            depends on SI_POWER_ENABLE
+
+        config SI_POWER_DETECT_GPIO
+            int "Power detect GPIO"
+            default 0 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+            default 4 if SI_BOARD_EXOANCHOR_LAYOUT
+            default -1
+            range -1 54
+            depends on SI_POWER_ENABLE
+            help
+                Set to -1 while the expansion board has no power-state detect line.
+
+        config SI_POWER_DETECT_ACTIVE_HIGH
+            bool "Power detect is active high"
+            default y
+            depends on SI_POWER_ENABLE
+
+        config SI_STANDBY_DETECT_GPIO
+            int "Standby detect GPIO"
+            default 1 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+            default 5 if SI_BOARD_EXOANCHOR_LAYOUT
+            default -1
+            range -1 54
+            depends on SI_POWER_ENABLE
+            help
+                Set to -1 while the expansion board has no standby detect line.
+
+        config SI_STANDBY_DETECT_ACTIVE_HIGH
+            bool "Standby detect is active high"
+            default y
+            depends on SI_POWER_ENABLE
+
+        config SI_POWER_RESERVE1_GPIO
+            int "Reserve GPIO 1"
+            default -1 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21 || SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+            default 6 if SI_BOARD_EXOANCHOR_LAYOUT
+            default -1
+            range -1 54
+            depends on SI_POWER_ENABLE
+            help
+                Runtime-overridable reserved GPIO slot. Keep -1 by default.
+
+        config SI_POWER_RESERVE2_GPIO
+            int "Reserve GPIO 2"
+            default -1
+            range -1 54
+            depends on SI_POWER_ENABLE
+            help
+                Runtime-overridable reserved GPIO slot. Keep -1 by default.
+
+        config SI_POWER_RESERVE3_GPIO
+            int "Reserve GPIO 3"
+            default -1
+            range -1 54
+            depends on SI_POWER_ENABLE
+            help
+                Runtime-overridable reserved GPIO slot. Keep -1 by default.
+
+        config SI_POWER_RESERVE4_GPIO
+            int "Reserve GPIO 4"
+            default -1
+            range -1 54
+            depends on SI_POWER_ENABLE
+            help
+                Runtime-overridable reserved GPIO slot. Keep -1 by default.
+
+        config SI_POWER_LOCATOR_GPIO
+            int "Locator LED GPIO"
+            default 15 if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
+            default 17 if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+            default 3 if SI_BOARD_EXOANCHOR_LAYOUT
+            default -1
+            range -1 54
+            depends on SI_POWER_ENABLE
+            help
+                Runtime-overridable locator/identify LED output. Keep -1 by default.
+
+        config SI_POWER_LOCATOR_ACTIVE_HIGH
+            bool "Locator LED is active high"
+            default y
+            depends on SI_POWER_ENABLE
+
+    endmenu
+
+    menu "USB HID device"
+
+        config SI_HID_USB_ENABLE
+            bool "Enable USB HID device"
+            default y
+            help
+                Expose keyboard and mouse as a TinyUSB device through the
+                ESP32-P4 Full-Speed USB controller, leaving the HS USB host
+                controller available for the UVC camera.
+
+        config SI_HID_USB_MANUFACTURER
+            string "USB HID manufacturer string"
+            default "ExoAnchor"
+            depends on SI_HID_USB_ENABLE
+
+        config SI_HID_USB_PRODUCT
+            string "USB HID product string"
+            default "ExoAnchor PrototypeV0 HID" if SI_BOARD_EXOANCHOR_PROTOTYPE0
+            default "ExoAnchor PrototypeV2.1 HID" if SI_BOARD_EXOANCHOR_PROTOTYPE_V21
+            default "ExoAnchor PrototypeV2.3 HID" if SI_BOARD_EXOANCHOR_PROTOTYPE_V23
+            default "ExoAnchor ESP32-P4x HID" if SI_BOARD_EXOANCHOR_ESP32P4X
+            default "ESP32-P4 USB HID"
+            depends on SI_HID_USB_ENABLE
+
+        config SI_HID_USB_SERIAL
+            string "USB HID serial string"
+            default "P4-FS-HID"
+            depends on SI_HID_USB_ENABLE
+
+        config SI_HID_USB_DM_GPIO
+            int "USB HID DM GPIO"
+            default 26
+            range 0 54
+            depends on SI_HID_USB_ENABLE
+
+        config SI_HID_USB_DP_GPIO
+            int "USB HID DP GPIO"
+            default 27
+            range 0 54
+            depends on SI_HID_USB_ENABLE
+
+    endmenu
+
+    menu "USB UVC video input"
+
+        config SI_VIDEO_ENABLE
+            bool "Enable USB UVC video input"
+            default y
+            help
+                Enable the USB camera path for the web UI. On ESP32-P4 the
+                High-Speed USB controller is used for the UVC camera, while the
+                Full-Speed USB controller can still expose the configured HID.
+
+        config SI_VIDEO_WIDTH
+            int "USB UVC MJPEG width"
+            default 1280
+            range 160 3840
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_HEIGHT
+            int "USB UVC MJPEG height"
+            default 720
+            range 120 2160
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_FPS
+            int "USB UVC MJPEG FPS"
+            default 30
+            range 1 60
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_FRAME_BUFFERS
+            int "USB UVC frame buffers"
+            default 3 if SPIRAM
+            default 2
+            range 2 6
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_URBS
+            int "USB UVC URB count"
+            default 4
+            range 2 8
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_URB_SIZE
+            int "USB UVC URB size"
+            default 16384
+            range 4096 65536
+            depends on SI_VIDEO_ENABLE
+
+        config SI_VIDEO_UVC_JPEG_BUFFER_SIZE
+            int "USB UVC latest JPEG buffer size"
+            default 1048576
+            range 65536 2097152
+            depends on SI_VIDEO_ENABLE
+            help
+                Largest MJPEG frame copied out of the UVC driver for HTTP
+                snapshot and MJPEG streaming.
+
+        config SI_VIDEO_JPEG_QUALITY
+            int "Reported MJPEG/JPEG quality"
+            default 75
+            range 1 100
+            depends on SI_VIDEO_ENABLE
+            help
+                UVC cameras usually produce MJPEG internally. This value is
+                retained for the web API and future cameras that expose quality
+                controls.
+
+        config SI_VIDEO_STREAM_DELAY_MS
+            int "MJPEG frame delay"
+            default 33
+            range 10 1000
+            depends on SI_VIDEO_ENABLE
+
+    endmenu
+
+endmenu
