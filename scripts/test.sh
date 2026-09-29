@@ -9,6 +9,7 @@ export PYTHON
 "${PYTHON:-python3}" "$ROOT/device/ESP32P4/firmware/security-tests/test_auth_runtime.py"
 "${PYTHON:-python3}" "$ROOT/device/ESP32P4/firmware/security-tests/test_http_security_runtime.py"
 "${PYTHON:-python3}" "$ROOT/device/ESP32P4/firmware/security-tests/test_tls_clients.py"
+node "$ROOT/device/ESP32P4/firmware/security-tests/test_browser_setup.mjs"
 "$ROOT/device/ESP32P4/firmware/v0.86-stable-kvm/tests/host/run.sh"
 (cd "$ROOT/integrations/exoanchor-mcp" && "$PYTHON" -m unittest discover -s tests -q)
 (cd "$ROOT/toolkit" && "$PYTHON" -m unittest discover -s tests -q)

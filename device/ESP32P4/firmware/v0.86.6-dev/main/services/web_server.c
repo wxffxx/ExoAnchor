@@ -655,6 +655,9 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/skills", HTTP_GET, skills_handler, false);
 #endif
     register_uri(s_server, "/settings", HTTP_GET, settings_handler, false);
+    register_uri(s_server, "/api/auth/setup", HTTP_GET, auth_setup_handler, false);
+    register_uri(s_server, "/api/auth/setup", HTTP_POST, auth_setup_handler, false);
+    register_uri(s_server, "/api/auth/certificate", HTTP_GET, auth_certificate_handler, false);
     register_uri(s_server, "/api/auth/login", HTTP_POST, auth_login_handler, false);
     register_uri(s_server, "/api/auth/login/status", HTTP_GET, auth_login_status_handler, false);
     register_uri(s_server, "/api/auth/logout", HTTP_POST, auth_logout_handler, false);

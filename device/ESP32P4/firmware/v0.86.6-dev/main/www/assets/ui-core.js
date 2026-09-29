@@ -57,7 +57,13 @@
       if (this.username) localStorage.setItem("si_username", this.username);
     }
 
-    async login(username, password) {
+    async setup(username, password) {
+      const ticket = await this.getSilent("/api/auth/setup");
+      if (!ticket.nonce) throw new Error("无法开始首次配置");
+      return this.login(username, password, ticket.nonce);
+    }
+
+    async login(username, password, setupNonce = "") {
       // Finish revoking the previous Cookie before a new login can replace it.
       if (session.loggedOut()) await session.logout();
       const logoutGeneration = localStorage.getItem("ea_auth_logout_generation");
@@ -77,9 +83,9 @@
         timedOut = true;
         controller.abort();
       }, LOGIN_TIMEOUT_MS);
-      const request = () => fetch("/api/auth/login", {
+      const request = () => fetch(setupNonce ? "/api/auth/setup" : "/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(setupNonce ? { "X-ExoAnchor-Setup": setupNonce } : {}) },
         body: JSON.stringify({ username, password, request_id: requestId }),
         cache: "no-store",
         credentials: "same-origin",
@@ -451,8 +457,8 @@
         '<form id="authForm" class="ui-dialog">' +
           '<div class="auth-brand"><img src="/assets/exoanchor-ui-mark.svg" alt=""><span>ExoAnchor</span></div>' +
           '<h2 id="authTitle">登录本地账户</h2><p id="authHint">需要登录后才能继续。</p>' +
-          '<div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>' +
-          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div>' +
+          '<div id="authCurrentFields"><div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>' +
+          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div></div>' +
           '<div id="authNewFields"><div class="field"><label for="authNewUsername">新用户名</label><input id="authNewUsername" type="text" autocomplete="username" maxlength="32"></div>' +
           '<div class="field"><label for="authNewPassword">新密码（至少 6 位）</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>' +
           '<div class="field"><label for="authConfirmPassword">确认新密码</label><input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div></div>' +
@@ -469,13 +475,14 @@
       this.state = state || {};
       byId("authModal").classList.add("show");
       byId("authNewFields").style.display = mode === "login" ? "none" : "block";
-      byId("authTitle").textContent = mode === "login" ? "登录本地账户" : "请修改默认账户";
-      byId("authHint").textContent = mode === "login" ?
+      byId("authCurrentFields").style.display = mode === "setup" ? "none" : "block";
+      byId("authTitle").textContent = mode === "setup" ? "创建管理员账号" : mode === "login" ? "登录本地账户" : "请修改默认账户";
+      byId("authHint").textContent = mode === "setup" ? "在可信的本地网络完成首次配置。" : mode === "login" ?
         (this.state.must_change_credentials ?
-          "首次使用请以本机 UART0 显示的初始凭据登录，随后设置新密码。" :
+          "请使用预设凭据登录，随后设置新密码。" :
           "需要登录后才能继续。") :
         "当前账户仍使用默认凭据，请设置至少六位的新密码。";
-      byId("authSubmit").textContent = mode === "login" ? "登录" : "保存并继续";
+      byId("authSubmit").textContent = mode === "setup" ? "创建并继续" : mode === "login" ? "登录" : "保存并继续";
       byId("authMsg").textContent = "";
       byId("authMsg").className = "msg";
       byId("authCurrentUsername").value = this.state.username || this.state.default_username || api.username || "admin";
@@ -486,7 +493,7 @@
       status.stop();
       info.stop();
       lifecycle.timeout(() => {
-        if (byId("authModal")?.classList.contains("show")) byId("authCurrentPassword")?.focus();
+        if (byId("authModal")?.classList.contains("show")) byId(mode === "setup" ? "authNewUsername" : "authCurrentPassword")?.focus();
       }, 0);
     },
 
@@ -507,6 +514,13 @@
       if (lifecycle.destroyed) return Promise.resolve(false);
       if (byId("authModal")?.classList.contains("show") && this.mode === "login" && this.waiting) return this.waiting;
       this.show("login", state);
+      if (!this.waiting) this.waiting = new Promise(resolve => { this.pending = resolve; });
+      return this.waiting;
+    },
+
+    requireSetup(state) {
+      if (byId("authModal")?.classList.contains("show") && this.mode === "setup" && this.waiting) return this.waiting;
+      this.show("setup", state);
       if (!this.waiting) this.waiting = new Promise(resolve => { this.pending = resolve; });
       return this.waiting;
     },
@@ -578,6 +592,7 @@
         location.reload();
         return false;
       }
+      if (state.setup_required) return await this.requireSetup(state);
       if (!state.enabled) {
         localStorage.removeItem("ea_auth_logged_out");
         session.apply(state);
@@ -654,6 +669,12 @@
           const confirmPassword = byId("authConfirmPassword").value;
           if (!username) throw new Error("用户名不能为空");
           if (nextPassword !== confirmPassword) throw new Error("两次密码不一致");
+          if (this.mode === "setup") {
+            const result = await api.setup(username, nextPassword);
+            localStorage.setItem("ea_auth_confirmed", "1");
+            this.finishAuthentication(result);
+            return;
+          }
           if (!api.token) await api.login(currentUsername, currentPassword);
           const result = await api.post("/api/settings/account", {
             current_username: currentUsername,
@@ -664,7 +685,7 @@
           api.setSession(result.token, result.username || username);
           this.finishAuthentication(result);
         } catch (error) {
-          if (this.mode === "change" &&
+          if ((this.mode === "change" || this.mode === "setup") &&
               (error instanceof TypeError || /fetch|network/i.test(String(error?.message || "")))) {
             const username = byId("authNewUsername").value.trim();
             const nextPassword = byId("authNewPassword").value;

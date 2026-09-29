@@ -39,6 +39,7 @@ run_toolkit_tests() {
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_auth_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_http_security_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_tls_clients.py"
+node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_browser_setup.mjs"
 
 (
     cd "$REPO_DIR/integrations/exoanchor-mcp"

@@ -55,13 +55,14 @@ typedef int esp_err_t;
 #define SI_AUTH_PASSWORD_MAX_LEN 64
 #define TAG "repro"
 #define ESP_RETURN_ON_ERROR(x, ...) do { int er=(x); if(er != ESP_OK) return er; } while(0)
-typedef struct { int content_len; const char *body; } httpd_req_t;
+typedef struct { int content_len; const char *body; const char *uri; const char *nonce; int method; } httpd_req_t;
+static int last_status;
 static int denied, side_effect, power_result, token_created, credential_changed;
 static int input_mcp=1, comparisons, throttle_checks, failures;
 static const char *created_client;
 static bool auth_allowed;
 static esp_err_t httpd_resp_send_err(httpd_req_t *r, int status, const char *m) {
-    (void)r; (void)m; if(status==401) denied++; return ESP_OK;
+    (void)r; (void)m; last_status=status; if(status==401) denied++; return ESP_OK;
 }
 static esp_err_t si_http_recv_json(httpd_req_t *r, char *b, size_t n, cJSON **out) {
     (void)b; (void)n; *out=cJSON_Parse(r->body); return *out ? ESP_OK : ESP_FAIL;
@@ -136,6 +137,52 @@ static int tracked_snprintf(char *out,size_t n,const char *fmt,...) {
 #define snprintf tracked_snprintf
 '''
 
+def setup_source(main_dir):
+    code = COMMON + r"""
+#define HTTP_GET 1
+#define HTTP_POST 2
+#define ESP_ERR_TIMEOUT 6
+#define ESP_ERR_NO_MEM 7
+#define pdTRUE 1
+#define pdMS_TO_TICKS(x) (x)
+#define AUTH_LOGIN_JOB_ID_LEN 48
+static void *s_auth_login_lock=(void *)1;
+static char s_setup_nonce[49];
+static uint32_t s_setup_nonce_created_ms, clock_ms=1000;
+static int lock_count, submitted;
+static bool setup_open=true;
+static bool si_auth_setup_required(void) {return setup_open;}
+static bool auth_request_is_mcp(httpd_req_t *r) {(void)r;return input_mcp;}
+static int xSemaphoreTake(void *lock,int timeout) {(void)lock;(void)timeout;lock_count++;return 1;}
+static void xSemaphoreGive(void *lock) {(void)lock;lock_count--;}
+static uint32_t si_monotonic_ms(void) {return clock_ms;}
+static void auth_login_job_make_id(char *out) {strcpy(out,"synthetic-first-account-ticket");}
+static void httpd_resp_set_hdr(httpd_req_t *r,const char *k,const char *v) {(void)r;(void)k;(void)v;}
+static esp_err_t httpd_req_get_hdr_value_str(httpd_req_t *r,const char *key,char *out,size_t size) {
+    (void)key;if(!r->nonce)return ESP_FAIL;snprintf(out,size,"%s",r->nonce);return ESP_OK;
+}
+static esp_err_t auth_login_handler(httpd_req_t *r) {(void)r;submitted++;return ESP_OK;}
+"""
+    code += extract(main_dir/'services/web/auth_setup_http_module.inc','auth_setup_handler')
+    return code + r"""
+int main(void) {
+    input_mcp=0;
+    httpd_req_t req={.method=HTTP_POST};
+    auth_setup_handler(&req);assert(submitted==0&&last_status==403&&lock_count==0);
+    req.method=HTTP_GET;assert(auth_setup_handler(&req)==ESP_OK&&s_setup_nonce[0]&&lock_count==0);
+    req.method=HTTP_POST;req.nonce="wrong-ticket";
+    auth_setup_handler(&req);assert(submitted==0&&last_status==403&&lock_count==0);
+    req.nonce=s_setup_nonce;
+    assert(auth_setup_handler(&req)==ESP_OK&&submitted==1&&lock_count==0);
+    clock_ms+=300000;auth_setup_handler(&req);assert(submitted==1&&last_status==403);
+    clock_ms=1000;input_mcp=1;auth_setup_handler(&req);assert(submitted==1&&last_status==403);
+    input_mcp=0;setup_open=false;auth_setup_handler(&req);assert(submitted==1&&last_status==403);
+    req.method=HTTP_GET;auth_setup_handler(&req);assert(submitted==1&&last_status==403&&lock_count==0);
+    return 0;
+}
+"""
+
+
 def main():
     stable=ROOT/'v0.86-stable-kvm/main'
     dev=ROOT/'v0.86.6-dev/main'
@@ -178,7 +225,7 @@ int main(void) {
 """
     with tempfile.TemporaryDirectory(prefix='exoanchor-http-security-') as temp:
         temp=Path(temp)
-        for label,code in [('stable',source),('dev',dev_source)]:
+        for label,code in [('stable',source),('dev',dev_source),('stable-setup',setup_source(stable)),('dev-setup',setup_source(dev))]:
             c=temp/(label+'.c');c.write_text(code);binary=temp/label
             subprocess.run(['cc','-std=c11','-I'+str(vendor),str(c),str(vendor/'cJSON.c'),'-o',str(binary)],check=True)
             subprocess.run([str(binary)],check=True)

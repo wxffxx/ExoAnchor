@@ -133,3 +133,6 @@ HTTP_GET /kvm
 HTTP_GET /settings
 HTTP_GET /skills
 HTTP_GET /terminal
+HTTP_GET /api/auth/setup
+HTTP_POST /api/auth/setup
+HTTP_GET /api/auth/certificate

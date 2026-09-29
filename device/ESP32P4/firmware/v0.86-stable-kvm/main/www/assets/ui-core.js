@@ -38,12 +38,18 @@
       if (this.username) localStorage.setItem("si_username", this.username);
     }
 
-    async login(username, password) {
+    async setup(username, password) {
+      const ticket = await this.getSilent("/api/auth/setup");
+      if (!ticket.nonce) throw new Error("无法开始首次配置");
+      return this.login(username, password, ticket.nonce);
+    }
+
+    async login(username, password, setupNonce = "") {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 75000);
       try {
-        let response = await fetch("/api/auth/login", {
-          method: "POST", headers: { "Content-Type": "application/json" },
+        let response = await fetch(setupNonce ? "/api/auth/setup" : "/api/auth/login", {
+          method: "POST", headers: { "Content-Type": "application/json", ...(setupNonce ? { "X-ExoAnchor-Setup": setupNonce } : {}) },
           body: JSON.stringify({ username, password, request_id: crypto.randomUUID() }),
           credentials: "same-origin", signal: controller.signal,
         });
@@ -152,8 +158,8 @@
       document.body.insertAdjacentHTML("beforeend", '<div id="authModal" class="ui-modal modal" role="dialog" aria-modal="true">' +
         '<form id="authForm" class="ui-dialog dialog">' +
           '<h2 id="authTitle">登录本地账户</h2><p id="authHint">需要登录后才能继续。</p>' +
-          '<div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>' +
-          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div>' +
+          '<div id="authCurrentFields"><div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>' +
+          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div></div>' +
           '<div id="authNewFields"><div class="field"><label for="authNewUsername">新用户名</label><input id="authNewUsername" type="text" autocomplete="username" maxlength="32"></div>' +
           '<div class="field"><label for="authNewPassword">新密码</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>' +
           '<div class="field"><label for="authConfirmPassword">确认新密码</label><input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div></div>' +
@@ -168,9 +174,10 @@
       this.state = state || {};
       byId("authModal").classList.add("show");
       byId("authNewFields").style.display = mode === "login" ? "none" : "block";
-      byId("authTitle").textContent = mode === "login" ? "登录本地账户" : "请修改默认账户";
-      byId("authHint").textContent = mode === "login" ? "需要登录后才能继续。" : "当前账户仍使用默认凭据，请先更新。";
-      byId("authSubmit").textContent = mode === "login" ? "登录" : "保存并继续";
+      byId("authCurrentFields").style.display = mode === "setup" ? "none" : "block";
+      byId("authTitle").textContent = mode === "setup" ? "创建管理员账号" : mode === "login" ? "登录本地账户" : "请修改默认账户";
+      byId("authHint").textContent = mode === "setup" ? "在可信的本地网络完成首次配置。" : mode === "login" ? "需要登录后才能继续。" : "当前账户仍使用默认凭据，请先更新。";
+      byId("authSubmit").textContent = mode === "setup" ? "创建并继续" : mode === "login" ? "登录" : "保存并继续";
       byId("authMsg").textContent = "";
       byId("authMsg").className = "msg";
       byId("authCurrentUsername").value = this.state.username || this.state.default_username || api.username || "admin";
@@ -178,7 +185,7 @@
       byId("authCurrentPassword").value = "";
       byId("authNewPassword").value = "";
       byId("authConfirmPassword").value = "";
-      setTimeout(() => byId("authCurrentPassword").focus(), 0);
+      setTimeout(() => byId(mode === "setup" ? "authNewUsername" : "authCurrentPassword").focus(), 0);
     },
 
     hide(ok) {
@@ -197,6 +204,13 @@
       return this.waiting;
     },
 
+    requireSetup(state) {
+      if (byId("authModal")?.classList.contains("show") && this.mode === "setup" && this.waiting) return this.waiting;
+      this.show("setup", state);
+      if (!this.waiting) this.waiting = new Promise(resolve => { this.pending = resolve; });
+      return this.waiting;
+    },
+
     requireChange(state) {
       if (byId("authModal")?.classList.contains("show") && this.mode === "change" && this.waiting) return this.waiting;
       this.show("change", state);
@@ -207,6 +221,7 @@
     async checkRequired() {
       try {
         const state = await api.getSilent("/api/auth/status");
+        if (state.setup_required) return await this.requireSetup(state);
         if (state.enabled && !state.token_valid) {
           return await this.requireLogin();
         }
@@ -245,6 +260,12 @@
           const confirmPassword = byId("authConfirmPassword").value;
           if (!username) throw new Error("用户名不能为空");
           if (nextPassword !== confirmPassword) throw new Error("两次密码不一致");
+          if (this.mode === "setup") {
+            const result = await api.setup(username, nextPassword);
+            this.hide(true);
+            if (this.onAuthenticated) await this.onAuthenticated(result);
+            return;
+          }
           await api.login(currentUsername, currentPassword);
           const result = await api.post("/api/settings/account", {
             current_username: currentUsername,

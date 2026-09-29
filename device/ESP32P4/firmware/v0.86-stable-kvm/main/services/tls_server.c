@@ -13,7 +13,7 @@
 #include "settings_store.h"
 #include "lwip/inet.h"
 
-/* Private key stays on the device. The public certificate is delivered over UART0. */
+/* Private key stays on the device. The public certificate is downloadable through the setup UI. */
 static unsigned char s_certificate[2048];
 static unsigned char s_private_key[1024];
 static bool s_ready;
@@ -119,15 +119,6 @@ static esp_err_t load_identity(void)
     if (!parsed) parsed = mbedtls_pk_parse_key(&key, s_private_key,
         strlen((char *)s_private_key) + 1, NULL, 0, random_bytes, NULL);
     if (!parsed) parsed = mbedtls_pk_check_pair(&cert.pk, &key, random_bytes, NULL);
-    if (!parsed) {
-        uint8_t digest[32];
-        parsed = mbedtls_sha256(cert.raw.p, cert.raw.len, digest, 0);
-        if (!parsed) {
-            printf("ExoAnchor TLS certificate SHA256: ");
-            for (size_t i = 0; i < sizeof(digest); ++i) printf("%02x", digest[i]);
-            printf("\n%s", s_certificate);
-        }
-    }
     mbedtls_pk_free(&key);
     mbedtls_x509_crt_free(&cert);
     if (parsed) {
@@ -153,4 +144,9 @@ esp_err_t si_tls_server_start(httpd_handle_t *server, const httpd_config_t *conf
     tls.prvtkey_len = strlen((char *)s_private_key) + 1;
     tls.tls_handshake_timeout_ms = 5000;
     return httpd_ssl_start(server, &tls);
+}
+
+const char *si_tls_server_certificate(void)
+{
+    return s_ready ? (const char *)s_certificate : NULL;
 }

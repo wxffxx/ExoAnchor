@@ -419,7 +419,10 @@ def main() -> int:
     if "mcp_client && auth_status.using_default" not in base_settings_text:
         failures.append("MCP can authenticate with the temporary bootstrap credential")
     for marker in (
-        "首次使用请以本机 UART0 显示的初始凭据登录",
+        "创建管理员账号",
+        "state.setup_required",
+        "this.requireSetup(state)",
+        "api.setup(username, nextPassword)",
         "当前账户仍使用默认凭据，请设置至少六位的新密码。",
         "return await this.requireLogin(state);",
         'byId("authCurrentPassword").value = currentPassword;',

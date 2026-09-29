@@ -75,6 +75,7 @@ static char s_salt[AUTH_SALT_HEX_LEN + 1];
 static uint32_t s_iterations;
 static bool s_loaded;
 static bool s_using_default;
+static bool s_setup_pending;
 static bool s_legacy_password;
 static bool s_login_count_loaded;
 static uint32_t s_login_count;
@@ -145,7 +146,7 @@ static uint32_t next_session_generation_locked(void)
 
 static esp_err_t set_credentials_internal(const char *username,
                                           const char *password,
-                                          bool bootstrap_required, bool rotate, bool locked);
+                                          bool bootstrap_required, bool rotate, bool locked, bool allow_setup);
 
 static esp_err_t ensure_lock(void)
 {
@@ -428,6 +429,8 @@ static void load_credentials(void)
         uint8_t bootstrap_required = 0;
         esp_err_t bootstrap_err = si_settings_store_get_u8(
             &store, AUTH_BOOTSTRAP_REQUIRED_KEY, &bootstrap_required);
+        uint8_t setup_flag = 0;
+        esp_err_t setup_err = si_settings_store_get_u8(&store, "setup", &setup_flag);
         si_settings_store_close(&store);
 
         if (verifier_err == ESP_OK && strlen(s_verifier) == SI_AUTH_TOKEN_LEN) {
@@ -445,6 +448,12 @@ static void load_credentials(void)
             }
             s_using_default = bootstrap_err == ESP_OK &&
                               bootstrap_required == 1U;
+            if ((setup_err != ESP_OK && setup_err != ESP_ERR_NOT_FOUND) || setup_flag > 1 ||
+                (setup_err == ESP_OK && setup_flag && !s_using_default)) {
+                si_secret_store_clear(s_verifier, sizeof(s_verifier)); s_loaded = true; return;
+            }
+            s_setup_pending = setup_err == ESP_OK ? setup_flag == 1 :
+                s_using_default && si_auth_validate_password(SI_CFG_AUTH_PASSWORD) != ESP_OK;
             s_loaded = true;
             if (s_using_default) {
                 char factory_verifier[SI_AUTH_TOKEN_LEN + 1] = {0};
@@ -457,9 +466,7 @@ static void load_credentials(void)
                 si_secret_store_clear(factory_verifier, sizeof(factory_verifier));
                 if (shared_factory) {
                     char replacement[SI_AUTH_BOOTSTRAP_PASSWORD_LEN + 1];
-                    if (si_auth_reset_bootstrap(replacement, sizeof(replacement)) == ESP_OK) {
-                        printf("ExoAnchor initial account: %s / %s\n", s_username, replacement);
-                    } else {
+                    if (si_auth_reset_bootstrap(replacement, sizeof(replacement)) != ESP_OK) {
                         si_secret_store_clear(s_verifier, sizeof(s_verifier));
                     }
                     si_secret_store_clear(replacement, sizeof(replacement));
@@ -486,16 +493,13 @@ static void load_credentials(void)
             SI_CFG_AUTH_PASSWORD : generated_password;
 
     esp_err_t bootstrap_ret = set_credentials_internal(
-        s_username, bootstrap_password, true, true, false);
+        s_username, bootstrap_password, true, true, false,
+        si_auth_validate_password(SI_CFG_AUTH_PASSWORD) != ESP_OK);
     if (bootstrap_ret != ESP_OK) {
         si_secret_store_clear(s_verifier, sizeof(s_verifier));
         s_loaded = true;
         ESP_LOGE(TAG, "Could not persist bootstrap credential: %s",
                  esp_err_to_name(bootstrap_ret));
-    } else if (bootstrap_password == generated_password) {
-        /* Local console only: never put ownership secrets in network logs. */
-        printf("ExoAnchor initial account: %s / %s\n", s_username,
-               generated_password);
     }
     si_secret_store_clear(generated_password, sizeof(generated_password));
 }
@@ -517,7 +521,7 @@ bool si_auth_is_enabled(void)
 
 bool si_auth_credentials_match(const char *username, const char *password)
 {
-    if (!username || !password || strlen(password) > SI_AUTH_PASSWORD_MAX_LEN) return false;
+    if (!username || !password || strlen(password) > SI_AUTH_PASSWORD_MAX_LEN || si_auth_setup_required()) return false;
     load_credentials();
     if (!s_credentials_lock) s_credentials_lock = xSemaphoreCreateMutex();
     if (!s_credentials_lock || xSemaphoreTake(s_credentials_lock,
@@ -533,7 +537,7 @@ bool si_auth_credentials_match(const char *username, const char *password)
     /* Migration holds the credential lock and preserves the login generation. */
     if (matches && s_legacy_password && si_auth_validate_password(password) == ESP_OK) {
         matches = set_credentials_internal(s_username, password, s_using_default,
-                                           false, true) == ESP_OK;
+                                           false, true, s_setup_pending) == ESP_OK;
     }
     xSemaphoreGive(s_credentials_lock);
     return matches;
@@ -561,7 +565,7 @@ static bool session_expired(const auth_session_t *session, int64_t now_us,
 esp_err_t si_auth_create_session_for_generation(
     const char *client, uint32_t expected_generation, char out_token[SI_AUTH_TOKEN_LEN + 1])
 {
-    if (!out_token || !si_auth_is_enabled() || !s_verifier[0]) {
+    if (!out_token || !si_auth_is_enabled() || !s_verifier[0] || si_auth_setup_required()) {
         return ESP_ERR_INVALID_ARG;
     }
     ESP_RETURN_ON_ERROR(ensure_lock(), TAG, "create auth lock");
@@ -928,7 +932,7 @@ void si_auth_record_login(void)
 
 static esp_err_t set_credentials_internal(const char *username,
                                           const char *password,
-                                          bool bootstrap_required, bool rotate, bool locked)
+                                          bool bootstrap_required, bool rotate, bool locked, bool allow_setup)
 {
     char next_username[SI_AUTH_USERNAME_MAX_LEN + 1];
     uint8_t salt[AUTH_SALT_BYTES] = {0};
@@ -974,6 +978,7 @@ static esp_err_t set_credentials_internal(const char *username,
             &store, AUTH_BOOTSTRAP_REQUIRED_KEY,
             bootstrap_required ? 1U : 0U);
     }
+    if (ret == ESP_OK) ret = si_settings_store_set_u8(&store, "setup", bootstrap_required && allow_setup ? 1U : 0U);
     if (ret == ESP_OK) {
         ret = si_settings_store_commit(&store);
     }
@@ -991,6 +996,7 @@ static esp_err_t set_credentials_internal(const char *username,
     s_iterations = AUTH_PBKDF2_ITERATIONS;
     s_loaded = true;
     s_using_default = bootstrap_required;
+    s_setup_pending = bootstrap_required && allow_setup;
     s_legacy_password = false;
     si_secret_store_clear(verifier, sizeof(verifier));
     si_secret_store_clear(salt_hex, sizeof(salt_hex));
@@ -1002,7 +1008,7 @@ static esp_err_t set_credentials_internal(const char *username,
 
 esp_err_t si_auth_set_credentials(const char *username, const char *password)
 {
-    return set_credentials_internal(username, password, false, true, false);
+    return set_credentials_internal(username, password, false, true, false, false);
 }
 
 esp_err_t si_auth_reset_bootstrap(char *bootstrap_password_out,
@@ -1015,7 +1021,7 @@ esp_err_t si_auth_reset_bootstrap(char *bootstrap_password_out,
     char password[SI_AUTH_BOOTSTRAP_PASSWORD_LEN + 1] = {0};
     generate_bootstrap_password(password);
     esp_err_t ret = set_credentials_internal(
-        si_auth_default_username(), password, true, true, false);
+        si_auth_default_username(), password, true, true, false, true);
     if (ret == ESP_OK) {
         strlcpy(bootstrap_password_out, password, out_size);
     } else {
@@ -1034,6 +1040,7 @@ void si_auth_get_status(si_auth_status_t *status)
     load_credentials();
     status->enabled = s_verifier[0] != '\0';
     status->using_default = s_using_default;
+    status->setup_required = si_auth_setup_required();
     status->legacy_password = s_legacy_password;
     status->login_count = si_auth_login_count();
     strlcpy(status->username, s_username, sizeof(status->username));
@@ -1092,3 +1099,22 @@ void si_auth_get_runtime_status(si_auth_runtime_status_t *status)
 }
 
 esp_err_t si_auth_create_session_for_client(const char *client, char out_token[65]) { return si_auth_create_session_for_generation(client, 0, out_token); }
+
+/* Unclaimed devices expose only first-account creation, never a default login. */
+bool si_auth_setup_required(void)
+{
+    return s_loaded && s_verifier[0] && s_using_default && s_setup_pending;
+}
+
+esp_err_t si_auth_setup_credentials(const char *username, const char *password,
+                                    uint32_t expected_generation)
+{
+    if (!s_credentials_lock || xSemaphoreTake(s_credentials_lock,
+            pdMS_TO_TICKS(AUTH_SESSION_LOCK_WAIT_MS)) != pdTRUE) return ESP_ERR_TIMEOUT;
+    esp_err_t ret = ESP_ERR_INVALID_STATE;
+    if (si_auth_setup_required() && expected_generation == si_auth_credential_generation()) {
+        ret = set_credentials_internal(username, password, false, true, true, false);
+    }
+    xSemaphoreGive(s_credentials_lock);
+    return ret;
+}

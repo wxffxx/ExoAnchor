@@ -185,9 +185,9 @@ menu "SI ESP32-P4 Host Configuration"
         string "Build-specific web/API bootstrap password"
         default ""
         help
-            Leave empty to generate a unique 128-bit bootstrap password on first
-            boot, delivered only through UART0. Controlled custom builds may
-            set a unique 6..64 character credential in local sdkconfig.
+            Leave empty to create the first administrator account through the
+            device web UI on a trusted local network. Controlled custom builds
+            may set a unique 6..64 character credential in local sdkconfig.
 
     menu "ATX power control"
 

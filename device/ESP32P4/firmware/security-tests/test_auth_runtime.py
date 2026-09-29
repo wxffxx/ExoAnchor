@@ -40,7 +40,8 @@ static unsigned kdf_calls;
 static int storage_mode;
 static char stored_username[33], stored_verifier[65], stored_salt[33];
 static uint32_t stored_iterations, stored_login_count;
-static uint8_t stored_bootstrap;
+static uint8_t stored_bootstrap, stored_setup;
+static bool has_setup;
 int64_t esp_timer_get_time(void) {return now_us;}
 esp_reset_reason_t esp_reset_reason(void) {return ESP_RST_POWERON;}
 uint32_t esp_random(void) {return ++random_counter;}
@@ -79,8 +80,8 @@ esp_err_t si_settings_store_set_string(si_settings_store_t *s,const char *key,co
 }
 esp_err_t si_settings_store_get_u32(si_settings_store_t *s,const char *key,uint32_t *v) {(void)s;*v=strcmp(key,"password_iter")==0?stored_iterations:stored_login_count;return *v?ESP_OK:ESP_ERR_NOT_FOUND;}
 esp_err_t si_settings_store_set_u32(si_settings_store_t *s,const char *key,uint32_t v) {(void)s;if(strcmp(key,"password_iter")==0)stored_iterations=v;else stored_login_count=v;return ESP_OK;}
-esp_err_t si_settings_store_get_u8(si_settings_store_t *s,const char *key,uint8_t *v) {(void)s;(void)key;*v=stored_bootstrap;return ESP_OK;}
-esp_err_t si_settings_store_set_u8(si_settings_store_t *s,const char *key,uint8_t v) {(void)s;(void)key;stored_bootstrap=v;return ESP_OK;}
+esp_err_t si_settings_store_get_u8(si_settings_store_t *s,const char *key,uint8_t *v) {(void)s;if(strcmp(key,"setup")==0){if(!has_setup)return ESP_ERR_NOT_FOUND;*v=stored_setup;}else *v=stored_bootstrap;return ESP_OK;}
+esp_err_t si_settings_store_set_u8(si_settings_store_t *s,const char *key,uint8_t v) {(void)s;if(strcmp(key,"setup")==0){stored_setup=v;has_setup=true;}else stored_bootstrap=v;return ESP_OK;}
 esp_err_t si_settings_store_get_string_size(si_settings_store_t *s,const char *key,size_t *n) {(void)s;(void)key;*n=0;return ESP_ERR_NOT_FOUND;}
 esp_err_t si_settings_store_erase_key(si_settings_store_t *s,const char *key) {(void)s;(void)key;return ESP_ERR_NOT_FOUND;}
 esp_err_t si_settings_store_commit(si_settings_store_t *s) {(void)s;return storage_mode==3?ESP_FAIL:ESP_OK;}
@@ -109,7 +110,9 @@ int main(int argc,char **argv) {
     assert(ret==ESP_OK);
     if(strcmp(argv[1],"persisted-bootstrap")==0) {
         si_auth_status_t status;si_auth_get_status(&status);assert(status.using_default);
-        assert(si_auth_credentials_match("admin","persisted-password"));return 0;
+        assert(status.setup_required && !si_auth_credentials_match("admin","persisted-password"));
+        assert(si_auth_setup_credentials("owner","browser-created-password",si_auth_credential_generation())==ESP_OK);
+        assert(!si_auth_setup_required());return 0;
     }
     if(strcmp(argv[1],"legacy")==0) {
         uint32_t generation=si_auth_credential_generation();
@@ -117,7 +120,21 @@ int main(int argc,char **argv) {
         assert(strlen(stored_salt)==32 && si_auth_credential_generation()==generation);
         char token[65];assert(si_auth_create_session_for_generation("web",generation,token)==ESP_OK);return 0;
     }
+    assert(si_auth_setup_required());
     assert(!si_auth_credentials_match("admin","admin"));
+    char unclaimed_token[65];assert(si_auth_create_session(unclaimed_token)!=ESP_OK);
+    uint32_t setup_generation=si_auth_credential_generation();
+    assert(si_auth_setup_credentials("owner","browser-created-password",setup_generation+1)!=ESP_OK);
+    assert(si_auth_setup_required());
+    assert(si_auth_setup_credentials("owner","browser-created-password",setup_generation)==ESP_OK);
+    assert(!si_auth_setup_required() && !stored_bootstrap && !stored_setup);
+    s_loaded=false;
+#ifndef DEV_PROFILE
+    s_initialized=false;
+#endif
+    assert(si_auth_initialize()==ESP_OK && !si_auth_setup_required());
+    assert(si_auth_setup_credentials("attacker","second-claim-password",si_auth_credential_generation())!=ESP_OK);
+    assert(!si_auth_credentials_match("attacker","second-claim-password"));
     assert(strlen(stored_salt)==32 && strlen(stored_verifier)==64);
     assert(si_auth_set_credentials("owner","new-local-password")==ESP_OK);
     assert(si_auth_credentials_match("owner","new-local-password"));
@@ -175,7 +192,8 @@ def main():
                 command.insert(1, "-DDEV_PROFILE")
             subprocess.run(command, check=True)
             for case in ("sessions", "read-failure", "corrupt", "save-failure", "persisted-bootstrap", "legacy"):
-                subprocess.run([str(binary), case], check=True, stdout=subprocess.DEVNULL)
+                result = subprocess.run([str(binary), case], check=True, stdout=subprocess.PIPE)
+                assert result.stdout == b"", "auth service must not print initial credentials"
             print(version + " auth state/security tests: PASS")
 
 if __name__ == "__main__":

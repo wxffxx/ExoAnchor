@@ -65,6 +65,7 @@ code{padding:2px 5px;border:1px solid var(--line);border-radius:5px;background:#
       <h2>本地账户</h2><p>修改 Web 管理账户；首次使用默认凭据时应立即更改。</p>
       <form id="accountForm"><div class="field"><label for="currentPassword">当前密码</label><input id="currentPassword" type="password" autocomplete="current-password"></div><div class="field"><label for="accountUsername">新用户名</label><input id="accountUsername" maxlength="32" autocomplete="username"></div><div class="row"><div class="field"><label for="newPassword">新密码</label><input id="newPassword" type="password" minlength="6" maxlength="64" autocomplete="new-password"></div><div class="field"><label for="confirmPassword">确认密码</label><input id="confirmPassword" type="password" minlength="6" maxlength="64" autocomplete="new-password"></div></div><div class="actions"><button class="primary" type="submit">更新账户</button></div></form>
       <div id="accountMsg" class="msg"></div>
+        <a href="/api/auth/certificate" download="exoanchor-device.pem">下载设备证书</a>
     </article>
     <article class="card">
       <h2>会话安全</h2><p>浏览器空闲后要求重新认证。</p>
