@@ -218,6 +218,194 @@ try {
 // Run the real modal submission plus Agent preview start/stop and its actual
 // authentication callback, rather than only testing ApiClient.setSession().
 const agentSource = fs.readFileSync(new URL("../../main/www/agent.html", import.meta.url), "utf8");
+function agentPreview(UI, context) {
+  const timers = new Map();
+  let nextTimer = 0;
+  const attributes = new Map();
+  const preview = {
+    src: "",
+    hasAttribute: name => name === "src" ? !!preview.src : attributes.has(name),
+    removeAttribute(name) { attributes.delete(name); if (name === "src") this.src = ""; },
+  };
+  const page = {
+    UI, API: UI.api, AuthUI: UI.auth, Session: UI.session,
+    document: context.document, fetch: context.fetch, AbortController,
+    setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; },
+    clearTimeout(id) { timers.delete(id); },
+    workspaceState: { ready: true, booted: true },
+    activeLeftView: "screen", previewEnabled: true, preview,
+    agentPageLeaving: false, agentStreamActive: false, streamTimer: 0,
+    agentStreamRequest: 0, agentDocumentReady: Promise.resolve(),
+    agentLeaseController: null, agentLeaseReleasePending: Promise.resolve(),
+    videoText: { textContent: "waiting for stream" }, streamUrl: () => "/restarted-stream",
+    loadAgentToolSettings: async () => {}, loadWorkspaceData: async () => {},
+  };
+  const start = agentSource.indexOf("async function sendAgentVideoLease(");
+  const end = agentSource.indexOf("function setPreviewEnabled(", start);
+  assert.ok(start >= 0 && end > start);
+  vm.runInNewContext(agentSource.slice(start, end), page);
+  return { page, timers, fireTimer() {
+    assert.equal(timers.size, 1, "preview has one scheduled action");
+    const [id, timer] = timers.entries().next().value;
+    timers.delete(id);
+    return timer.callback();
+  } };
+}
+
+// A rejected lease must not start MJPEG, and its retry must first reacquire the
+// lease. This executes the production functions and shared request client.
+{
+  let attempts = 0;
+  const { UI, context } = browser({ fetch: async (_path, options) => {
+    if (!JSON.parse(options.body).active) return Response.json({ ok: true });
+    attempts++;
+    return attempts === 1 ? new Response("video busy", { status: 503 }) : Response.json({ ok: true });
+  } });
+  UI.api.setSession("live-token", "admin");
+  const { page, timers, fireTimer } = agentPreview(UI, context);
+  await page.startAgentStream();
+  assert.equal(page.preview.src, "", "rejected lease must not start an image request");
+  assert.ok([...timers.values()][0]?.delay >= 500, "lease failure must back off before retrying");
+  fireTimer();
+  await new Promise(setImmediate);
+  assert.equal(attempts, 2, "preview retries the failed lease");
+  fireTimer();
+  assert.equal(page.preview.src, "/restarted-stream");
+  page.stopAgentStream();
+  UI.lifecycle.destroy("test");
+}
+
+// Both stalled headers and a stalled JSON body are bounded by the lease
+// deadline. Leaving the page cancels the scheduled recovery.
+for (const phase of ["headers", "body"]) {
+  const stalled = http.createServer((_request, response) => {
+    if (phase === "body") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.write('{"pending":');
+    }
+  });
+  await new Promise(resolve => stalled.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${stalled.address().port}`;
+  const signals = [];
+  const { UI, context } = browser({
+    setTimeout: (callback, delay) => setTimeout(callback, Math.min(delay, 40)),
+    fetch: (path, options) => { signals.push(options.signal); return fetch(origin + path, options); },
+  });
+  UI.api.setSession("live-token", "admin");
+  const { page, timers } = agentPreview(UI, context);
+  try {
+    await page.startAgentStream();
+    assert.equal(signals[0]?.aborted, true, `${phase}: stalled acquire is cancelled`);
+    assert.equal(page.preview.src, "");
+    assert.equal(timers.size, 1, `${phase}: deadline schedules recovery`);
+    page.stopAgentStream(true);
+    assert.equal(timers.size, 0, "leaving cancels the retry");
+    await page.agentLeaseReleasePending;
+  } finally {
+    UI.lifecycle.destroy("test");
+    stalled.closeAllConnections();
+    await new Promise(resolve => stalled.close(resolve));
+  }
+}
+
+// Even a response already completing during cancellation must not install an
+// old image or replace a newer retry timer. Release remains durable on unload.
+for (const leaving of [false, true]) {
+  let finishAcquire;
+  let acquireSignal;
+  let releaseOptions;
+  let acquisitions = 0;
+  const { UI, context } = browser({ fetch: async (_path, options) => {
+    if (!JSON.parse(options.body).active) {
+      releaseOptions = options;
+      return Response.json({ ok: true });
+    }
+    if (++acquisitions !== 1) return Response.json({ ok: true });
+    acquireSignal = options.signal;
+    return new Promise(resolve => { finishAcquire = resolve; });
+  } });
+  UI.api.setSession("live-token", "admin");
+  const { page, timers, fireTimer } = agentPreview(UI, context);
+  const first = page.startAgentStream();
+  await new Promise(setImmediate);
+  page.stopAgentStream(leaving);
+  assert.equal(acquireSignal.aborted, true, "stop aborts the live lease request");
+  if (leaving) UI.lifecycle.destroy("navigate");
+  else await page.startAgentStream();
+  assert.equal(releaseOptions.keepalive, true);
+  assert.equal(releaseOptions.signal.aborted, false, "release outlives page teardown");
+  finishAcquire(Response.json({ ok: true }));
+  await first;
+  assert.equal(page.preview.src, "", "late response cannot restart the image");
+  assert.equal(timers.size, leaving ? 0 : 1);
+  if (!leaving) {
+    fireTimer();
+    assert.equal(page.preview.src, "/restarted-stream");
+    page.stopAgentStream();
+  }
+  await page.agentLeaseReleasePending;
+  UI.lifecycle.destroy("test");
+}
+
+// Stop while waiting for document load or a previous release must prevent a
+// late acquisition. A subsequent restart waits for that release to settle.
+for (const pending of ["document", "release"]) {
+  let finishPending;
+  const waiting = new Promise(resolve => { finishPending = resolve; });
+  const requests = [];
+  const { UI, context } = browser({ fetch: async (_path, options) => {
+    requests.push(options);
+    return Response.json({ ok: true });
+  } });
+  UI.api.setSession("live-token", "admin");
+  const { page, timers, fireTimer } = agentPreview(UI, context);
+  page[pending === "document" ? "agentDocumentReady" : "agentLeaseReleasePending"] = waiting;
+  const first = page.startAgentStream();
+  await new Promise(setImmediate);
+  page.stopAgentStream();
+  const restarted = page.startAgentStream();
+  await new Promise(setImmediate);
+  assert.equal(requests.filter(options => JSON.parse(options.body).active).length, 0);
+  finishPending();
+  await Promise.all([first, restarted]);
+  assert.equal(requests.filter(options => JSON.parse(options.body).active).length, 1,
+    `${pending}: only the current preview may acquire the lease`);
+  assert.equal(timers.size, 1);
+  fireTimer();
+  assert.equal(page.preview.src, "/restarted-stream");
+  page.stopAgentStream();
+  await page.agentLeaseReleasePending;
+  UI.lifecycle.destroy("test");
+}
+
+// A 401 can wait in the shared login dialog. Closing preview in the meantime
+// must cancel the retry even when login succeeds afterward.
+{
+  let finishLogin;
+  const requests = [];
+  const { UI, context } = browser({ fetch: async (_path, options) => {
+    if (options.signal?.aborted) throw new DOMException("aborted", "AbortError");
+    requests.push(options);
+    return JSON.parse(options.body).active ? new Response("login required", { status: 401 }) : Response.json({ ok: true });
+  } });
+  UI.api.setSession("old-token", "admin");
+  UI.auth.mounted = true;
+  UI.auth.requireLogin = () => new Promise(resolve => { finishLogin = resolve; });
+  const { page, timers } = agentPreview(UI, context);
+  const starting = page.startAgentStream();
+  await new Promise(setImmediate);
+  assert.equal(typeof finishLogin, "function");
+  page.stopAgentStream();
+  UI.api.setSession("new-token", "admin");
+  finishLogin(true);
+  await starting;
+  assert.equal(requests.filter(options => JSON.parse(options.body).active).length, 1);
+  assert.equal(page.preview.src, "");
+  assert.equal(timers.size, 0);
+  await page.agentLeaseReleasePending;
+  UI.lifecycle.destroy("test");
+}
+
 for (const trigger of ["idle", "peer"]) {
   const requests = [];
   const { UI, context } = browser({ fetch: async (path, options) => {
@@ -244,24 +432,14 @@ for (const trigger of ["idle", "peer"]) {
   UI.api.setSession("live-token", "admin");
   UI.session.apply({ auto_logout_enabled: true, auto_logout_minutes: 1 });
   UI.session.start();
-  const preview = context.document.getElementById("preview");
+  const { page, fireTimer } = agentPreview(UI, context);
+  const preview = page.preview;
   preview.src = "/previous-stream";
-  const page = {
-    UI, API: UI.api, AuthUI: UI.auth, Session: UI.session,
-    document: context.document, fetch: context.fetch, setTimeout, clearTimeout,
-    workspaceState: { ready: true, booted: true },
-    activeLeftView: "screen", previewEnabled: true, preview,
-    agentPageLeaving: false, agentStreamActive: true, streamTimer: 0,
-    agentStreamRequest: 0, agentDocumentReady: Promise.resolve(),
-    videoText: { textContent: "streaming" }, streamUrl: () => "/restarted-stream",
-    loadAgentToolSettings: async () => {}, loadWorkspaceData: async () => {},
-  };
+  page.agentStreamActive = true;
   const callbackStart = agentSource.indexOf("AuthUI.bindForm(async()=>{");
   const callbackEnd = agentSource.indexOf("\n});", callbackStart) + 4;
-  const declarations = ["sendAgentVideoLease", "startAgentStream", "stopAgentStream"].map(name =>
-    agentSource.split("\n").find(line => line.startsWith(`function ${name}(`) || line.startsWith(`async function ${name}(`)));
   const logoutListener = agentSource.split("\n").find(line => line.startsWith('document.addEventListener("exoanchor:logout"'));
-  vm.runInNewContext([...declarations, agentSource.slice(callbackStart, callbackEnd), logoutListener].join("\n"), page);
+  vm.runInNewContext([agentSource.slice(callbackStart, callbackEnd), logoutListener].join("\n"), page);
   if (trigger === "idle") {
     context.localStorage.setItem("si_auth_last_active", Date.now() - 61000);
     UI.session.active();
@@ -284,6 +462,7 @@ for (const trigger of ["idle", "peer"]) {
   context.document.getElementById("authCurrentPassword").value = "password";
   await context.document.getElementById("authForm").onsubmit({ preventDefault() {} });
   await new Promise(resolve => setTimeout(resolve, 20));
+  fireTimer();
   assert.equal(UI.api.token, "relogin-token");
   assert.equal(UI.auth.pending, null);
   assert.equal(preview.src, "/restarted-stream", `${trigger}: modal success invokes actual Agent page reconnect`);

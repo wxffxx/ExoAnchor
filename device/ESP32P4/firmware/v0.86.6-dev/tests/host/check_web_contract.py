@@ -1850,7 +1850,8 @@ def main() -> int:
     for marker in (
         "agentDocumentReady",
         "agentStreamRequest",
-        "await Promise.all([sendAgentVideoLease(true),agentDocumentReady])",
+        "await Promise.all([agentLeaseReleasePending,agentDocumentReady])",
+        "await sendAgentVideoLease(true,controller.signal)",
     ):
         if marker not in agent_text:
             failures.append(f"Agent MJPEG startup/load cancellation guard missing {marker}")

@@ -202,17 +202,20 @@ esp_err_t hid_ws_pre_handshake(httpd_req_t *req)
         return hid_ws_reject_after_send(si_http_send_text_status(
             req, "409 Conflict", "automated input control is active"));
     }
+    /* Claiming replaces the existing HID owner. Reserve the cleanup context
+     * first so an allocation failure cannot revoke a working connection. */
+    hid_ws_ctx_t *ctx = calloc(1, sizeof(*ctx));
+    if (!ctx) {
+        return ESP_ERR_NO_MEM;
+    }
     si_hid_owner_token_t owner = {0};
     if (!si_control_lease_claim_kvm_hid_owner(
             stream_id, session.session_id, session.generation,
             hid_ws_handshake_auth_guard, &session, &owner)) {
+        free(ctx);
         return hid_ws_reject_after_send(si_http_send_text_status(
             req, "409 Conflict",
             "stale KVM stream or agent input control is active"));
-    }
-    hid_ws_ctx_t *ctx = calloc(1, sizeof(*ctx));
-    if (!ctx) {
-        return ESP_ERR_NO_MEM;
     }
     ctx->stream_id = stream_id;
     ctx->stream_owner_epoch = owner.claim.authority_epoch;
