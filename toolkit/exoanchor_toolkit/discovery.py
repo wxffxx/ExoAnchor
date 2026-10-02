@@ -36,9 +36,9 @@ class DiscoveredDevice:
 
     @property
     def web_url(self) -> str:
-        default_port = self.http_port in {0, 80}
+        default_port = self.http_port in {0, 443}
         port = "" if default_port else f":{self.http_port}"
-        return f"http://{self.source_ip}{port}/"
+        return f"https://{self.source_ip}{port}/"
 
     def to_dict(self) -> dict[str, object]:
         value = asdict(self)
@@ -100,7 +100,7 @@ def parse_discovery_response(
     try:
         source_ip = str(ipaddress.IPv4Address(source_ip))
         reported_ip = str(ipaddress.IPv4Address(str(response.get("ipv4", ""))))
-        http_port = int(response.get("http_port", 80))
+        http_port = int(response.get("http_port", 443))
     except (ipaddress.AddressValueError, TypeError, ValueError):
         return None
     if not 1 <= http_port <= 65535:
@@ -225,7 +225,7 @@ def identify_uart_device(
         ipv4 = ""
     board = status.get("board", "unknown")
     firmware = status.get("version", "unknown")
-    web_url = f"http://{ipv4}/" if ipv4 else ""
+    web_url = f"https://{ipv4}/" if ipv4 else ""
     return {
         "device_id": device_id,
         "hostname": hostname,
@@ -235,7 +235,7 @@ def identify_uart_device(
         "address_source": snapshot.runtime.get("source", "uart"),
         "firmware": firmware,
         "board": board,
-        "http_port": 80,
+        "http_port": 443,
         "web_url": web_url,
         "transport": "uart",
         "serial_port": console.port,

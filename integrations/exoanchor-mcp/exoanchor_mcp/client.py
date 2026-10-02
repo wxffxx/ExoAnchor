@@ -9,17 +9,66 @@ import secrets
 import time
 import threading
 from dataclasses import dataclass
+from http.client import HTTPException, HTTPResponse, IncompleteRead
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.parse import urlencode, urljoin, urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+
+from .tls_transport import verified_https_handler
 
 JSON = dict[str, Any]
+JSON_RESPONSE_LIMIT = 2 * 1024 * 1024
+IMAGE_RESPONSE_LIMIT = 6 * 1024 * 1024
+ERROR_RESPONSE_LIMIT = 16 * 1024
+
+
+def _read_bounded(response, limit: int, deadline: float) -> bytes:
+    declared = response.headers.get("Content-Length")
+    expected = None
+    if declared is not None:
+        try:
+            expected = int(declared)
+        except (ValueError, TypeError) as exc:
+            raise ExoAnchorError("invalid response Content-Length") from exc
+        if expected < 0 or expected > limit:
+            raise ExoAnchorError("response exceeds size limit")
+    chunks = []
+    size = 0
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ExoAnchorError("response deadline exceeded")
+        # Bound each socket wait by the remaining total response budget.
+        wire = response.fp if isinstance(response, HTTPError) else response
+        if isinstance(wire, HTTPResponse) and wire.fp is not None:
+            sock = getattr(getattr(wire.fp, "raw", None), "_sock", None)
+            if sock is not None:
+                sock.settimeout(remaining)
+        read = wire.read1 if isinstance(wire, HTTPResponse) else response.read
+        chunk = read(min(65536, limit + 1 - size))
+        if time.monotonic() >= deadline:
+            raise ExoAnchorError("response deadline exceeded")
+        if not chunk:
+            if expected is not None and size != expected:
+                raise IncompleteRead(b"", expected - size)
+            return b"".join(chunks)
+        size += len(chunk)
+        if size > limit:
+            raise ExoAnchorError("response exceeds size limit")
+        chunks.append(chunk)
 
 
 class ExoAnchorError(RuntimeError):
     pass
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """Keep requests and bearer credentials at the explicitly selected URL."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -55,6 +104,8 @@ class ExoAnchorConfig:
     persist_job_output: bool
     allow_unverified_ssh_host: bool
     allow_arbitrary_ssh: bool
+    tls_certificate_file: str | None = None
+    allow_insecure_http: bool = False
 
     @classmethod
     def from_env(cls) -> "ExoAnchorConfig":
@@ -95,14 +146,22 @@ class ExoAnchorConfig:
                 "EXOANCHOR_ALLOW_UNVERIFIED_SSH_HOST", False
             ),
             allow_arbitrary_ssh=_env_bool("EXOANCHOR_ALLOW_ARBITRARY_SSH", False),
+            tls_certificate_file=os.environ.get("EXOANCHOR_TLS_CERTIFICATE_FILE") or None,
+            allow_insecure_http=_env_bool("EXOANCHOR_ALLOW_INSECURE_HTTP", False),
         )
 
 
 class ExoAnchorClient:
     def __init__(self, config: ExoAnchorConfig):
+        if urlparse(config.base_url).scheme != "https" and not config.allow_insecure_http:
+            raise ExoAnchorError("HTTPS is required; legacy HTTP requires EXOANCHOR_ALLOW_INSECURE_HTTP=1")
         self.config = config
         self.token = config.token
         self._auth_lock = threading.RLock()
+        try:
+            self._opener = build_opener(_NoRedirect(), verified_https_handler(config.tls_certificate_file))
+        except (OSError, ValueError) as exc:
+            raise ExoAnchorError("invalid device pairing certificate") from exc
 
     def web_url(self, path: str = "/") -> str:
         if not path.startswith("/"):
@@ -117,6 +176,7 @@ class ExoAnchorClient:
         *,
         raw: bool = False,
         retry_auth: bool = True,
+        timeout: float | None = None,
     ) -> Any:
         url = urljoin(self.config.base_url + "/", path.lstrip("/"))
         headers = {"X-ExoAnchor-Client": "exoanchor-mcp"}
@@ -128,9 +188,11 @@ class ExoAnchorClient:
         if request_token:
             headers["Authorization"] = f"Bearer {request_token}"
         req = Request(url, data=data, headers=headers, method=method)
+        budget = self.config.timeout if timeout is None else timeout
+        deadline = time.monotonic() + budget
         try:
-            with urlopen(req, timeout=self.config.timeout) as resp:
-                payload = resp.read()
+            with self._opener.open(req, timeout=budget) as resp:
+                payload = _read_bounded(resp, IMAGE_RESPONSE_LIMIT if raw else JSON_RESPONSE_LIMIT, deadline)
                 if raw:
                     return payload, dict(resp.headers)
                 content_type = resp.headers.get("Content-Type", "")
@@ -139,25 +201,32 @@ class ExoAnchorClient:
                     # accidentally places a non-UTF-8 byte in a JSON string.
                     # Current firmware sanitizes at the source; replacement
                     # here keeps the bridge usable during mixed-version repair.
-                    return json.loads(
-                        payload.decode("utf-8", errors="replace") or "{}"
-                    )
+                    try:
+                        return json.loads(
+                            payload.decode("utf-8", errors="replace") or "{}"
+                        )
+                    except (ValueError, RecursionError) as exc:
+                        raise ExoAnchorError(f"invalid JSON from {path}") from exc
                 text = payload.decode("utf-8", errors="replace")
                 try:
                     return json.loads(text)
-                except json.JSONDecodeError:
+                except (ValueError, RecursionError):
                     return {"ok": True, "text": text}
         except HTTPError as exc:
             try:
-                text = exc.read().decode("utf-8", errors="replace")
+                text = _read_bounded(exc, ERROR_RESPONSE_LIMIT, deadline).decode("utf-8", errors="replace")
+            except (OSError, HTTPException, ExoAnchorError):
+                text = "response body unavailable"
             finally:
                 exc.close()
             if exc.code == 401 and retry_auth:
                 self._ensure_authenticated(request_token)
-                return self._request(method, path, body, raw=raw, retry_auth=False)
+                return self._request(method, path, body, raw=raw, retry_auth=False, timeout=timeout)
             raise ExoAnchorError(f"HTTP {exc.code} {path}: {text or exc.reason}") from exc
         except URLError as exc:
             raise ExoAnchorError(f"connect failed {url}: {exc.reason}") from exc
+        except (OSError, HTTPException) as exc:
+            raise ExoAnchorError(f"response failed {path}: {exc}") from exc
 
     def _ensure_authenticated(self, rejected_token: str | None = None) -> None:
         with self._auth_lock:
@@ -175,6 +244,7 @@ class ExoAnchorClient:
             )
         if not self.config.username:
             raise ExoAnchorError("password login requires EXOANCHOR_USERNAME")
+        deadline = time.monotonic() + self.config.timeout
         resp = self._request(
             "POST",
             "/api/auth/login",
@@ -184,28 +254,44 @@ class ExoAnchorClient:
                 "request_id": secrets.token_hex(16),
             },
             retry_auth=False,
+            timeout=self.config.timeout,
         )
         # Password verification is intentionally performed by an asynchronous
         # device job.  On a loaded ESP32-P4 the configured PBKDF2 verifier can
         # take longer than 30 seconds, so the polling lifetime must follow the
         # transport timeout instead of imposing a shorter hidden deadline.
-        deadline = time.monotonic() + self.config.timeout
+        # Submission, backoff and status requests share that budget. urllib's
+        # timeout bounds socket operations, so also reject a late response.
         while isinstance(resp, dict) and resp.get("pending"):
             job_id = str(resp.get("job_id") or "")
             if not job_id:
                 raise ExoAnchorError("login response did not include job_id")
-            if time.monotonic() >= deadline:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 raise ExoAnchorError("login timed out")
-            delay = max(0.05, min(float(resp.get("poll_after_ms", 100)) / 1000, 1.0))
-            time.sleep(delay)
+            try:
+                delay = float(resp.get("poll_after_ms", 100)) / 1000
+            except (TypeError, ValueError, OverflowError):
+                delay = 0.1
+            if not math.isfinite(delay):
+                delay = 0.1
+            time.sleep(min(max(0.05, min(delay, 1.0)), remaining))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ExoAnchorError("login timed out")
             resp = self._request(
                 "GET",
-                f"/api/auth/login/status?job_id={job_id}",
+                "/api/auth/login/status?" + urlencode({"job_id": job_id}),
                 retry_auth=False,
+                timeout=remaining,
             )
+        if time.monotonic() >= deadline:
+            raise ExoAnchorError("login timed out")
         token = resp.get("token") if isinstance(resp, dict) else None
         if not token:
             raise ExoAnchorError("login response did not include token")
+        if not isinstance(token, str):
+            raise ExoAnchorError("login response token must be a string")
         self.token = token
         return resp
 

@@ -91,7 +91,7 @@ const externalTakeoverBanner=$("externalTakeoverBanner"),reclaimKvm=$("reclaimKv
 let kvmReadOnly=false;
 const UI=window.ExoAnchorUI,API=UI.api,Session=UI.session,AuthUI=UI.auth;
 API.send=function(o){if(kvmReadOnly||!Session.active())return;Session.touch();if(this.ws&&this.ws.readyState===1)this.ws.send(JSON.stringify(o))};
-API.connect=async function(){if(!(await this.ensureToken())){setTimeout(()=>this.connect(),this.retry);return}const proto=location.protocol==="https:"?"wss:":"ws:";const qs=this.token?"?auth="+encodeURIComponent(this.token):"";this.ws=new WebSocket(proto+"//"+location.host+"/api/ws/hid"+qs);this.ws.onopen=()=>{this.retry=1000;syncKeyboardCaptureConnection()};this.ws.onclose=()=>{syncKeyboardCaptureConnection();setTimeout(()=>this.connect(),this.retry);this.retry=Math.min(this.retry*1.5,10000)};this.ws.onerror=syncKeyboardCaptureConnection};
+API.connect=async function(){if(!(await this.ensureToken())){setTimeout(()=>this.connect(),this.retry);return}const proto=location.protocol==="https:"?"wss:":"ws:";const qs="";this.ws=new WebSocket(proto+"//"+location.host+"/api/ws/hid"+qs);this.ws.onopen=()=>{this.retry=1000;syncKeyboardCaptureConnection()};this.ws.onclose=()=>{syncKeyboardCaptureConnection();setTimeout(()=>this.connect(),this.retry);this.retry=Math.min(this.retry*1.5,10000)};this.ws.onerror=syncKeyboardCaptureConnection};
 AuthUI.bindForm(async()=>{await Session.load();if(!API.ws||API.ws.readyState>1)API.connect()});
 function fmtBytes(n){if(!n)return"--";if(n>1048576)return Math.round(n/1048576)+" MB";return Math.round(n/1024)+" KB"}
 const DEFAULT_DEVICE_LABEL="ESP32-P4";
@@ -106,7 +106,7 @@ controlPopupClose.onclick=()=>setControlWindow(false);
 toolMouseTab.onclick=()=>setToolPanel("mouse");
 toolKeyboardTab.onclick=()=>setToolPanel("keyboard");
 let videoTimer=0;
-function authUrl(path){return path+(path.includes("?")?"&":"?")+"auth="+encodeURIComponent(API.token||"")}
+function authUrl(path){return path}
 function streamUrl(){const host=location.hostname||location.host.split(":")[0];return authUrl(location.protocol+"//"+host+":81/api/stream?t="+Date.now())}
 function startVideo(delay=0){clearTimeout(videoTimer);videoTimer=setTimeout(()=>{video.src=streamUrl()},delay)}
 video.onload=()=>nosignal.classList.add("hide");

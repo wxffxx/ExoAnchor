@@ -222,7 +222,7 @@ class ToolkitController:
             }
 
         address = device.get("source_ip")
-        port = device.get("http_port", 80)
+        port = device.get("http_port", 443)
         if not isinstance(address, str) or not address:
             return {
                 "device_label": "",
@@ -236,7 +236,7 @@ class ToolkitController:
                 "device_label_status": "error",
                 "device_label_error": "device reported an invalid HTTP port",
             }
-        suffix = "" if http_port == 80 else f":{http_port}"
+        suffix = "" if http_port == 443 else f":{http_port}"
         target = address + suffix
         username = _string(payload, "username", default="admin", limit=32)
         password = _string(payload, "password", limit=64)
@@ -383,11 +383,7 @@ class ToolkitController:
                 configured_client = configured.client
                 if configured_client is not None:
                     client = configured_client
-                    normalized_target = configured_client.target.address + (
-                        ""
-                        if configured_client.target.port == 80
-                        else f":{configured_client.target.port}"
-                    )
+                    normalized_target = configured_client.target.base_url
                     token_key = (normalized_target, configured_client.username)
             elif action == "show":
                 result = {
@@ -607,7 +603,7 @@ class ToolkitRequestHandler(BaseHTTPRequestHandler):
         supplied = self.headers.get("X-ExoAnchor-Token", "")
         if not supplied and query:
             supplied = (query.get("token") or [""])[0]
-        return secrets.compare_digest(supplied, self.server.token)
+        return supplied.isascii() and secrets.compare_digest(supplied, self.server.token)
 
     def _send(
         self,
@@ -618,6 +614,8 @@ class ToolkitRequestHandler(BaseHTTPRequestHandler):
         self.send_response(int(status))
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(content)))
+        if self.close_connection:
+            self.send_header("Connection", "close")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
@@ -641,8 +639,12 @@ class ToolkitRequestHandler(BaseHTTPRequestHandler):
         status: HTTPStatus,
         payload: dict[str, object],
     ) -> None:
+        # A rejected request may still have unread body bytes. Do not let them
+        # become the next request on an HTTP/1.1 connection.
+        if status >= HTTPStatus.BAD_REQUEST:
+            self.close_connection = True
         content = json.dumps(
-            payload, ensure_ascii=False, separators=(",", ":")
+            payload, ensure_ascii=True, separators=(",", ":")
         ).encode("utf-8")
         self._send(status, content, "application/json; charset=utf-8")
 
@@ -676,6 +678,12 @@ class ToolkitRequestHandler(BaseHTTPRequestHandler):
         if origin and origin != expected_origin:
             self._json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "bad origin"})
             return
+        if self.headers.get("Transfer-Encoding") is not None:
+            self._json(
+                HTTPStatus.BAD_REQUEST,
+                {"ok": False, "error": "transfer encoding is not supported"},
+            )
+            return
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -687,8 +695,15 @@ class ToolkitRequestHandler(BaseHTTPRequestHandler):
             )
             return
         try:
-            payload = json.loads(self.rfile.read(length) or b"{}")
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            body = self.rfile.read(length)
+            if len(body) != length:
+                self._json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"ok": False, "error": "request body is incomplete"},
+                )
+                return
+            payload = json.loads(body or b"{}")
+        except (ValueError, RecursionError):
             self._json(
                 HTTPStatus.BAD_REQUEST,
                 {"ok": False, "error": "request body must be JSON"},

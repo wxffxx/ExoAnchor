@@ -391,6 +391,7 @@ button,.button-link{min-height:38px}
         <div class="field"><label for="confirmPassword">确认新密码</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
         <div class="actions"><button class="primary" type="submit">保存账户</button></div>
         <div id="accountMsg" class="msg"></div>
+        <a href="/api/auth/certificate" download="exoanchor-device.pem">下载设备证书</a>
       </form>
       </details>
     </div>
@@ -1224,6 +1225,7 @@ accountForm.onsubmit=async e=>{
   if(!username){msg(accountMsg,"用户名不能为空","bad");return}
   if(next!==confirm){msg(accountMsg,"两次密码不一致","bad");return}
   try{
+    await API.login(authState.username||API.username,currentPassword.value);
     const r=await API.post("/api/settings/account",{current_username:authState.username||API.username,current_password:currentPassword.value,username,new_password:next});
     API.setSession(r.token,r.username||username);currentPassword.value="";newPassword.value="";confirmPassword.value="";fillUsernames(r.username||username);
     SettingsDirty.capture("account");msg(accountMsg,"账户已保存","ok");await refresh();

@@ -9,10 +9,12 @@ import stat
 import sys
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
+from http.client import HTTPException
 from pathlib import Path, PurePosixPath
 from typing import Callable, Iterator
 
@@ -31,6 +33,31 @@ ASSET_RE = re.compile(
     r"^exoanchor-firmware-[A-Za-z0-9][A-Za-z0-9._-]*\.zip$"
 )
 DIGEST_RE = re.compile(r"^sha256:([0-9a-fA-F]{64})$")
+
+
+class _ReleaseRedirect(urllib.request.HTTPRedirectHandler):
+    """Allow signed asset redirects without forwarding GitHub credentials."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        try:
+            source = urllib.parse.urlsplit(req.full_url)
+            target = urllib.parse.urlsplit(newurl)
+            if target.scheme != "https":
+                return None
+            source_origin = (source.scheme, source.hostname,
+                             443 if source.port is None else source.port)
+            target_origin = (target.scheme, target.hostname,
+                             443 if target.port is None else target.port)
+        except ValueError:
+            return None
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None and source_origin != target_origin:
+            redirected.remove_header("Authorization")
+        return redirected
+
+
+def _open_release_url(request: urllib.request.Request, *, timeout: float) -> object:
+    return urllib.request.build_opener(_ReleaseRedirect()).open(request, timeout=timeout)
 
 
 @dataclass(frozen=True)
@@ -140,17 +167,18 @@ def _read_json_response(
         with opener(request, timeout=20) as response:
             content = response.read(MAX_RELEASE_RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as exc:
+        exc.close()
         detail = f"GitHub returned HTTP {exc.code}"
         if exc.code == 403:
             detail += "; API rate limit may be exhausted"
         raise ToolkitError(detail) from exc
-    except (urllib.error.URLError, OSError) as exc:
+    except (urllib.error.URLError, OSError, HTTPException) as exc:
         raise ToolkitError(f"cannot query GitHub releases: {exc}") from exc
     if len(content) > MAX_RELEASE_RESPONSE_BYTES:
         raise ToolkitError("GitHub release response is unexpectedly large")
     try:
         return json.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (ValueError, RecursionError) as exc:
         raise ToolkitError("GitHub returned invalid release metadata") from exc
 
 
@@ -171,7 +199,7 @@ def _asset_from_json(value: object) -> ReleaseAsset | None:
     try:
         asset_id = int(value.get("id"))
         size = int(value.get("size"))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     if asset_id <= 0 or not 0 < size <= MAX_ARCHIVE_BYTES:
         return None
@@ -207,7 +235,7 @@ def _release_from_json(
         return None
     try:
         release_id = int(value.get("id"))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     tag = value.get("tag_name")
     name = value.get("name")
@@ -239,7 +267,7 @@ def firmware_releases(
     *,
     include_prerelease: bool = True,
     token: str | None = None,
-    opener: Callable[..., object] = urllib.request.urlopen,
+    opener: Callable[..., object] = _open_release_url,
 ) -> list[FirmwareRelease]:
     repository = validate_repository(repository)
     request = urllib.request.Request(
@@ -274,7 +302,7 @@ def latest_firmware_release(
     *,
     include_prerelease: bool = True,
     token: str | None = None,
-    opener: Callable[..., object] = urllib.request.urlopen,
+    opener: Callable[..., object] = _open_release_url,
 ) -> FirmwareRelease:
     return firmware_releases(
         repository,
@@ -290,7 +318,7 @@ def firmware_release_by_tag(
     *,
     include_prerelease: bool = True,
     token: str | None = None,
-    opener: Callable[..., object] = urllib.request.urlopen,
+    opener: Callable[..., object] = _open_release_url,
 ) -> FirmwareRelease:
     requested = tag.strip()
     if not requested:
@@ -364,10 +392,11 @@ def _download_archive(
     except ToolkitError:
         raise
     except urllib.error.HTTPError as exc:
+        exc.close()
         raise ToolkitError(
             f"firmware asset download returned HTTP {exc.code}"
         ) from exc
-    except (urllib.error.URLError, OSError) as exc:
+    except (urllib.error.URLError, OSError, HTTPException) as exc:
         raise ToolkitError(f"cannot download firmware asset: {exc}") from exc
     if received != asset.size:
         raise ToolkitError(
@@ -451,8 +480,8 @@ def download_firmware_release(
     output_dir: str | Path | None = None,
     include_prerelease: bool = True,
     token: str | None = None,
-    api_opener: Callable[..., object] = urllib.request.urlopen,
-    download_opener: Callable[..., object] = urllib.request.urlopen,
+    api_opener: Callable[..., object] = _open_release_url,
+    download_opener: Callable[..., object] = _open_release_url,
 ) -> DownloadedFirmware:
     repository = validate_repository(repository)
     release = (
@@ -534,8 +563,8 @@ def download_latest_firmware(
     output_dir: str | Path | None = None,
     include_prerelease: bool = True,
     token: str | None = None,
-    api_opener: Callable[..., object] = urllib.request.urlopen,
-    download_opener: Callable[..., object] = urllib.request.urlopen,
+    api_opener: Callable[..., object] = _open_release_url,
+    download_opener: Callable[..., object] = _open_release_url,
 ) -> DownloadedFirmware:
     return download_firmware_release(
         repository,

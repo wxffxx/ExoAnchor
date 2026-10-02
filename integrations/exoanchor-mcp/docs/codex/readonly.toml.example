@@ -20,7 +20,7 @@ enabled_tools = [
 ]
 
 [mcp_servers.exoanchor.env]
-EXOANCHOR_BASE_URL = "http://<device-ip>"
+EXOANCHOR_BASE_URL = "https://<device-ip>"
 EXOANCHOR_DEVICE_ID = "prototype0"
 EXOANCHOR_USERNAME = "<device-user>"
 EXOANCHOR_PASSWORD_FILE = "/absolute/private/path/exoanchor-password.secret"

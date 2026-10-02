@@ -69,6 +69,7 @@ let getProductFeatures = async () => ({ embedded_agent_enabled: false });
 const context = {
   clearTimeout() {},
   UI: {
+    lifecycle: { clearTimer() {} },
     api: {
       get(path) {
         assert.equal(path, "/api/settings/product-features");
@@ -89,6 +90,7 @@ vm.runInNewContext(`
   function byId(id) { return id === "agentNav" ? agentNav : null; }
   function loadAssistantName() {}
   function assistantSyncRun() {}
+  ${namedFunction("assistantInvalidateRunPolling")}
   ${namedFunction("applyAgentAvailability")}
   ${namedFunction("updateProductFeatures")}
   ${namedFunction("handleAgentFeatureBroadcast")}

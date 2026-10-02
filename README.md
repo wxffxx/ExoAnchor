@@ -175,11 +175,13 @@ partition-upgrade requirements and the direct `idf.py` alternative.
 
 | URL | Purpose |
 | --- | --- |
-| `http://<board-ip>/` | Dashboard |
-| `http://<board-ip>/kvm` | Video, keyboard, and mouse |
-| `http://<board-ip>/agent` | Embedded Agent, Dev only |
-| `http://<board-ip>/terminal` | Target UART, Dev only and board-dependent |
-| `http://<board-ip>/settings` | Device settings |
+| `https://<board-ip>/` | Dashboard |
+| `https://<board-ip>/kvm` | Video, keyboard, and mouse |
+| `https://<board-ip>/agent` | Embedded Agent, Dev only |
+| `https://<board-ip>/terminal` | Target UART, Dev only and board-dependent |
+| `https://<board-ip>/settings` | Device settings |
+
+TLS certificate and first-login setup: [pairing guide](docs/guides/SECURITY_TRANSPORT_zh.md).
 
 Verify that the Dashboard opens, Ethernet has an address, KVM video is present,
 and HID works. First boot requires replacing the local bootstrap credential;

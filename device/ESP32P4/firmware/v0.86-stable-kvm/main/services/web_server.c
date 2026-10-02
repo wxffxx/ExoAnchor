@@ -17,7 +17,12 @@
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
+#include "tls_server.h"
 #include "esp_log.h"
+#include "esp_random.h"
+#include "esp_timer.h"
+#include "secret_store.h"
+#include "freertos/semphr.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -122,7 +127,7 @@ static esp_err_t start_stream_server(void)
     config.lru_purge_enable = true;
     config.send_wait_timeout = 10;
 
-    ESP_RETURN_ON_ERROR(httpd_start(&s_stream_server, &config), TAG,
+    ESP_RETURN_ON_ERROR(si_tls_server_start(&s_stream_server, &config), TAG,
                         "httpd_start stream");
     register_uri(s_stream_server, "/api/stream", HTTP_GET, stream_handler, false);
     register_uri(s_stream_server, "/stream", HTTP_GET, stream_handler, false);
@@ -132,6 +137,9 @@ static esp_err_t start_stream_server(void)
 
 esp_err_t si_web_server_start(void)
 {
+    ESP_RETURN_ON_ERROR(si_auth_initialize(), TAG, "initialize authentication");
+    if (!s_auth_login_lock) s_auth_login_lock = xSemaphoreCreateMutex();
+    ESP_RETURN_ON_FALSE(s_auth_login_lock, ESP_ERR_NO_MEM, TAG, "login lock");
     (void)si_auth_is_enabled();
     ESP_RETURN_ON_ERROR(si_video_control_start(), TAG, "start video control");
     ESP_RETURN_ON_ERROR(si_control_lease_start(), TAG, "start control lease");
@@ -146,7 +154,7 @@ esp_err_t si_web_server_start(void)
     config.recv_wait_timeout = 10;
     config.send_wait_timeout = 10;
 
-    ESP_RETURN_ON_ERROR(httpd_start(&s_server, &config), TAG, "httpd_start");
+    ESP_RETURN_ON_ERROR(si_tls_server_start(&s_server, &config), TAG, "httpd_start");
 
     register_uri(s_server, "/", HTTP_GET, index_handler, false);
     register_uri(s_server, "/kvm", HTTP_GET, kvm_handler, false);
@@ -156,7 +164,12 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/assets/ui-shell.css", HTTP_GET, ui_shell_css_handler, false);
     register_uri(s_server, "/assets/ui-shell.js", HTTP_GET, ui_shell_js_handler, false);
 
+    register_uri(s_server, "/api/auth/setup", HTTP_GET, auth_setup_handler, false);
+    register_uri(s_server, "/api/auth/setup", HTTP_POST, auth_setup_handler, false);
+    register_uri(s_server, "/api/auth/certificate", HTTP_GET, auth_certificate_handler, false);
     register_uri(s_server, "/api/auth/login", HTTP_POST, auth_login_handler, false);
+    register_uri(s_server, "/api/auth/login/status", HTTP_GET, auth_login_status_handler, false);
+    register_uri(s_server, "/api/auth/logout", HTTP_POST, auth_logout_handler, false);
     register_uri(s_server, "/api/auth/status", HTTP_GET, auth_status_handler, false);
     register_uri(s_server, "/api/settings/account", HTTP_POST, settings_password_handler, false);
     register_uri(s_server, "/api/settings/password", HTTP_POST, settings_password_handler, false);
@@ -194,7 +207,7 @@ esp_err_t si_web_server_start(void)
 
     httpd_register_err_handler(s_server, HTTPD_404_NOT_FOUND, not_found_handler);
     ESP_RETURN_ON_ERROR(start_stream_server(), TAG, "start stream server");
-    si_web_log("INFO", "Stable KVM HTTP server started");
-    ESP_LOGI(TAG, "HTTP server started on port %d", SI_DEFAULT_HTTP_PORT);
+    si_web_log("INFO", "Stable KVM HTTPS server started");
+    ESP_LOGI(TAG, "HTTPS server started on port %d", SI_DEFAULT_HTTP_PORT);
     return ESP_OK;
 }

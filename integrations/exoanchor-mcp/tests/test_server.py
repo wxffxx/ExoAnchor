@@ -237,9 +237,9 @@ class McpServerTests(unittest.TestCase):
     def test_config_validates_device_url_timeout_and_owner(self):
         cases = [
             ({"EXOANCHOR_BASE_URL": "device.test"}, "absolute http"),
-            ({"EXOANCHOR_BASE_URL": "http://device.test", "EXOANCHOR_TIMEOUT": "never"}, "must be a number"),
-            ({"EXOANCHOR_BASE_URL": "http://device.test", "EXOANCHOR_TIMEOUT": "0"}, "between 0 and 600"),
-            ({"EXOANCHOR_BASE_URL": "http://device.test", "EXOANCHOR_CONTROL_OWNER": "browser"}, "must be mcp or agent"),
+            ({"EXOANCHOR_BASE_URL": "https://device.test", "EXOANCHOR_TIMEOUT": "never"}, "must be a number"),
+            ({"EXOANCHOR_BASE_URL": "https://device.test", "EXOANCHOR_TIMEOUT": "0"}, "between 0 and 600"),
+            ({"EXOANCHOR_BASE_URL": "https://device.test", "EXOANCHOR_CONTROL_OWNER": "browser"}, "must be mcp or agent"),
         ]
         for environment, message in cases:
             with self.subTest(environment=environment):
@@ -733,6 +733,31 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(len(second["data"]["logs"]), 1)
         self.assertIsNone(second["data"]["pagination"]["next_cursor"])
 
+    def test_logs_cursor_rejects_negative_offsets(self):
+        runtime = ToolRuntime(FakeClient())
+        first = runtime.call("exoanchor_logs", {"limit": 1})["text"]
+        for offset in (-1, -100):
+            with self.subTest(offset=offset):
+                with self.assertRaisesRegex(ToolArgumentError, "cursor is invalid"):
+                    runtime.call("exoanchor_logs", {
+                        "limit": 1,
+                        "cursor": f"{first['observation_id']}:{offset}",
+                    })
+
+    def test_logs_cursor_at_or_beyond_end_finishes_pagination(self):
+        runtime = ToolRuntime(FakeClient())
+        first = runtime.call("exoanchor_logs", {"limit": 1})["text"]
+        total = first["data"]["pagination"]["total_in_observation"]
+        for offset in (total, total + 1):
+            with self.subTest(offset=offset):
+                page = runtime.call("exoanchor_logs", {
+                    "limit": 1,
+                    "cursor": f"{first['observation_id']}:{offset}",
+                })["text"]["data"]
+                self.assertEqual(page["logs"], [])
+                self.assertEqual(page["pagination"]["returned"], 0)
+                self.assertIsNone(page["pagination"]["next_cursor"])
+
     def test_wait_for_status_uses_named_condition(self):
         runtime = ToolRuntime(FakeClient())
         result = runtime.call(
@@ -989,7 +1014,7 @@ class McpServerTests(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
         ]
         environment = os.environ.copy()
-        environment["EXOANCHOR_BASE_URL"] = "http://device.test"
+        environment["EXOANCHOR_BASE_URL"] = "https://device.test"
         completed = subprocess.run(
             [sys.executable, "-m", "exoanchor_mcp.server"],
             input="".join(json.dumps(message) + "\n" for message in messages),

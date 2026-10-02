@@ -1,6 +1,7 @@
 #include "http_api.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "auth_service.h"
 
@@ -57,8 +58,9 @@ esp_err_t si_http_recv_json(httpd_req_t *req, char *buf, size_t buf_size,
 
     esp_err_t body_ret = si_http_recv_body(req, buf, buf_size);
     if (body_ret == ESP_ERR_INVALID_SIZE) {
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                   "request body too large");
+        esp_err_t sent = httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                                            "request body too large");
+        return sent == ESP_OK ? ESP_ERR_INVALID_SIZE : sent;
     }
     if (body_ret != ESP_OK) {
         return ESP_FAIL;
@@ -66,43 +68,71 @@ esp_err_t si_http_recv_json(httpd_req_t *req, char *buf, size_t buf_size,
 
     cJSON *root = cJSON_Parse(buf);
     if (!root) {
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                   "invalid json");
+        esp_err_t sent = httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                                            "invalid json");
+        return sent == ESP_OK ? ESP_ERR_INVALID_ARG : sent;
     }
     *out_root = root;
     return ESP_OK;
 }
 
-bool si_http_check_auth(httpd_req_t *req)
+bool si_http_get_auth_token(httpd_req_t *req, char *out, size_t out_size)
 {
-    if (!si_auth_is_enabled()) {
+    if (!req || !out || out_size < SI_AUTH_TOKEN_LEN + 1) return false;
+    out[0] = '\0';
+    char auth[128] = {0};
+    if (httpd_req_get_hdr_value_str(req, "Authorization", auth, sizeof(auth)) == ESP_OK &&
+        strncmp(auth, "Bearer ", 7) == 0 && strlen(auth + 7) == SI_AUTH_TOKEN_LEN) {
+        strlcpy(out, auth + 7, out_size);
         return true;
     }
-
-    char auth[128] = {0};
-    if (httpd_req_get_hdr_value_str(req, "Authorization",
-                                    auth, sizeof(auth)) == ESP_OK) {
-        const char *prefix = "Bearer ";
-        if (strncmp(auth, prefix, strlen(prefix)) == 0 &&
-            si_auth_token_matches(auth + strlen(prefix))) {
+    char cookie[1024] = {0};
+    if (httpd_req_get_hdr_value_str(req, "Cookie", cookie, sizeof(cookie)) != ESP_OK) return false;
+    char *part = cookie;
+    while (part && *part) {
+        while (*part == ' ' || *part == ';') ++part;
+        char *next = strchr(part, ';');
+        if (next) *next++ = '\0';
+        if (strncmp(part, "ea_session=", 11) == 0 && strlen(part + 11) == SI_AUTH_TOKEN_LEN) {
+            strlcpy(out, part + 11, out_size);
             return true;
         }
-    }
-
-    char query[192] = {0};
-    char token[96] = {0};
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
-        httpd_query_key_value(query, "auth", token, sizeof(token)) == ESP_OK &&
-        si_auth_token_matches(token)) {
-        return true;
+        part = next;
     }
     return false;
+}
+
+bool si_http_check_auth(httpd_req_t *req)
+{
+    char token[SI_AUTH_TOKEN_LEN + 1];
+    return si_http_get_auth_token(req, token, sizeof(token)) && si_auth_token_matches(token);
+}
+
+bool si_http_check_recent_auth(httpd_req_t *req)
+{
+    char token[SI_AUTH_TOKEN_LEN + 1];
+    return si_http_get_auth_token(req, token, sizeof(token)) && si_auth_token_is_recent(token);
+}
+
+esp_err_t si_http_set_session_cookie(httpd_req_t *req, const char *token, char *cookie, size_t cookie_size)
+{
+    if (!token || strlen(token) != SI_AUTH_TOKEN_LEN || cookie_size < SI_HTTP_SESSION_COOKIE_MAX_LEN)
+        return ESP_ERR_INVALID_ARG;
+    snprintf(cookie, cookie_size, "ea_session=%s; Path=/; HttpOnly; Secure; SameSite=Strict", token);
+    return httpd_resp_set_hdr(req, "Set-Cookie", cookie);
+}
+
+void si_http_clear_session_cookie(httpd_req_t *req)
+{
+    httpd_resp_set_hdr(req, "Set-Cookie", "ea_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0");
 }
 
 esp_err_t si_http_require_auth(httpd_req_t *req)
 {
     if (!si_http_check_auth(req)) {
-        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "unauthorized");
+        esp_err_t sent = httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
+                                            "unauthorized");
+        return sent == ESP_OK ? ESP_ERR_INVALID_STATE : sent;
     }
     return ESP_OK;
 }

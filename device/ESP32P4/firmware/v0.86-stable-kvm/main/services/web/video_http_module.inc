@@ -427,18 +427,9 @@ static esp_err_t stream_redirect_handler(httpd_req_t *req)
         *port = '\0';
     }
 
-    char query[192] = {0};
-    char token[96] = {0};
-    bool has_token = httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
-                     httpd_query_key_value(query, "auth", token, sizeof(token)) == ESP_OK;
     char location[192];
-    if (has_token) {
-        snprintf(location, sizeof(location), "http://%s:%u/api/stream?auth=%s",
-                 host, (unsigned)SI_STREAM_HTTP_PORT, token);
-    } else {
-        snprintf(location, sizeof(location), "http://%s:%u/api/stream",
-                 host, (unsigned)SI_STREAM_HTTP_PORT);
-    }
+    snprintf(location, sizeof(location), "https://%s:%u/api/stream",
+             host, (unsigned)SI_STREAM_HTTP_PORT);
     httpd_resp_set_status(req, "307 Temporary Redirect");
     httpd_resp_set_hdr(req, "Location", location);
     httpd_resp_set_type(req, "text/plain; charset=utf-8");

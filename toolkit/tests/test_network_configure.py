@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from exoanchor_toolkit.discovery import DiscoveredDevice
 from exoanchor_toolkit.errors import ToolkitError
-from exoanchor_toolkit.http_device import DeviceTarget
+from exoanchor_toolkit.http_device import DeviceTarget, parse_device_target
 from exoanchor_toolkit.network import NetworkSnapshot
 from exoanchor_toolkit.network_configure import (
     NetworkConfiguration,
@@ -92,7 +92,7 @@ class StepClock:
 
 class FakeHttpClient:
     def __init__(self, address: str, *, ready: bool = True) -> None:
-        self.target = DeviceTarget(address=address, port=80)
+        self.target = DeviceTarget(address=address, port=443)
         self.username = "admin"
         self.password = "test-only"
         self.token = "test-token"
@@ -254,7 +254,7 @@ class NetworkConfigureTests(unittest.TestCase):
                     address_source="dhcp",
                     firmware="test",
                     board="test",
-                    http_port=80,
+                    http_port=443,
                 ),
                 DiscoveredDevice(
                     device_id="ea-p4-test",
@@ -265,14 +265,14 @@ class NetworkConfigureTests(unittest.TestCase):
                     address_source="dhcp",
                     firmware="test",
                     board="test",
-                    http_port=80,
+                    http_port=443,
                 ),
             ]
 
         candidate_clients: dict[str, FakeHttpClient] = {}
 
         def make_client(target, **_):
-            address = str(target).split(":", 1)[0]
+            address = parse_device_target(target).address
             client = FakeHttpClient(
                 address,
                 ready=address == "192.0.2.30",
@@ -303,7 +303,7 @@ class NetworkConfigureTests(unittest.TestCase):
                 discoverer=discoverer,
             )
 
-        self.assertEqual(result.target, "http://192.0.2.30")
+        self.assertEqual(result.target, "https://192.0.2.30")
         self.assertEqual(discovered_subnets, [("192.0.2.0/24",)])
         self.assertIn("commit", candidate_clients["192.0.2.30"].provisioner.calls)
         self.assertNotIn(

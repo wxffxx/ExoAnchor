@@ -98,7 +98,7 @@
   function performLogout() {
     hideLogout();
     document.dispatchEvent(new CustomEvent("exoanchor:logout"));
-    UI.api.setSession("", UI.api.username);
+    UI.api.logout().catch(() => {});
     window.location.assign("/");
   }
 

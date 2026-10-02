@@ -13,7 +13,7 @@ def client_config(**overrides):
         base_url="http://device.test", username="admin", password="password",
         token=None, timeout=75, allow_write=False, control_owner="mcp",
         device_id="test", state_dir="/unused", persist_job_output=False,
-        allow_unverified_ssh_host=False, allow_arbitrary_ssh=False,
+        allow_unverified_ssh_host=False, allow_arbitrary_ssh=False, allow_insecure_http=True,
     )
     fields.update(overrides)
     return ExoAnchorConfig(**fields)
@@ -33,7 +33,7 @@ class TransportTests(unittest.TestCase):
         client = ExoAnchorClient(client_config(token="expired"))
         body = io.BytesIO(b"authentication required")
         error = HTTPError("http://device.test", 401, "Unauthorized", {}, body)
-        with patch("exoanchor_mcp.client.urlopen", side_effect=error) as request, \
+        with patch.object(client._opener, "open", side_effect=error) as request, \
              patch.object(client, "login") as login:
             with self.assertRaisesRegex(ExoAnchorError, "HTTP 401"):
                 client.post_json("/api/power", {"action": "reset"})
@@ -61,6 +61,35 @@ class TransportTests(unittest.TestCase):
 
 
 class LoginPollingTests(unittest.TestCase):
+    def test_invalid_token_type_does_not_replace_an_existing_session(self):
+        for token in (True, 7, ["not-a-token"], {"secret": "do-not-echo"}):
+            with self.subTest(token_type=type(token).__name__):
+                client = ExoAnchorClient(client_config(token="existing-token"))
+                with patch.object(client, "_request", return_value={"token": token}):
+                    with self.assertRaisesRegex(ExoAnchorError, "token") as caught:
+                        client.login()
+                self.assertEqual(client.token, "existing-token")
+                self.assertNotIn("do-not-echo", str(caught.exception))
+
+    def test_invalid_login_response_does_not_allow_the_original_post(self):
+        client = ExoAnchorClient(client_config())
+        with patch.object(client, "_request", return_value={"token": {"bad": True}}) as request:
+            with self.assertRaises(ExoAnchorError):
+                client.post_json("/api/example", {"message": "test"})
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(request.call_args.args[:2], ("POST", "/api/auth/login"))
+        self.assertIsNone(client.token)
+
+    def test_polled_login_response_has_the_same_token_validation(self):
+        client = ExoAnchorClient(client_config(token="existing-token"))
+        with patch.object(client, "_request", side_effect=[
+            {"pending": True, "job_id": "login-job"}, {"token": ["invalid"]},
+        ]) as request, patch("exoanchor_mcp.client.time.sleep"):
+            with self.assertRaises(ExoAnchorError):
+                client.login()
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(client.token, "existing-token")
+
     def test_login_polling_uses_configured_transport_timeout(self):
         config = ExoAnchorConfig(
             base_url="http://device.test",
@@ -75,6 +104,7 @@ class LoginPollingTests(unittest.TestCase):
             persist_job_output=False,
             allow_unverified_ssh_host=False,
             allow_arbitrary_ssh=False,
+            allow_insecure_http=True,
         )
         client = ExoAnchorClient(config)
         responses = [
@@ -83,7 +113,7 @@ class LoginPollingTests(unittest.TestCase):
         ]
 
         with patch.object(client, "_request", side_effect=responses), \
-             patch("exoanchor_mcp.client.time.monotonic", side_effect=[0.0, 31.0]), \
+             patch("exoanchor_mcp.client.time.monotonic", side_effect=[0.0, 31.0, 31.1, 31.2]), \
              patch("exoanchor_mcp.client.time.sleep"):
             result = client.login()
 

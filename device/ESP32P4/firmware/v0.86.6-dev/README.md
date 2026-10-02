@@ -194,11 +194,11 @@ Toolkit 和文档。主机测试不等于固件编译或板卡验证；检查范
 可用页面：
 
 ```text
-http://<设备地址>/
-http://<设备地址>/kvm
-http://<设备地址>/agent
-http://<设备地址>/terminal
-http://<设备地址>/settings
+https://<设备地址>/
+https://<设备地址>/kvm
+https://<设备地址>/agent
+https://<设备地址>/terminal
+https://<设备地址>/settings
 ```
 
 `/skills` 仅作为兼容重定向，目标是 `/settings#agent`。

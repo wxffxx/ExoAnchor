@@ -563,4 +563,193 @@ for (const trigger of ["local", "undelivered-peer-event"]) {
   assert.match(UI.row("计数", 0), /<span>0<\/span>/);
   assert.match(UI.row("空", null), /<span><\/span>/);
 }
+// An authentication retry belongs to the page, including its backoff timer.
+{
+  const { UI, context } = browser();
+  let requests = 0;
+  let retryReady;
+  const retryStarted = new Promise(resolve => { retryReady = resolve; });
+  const activeTimers = new Set();
+  context.setTimeout = (callback, delay) => {
+    const timer = setTimeout(() => { activeTimers.delete(timer); callback(); }, delay);
+    activeTimers.add(timer);
+    retryReady();
+    return timer;
+  };
+  context.clearTimeout = timer => { activeTimers.delete(timer); clearTimeout(timer); };
+  UI.api.getSilent = async () => { requests += 1; throw new TypeError("offline"); };
+  const first = UI.auth.readAuthState();
+  const second = UI.auth.readAuthState();
+  await retryStarted;
+  UI.lifecycle.destroy("navigate");
+  assert.equal(await first, null);
+  assert.equal(await second, null);
+  assert.equal(UI.auth.authProbe, null);
+  assert.equal(activeTimers.size, 0, "page destruction must cancel authentication backoff");
+  assert.equal(requests, 1, "no request may restart after page destruction");
+  assert.equal(await UI.auth.readAuthState(), null);
+  assert.equal(requests, 1, "a destroyed page must not probe authentication");
+  assert.equal(UI.lifecycle.interval(() => assert.fail("late interval"), 1), 0);
+  assert.equal(UI.lifecycle.timeout(() => assert.fail("late timeout"), 1), 0);
+  assert.equal(UI.lifecycle.timers.size, 0);
+}
+
+// Transient failures on a live page still recover; a hidden page sends nothing.
+{
+  const { UI, context } = browser();
+  let requests = 0;
+  UI.api.getSilent = async () => {
+    if (++requests === 1) throw new TypeError("offline");
+    return { enabled: true, token_valid: true };
+  };
+  assert.equal((await UI.auth.readAuthState()).token_valid, true);
+  assert.equal(requests, 2);
+  context.document.hidden = true;
+  assert.equal(await UI.auth.readAuthState(), null);
+  assert.equal(requests, 2);
+}
+// A transport that completes despite cancellation cannot revive the old page.
+{
+  const { UI } = browser();
+  let respond;
+  UI.api.getSilent = () => new Promise(resolve => { respond = resolve; });
+  const probe = UI.auth.readAuthState();
+  UI.lifecycle.destroy("navigate");
+  respond({ enabled: true, token_valid: true });
+  assert.equal(await probe, null);
+  assert.equal(UI.auth.authProbe, null);
+}
+function modalBrowser() {
+  const env = browser();
+  const elements = new Map();
+  env.context.document.body = {
+    insertAdjacentHTML(_position, html) {
+      for (const match of html.matchAll(/id="([^"]+)"/g)) {
+        const classes = new Set();
+        elements.set(match[1], {
+          value: "", textContent: "", style: {}, focus() {},
+          classList: {
+            add: name => classes.add(name), remove: name => classes.delete(name),
+            contains: name => classes.has(name),
+            toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); },
+          },
+        });
+      }
+    },
+  };
+  env.context.document.getElementById = id => elements.get(id) || null;
+  return env;
+}
+async function assertModalCancelled(response, message) {
+  let result = "pending";
+  response.then(value => { result = value; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(result, false, message);
+}
+// Different callers may discover that login must advance to account change.
+// Changing the visible mode must not orphan the earlier authentication wait.
+for (const methods of [["requireLogin", "requireChange"], ["requireChange", "requireLogin"]]) {
+  const { UI } = modalBrowser();
+  const first = UI.auth[methods[0]]({});
+  const second = UI.auth[methods[1]]({});
+  assert.equal(first, second, "all callers wait for the same authentication gate");
+  UI.auth.hide(false);
+  await assertModalCancelled(first, "mode changes must preserve the earlier caller");
+  UI.lifecycle.destroy("test");
+}
+// Navigation must settle callers waiting for either authentication modal.
+for (const method of ["requireLogin", "requireChange"]) {
+  const { UI, context } = modalBrowser();
+  const first = UI.auth[method]({});
+  assert.equal(UI.auth[method]({}), first, "live modal callers share one response");
+  UI.lifecycle.destroy("navigate");
+  await assertModalCancelled(first,
+    `${method}: navigation must settle the modal response`);
+  assert.equal(UI.auth.pending, null);
+  assert.equal(UI.auth.waiting, null);
+  assert.equal(context.document.getElementById("authModal").classList.contains("show"), false);
+  await assertModalCancelled(UI.auth[method]({}),
+    `${method}: a destroyed page cannot start another modal wait`);
+  let lateInitializations = 0;
+  UI.auth.onAuthenticated = () => { lateInitializations += 1; };
+  UI.auth.finishAuthentication({});
+  UI.auth.show("login", {});
+  assert.equal(lateInitializations, 0, "late authentication cannot restart page initialization");
+  assert.equal(context.document.getElementById("authModal").classList.contains("show"), false);
+  assert.equal(UI.lifecycle.timers.size, 0, "modal focus timers belong to the page");
+}
+
+// Confirmations are page-owned too; replacement still cancels the old question.
+{
+  const { UI, context } = modalBrowser();
+  const first = UI.confirmAction("first question");
+  const second = UI.confirmAction("second question");
+  await assertModalCancelled(first, "replacement must cancel the earlier confirmation");
+  UI.lifecycle.destroy("navigate");
+  await assertModalCancelled(second, "navigation must cancel the visible confirmation");
+  await assertModalCancelled(UI.confirmAction("late question"),
+    "a destroyed page cannot ask another confirmation");
+  assert.equal(context.document.getElementById("uiConfirmModal").classList.contains("show"), false);
+  assert.equal(UI.lifecycle.timers.size, 0);
+}
+for (const accepted of [true, false]) {
+  const { UI, context } = modalBrowser();
+  const response = UI.confirmAction({ message: "live question", danger: false });
+  context.document.getElementById(accepted ? "uiConfirmSubmit" : "uiConfirmCancel").onclick();
+  assert.equal(await response, accepted, "live confirmation buttons must keep their meaning");
+  assert.equal(context.document.getElementById("uiConfirmModal").classList.contains("show"), false);
+  UI.lifecycle.destroy("test");
+}
+
+// XHR.abort() before open/send is a no-op: an already destroyed page must
+// refuse uploads explicitly, and setup failures must release cleanup owners.
+function uploadBrowser(failureAt = "") {
+  const requests = [];
+  class FakeXHR {
+    constructor() { this.upload = {}; this.sent = false; requests.push(this); }
+    open() { if (failureAt === "open") throw new Error("open failed"); }
+    setRequestHeader() { if (failureAt === "headers") throw new Error("headers failed"); }
+    send() { if (failureAt === "send") throw new Error("send failed"); this.sent = true; }
+    abort() { if (this.sent) this.onabort?.(); }
+  }
+  return { ...browser({ XMLHttpRequest: FakeXHR }), requests };
+}
+{
+  const { UI, requests } = uploadBrowser();
+  UI.lifecycle.destroy("navigate");
+  const uploading = UI.api.upload("/test-upload", new Uint8Array([1]));
+  const rejected = assert.rejects(uploading, error => error.name === "AbortError");
+  // Settle an incorrectly sent upload so the pre-fix test fails immediately.
+  requests.forEach(request => request.abort());
+  await rejected;
+  assert.equal(requests.length, 0, "destroyed pages must not create uploads");
+}
+for (const failureAt of ["open", "headers", "send"]) {
+  const { UI } = uploadBrowser(failureAt);
+  await assert.rejects(UI.api.upload("/test-upload", new Uint8Array([1])), /failed/);
+  assert.equal(UI.lifecycle.cleanups.size, 0, `${failureAt}: no cleanup owner may leak`);
+}
+{
+  const { UI, requests } = uploadBrowser();
+  const uploading = UI.api.upload("/test-upload", new Uint8Array([1]));
+  assert.equal(UI.lifecycle.cleanups.size, 1);
+  const rejected = assert.rejects(uploading, error => error.name === "AbortError");
+  UI.lifecycle.destroy("navigate");
+  await rejected;
+  assert.equal(requests[0].sent, true);
+  assert.equal(UI.lifecycle.cleanups.size, 0);
+}
+{
+  const { UI, requests } = uploadBrowser();
+  let progress;
+  const uploading = UI.api.upload("/test-upload", new Uint8Array([1]), value => { progress = value; });
+  const request = requests[0];
+  request.upload.onprogress({ lengthComputable: true, loaded: 1, total: 2 });
+  assert.equal(progress, 0.5);
+  request.status = 200;
+  request.responseText = '{"ok":true}';
+  request.onload();
+  assert.equal((await uploading).ok, true);
+  assert.equal(UI.lifecycle.cleanups.size, 0);
+}
 console.log("UI auth, timeout and settings text runtime tests: PASS");

@@ -219,13 +219,6 @@ def main() -> int:
     if 'CONFIG_SI_AUTH_PASSWORD=""' not in SDKCONFIG_DEFAULTS.read_text(encoding="utf-8"):
         failures.append("Stable KVM sdkconfig defaults must not ship a password")
     app_config_text = APP_CONFIG_HEADER.read_text(encoding="utf-8")
-    for marker in (
-        "_Static_assert(sizeof(SI_CFG_AUTH_PASSWORD) >= 7",
-        "Set a unique CONFIG_SI_AUTH_PASSWORD",
-    ):
-        if marker not in app_config_text:
-            failures.append(f"Stable KVM build credential guard missing: {marker}")
-
     if "#define SI_SESSION_LOGOUT_DEFAULT_ENABLED true" not in DEVICE_SETTINGS_HEADER.read_text(encoding="utf-8"):
         failures.append("Stable KVM automatic logout must default to enabled")
 

@@ -171,11 +171,13 @@ def _http_targets(
     discovery_subnets: tuple[str, ...],
     discoverer: Discoverer,
 ) -> tuple[list[str], str]:
-    suffix = "" if client.target.port == 80 else f":{client.target.port}"
+    scheme = client.target.scheme
+    default_port = 443 if scheme == "https" else 80
+    suffix = "" if client.target.port == default_port else f":{client.target.port}"
     if expected_address:
-        return [expected_address + suffix], ""
+        return [f"{scheme}://{expected_address}{suffix}"], ""
 
-    targets = [client.target.address + suffix]
+    targets = [client.target.base_url]
     last_error = ""
     try:
         devices = discoverer(
@@ -188,8 +190,8 @@ def _http_targets(
     for device in devices:
         if expected_device_id and device.device_id != expected_device_id:
             continue
-        device_suffix = "" if device.http_port == 80 else f":{device.http_port}"
-        candidate = device.source_ip + device_suffix
+        device_suffix = "" if device.http_port == default_port else f":{device.http_port}"
+        candidate = f"{scheme}://{device.source_ip}{device_suffix}"
         if candidate not in targets:
             targets.append(candidate)
     return targets, last_error
@@ -267,6 +269,7 @@ def configure_network(
                     password=client.password,
                     token=client.token,
                     timeout=HTTP_PROBE_TIMEOUT_SECONDS,
+                    tls_certificate_file=getattr(client, "tls_certificate_file", None),
                 )
                 for candidate in targets
             ]

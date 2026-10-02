@@ -83,8 +83,7 @@
       launcher.classList.toggle("runtime-disabled", !enabled);
     }
     if (!enabled) {
-      clearTimeout(assistant.pollTimer);
-      assistant.pollTimer = 0;
+      assistantInvalidateRunPolling();
       assistant.open = false;
       byId("eaAssistantWindow")?.classList.remove("show");
       launcher?.classList.remove("active");
@@ -524,9 +523,12 @@
     sessionId: "",
     jobId: "",
     polling: false,
+    pollOwner: null,
+    sendOwner: null,
     pollTimer: 0,
     context: null,
     historyLoaded: false,
+    historyGeneration: 0,
     lastEventSeq: 0,
     streamJobId: "",
     streamNode: null,
@@ -543,17 +545,27 @@
   }
 
   function assistantSetSession(value) {
-    assistant.sessionId = assistantSessionId(value);
+    const nextSession = assistantSessionId(value);
+    if (assistant.sessionId !== nextSession) {
+      assistant.historyGeneration = (assistant.historyGeneration || 0) + 1;
+    }
+    assistant.sessionId = nextSession;
     if (assistant.sessionId) localStorage.setItem("ea_agent_session", assistant.sessionId);
     else localStorage.removeItem("ea_agent_session");
     const label = byId("eaAssistantThread");
     if (label) label.textContent = assistant.sessionId || "新对话";
   }
 
-  function assistantResetForDataClear() {
-    clearTimeout(assistant.pollTimer);
+  function assistantInvalidateRunPolling() {
+    UI.lifecycle.clearTimer(assistant.pollTimer);
     assistant.pollTimer = 0;
+    assistant.pollOwner = null;
     assistant.polling = false;
+  }
+
+  function assistantResetForDataClear() {
+    assistantInvalidateSend();
+    assistantInvalidateRunPolling();
     assistant.jobId = "";
     assistant.lastEventSeq = 0;
     assistant.streamJobId = "";
@@ -570,6 +582,7 @@
   function assistantAddMessage(kind, text) {
     const log = byId("eaAssistantLog");
     if (!log || text === undefined || text === null) return null;
+    assistant.historyGeneration = (assistant.historyGeneration || 0) + 1;
     log.querySelector(".ea-assistant-empty")?.remove();
     const item = document.createElement("div");
     item.className = "ea-assistant-message " + kind;
@@ -600,6 +613,7 @@
     if (!item) return null;
     item.classList.add("ea-assistant-stream");
     item.dataset.jobId = String(jobId || "");
+    item.dataset.sessionId = assistant.sessionId;
     item.innerHTML =
       '<div class="ea-assistant-stream-head">' +
         '<span class="ea-assistant-stream-dot" aria-hidden="true"></span>' +
@@ -636,13 +650,15 @@
     assistantScrollToTail();
   }
 
-  async function assistantPullEvents() {
+  async function assistantPullEvents(owner) {
     if (!assistant.jobId) return;
+    const jobId = assistant.jobId;
     const replay = await UI.api.getShared(
       "/api/agent/run/events?job_id=" +
-      encodeURIComponent(assistant.jobId) + "&after_seq=" +
+      encodeURIComponent(jobId) + "&after_seq=" +
       assistant.lastEventSeq,
       { timeoutMs: 5000 });
+    if (UI.lifecycle.destroyed || jobId !== assistant.jobId || owner !== assistant.pollOwner) return;
     (Array.isArray(replay.events) ? replay.events : []).forEach(assistantAppendEvent);
     const next = Number(replay.next_after_seq || replay.latest_seq || 0);
     if (next > assistant.lastEventSeq) assistant.lastEventSeq = next;
@@ -665,31 +681,7 @@
   }
 
   function assistantStreamText(node, text) {
-    const value = String(text || "");
-    if (!node) return Promise.resolve();
-    if (document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches ||
-        value.length < 2) {
-      node.textContent = value;
-      return Promise.resolve();
-    }
-    node.textContent = "";
-    node.classList.add("streaming");
-    let offset = 0;
-    return new Promise(resolve => {
-      const step = () => {
-        const remaining = value.length - offset;
-        const size = remaining > 180 ? 5 : remaining > 60 ? 3 : 1;
-        node.textContent += value.slice(offset, offset + size);
-        offset += size;
-        assistantScrollToTail();
-        if (offset < value.length) requestAnimationFrame(step);
-        else {
-          node.classList.remove("streaming");
-          resolve();
-        }
-      };
-      requestAnimationFrame(step);
-    });
+    return UI.streamText(node, text, assistantScrollToTail);
   }
 
   async function assistantFinishStream(status) {
@@ -767,7 +759,15 @@
   }
 
   async function assistantLoadHistory() {
+    if (UI.lifecycle?.destroyed) return;
     assistantSetSession(localStorage.getItem("ea_agent_session"));
+    const sessionId = assistant.sessionId;
+    const hasLiveStream = () => assistant.jobId && assistant.jobId === assistant.streamJobId &&
+      assistant.streamNode?.isConnected && assistant.streamNode.dataset.sessionId === sessionId;
+    if (hasLiveStream()) return;
+    const generation = assistant.historyGeneration = (assistant.historyGeneration || 0) + 1;
+    const current = () => generation === assistant.historyGeneration &&
+      sessionId === assistant.sessionId && !UI.lifecycle?.destroyed && !hasLiveStream();
     if (!assistant.sessionId) {
       assistantRenderHistory([]);
       assistant.historyLoaded = true;
@@ -775,10 +775,12 @@
     }
     try {
       const history = await UI.api.get("/api/agent/history?session_id=" +
-        encodeURIComponent(assistant.sessionId));
+        encodeURIComponent(sessionId));
+      if (!current()) return;
       assistantRenderHistory(history.records || []);
       assistant.historyLoaded = true;
     } catch (error) {
+      if (!current()) return;
       assistantAddMessage("system", "对话记录暂不可用：" + (error.message || error));
     }
   }
@@ -840,9 +842,13 @@
   }
 
   function assistantSchedulePoll(delay) {
-    clearTimeout(assistant.pollTimer);
-    if (!assistant.open || document.hidden || !assistant.jobId) return;
-    assistant.pollTimer = setTimeout(() => assistantPollRun(), delay || 1000);
+    UI.lifecycle.clearTimer(assistant.pollTimer);
+    assistant.pollTimer = 0;
+    if (UI.lifecycle.destroyed || !assistant.open || document.hidden || !assistant.jobId) return;
+    assistant.pollTimer = UI.lifecycle.timeout(() => {
+      assistant.pollTimer = 0;
+      assistantPollRun();
+    }, delay || 1000);
   }
 
   async function assistantReadRunStatus() {
@@ -854,20 +860,28 @@
     return status;
   }
 
-  async function assistantPollRun() {
-    if (assistant.polling || !assistant.open || document.hidden) return;
+  async function assistantPollRun(force = false) {
+    if (UI.lifecycle.destroyed || document.hidden ||
+        (!force && (assistant.polling || !assistant.open))) return;
+    UI.lifecycle.clearTimer(assistant.pollTimer);
+    assistant.pollTimer = 0;
+    const owner = {};
+    assistant.pollOwner = owner;
+    const current = () => owner === assistant.pollOwner && !UI.lifecycle.destroyed;
     assistant.polling = true;
     try {
       const [status] = await Promise.all([
         assistantReadRunStatus(),
         assistantSyncRequests(),
       ]);
+      if (!current()) return;
       const active = !!status.busy || ["running", "waiting_request", "paused"].includes(status.state);
       if (active && status.job_id) {
         assistant.jobId = String(status.job_id);
-        assistantUpdateStream(status);
         if (status.session_id) assistantSetSession(status.session_id);
-        await assistantPullEvents().catch(() => {});
+        assistantUpdateStream(status);
+        await assistantPullEvents(owner).catch(() => {});
+        if (!current()) return;
         const elapsed = Math.max(0, Number(status.elapsed_ms || 0));
         assistantStatus((status.paused ? "PAUSED" : status.waiting_request ? "WAITING" : "RUNNING") + " · " +
           (status.stage || "Agent") + " · " + Math.round(elapsed / 1000) + "s",
@@ -879,8 +893,10 @@
       if (assistant.jobId && status.job_id === assistant.jobId &&
           ["done", "failed", "aborted"].includes(status.state)) {
         const ok = status.state === "done" && status.result?.ok !== false;
-        await assistantPullEvents().catch(() => {});
+        await assistantPullEvents(owner).catch(() => {});
+        if (!current()) return;
         await assistantFinishStream(status);
+        if (!current()) return;
         assistantStatus(ok ? "DONE" : String(status.state || "CHECK").toUpperCase(),
           ok ? "ok" : "bad");
         localStorage.setItem("ea_assistant_last_job", assistant.jobId);
@@ -893,34 +909,19 @@
       assistantTaskControls(false);
       assistantStatus("IDLE", "");
     } catch (error) {
+      if (!current()) return;
       assistantStatus("OFFLINE", "bad");
       assistantAddMessage("system", "后台任务状态暂不可用：" + (error.message || error));
     } finally {
-      assistant.polling = false;
+      if (owner === assistant.pollOwner) {
+        assistant.pollOwner = null;
+        assistant.polling = false;
+      }
     }
   }
 
   async function assistantSyncRun() {
-    try {
-      const [status] = await Promise.all([
-        assistantReadRunStatus(),
-        assistantSyncRequests(),
-      ]);
-      if ((status.busy || ["running", "waiting_request", "paused"].includes(status.state)) && status.job_id) {
-        assistant.jobId = String(status.job_id);
-        assistantUpdateStream(status);
-        if (status.session_id) assistantSetSession(status.session_id);
-        await assistantPullEvents().catch(() => {});
-        assistantStatus("FOLLOWING · " + (status.stage || status.state), "live");
-        assistantTaskControls(true);
-        assistantSchedulePoll(100);
-      } else {
-        assistantStatus("IDLE", "");
-        assistantTaskControls(false);
-      }
-    } catch (error) {
-      assistantStatus("OFFLINE", "bad");
-    }
+    return assistantPollRun(true);
   }
 
   function assistantRequestPending(status) {
@@ -979,9 +980,32 @@
   function assistantRenderRequests(requests) {
     const host = byId("eaAssistantRequests");
     if (!host) return;
-    host.innerHTML = "";
+    const previous = assistant.requestCards || new Map();
+    const next = new Map();
+    const cards = [];
+    const focused = document.activeElement;
+    const selection = focused && host.contains(focused) ?
+      [focused.selectionStart, focused.selectionEnd, focused.selectionDirection] : null;
     for (const request of requests) {
+      const status = request.status;
+      // Reuse only the same request and displayed decision context. Poll-only
+      // metadata may change without destroying an answer being typed.
+      const key = JSON.stringify([
+        request.kind, status.request_id, status.plan_id, status.argument_hash,
+        status.kind, status.resource, status.risk, status.reason,
+        status.target?.connector, status.target?.width, status.target?.height,
+        status.target?.refresh_hz, status.profile?.target,
+        status.profile?.key_code, status.profile?.trigger,
+      ]);
+      const existing = previous.get(key);
+      if (existing) {
+        existing.request = request;
+        next.set(key, existing);
+        cards.push(existing.card);
+        continue;
+      }
       const card = document.createElement("section");
+      const entry = { card, request };
       card.className = "ea-assistant-request";
       const asksAnswer = request.kind === "agent" &&
         request.status.kind === "context" &&
@@ -1005,7 +1029,7 @@
       reject.textContent = asksAnswer ? "跳过" : "拒绝";
       approve.textContent = asksAnswer ? "回答" : "批准";
       approve.className = "primary";
-      reject.onclick = () => assistantResolveRequest(request.kind, request.status, false)
+      reject.onclick = () => assistantResolveRequest(entry.request.kind, entry.request.status, false)
         .catch(error => assistantAddMessage("system", error.message || "请求取消失败"));
       let answerInput = null;
       if (asksAnswer) {
@@ -1021,14 +1045,28 @@
           return;
         }
         assistantResolveRequest(
-          request.kind, request.status, true, answerInput?.value || "")
+          entry.request.kind, entry.request.status, true, answerInput?.value || "")
         .catch(error => assistantAddMessage("system", error.message || "请求批准失败"));
       };
       actions.append(reject, approve);
       if (!asksAnswer) card.append(copy);
       card.append(actions);
-      host.appendChild(card);
+      next.set(key, entry);
+      cards.push(card);
     }
+    cards.forEach((card, index) => {
+      if (host.children[index] !== card) {
+        host.insertBefore(card, host.children[index] || null);
+      }
+    });
+    while (host.children.length > cards.length) host.removeChild(host.lastChild);
+    if (selection && host.contains(focused) && document.activeElement !== focused) {
+      focused.focus({ preventScroll: true });
+      if (typeof focused.setSelectionRange === "function") {
+        focused.setSelectionRange(...selection);
+      }
+    }
+    assistant.requestCards = next;
     host.classList.toggle("show", requests.length > 0);
   }
 
@@ -1057,20 +1095,35 @@
     return requests;
   }
 
+  function assistantInvalidateSend() {
+    assistant.sendOwner = null;
+    const input = byId("eaAssistantInput");
+    const send = byId("eaAssistantSend");
+    if (input) input.disabled = false;
+    if (send) send.disabled = false;
+  }
+
   async function assistantSend() {
     const input = byId("eaAssistantInput");
     const send = byId("eaAssistantSend");
     const text = String(input?.value || "").trim();
-    if (!text) return;
-    if (!(await UI.api.ensure())) return;
+    if (!text || !input || !send || assistant.sendOwner || UI.lifecycle.destroyed) return;
+    const owner = {};
+    assistant.sendOwner = owner;
+    let sessionId = assistant.sessionId;
+    const current = () => assistant.sendOwner === owner &&
+      assistant.sessionId === sessionId && !UI.lifecycle.destroyed;
     send.disabled = true;
     input.disabled = true;
     try {
+      if (!(await UI.api.ensure()) || !current()) return;
       if (assistant.jobId) {
+        const jobId = assistant.jobId;
         const steered = await UI.api.post("/api/agent/run/steer", {
-          run_id: assistant.jobId,
+          run_id: jobId,
           message: text,
         });
+        if (!current() || assistant.jobId !== jobId) return;
         if (!steered.accepted) throw new Error("当前任务没有接受补充要求");
         assistantAddMessage("user", text);
         input.value = "";
@@ -1079,7 +1132,7 @@
         return;
       }
       assistantSetSession(localStorage.getItem("ea_agent_session"));
-      const sessionId = assistantMaterializeSession();
+      sessionId = assistantMaterializeSession();
       assistantAddMessage("user", text);
       input.value = "";
       const attach = !!byId("eaAssistantAttachContext")?.checked;
@@ -1095,12 +1148,15 @@
         authority_mode: "policy",
         page_context: pageContext,
       });
+      if (!current()) return;
       if (!started.accepted && started.busy) {
         assistantAddMessage("system", "设备已有后台 Agent 任务；已切换为跟随该任务，本条消息未发送。");
       }
+      assistantInvalidateRunPolling();
       assistant.jobId = String(started.job_id || "");
-      if (assistant.jobId) assistantEnsureStream(assistant.jobId);
       if (started.session_id) assistantSetSession(started.session_id);
+      sessionId = assistant.sessionId;
+      if (assistant.jobId) assistantEnsureStream(assistant.jobId);
       assistant.context = null;
       assistantRenderContext();
       assistantStatus(started.busy ? "RUNNING · " + (started.stage || "Agent") :
@@ -1108,12 +1164,18 @@
         (started.accepted ? "warn" : ""));
       if (assistant.jobId) assistantSchedulePoll(300);
     } catch (error) {
+      if (!current()) return;
       assistantStatus("CHECK", "bad");
       assistantAddMessage("system", error.message || "消息发送失败");
     } finally {
-      send.disabled = false;
-      input.disabled = false;
-      input.focus();
+      if (assistant.sendOwner === owner) {
+        assistant.sendOwner = null;
+        if (!UI.lifecycle.destroyed) {
+          send.disabled = false;
+          input.disabled = false;
+          if (assistant.open && assistant.sessionId === sessionId) input.focus();
+        }
+      }
     }
   }
 
@@ -1152,7 +1214,7 @@
     byId("eaAssistantLauncher")?.classList.toggle("active", assistant.open);
     byId("eaAssistantLauncher")?.setAttribute("aria-expanded", assistant.open ? "true" : "false");
     if (!assistant.open) {
-      clearTimeout(assistant.pollTimer);
+      assistantInvalidateRunPolling();
       return;
     }
     assistant.page = UI.pageContext.detect();
@@ -1162,7 +1224,7 @@
       assistantLoadHistory().catch(() => {});
     }
     UI.api.ensure().then(ok => {
-      if (ok) assistantSyncRun();
+      if (ok && assistant.open) assistantSyncRun();
     });
     setTimeout(() => byId("eaAssistantInput")?.focus(), 0);
   }
@@ -1196,6 +1258,7 @@
 
   function mountAssistant(activePage) {
     assistant.page = activePage;
+    UI.lifecycle.addCleanup(assistantInvalidateRunPolling);
     document.body.insertAdjacentHTML("beforeend",
       '<button id="eaAssistantLauncher" class="ea-assistant-launcher" type="button" aria-expanded="false" aria-controls="eaAssistantWindow">' +
         '<span aria-hidden="true">' + BRAND_MARK_HTML + '</span><b id="eaAssistantLauncherName"></b>' +
@@ -1229,6 +1292,8 @@
       assistantSchedulePoll(100);
     };
     byId("eaAssistantNew").onclick = () => {
+      assistantInvalidateSend();
+      assistantInvalidateRunPolling();
       assistantSetSession("");
       assistant.jobId = "";
       assistant.historyLoaded = true;
@@ -1297,7 +1362,8 @@
       }
     });
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && assistant.open) assistantSyncRun();
+      if (document.hidden) assistantInvalidateRunPolling();
+      else if (assistant.open) assistantSyncRun();
     });
     window.addEventListener("resize", () => {
       if (assistant.open) assistantApplyPosition();

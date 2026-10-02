@@ -48,6 +48,7 @@
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_http_server.h"
+#include "tls_server.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
@@ -629,7 +630,7 @@ esp_err_t si_web_server_start(void)
     // All normal requests share this task. If a browser cancels a large page
     // navigation, release the blocked send quickly for the next page.
     config.send_wait_timeout = 1;
-    ESP_RETURN_ON_ERROR(httpd_start(&s_server, &config), TAG, "httpd_start");
+    ESP_RETURN_ON_ERROR(si_tls_server_start(&s_server, &config), TAG, "httpd_start");
     register_uri(s_server, "/", HTTP_GET, index_handler, false);
     register_uri(s_server, "/kvm", HTTP_GET, kvm_handler, false);
 #if SI_CFG_EMBEDDED_AGENT_ENABLED
@@ -654,6 +655,9 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/skills", HTTP_GET, skills_handler, false);
 #endif
     register_uri(s_server, "/settings", HTTP_GET, settings_handler, false);
+    register_uri(s_server, "/api/auth/setup", HTTP_GET, auth_setup_handler, false);
+    register_uri(s_server, "/api/auth/setup", HTTP_POST, auth_setup_handler, false);
+    register_uri(s_server, "/api/auth/certificate", HTTP_GET, auth_certificate_handler, false);
     register_uri(s_server, "/api/auth/login", HTTP_POST, auth_login_handler, false);
     register_uri(s_server, "/api/auth/login/status", HTTP_GET, auth_login_status_handler, false);
     register_uri(s_server, "/api/auth/logout", HTTP_POST, auth_logout_handler, false);
@@ -788,7 +792,7 @@ esp_err_t si_web_server_start(void)
     httpd_register_err_handler(s_server, HTTPD_404_NOT_FOUND, not_found_handler);
     ESP_RETURN_ON_ERROR(start_stream_server(), TAG, "start stream server");
     register_uri(s_stream_server, "/stream", HTTP_GET, stream_handler, false);
-    si_web_log("INFO", "HTTP server started");
-    ESP_LOGI(TAG, "HTTP server started on port %d", SI_DEFAULT_HTTP_PORT);
+    si_web_log("INFO", "HTTPS server started");
+    ESP_LOGI(TAG, "HTTPS server started on port %d", SI_DEFAULT_HTTP_PORT);
     return ESP_OK;
 }

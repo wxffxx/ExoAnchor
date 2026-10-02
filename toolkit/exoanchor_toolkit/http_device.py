@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import math
+import os
 import secrets
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from http.client import HTTPException
 from typing import Callable
 
+from .tls_transport import verified_https_handler
 from .errors import ToolkitError
 from .firmware import FirmwarePackage
 from .network import (
@@ -34,8 +38,17 @@ NETWORK_OTA_BOARD_ALLOWLIST = frozenset(
 
 MAX_JSON_RESPONSE_BYTES = 2 * 1024 * 1024
 LOGIN_TIMEOUT_SECONDS = 30.0
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Keep device requests and credentials at the explicitly selected URL."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 DIRECT_HTTP_OPENER = urllib.request.build_opener(
-    urllib.request.ProxyHandler({})
+    urllib.request.ProxyHandler({}), _NoRedirect()
 ).open
 
 
@@ -43,37 +56,43 @@ DIRECT_HTTP_OPENER = urllib.request.build_opener(
 class DeviceTarget:
     address: str
     port: int
+    scheme: str = "https"
 
     @property
     def base_url(self) -> str:
-        suffix = "" if self.port == 80 else f":{self.port}"
-        return f"http://{self.address}{suffix}"
+        suffix = "" if self.port == (443 if self.scheme == "https" else 80) else f":{self.port}"
+        return f"{self.scheme}://{self.address}{suffix}"
 
 
 def parse_device_target(value: str) -> DeviceTarget:
     candidate = value.strip()
     if not candidate:
         raise ToolkitError("network device IP is required")
-    parsed = urllib.parse.urlsplit(
-        candidate if "://" in candidate else "http://" + candidate
-    )
+    try:
+        parsed = urllib.parse.urlsplit(
+            candidate if "://" in candidate else "https://" + candidate
+        )
+    except ValueError as exc:
+        raise ToolkitError("network target must be a valid HTTP(S) IPv4 address") from exc
     if (
-        parsed.scheme != "http"
+        parsed.scheme not in {"http", "https"}
         or parsed.username is not None
         or parsed.password is not None
         or parsed.path not in {"", "/"}
         or parsed.query
         or parsed.fragment
     ):
-        raise ToolkitError("network target must be an HTTP IPv4 address")
+        raise ToolkitError("network target must be an HTTP(S) IPv4 address")
     try:
         address = str(ipaddress.IPv4Address(parsed.hostname or ""))
-        port = parsed.port or 80
+        port = parsed.port
+        if port is None:
+            port = 443 if parsed.scheme == "https" else 80
     except (ipaddress.AddressValueError, ValueError) as exc:
         raise ToolkitError("network target must be a valid IPv4 address") from exc
     if not 1 <= port <= 65535:
         raise ToolkitError("network target port is invalid")
-    return DeviceTarget(address=address, port=port)
+    return DeviceTarget(address=address, port=port, scheme=parsed.scheme)
 
 
 class DeviceHttpClient:
@@ -87,18 +106,23 @@ class DeviceHttpClient:
         timeout: float = 10.0,
         opener: Callable[..., object] | None = None,
         sleeper: Callable[[float], None] = time.sleep,
+        tls_certificate_file: str | None = None,
     ) -> None:
-        if timeout <= 0:
-            raise ToolkitError("device HTTP timeout must be positive")
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ToolkitError("device HTTP timeout must be finite and positive")
         self.target = parse_device_target(target)
         self.username = username.strip() or "admin"
         self.password = password
         self.token = token
         self.timeout = timeout
+        self.tls_certificate_file = tls_certificate_file or os.environ.get("EXOANCHOR_TLS_CERTIFICATE_FILE")
         # Device targets are validated literal private/LAN IPv4 addresses.  A
         # desktop system proxy must never intercept provisioning or multi-MB
         # OTA uploads to them.
-        self._opener = opener or DIRECT_HTTP_OPENER
+        self._opener = opener or urllib.request.build_opener(
+            urllib.request.ProxyHandler({}), _NoRedirect(),
+            verified_https_handler(self.tls_certificate_file),
+        ).open
         self._sleep = sleeper
 
     def _request(
@@ -109,6 +133,7 @@ class DeviceHttpClient:
         body: bytes | None = None,
         content_type: str | None = None,
         retry_login: bool = True,
+        timeout: float | None = None,
     ) -> tuple[int, bytes]:
         if not path.startswith("/") or path.startswith("//"):
             raise ToolkitError("device API path is invalid")
@@ -127,12 +152,17 @@ class DeviceHttpClient:
             method=method,
         )
         try:
-            with self._opener(request, timeout=self.timeout) as response:
+            with self._opener(request, timeout=self.timeout if timeout is None else timeout) as response:
                 content = response.read(MAX_JSON_RESPONSE_BYTES + 1)
                 status = int(getattr(response, "status", 200))
         except urllib.error.HTTPError as exc:
-            detail = exc.read(4096).decode("utf-8", errors="replace").strip()
-            if exc.code == 401 and retry_login and self.password:
+            try:
+                detail = exc.read(4096).decode("utf-8", errors="replace").strip()
+            except (OSError, HTTPException):
+                detail = "response body unavailable"
+            finally:
+                exc.close()
+            if exc.code == 401 and method == "GET" and retry_login and self.password:
                 self.login()
                 return self._request(
                     method,
@@ -140,6 +170,7 @@ class DeviceHttpClient:
                     body=body,
                     content_type=content_type,
                     retry_login=False,
+                    timeout=timeout,
                 )
             if exc.code == 401:
                 raise ToolkitError(
@@ -148,6 +179,8 @@ class DeviceHttpClient:
             raise ToolkitError(
                 f"device returned HTTP {exc.code}: {detail or exc.reason}"
             ) from exc
+        except HTTPException as exc:
+            raise ToolkitError(f"device HTTP response failed: {exc}") from exc
         except (urllib.error.URLError, OSError) as exc:
             raise ToolkitError(
                 f"cannot reach ExoAnchor at {self.target.base_url}: {exc}"
@@ -160,13 +193,23 @@ class DeviceHttpClient:
     def _decode_json(content: bytes) -> dict[str, object]:
         try:
             value = json.loads(content.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        except (ValueError, RecursionError) as exc:
             raise ToolkitError("device returned invalid JSON") from exc
         if not isinstance(value, dict):
             raise ToolkitError("device JSON response must be an object")
         return value
 
     def login(self) -> None:
+        # Submission, waits and polling share one budget. urllib timeouts bound
+        # socket operations, so also reject a response that arrives too late.
+        deadline = time.monotonic() + LOGIN_TIMEOUT_SECONDS
+
+        def remaining_budget() -> float:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ToolkitError("device login timed out")
+            return remaining
+
         body = json.dumps(
             {
                 "username": self.username,
@@ -181,25 +224,31 @@ class DeviceHttpClient:
             body=body,
             content_type="application/json",
             retry_login=False,
+            timeout=min(self.timeout, remaining_budget()),
         )
         result = self._decode_json(content)
-        deadline = time.monotonic() + LOGIN_TIMEOUT_SECONDS
         while status == 202:
             job_id = result.get("job_id")
             if not isinstance(job_id, str) or not job_id:
                 raise ToolkitError("device did not create a login job")
             delay_ms = result.get("poll_after_ms", 100)
-            delay = max(0.05, min(1.0, float(delay_ms) / 1000.0))
-            if time.monotonic() + delay > deadline:
-                raise ToolkitError("device login timed out")
-            self._sleep(delay)
+            try:
+                delay = float(delay_ms) / 1000.0
+            except (TypeError, ValueError, OverflowError):
+                delay = 0.1
+            if not math.isfinite(delay):
+                delay = 0.1
+            delay = max(0.05, min(1.0, delay))
+            self._sleep(min(delay, remaining_budget()))
             status, content = self._request(
                 "GET",
                 "/api/auth/login/status?job_id="
                 + urllib.parse.quote(job_id, safe=""),
                 retry_login=False,
+                timeout=min(self.timeout, remaining_budget()),
             )
             result = self._decode_json(content)
+        remaining_budget()
         token = result.get("token")
         if token is not None and not isinstance(token, str):
             raise ToolkitError("device returned an invalid login token")
@@ -232,6 +281,7 @@ class DeviceHttpClient:
             path,
             body=body,
             content_type="application/json",
+            retry_login=False,
         )
         return self._decode_json(content)
 
@@ -242,6 +292,7 @@ class DeviceHttpClient:
             path,
             body=payload,
             content_type="application/octet-stream",
+            retry_login=False,
         )
         return self._decode_json(content)
 

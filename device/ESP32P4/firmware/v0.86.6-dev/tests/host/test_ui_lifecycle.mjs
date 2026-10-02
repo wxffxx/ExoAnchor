@@ -163,6 +163,50 @@ try {
 assert.equal(notified, 1, "one broken widget must not block the remaining listeners");
 assert.equal(UI.status.error, null, "widget errors must not become transport failures");
 
+// Immediate replay must isolate widget failures just like later notifications.
+try {
+  console.error = () => {};
+  const unsubscribe = UI.status.subscribe(() => { throw new Error("bad initial widget"); });
+  unsubscribe();
+} finally {
+  console.error = originalConsoleError;
+}
+
+// Logout/stop invalidates an old poll, including a response already in flight.
+let finishOldPoll;
+let finishFreshPoll;
+let oldPollSignal;
+globalThis.fetch = async (_path, options) => {
+  oldPollSignal = options.signal;
+  return {
+    ok: true, status: 200,
+    headers: { get: () => "application/json" },
+    json: () => new Promise(resolve => { finishOldPoll = resolve; }),
+  };
+};
+const oldPoll = UI.status.refresh();
+await new Promise(resolve => setTimeout(resolve, 0));
+UI.status.stop();
+assert.equal(oldPollSignal.aborted, true, "stopping polling must release its request");
+globalThis.fetch = async () => ({
+  ok: true, status: 200,
+  headers: { get: () => "application/json" },
+  json: () => new Promise(resolve => { finishFreshPoll = resolve; }),
+});
+const freshPoll = UI.status.refresh();
+await new Promise(resolve => setTimeout(resolve, 0));
+let freshNotifications = 0;
+const unwatch = UI.status.subscribe(() => { freshNotifications += 1; }, false);
+finishOldPoll({ generation: "old" });
+await assert.rejects(oldPoll, error => error?.name === "AbortError");
+assert.ok(UI.status.inFlight, "old completion must not clear the fresh in-flight request");
+assert.equal(freshNotifications, 0, "stale completion must not notify widgets");
+finishFreshPoll({ generation: "fresh" });
+await freshPoll;
+assert.equal(UI.status.value.generation, "fresh");
+assert.equal(freshNotifications, 1);
+unwatch();
+
 let resolveEvents;
 let eventFetchCalls = 0;
 globalThis.fetch = async () => {
@@ -217,6 +261,9 @@ assert.equal(events[2][1].reason, "navigate");
 
 UI.lifecycle.destroy("duplicate");
 assert.equal(cleanupCount, 1, "destroy must be idempotent");
+await assert.rejects(UI.status.refresh(), error => error?.name === "AbortError");
+UI.status.start();
+assert.equal(UI.status.timer, 0, "destroyed pages must not restart polling");
 
 const agentSource = fs.readFileSync(
   new URL("../../main/www/agent.html", import.meta.url),

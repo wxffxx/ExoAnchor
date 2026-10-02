@@ -1500,6 +1500,30 @@ string(REPLACE "${si_libssh2_vulnerable_fragment}"
                "${si_libssh2_fixed_fragment}"
                si_libssh2_transport_patched
                "${si_libssh2_transport_source}")
+# GHSA-6c79-444r-wx26 / upstream 42e33d8: authenticate packet size
+# before decrypting the first ETM block or allocating/copying its payload.
+set(si_libssh2_etm_upstream [=[
+                int blocksize = session->remote.crypt->blocksize;
+
+                rc = decrypt(session, p->payload + 4,
+]=])
+set(si_libssh2_etm_fixed [=[
+                int blocksize = session->remote.crypt->blocksize;
+
+                if(p->total_num < mac_len + 4 + (size_t)blocksize) {
+                    LIBSSH2_FREE(session, p->payload);
+                    p->payload = NULL;
+                    return LIBSSH2_ERROR_DECRYPT;
+                }
+
+                rc = decrypt(session, p->payload + 4,
+]=])
+string(FIND "${si_libssh2_transport_patched}" "${si_libssh2_etm_upstream}" si_etm_index)
+if(si_etm_index EQUAL -1)
+    message(FATAL_ERROR "libssh2 ETM fragment changed; review security backport")
+endif()
+string(REPLACE "${si_libssh2_etm_upstream}" "${si_libssh2_etm_fixed}"
+               si_libssh2_transport_patched "${si_libssh2_transport_patched}")
 set(si_libssh2_patch_dir "${CMAKE_BINARY_DIR}/exoanchor-patched/libssh2")
 file(MAKE_DIRECTORY "${si_libssh2_patch_dir}")
 set(si_libssh2_patched_transport "${si_libssh2_patch_dir}/transport.c")
@@ -1516,4 +1540,6 @@ list(REMOVE_ITEM si_libssh2_sources "${si_libssh2_transport}")
 list(APPEND si_libssh2_sources "${si_libssh2_patched_transport}")
 set_property(TARGET ${si_libssh2_component} PROPERTY SOURCES
              "${si_libssh2_sources}")
-message(STATUS "Using upstream CVE-2026-55200 libssh2 transport fix")
+message(STATUS "Using upstream CVE-2026-55200 and GHSA-6c79-444r-wx26 libssh2 fixes")
+
+include("${CMAKE_CURRENT_LIST_DIR}/../security-patches/uvc-descriptor-safety.cmake")

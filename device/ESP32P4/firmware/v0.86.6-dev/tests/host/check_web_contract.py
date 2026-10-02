@@ -361,7 +361,6 @@ def main() -> int:
         "mbedtls_pkcs5_pbkdf2_hmac_ext(",
         "AUTH_PASSWORD_SALT_KEY",
         "AUTH_BOOTSTRAP_REQUIRED_KEY",
-        'AUTH_FACTORY_PASSWORD "admin"',
         "generate_bootstrap_password(",
         "si_auth_reset_bootstrap(",
         "esp_fill_random(token, sizeof(token));",
@@ -373,7 +372,7 @@ def main() -> int:
             failures.append(f"authentication hardening guard missing {marker}")
     for marker in (
         'const char *name = "EA_SESSION=";',
-        "HttpOnly; SameSite=Strict",
+        "HttpOnly; Secure; SameSite=Strict",
         "media-src 'self' blob:",
         "SI_HTTP_SESSION_COOKIE_MAX_AGE_SECONDS 86400U",
         'httpd_req_get_hdr_value_len(req, name)',
@@ -420,7 +419,10 @@ def main() -> int:
     if "mcp_client && auth_status.using_default" not in base_settings_text:
         failures.append("MCP can authenticate with the temporary bootstrap credential")
     for marker in (
-        "首次使用请以默认账户 admin / admin 登录",
+        "创建管理员账号",
+        "state.setup_required",
+        "this.requireSetup(state)",
+        "api.setup(username, nextPassword)",
         "当前账户仍使用默认凭据，请设置至少六位的新密码。",
         "return await this.requireLogin(state);",
         'byId("authCurrentPassword").value = currentPassword;',
@@ -2464,7 +2466,8 @@ def main() -> int:
         'submit.textContent = this.mode === "login" ? "正在登录…" : "正在保存…";',
         "async readAuthState()",
         "if (this.authProbe) return this.authProbe;",
-        "if (document.hidden) return null;",
+        "while (!document.hidden && !lifecycle.destroyed && !signal.aborted)",
+        "if (document.hidden || lifecycle.destroyed || signal.aborted) return null;",
         "delay = Math.min(Math.round(delay * 1.7), 1000);",
         "let state = await this.readAuthState();",
     ):

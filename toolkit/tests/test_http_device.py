@@ -166,13 +166,13 @@ class DeviceHttpTests(unittest.TestCase):
         self.assertIsNot(client._opener, urllib.request.urlopen)
         self.assertEqual(proxy_handlers, [])
 
-    def test_target_is_limited_to_http_ipv4(self) -> None:
+    def test_target_defaults_to_https_and_requires_ipv4(self) -> None:
         self.assertEqual(
             parse_device_target("192.0.2.223:8080").base_url,
-            "http://192.0.2.223:8080",
+            "https://192.0.2.223:8080",
         )
-        with self.assertRaises(ToolkitError):
-            parse_device_target("https://192.0.2.223")
+        self.assertEqual(parse_device_target("https://192.0.2.223").base_url, "https://192.0.2.223")
+        self.assertEqual(parse_device_target("http://192.0.2.223").base_url, "http://192.0.2.223")
         with self.assertRaises(ToolkitError):
             parse_device_target("example.com")
 

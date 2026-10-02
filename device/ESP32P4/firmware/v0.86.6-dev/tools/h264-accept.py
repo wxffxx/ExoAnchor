@@ -13,6 +13,9 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import hashlib
+import hmac
+import ssl
 import os
 import shutil
 import socket
@@ -29,6 +32,37 @@ from pathlib import Path
 from typing import Any
 
 import requests
+
+# Reuse the device pairing policy shared with MCP/Toolkit.
+sys.path.insert(0, str(Path(__file__).resolve().parents[5] / "integrations/exoanchor-mcp"))
+from exoanchor_mcp.tls_transport import verified_tls_context
+
+LEGACY_HTTP = os.environ.get("EXOANCHOR_ALLOW_INSECURE_HTTP") == "1"
+SCHEME = "http" if LEGACY_HTTP else "https"
+TLS_CERTIFICATE = os.environ.get("EXOANCHOR_TLS_CERTIFICATE_FILE") or None
+
+
+class VerifiedDeviceSession(requests.Session):
+    def __init__(self):
+        super().__init__()
+        self.trust_env = False
+        context, digest = verified_tls_context(TLS_CERTIFICATE)
+
+        class Adapter(requests.adapters.HTTPAdapter):
+            def init_poolmanager(self, connections, maxsize, block=False, **kwargs):
+                kwargs["ssl_context"] = context
+                if digest is not None:
+                    kwargs["assert_hostname"] = False
+                    kwargs["assert_fingerprint"] = digest.hex()
+                return super().init_poolmanager(connections, maxsize, block, **kwargs)
+
+        self.mount("https://", Adapter())
+        if TLS_CERTIFICATE:
+            self.verify = os.path.expanduser(TLS_CERTIFICATE)
+
+    def request(self, method, url, **kwargs):
+        kwargs["allow_redirects"] = False
+        return super().request(method, url, **kwargs)
 
 
 MOTION_SAMPLE_FPS = 5
@@ -159,9 +193,9 @@ def response_json(response: requests.Response) -> dict[str, Any]:
 
 
 def login(host: str, username: str, password: str) -> requests.Session:
-    session = requests.Session()
+    session = VerifiedDeviceSession()
     response = session.post(
-        f"http://{host}/api/auth/login",
+        f"{SCHEME}://{host}/api/auth/login",
         json={
             "username": username,
             "password": password,
@@ -173,7 +207,7 @@ def login(host: str, username: str, password: str) -> requests.Session:
     while response.status_code == 202 and data.get("pending"):
         time.sleep(max(0.05, float(data.get("poll_after_ms", 100)) / 1000.0))
         response = session.get(
-            f"http://{host}/api/auth/login/status",
+            f"{SCHEME}://{host}/api/auth/login/status",
             params={"job_id": data["job_id"]},
             timeout=5,
         )
@@ -183,7 +217,7 @@ def login(host: str, username: str, password: str) -> requests.Session:
 
 
 def status(session: requests.Session, host: str) -> dict[str, Any]:
-    response = session.get(f"http://{host}/api/status", timeout=5)
+    response = session.get(f"{SCHEME}://{host}/api/status", timeout=5)
     response.raise_for_status()
     return response_json(response)
 
@@ -195,7 +229,7 @@ def video_status(payload: dict[str, Any]) -> dict[str, Any]:
 
 def set_mode(session: requests.Session, host: str, mode: Mode) -> None:
     response = session.post(
-        f"http://{host}/api/video/resolution",
+        f"{SCHEME}://{host}/api/video/resolution",
         json={
             "pixel_format": "MJPEG",
             "width": mode.width,
@@ -351,7 +385,7 @@ def set_lease(
         if force:
             payload["force"] = True
     response = session.post(
-        f"http://{host}/api/video/lease", json=payload, timeout=8
+        f"{SCHEME}://{host}/api/video/lease", json=payload, timeout=8
     )
     response.raise_for_status()
 
@@ -447,6 +481,16 @@ def websocket_upgrade(
     host: str, port: int, path: str, cookie: str
 ) -> tuple[socket.socket, BufferedSocket]:
     sock = socket.create_connection((host, port), timeout=8)
+    if not LEGACY_HTTP:
+        context, digest = verified_tls_context(TLS_CERTIFICATE)
+        try:
+            sock = context.wrap_socket(sock, server_hostname=host)
+            if digest is not None and not hmac.compare_digest(
+                    hashlib.sha256(sock.getpeercert(binary_form=True)).digest(), digest):
+                raise ssl.SSLCertVerificationError("device certificate does not match physical pairing")
+        except BaseException:
+            sock.close()
+            raise
     sock.settimeout(8)
     key = base64.b64encode(os.urandom(16)).decode("ascii")
     request = (
@@ -480,7 +524,7 @@ def websocket_connect(
 ) -> tuple[socket.socket, BufferedSocket]:
     return websocket_upgrade(
         host,
-        81,
+        81 if LEGACY_HTTP else 444,
         f"/api/ws/video/h264?stream_id={stream_id}",
         cookie,
     )
@@ -491,7 +535,7 @@ def hid_websocket_connect(
 ) -> socket.socket:
     sock, _reader = websocket_upgrade(
         host,
-        80,
+        80 if LEGACY_HTTP else 443,
         f"/api/ws/hid?stream_id={stream_id}",
         cookie,
     )

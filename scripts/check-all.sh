@@ -36,6 +36,10 @@ run_toolkit_tests() {
 
 "$REPO_DIR/device/ESP32P4/firmware/v0.86-stable-kvm/tests/host/run.sh"
 "$REPO_DIR/device/ESP32P4/firmware/v0.86.6-dev/tests/host/run.sh"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_auth_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_http_security_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_tls_clients.py"
+node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_browser_setup.mjs"
 
 (
     cd "$REPO_DIR/integrations/exoanchor-mcp"
@@ -43,6 +47,7 @@ run_toolkit_tests() {
 )
 
 run_toolkit_tests
+node "$REPO_DIR/toolkit/tests/test_ui_activity_log.mjs"
 "$REPO_DIR/scripts/check-repository-hygiene.sh"
 
 if git -C "$REPO_DIR" rev-parse --verify main >/dev/null 2>&1; then

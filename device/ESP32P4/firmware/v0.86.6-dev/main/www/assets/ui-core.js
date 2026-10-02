@@ -57,7 +57,13 @@
       if (this.username) localStorage.setItem("si_username", this.username);
     }
 
-    async login(username, password) {
+    async setup(username, password) {
+      const ticket = await this.getSilent("/api/auth/setup");
+      if (!ticket.nonce) throw new Error("无法开始首次配置");
+      return this.login(username, password, ticket.nonce);
+    }
+
+    async login(username, password, setupNonce = "") {
       // Finish revoking the previous Cookie before a new login can replace it.
       if (session.loggedOut()) await session.logout();
       const logoutGeneration = localStorage.getItem("ea_auth_logout_generation");
@@ -77,9 +83,9 @@
         timedOut = true;
         controller.abort();
       }, LOGIN_TIMEOUT_MS);
-      const request = () => fetch("/api/auth/login", {
+      const request = () => fetch(setupNonce ? "/api/auth/setup" : "/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(setupNonce ? { "X-ExoAnchor-Setup": setupNonce } : {}) },
         body: JSON.stringify({ username, password, request_id: requestId }),
         cache: "no-store",
         credentials: "same-origin",
@@ -276,6 +282,9 @@
     }
 
     upload(path, file, onProgress) {
+      if (lifecycle.destroyed) return Promise.reject(
+        new DOMException("upload cancelled by page lifecycle", "AbortError")
+      );
       if (!session.active()) return Promise.reject(new Error("login required"));
       return new Promise((resolve, reject) => {
         const request = new XMLHttpRequest();
@@ -284,28 +293,32 @@
           release();
           callback(value);
         };
-        request.open("POST", path);
-        request.withCredentials = true;
-        if (this.token) request.setRequestHeader("Authorization", "Bearer " + this.token);
-        request.setRequestHeader("Content-Type", "application/octet-stream");
-        request.upload.onprogress = event => {
-          if (event.lengthComputable && onProgress) onProgress(event.loaded / event.total);
-        };
-        request.onload = () => {
-          if (request.status >= 200 && request.status < 300) {
-            try { finish(resolve)(JSON.parse(request.responseText || "{}")); }
-            catch (error) { finish(resolve)({ ok: true }); }
-          } else {
-            finish(reject)(
-              new Error(request.responseText || request.statusText || "upload failed")
-            );
-          }
-        };
-        request.onerror = () => finish(reject)(new Error("upload failed"));
-        request.onabort = () => finish(reject)(
-          new DOMException("upload cancelled by page lifecycle", "AbortError")
-        );
-        request.send(file);
+        try {
+          request.open("POST", path);
+          request.withCredentials = true;
+          if (this.token) request.setRequestHeader("Authorization", "Bearer " + this.token);
+          request.setRequestHeader("Content-Type", "application/octet-stream");
+          request.upload.onprogress = event => {
+            if (event.lengthComputable && onProgress) onProgress(event.loaded / event.total);
+          };
+          request.onload = () => {
+            if (request.status >= 200 && request.status < 300) {
+              try { finish(resolve)(JSON.parse(request.responseText || "{}")); }
+              catch (error) { finish(resolve)({ ok: true }); }
+            } else {
+              finish(reject)(
+                new Error(request.responseText || request.statusText || "upload failed")
+              );
+            }
+          };
+          request.onerror = () => finish(reject)(new Error("upload failed"));
+          request.onabort = () => finish(reject)(
+            new DOMException("upload cancelled by page lifecycle", "AbortError")
+          );
+          request.send(file);
+        } catch (error) {
+          finish(reject)(error);
+        }
       });
     }
   }
@@ -364,12 +377,14 @@
     },
 
     interval(callback, delay) {
+      if (this.destroyed) return 0;
       const timer = window.setInterval(callback, delay);
       this.timers.add(["interval", timer]);
       return timer;
     },
 
     timeout(callback, delay) {
+      if (this.destroyed) return 0;
       let entry;
       const timer = window.setTimeout(() => {
         this.timers.delete(entry);
@@ -442,29 +457,32 @@
         '<form id="authForm" class="ui-dialog">' +
           '<div class="auth-brand"><img src="/assets/exoanchor-ui-mark.svg" alt=""><span>ExoAnchor</span></div>' +
           '<h2 id="authTitle">登录本地账户</h2><p id="authHint">需要登录后才能继续。</p>' +
-          '<div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>' +
-          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div>' +
+          '<div id="authCurrentFields"><div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>' +
+          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div></div>' +
           '<div id="authNewFields"><div class="field"><label for="authNewUsername">新用户名</label><input id="authNewUsername" type="text" autocomplete="username" maxlength="32"></div>' +
           '<div class="field"><label for="authNewPassword">新密码（至少 6 位）</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>' +
           '<div class="field"><label for="authConfirmPassword">确认新密码</label><input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div></div>' +
           '<div class="actions"><button id="authSubmit" class="primary" type="submit">登录</button></div><div id="authMsg" class="msg"></div>' +
         '</form></div>');
       this.mounted = true;
+      lifecycle.addCleanup(() => this.hide(false));
     },
 
     show(mode, state) {
+      if (lifecycle.destroyed) return;
       this.mount();
       this.mode = mode;
       this.state = state || {};
       byId("authModal").classList.add("show");
       byId("authNewFields").style.display = mode === "login" ? "none" : "block";
-      byId("authTitle").textContent = mode === "login" ? "登录本地账户" : "请修改默认账户";
-      byId("authHint").textContent = mode === "login" ?
+      byId("authCurrentFields").style.display = mode === "setup" ? "none" : "block";
+      byId("authTitle").textContent = mode === "setup" ? "创建管理员账号" : mode === "login" ? "登录本地账户" : "请修改默认账户";
+      byId("authHint").textContent = mode === "setup" ? "在可信的本地网络完成首次配置。" : mode === "login" ?
         (this.state.must_change_credentials ?
-          "首次使用请以默认账户 admin / admin 登录，随后设置新密码。" :
+          "请使用预设凭据登录，随后设置新密码。" :
           "需要登录后才能继续。") :
         "当前账户仍使用默认凭据，请设置至少六位的新密码。";
-      byId("authSubmit").textContent = mode === "login" ? "登录" : "保存并继续";
+      byId("authSubmit").textContent = mode === "setup" ? "创建并继续" : mode === "login" ? "登录" : "保存并继续";
       byId("authMsg").textContent = "";
       byId("authMsg").className = "msg";
       byId("authCurrentUsername").value = this.state.username || this.state.default_username || api.username || "admin";
@@ -474,7 +492,9 @@
       byId("authConfirmPassword").value = "";
       status.stop();
       info.stop();
-      setTimeout(() => byId("authCurrentPassword").focus(), 0);
+      lifecycle.timeout(() => {
+        if (byId("authModal")?.classList.contains("show")) byId(mode === "setup" ? "authNewUsername" : "authCurrentPassword")?.focus();
+      }, 0);
     },
 
     hide(ok) {
@@ -491,20 +511,30 @@
     },
 
     requireLogin(state = {}) {
+      if (lifecycle.destroyed) return Promise.resolve(false);
       if (byId("authModal")?.classList.contains("show") && this.mode === "login" && this.waiting) return this.waiting;
       this.show("login", state);
-      this.waiting = new Promise(resolve => { this.pending = resolve; });
+      if (!this.waiting) this.waiting = new Promise(resolve => { this.pending = resolve; });
+      return this.waiting;
+    },
+
+    requireSetup(state) {
+      if (byId("authModal")?.classList.contains("show") && this.mode === "setup" && this.waiting) return this.waiting;
+      this.show("setup", state);
+      if (!this.waiting) this.waiting = new Promise(resolve => { this.pending = resolve; });
       return this.waiting;
     },
 
     requireChange(state) {
+      if (lifecycle.destroyed) return Promise.resolve(false);
       if (byId("authModal")?.classList.contains("show") && this.mode === "change" && this.waiting) return this.waiting;
       this.show("change", state);
-      this.waiting = new Promise(resolve => { this.pending = resolve; });
+      if (!this.waiting) this.waiting = new Promise(resolve => { this.pending = resolve; });
       return this.waiting;
     },
 
     finishAuthentication(result) {
+      if (lifecycle.destroyed) return;
       const hadWaitingCaller = !!this.pending;
       this.hide(true);
       session.load().catch(() => {});
@@ -518,20 +548,32 @@
     async readAuthState() {
       if (this.authProbe) return this.authProbe;
       this.authProbe = (async () => {
+        const signal = lifecycle.signal();
         let delay = 100;
-        while (true) {
+        while (!document.hidden && !lifecycle.destroyed && !signal.aborted) {
           try {
-            return await api.getSilent("/api/auth/status");
+            const state = await api.getSilent("/api/auth/status");
+            return lifecycle.destroyed || signal.aborted ? null : state;
           } catch (error) {
             // A navigation abort, a temporarily full socket queue, or a network
             // transition is not proof that the session is invalid. Keep the
             // current UI/session and retry until the visible page can ask the
             // device authoritatively.
-            if (document.hidden) return null;
-            await new Promise(resolve => setTimeout(resolve, delay));
+            if (document.hidden || lifecycle.destroyed || signal.aborted) return null;
+            await new Promise(resolve => {
+              const finish = () => {
+                clearTimeout(timer);
+                signal.removeEventListener("abort", finish);
+                resolve();
+              };
+              const timer = setTimeout(finish, delay);
+              signal.addEventListener("abort", finish, { once: true });
+              if (signal.aborted) finish();
+            });
             delay = Math.min(Math.round(delay * 1.7), 1000);
           }
         }
+        return null;
       })();
       try {
         return await this.authProbe;
@@ -550,6 +592,7 @@
         location.reload();
         return false;
       }
+      if (state.setup_required) return await this.requireSetup(state);
       if (!state.enabled) {
         localStorage.removeItem("ea_auth_logged_out");
         session.apply(state);
@@ -626,6 +669,12 @@
           const confirmPassword = byId("authConfirmPassword").value;
           if (!username) throw new Error("用户名不能为空");
           if (nextPassword !== confirmPassword) throw new Error("两次密码不一致");
+          if (this.mode === "setup") {
+            const result = await api.setup(username, nextPassword);
+            localStorage.setItem("ea_auth_confirmed", "1");
+            this.finishAuthentication(result);
+            return;
+          }
           if (!api.token) await api.login(currentUsername, currentPassword);
           const result = await api.post("/api/settings/account", {
             current_username: currentUsername,
@@ -636,7 +685,7 @@
           api.setSession(result.token, result.username || username);
           this.finishAuthentication(result);
         } catch (error) {
-          if (this.mode === "change" &&
+          if ((this.mode === "change" || this.mode === "setup") &&
               (error instanceof TypeError || /fetch|network/i.test(String(error?.message || "")))) {
             const username = byId("authNewUsername").value.trim();
             const nextPassword = byId("authNewPassword").value;
@@ -768,12 +817,16 @@
       this.listeners = new Set();
       this.timer = 0;
       this.inFlight = null;
+      this.requestController = null;
       this.lastDurationMs = null;
     }
 
     subscribe(listener, immediate = true) {
       this.listeners.add(listener);
-      if (immediate && this.value) listener(this.value, null);
+      if (immediate && this.value) {
+        try { listener(this.value, null); }
+        catch (error) { console.error("poll listener failed", error); }
+      }
       return () => this.listeners.delete(listener);
     }
 
@@ -785,25 +838,38 @@
     }
 
     async refresh() {
+      if (lifecycle.destroyed) throw new DOMException("page destroyed", "AbortError");
       if (this.inFlight) return this.inFlight;
+      const controller = new AbortController();
+      this.requestController = controller;
+      const release = lifecycle.addCleanup(() => controller.abort());
       const startedAt = performance.now();
-      this.inFlight = api.getSilent(this.path).then(value => {
+      const request = api.getSilent(this.path, { signal: controller.signal }).then(value => {
+        if (controller.signal.aborted) throw new DOMException("poll stopped", "AbortError");
         this.lastDurationMs = Math.max(0, performance.now() - startedAt);
         this.value = value;
         this.error = null;
         this.notify();
         return value;
       }).catch(error => {
+        if (controller.signal.aborted) throw error;
         this.lastDurationMs = null;
         this.error = error;
         this.notify();
         throw error;
-      }).finally(() => { this.inFlight = null; });
-      return this.inFlight;
+      }).finally(() => {
+        release();
+        if (this.inFlight === request) {
+          this.inFlight = null;
+          this.requestController = null;
+        }
+      });
+      this.inFlight = request;
+      return request;
     }
 
     start() {
-      if (this.timer) return;
+      if (this.timer || lifecycle.destroyed) return;
       const tick = () => {
         if (document.hidden || byId("authModal")?.classList.contains("show")) return;
         this.refresh().catch(() => {});
@@ -815,6 +881,9 @@
     stop() {
       if (this.timer) lifecycle.clearTimer(this.timer);
       this.timer = 0;
+      this.requestController?.abort();
+      this.requestController = null;
+      this.inFlight = null;
     }
   }
 
@@ -976,7 +1045,7 @@
     },
 
     start() {
-      if (!this.available || this.timer) return;
+      if (!this.available || this.timer || lifecycle.destroyed) return;
       this.poll();
       this.timer = lifecycle.interval(() => this.poll(), 800);
     },
@@ -1099,6 +1168,63 @@
     }, { once: true });
   }
 
+  const textAnimations = new WeakMap();
+
+  function streamText(node, text, onUpdate) {
+    if (!node) return Promise.resolve();
+    textAnimations.get(node)?.();
+    const value = String(text || "");
+    const update = () => {
+      if (!node.isConnected || lifecycle.destroyed || typeof onUpdate !== "function") return;
+      try { onUpdate(); } catch (error) { console.error("text animation update failed", error); }
+    };
+    if (lifecycle.destroyed || !node.isConnected || document.hidden ||
+        matchMedia("(prefers-reduced-motion: reduce)").matches || value.length < 2) {
+      node.textContent = value;
+      node.classList.remove("streaming");
+      update();
+      return Promise.resolve();
+    }
+    // This animates an already complete answer; it must not delay run cleanup
+    // in proportion to response length or wait for a background tab to repaint.
+    const duration = Math.min(1500, value.length * 12);
+    const started = performance.now();
+    node.textContent = "";
+    node.classList.add("streaming");
+    return new Promise(resolve => {
+      let frame = 0, finished = false, release = () => {};
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        cancelAnimationFrame(frame);
+        document.removeEventListener("visibilitychange", visibility);
+        release();
+        textAnimations.delete(node);
+        node.textContent = value;
+        node.classList.remove("streaming");
+        update();
+        resolve();
+      };
+      const visibility = () => { if (document.hidden) finish(); };
+      const step = timestamp => {
+        if (finished) return;
+        if (lifecycle.destroyed || !node.isConnected || document.hidden ||
+            timestamp - started >= duration) { finish(); return; }
+        let end = Math.max(1, Math.ceil(value.length * Math.max(0, timestamp - started) / duration));
+        // Avoid briefly displaying a replacement glyph for a split emoji.
+        const last = value.charCodeAt(end - 1);
+        if (last >= 0xd800 && last <= 0xdbff) end += 1;
+        node.textContent = value.slice(0, end);
+        update();
+        frame = requestAnimationFrame(step);
+      };
+      textAnimations.set(node, finish);
+      document.addEventListener("visibilitychange", visibility);
+      release = lifecycle.addCleanup(finish);
+      frame = requestAnimationFrame(step);
+    });
+  }
+
   let confirmResolve = null;
 
   function closeConfirm(result) {
@@ -1120,9 +1246,11 @@
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && byId("uiConfirmModal")?.classList.contains("show")) closeConfirm(false);
     });
+    lifecycle.addCleanup(() => closeConfirm(false));
   }
 
   function confirmAction(options) {
+    if (lifecycle.destroyed) return Promise.resolve(false);
     ensureConfirm();
     if (confirmResolve) closeConfirm(false);
     const config = typeof options === "string" ? { message: options } : (options || {});
@@ -1131,7 +1259,9 @@
     byId("uiConfirmSubmit").textContent = config.confirmLabel || "确认";
     byId("uiConfirmSubmit").classList.toggle("danger", config.danger !== false);
     byId("uiConfirmModal").classList.add("show");
-    setTimeout(() => byId("uiConfirmCancel").focus(), 0);
+    lifecycle.timeout(() => {
+      if (byId("uiConfirmModal")?.classList.contains("show")) byId("uiConfirmCancel")?.focus();
+    }, 0);
     return new Promise(resolve => { confirmResolve = resolve; });
   }
 
@@ -1148,6 +1278,7 @@
     setStatus,
     row,
     message,
+    streamText,
     confirmAction,
     pageContext,
     actionMirror,

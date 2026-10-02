@@ -167,7 +167,7 @@ static void print_help(void)
     printf("  mem-clear            Clear Agent working memory file on TF card\r\n");
     printf("  agent-data-clear CONFIRM\r\n");
     printf("                       Permanently clear every Agent conversation and memory record\r\n");
-    printf("  auth-reset CONFIRM   Generate a new six-digit web bootstrap password\r\n");
+    printf("  auth-reset CONFIRM   Reopen first-account setup in the device browser\r\n");
     printf("  ssh-target           Show Settings SSH target and key state\r\n");
     printf("  ssh <command>        Execute command on Settings SSH target using local credential\r\n");
     printf("  agent-run [opts] <prompt>\r\n");
@@ -2131,9 +2131,8 @@ static void run_diag_command(char *line)
         char password[SI_AUTH_BOOTSTRAP_PASSWORD_LEN + 1] = {0};
         esp_err_t ret = si_auth_reset_bootstrap(password, sizeof(password));
         if (ret == ESP_OK) {
-            printf("auth reset ok username=%s temporary_password=%s\r\n",
-                   si_auth_default_username(), password);
-            printf("change the temporary password through the account settings before using device controls\r\n");
+            printf("auth reset ok setup_required=1\r\n");
+            printf("open the device web page to create a new administrator account\r\n");
         } else {
             printf("auth reset failed: %s\r\n", esp_err_to_name(ret));
         }

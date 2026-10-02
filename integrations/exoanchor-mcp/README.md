@@ -72,15 +72,19 @@ python3 -m exoanchor_mcp.server --list-tools
 
 ## 配置
 
+先按[HTTPS 与首次配对指南](../../docs/guides/SECURITY_TRANSPORT_zh.md)创建设备管理员账号并下载设备证书。JSON 响应上限为 2 MiB，图像为 6 MiB，错误正文为 16 KiB；读取同时受大小和总时间预算限制。
+
 | 环境变量 | 默认值 | 含义 |
 | --- | --- | --- |
-| `EXOANCHOR_BASE_URL` | 必填 | 设备地址，例如 `http://<设备地址>` |
+| `EXOANCHOR_BASE_URL` | 必填 | 设备地址，例如 `https://<设备地址>` |
+| `EXOANCHOR_TLS_CERTIFICATE_FILE` | 未设置 | 首次在可信局域网中配对后，从设备网页下载的单个 PEM 证书；未设置时使用系统 CA 和 hostname 校验 |
+| `EXOANCHOR_ALLOW_INSECURE_HTTP` | `0` | 仅旧固件显式设为 `1` 才接受 HTTP；没有自动降级 |
 | `EXOANCHOR_USERNAME` | 未设置 | 本地设备用户名 |
 | `EXOANCHOR_PASSWORD` | 未设置 | 本地设备密码 |
 | `EXOANCHOR_PASSWORD_FILE` | 未设置 | 保存本地设备密码的文件，优先于命令行内嵌 |
 | `EXOANCHOR_TOKEN` | 未设置 | 可选 bearer token |
 | `EXOANCHOR_TOKEN_FILE` | 未设置 | 保存 bearer token 的文件 |
-| `EXOANCHOR_TIMEOUT` | `75` | HTTP 超时秒数；同步 SSH 最长仍为 60 秒 |
+| `EXOANCHOR_TIMEOUT` | `75` | HTTP socket 超时秒数；密码登录提交、等待和轮询共用此预算；同步 SSH 最长仍为 60 秒 |
 | `EXOANCHOR_ALLOW_WRITE` | `0` | 设为 `1` 后才允许改变 UART、SSH、HID、电源或视频状态 |
 | `EXOANCHOR_CONTROL_OWNER` | `mcp` | 控制租约 owner |
 | `EXOANCHOR_DEVICE_ID` | URL hostname | 写工具校验的稳定设备身份 |
@@ -97,7 +101,7 @@ python3 -m exoanchor_mcp.server --list-tools
 
 ```bash
 python3 -m exoanchor_mcp.server --list-tools
-EXOANCHOR_BASE_URL=http://<设备地址> \
+EXOANCHOR_BASE_URL=https://<设备地址> \
 EXOANCHOR_USERNAME='<用户名>' \
 EXOANCHOR_PASSWORD_FILE=/path/to/password-file \
 python3 -m exoanchor_mcp.server --probe
@@ -133,7 +137,7 @@ enabled_tools = [
 ]
 
 [mcp_servers.exoanchor.env]
-EXOANCHOR_BASE_URL = "http://<设备地址>"
+EXOANCHOR_BASE_URL = "https://<设备地址>"
 EXOANCHOR_USERNAME = "<用户名>"
 EXOANCHOR_PASSWORD_FILE = "/path/to/private/device-password"
 ```
@@ -142,6 +146,21 @@ EXOANCHOR_PASSWORD_FILE = "/path/to/private/device-password"
 
 ## 验证
 
+MCP 主机任务池默认允许 2 个 SSH 执行线程或 1 个 operations 执行线程，并分别
+最多保留 32 个额外待处理任务。达到容量时，新请求会返回可读错误，不会写入
+未被接受的任务记录；相同幂等键或同一 operations Job 的在途 Run 仍会复用。
+直接使用 Python 管理器时，可通过 `max_workers` / `max_pending` 调整容量。
+历史审计记录继续保留，容量上限仅针对在途和排队工作。
+
+标准输入关闭、服务循环异常或 probe 退出时，MCP 入口会关闭任务管理器：
+SSH 已接受的工作会完成；operations 尚未开始的 Run 会记录为 cancelled，
+已开始的 Run 会完成并保存实际结果。关闭后拒绝新增工作，状态和结果仍可查询。
+读取日志时，非对象 JSON、无效编码或文件名与记录 ID 不一致的记录会被忽略，
+原文件保留，不猜测其身份或重放操作。
+已结束的记录（包括已经恢复为 `interrupted` 的记录）只读加载，不会在每次启动时
+重写。恢复中断状态时若磁盘写入失败，仍可查询内存中的 `interrupted` 状态及
+`journal_error`；磁盘记录保持原样，其他历史记录继续加载，不会重放原任务。
+
 不连接真机的协议与安全测试：
 
 ```bash
@@ -149,6 +168,40 @@ python3 -m unittest discover -s tests -v
 ```
 
 测试包含可重放的本地 HTTP 设备，覆盖读取与观察、frame-bound HID、清理流程、结构化 SSH 作业和幂等行为，不会触碰真实硬件。
+
+HTTP 请求不跟随重定向（包括同源重定向），避免转发 Bearer 凭据或把 POST 改成 GET。
+请将 `EXOANCHOR_BASE_URL` 配置为最终 API 地址；截断响应、socket 错误和无效 JSON
+会作为工具执行错误返回，JSON 解析错误不会回显响应正文。
+
+恢复 operations 任务时，会校验执行所需的 generation、target、trigger 和 policy 结构，
+忽略损坏定义并保留原文件。无法解析或不含时区的计划时间不会触发自动运行，也不会阻塞
+其他有效任务；有效定义可以通过暂停后恢复来重新生成下一次计划时间。
+
+暂停或创建 Run 的日志写入失败时，不会提前更新内存中的 Job 状态和计划时间。
+尚未提交执行器的 Run 会标记为 `blocked`；调度器对该 Job 等待 60 秒后再尝试，
+同时继续处理其他 Job。执行前日志失败会使任务终止，执行器不会被调用；执行完成后
+日志保存失败则保留实际结果，并在当前进程的查询中返回 `journal_error`。
+如果最终状态未能写盘，重启后仍按 `interrupted` 恢复，不猜测结果或重放操作。
+
+取消尚未开始的任务会立即显示 `cancelled`，但其容量槽保留到工作线程取出该队列项。
+这可防止连续“提交—取消”在 Python 线程池内部积累无界队列；队列排空后容量自动恢复。
+
+观察缓存和 Ops 结果保留独立的数据副本；修改工具返回的嵌套字段不会改变已保存的
+观察内容、派生元数据或结果证据。观察缓存仍按最近访问顺序保留最多 128 条记录。
+
+stdio 服务会把非字符串 method、JSON 解析失败或解析器深度/整数长度限制转换为
+结构化错误，并继续读取下一条请求。响应统一使用 JSON Unicode 转义，保留文本内容，
+同时避免无配对代理字符导致 UTF-8 输出失败。
+
+任务日志同样使用 JSON Unicode 转义保存异常文本，避免实际执行完成后日志仍停留在
+`running`。若 SSH 输出包含无法编码为 UTF-8 的字符，原始文本和实际执行结果仍可查询；
+其 artifact 的 `bytes`、`sha256` 为 `null`，并提供 `encoding_error`，不会用替换文本
+伪造原始输出的字节数或哈希。是否持久化输出仍遵循 `EXOANCHOR_PERSIST_JOB_OUTPUT`。
+观察的规范 JSON 哈希保留有效 Unicode 的原有 UTF-8 编码，对无配对代理字符使用
+JSON 转义，因此异常文本仍可记录和重放，而不会与字面量反斜杠字符串混淆。
+非字符串 SSH 输出仍按现有规则转成文本分页，artifact 的字节数和哈希与该文本保持一致。
+若已保存结果的可选 artifact 缓存字段缺失或不是对象，会从结果文本重新计算元数据；
+已结束的日志文件仍保持只读，不会因此丢弃结果或阻止其他记录恢复。
 
 ## DeepSeek Harness
 
@@ -166,7 +219,7 @@ python3 -m unittest discover -s tests -v
 真机只读验收：
 
 ```bash
-EXOANCHOR_BASE_URL=http://<设备地址> \
+EXOANCHOR_BASE_URL=https://<设备地址> \
 EXOANCHOR_USERNAME='<用户名>' \
 EXOANCHOR_PASSWORD_FILE=/path/to/password.secret \
 python3 scripts/stage4_acceptance.py --output /path/to/report.json

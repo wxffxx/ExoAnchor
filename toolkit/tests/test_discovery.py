@@ -25,7 +25,7 @@ def response(nonce: str, **overrides) -> bytes:
         "address_source": "dhcp",
         "firmware": "0.87.3-dev",
         "board": "exoanchor-prototype-v2.3",
-        "http_port": 80,
+        "http_port": 443,
     }
     value.update(overrides)
     return json.dumps(value).encode()
@@ -110,7 +110,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(device.device_id, "ea-p4-123456")
         self.assertEqual(device.device_label, "机房 KVM")
         self.assertEqual(device.source_ip, "192.0.2.223")
-        self.assertEqual(device.web_url, "http://192.0.2.223/")
+        self.assertEqual(device.web_url, "https://192.0.2.223/")
 
     def test_nonce_and_required_fields_are_enforced(self):
         self.assertIsNone(
@@ -129,7 +129,7 @@ class DiscoveryTests(unittest.TestCase):
             "abc",
         )
         self.assertEqual(device.ipv4, "192.0.2.99")
-        self.assertEqual(device.web_url, "http://192.0.2.223:8080/")
+        self.assertEqual(device.web_url, "https://192.0.2.223:8080/")
 
     def test_subnet_expansion_and_limit(self):
         targets = discovery_targets([], ["192.0.2.0/30"])

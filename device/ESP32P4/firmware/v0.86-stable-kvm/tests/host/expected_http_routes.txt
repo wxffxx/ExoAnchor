@@ -38,3 +38,8 @@ HTTP_GET /assets/ui-shell.js
 HTTP_GET /kvm
 HTTP_GET /settings
 HTTP_GET /stream
+HTTP_GET /api/auth/login/status
+HTTP_POST /api/auth/logout
+HTTP_GET /api/auth/setup
+HTTP_POST /api/auth/setup
+HTTP_GET /api/auth/certificate

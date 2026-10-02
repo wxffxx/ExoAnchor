@@ -171,6 +171,8 @@ class MockState:
     local_credentials = os.environ.get("SI_UI_FACTORY_CLAIM", "").lower() not in (
         "1", "true", "yes",
     )
+    setup_nonce = "local-preview-setup-ticket"
+    setup_lock = threading.Lock()
     device_label = "ExoAnchor"
     agent_display_name = "Agent"
     target_profile = {
@@ -1729,9 +1731,19 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/uart/read":
             self._send_json({"bytes": 0, "data": "", "base64": "", "empty": True})
             return
+        if path == "/api/auth/certificate":
+            self._send_json({"error": "HTTP preview has no device TLS certificate"}, 503)
+            return
+        if path == "/api/auth/setup":
+            if MockState.local_credentials:
+                self._send_json({"error": "first-account setup closed"}, 403)
+            else:
+                self._send_json({"nonce": MockState.setup_nonce})
+            return
         if path == "/api/auth/status":
             self._send_json({
                 "enabled": True,
+                "setup_required": not MockState.local_credentials,
                 "username": MockState.username,
                 "default_username": MockState.default_username,
                 "local_password": MockState.local_credentials,
@@ -2078,6 +2090,29 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"accepted": True, "automation": {"available": True, "channel": channel, "active": False, "manual_input_enabled": True, "cancel_requested": True, "can_stop": False, "generation": generation, "actor": "none", "operation_id": "", "run_id": "", "label": ""}})
             return
 
+        if path == "/api/auth/setup":
+            try:
+                payload = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                self._send_json({"error": "invalid json"}, 400)
+                return
+            username, password = payload.get("username"), payload.get("password")
+            with MockState.setup_lock:
+                if MockState.local_credentials or self.headers.get("X-ExoAnchor-Setup") != MockState.setup_nonce:
+                    self._send_json({"error": "first-account setup closed or ticket invalid"}, 403)
+                    return
+                if not isinstance(username, str) or not 1 <= len(username) <= 32 or any(ord(ch) < 33 or ord(ch) > 126 for ch in username):
+                    self._send_json({"error": "invalid username"}, 400)
+                    return
+                if not isinstance(password, str) or not 6 <= len(password) <= 64 or any(ord(ch) < 33 or ord(ch) > 126 for ch in password):
+                    self._send_json({"error": "password must be 6..64 printable ASCII characters"}, 400)
+                    return
+                MockState.username, MockState.password = username, password
+                MockState.local_credentials = True
+                MockState.token = _make_token(username, password)
+                self._send_json({"token": MockState.token, "username": username, "enabled": True, "using_default": False, "must_change_credentials": False})
+            return
+
         if path == "/api/auth/login":
             try:
                 payload = json.loads(raw.decode("utf-8") or "{}")
@@ -2085,7 +2120,7 @@ class Handler(BaseHTTPRequestHandler):
                 payload = {}
             username = payload.get("username")
             password = payload.get("password")
-            if username != MockState.username or password != MockState.password:
+            if not MockState.local_credentials or username != MockState.username or password != MockState.password:
                 self._send_json({"error": "invalid credentials"}, 401)
                 return
             self._send_json({

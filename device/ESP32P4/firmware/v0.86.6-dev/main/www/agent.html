@@ -517,6 +517,7 @@ let agentSessions=[];
 let agentSessionsLoadError="";
 const provisionalAgentSessions=new Map();
 let activeSessionId=optionalSessionId(localStorage.getItem("ea_agent_session"));
+let activeSessionGeneration=0;
 const AGENT_PROFILE_LABELS={deepseek:"DeepSeek",openai:"OpenAI",qwen:"阿里云百炼 Qwen",kimi:"Kimi K3",custom:"Custom"};
 const AGENT_MODEL_DEFAULTS={deepseek:"deepseek-v4-pro",openai:"gpt-4o",qwen:"qwen3-vl-flash",kimi:"kimi-k3",custom:"gpt-4o"};
 let agentModelRequestSeq=0;
@@ -538,11 +539,11 @@ function runKindClass(kind){const k=String(kind||"info");return["cmd","ok","bad"
 function runVisibleEvent(kind,text){const s=String(text||"").trim();if(!s)return"";if(/tool\[\d+\] output ·/.test(s))return"";if(s.length>260)return compactTerminalText(s,260);return s}
 function appendRunStep(el,kind,text){if(!el||!el.dataset?.runBubble)return;const visible=runVisibleEvent(kind,text);if(!visible)return;const list=el.querySelector(".run-steps");if(!list)return;const previous=list.lastElementChild;if(previous?.textContent===visible)return;const row=document.createElement("div");row.className=`run-step ${runKindClass(kind)}`;row.textContent=visible;list.appendChild(row);while(list.children.length>8)list.removeChild(list.firstElementChild);chatLog.scrollTop=chatLog.scrollHeight}
 function updateRunBubble(el,status,ctx){if(!el||!el.isConnected||!el.dataset?.runBubble)return;const stage=status?.stage||status?.state||"运行中";const label=el.querySelector(".agent-stream-label");const elapsed=el.querySelector(".agent-stream-elapsed");const failed=["failed","aborted"].includes(status?.state),paused=status?.state==="paused",done=status?.state==="done";el.classList.toggle("done",done&&!failed);el.classList.toggle("failed",failed);el.classList.toggle("paused",paused);if(label)label.textContent=status?.cancel_requested?"正在停止":failed?"任务结束，需要检查":paused?"已暂停":done?"已完成":stage;if(elapsed)elapsed.textContent=done||failed?"":formatRunElapsed(status?.elapsed_ms||0)}
-function streamTextInto(node,text){const value=String(text||"");if(!node)return Promise.resolve();if(document.hidden||matchMedia("(prefers-reduced-motion: reduce)").matches||value.length<2){node.textContent=value;return Promise.resolve()}node.textContent="";node.classList.add("streaming");let offset=0;return new Promise(resolve=>{const step=()=>{const remaining=value.length-offset;const size=remaining>240?6:remaining>80?3:1;node.textContent+=value.slice(offset,offset+size);offset+=size;chatLog.scrollTop=chatLog.scrollHeight;if(offset<value.length){requestAnimationFrame(step)}else{node.classList.remove("streaming");resolve()}};requestAnimationFrame(step)})}
+function streamTextInto(node,text){return UI.streamText(node,text,()=>{chatLog.scrollTop=chatLog.scrollHeight})}
 async function finishRunBubble(el,ok,text){if(!el||!el.dataset?.runBubble)return;el.classList.toggle("done",!!ok);el.classList.toggle("failed",!ok);el.classList.remove("paused");const label=el.querySelector(".agent-stream-label");const elapsed=el.querySelector(".agent-stream-elapsed");if(label)label.textContent=ok?"已完成":"任务结束，需要检查";if(elapsed)elapsed.textContent="";await streamTextInto(el.querySelector(".agent-stream-answer"),text)}
 function safeSessionId(id){return String(id||"default").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,24)||"default"}
 function optionalSessionId(id){const raw=String(id||"").trim();return raw?safeSessionId(raw):""}
-function setActiveSession(id){activeSessionId=optionalSessionId(id);if(activeSessionId)localStorage.setItem("ea_agent_session",activeSessionId);else localStorage.removeItem("ea_agent_session");return activeSessionId}
+function setActiveSession(id){const next=optionalSessionId(id);if(next!==activeSessionId)activeSessionGeneration++;activeSessionId=next;if(activeSessionId)localStorage.setItem("ea_agent_session",activeSessionId);else localStorage.removeItem("ea_agent_session");return activeSessionId}
 function agentSessionId(session){return optionalSessionId(session?.session_id||session?.id)}
 function agentHistoryPersistenceState(run={}){if(run.history_saved===true)return"saved";if(run.history_pending===true||run.history?.pending===true)return"pending";if(run.history_saved===false)return"unsaved";return"pending"}
 function agentHistoryStateLabel(state){if(state==="unsaved")return"未保存";if(state==="saved")return"已保存，列表同步中";return"保存中"}
@@ -892,26 +893,33 @@ function projectAgentHistory(records,draft){
   draft.turns.forEach(turn=>{const key=`${agentHistoryRecordRole(turn)}\u0000${agentHistoryRecordContent(turn)}`;const count=available.get(key)||0;if(count>0)available.set(key,count-1);else projected.push(turn)});
   return projected;
 }
+let agentHistoryLoadGeneration=0;
 async function loadAgentHistory(){
+  const generation=++agentHistoryLoadGeneration;
   if(!activeSessionId){renderBlankThread();return null}
   const sessionId=activeSessionId;
+  const pendingForSession=()=>activeAgentJob&&activeAgentContext?.sessionId===sessionId?activeAgentPending:null;
   try{
     const h=await API.get(`/api/agent/history?session_id=${encodeURIComponent(sessionId)}`);
-    if(activeSessionId!==sessionId)return h;
+    if(activeSessionId!==sessionId||generation!==agentHistoryLoadGeneration)return h;
     const records=projectAgentHistory(Array.isArray(h.records)?h.records:[],provisionalAgentSessions.get(sessionId));
     chatLog.className="chat";chatLog.dataset.sessionId=sessionId;chatLog.innerHTML="";
     records.forEach(renderHistoryRecord);
-    if(!records.length)addBubble("system","此会话还没有消息。");
+    const pending=pendingForSession();
+    if(pending)chatLog.appendChild(pending);
+    if(!records.length&&!pending)addBubble("system","此会话还没有消息。");
     showAgentHistoryNotice(sessionId);
-    setBadge(badgeAgent,"AGENT",h.supported?"IDLE":"LIMITED",h.supported?"":"warn");
+    if(!pending)setBadge(badgeAgent,"AGENT",h.supported?"IDLE":"LIMITED",h.supported?"":"warn");
     if(!h.supported&&h.error)terminalLine("warn",`历史记录暂不可用: ${h.error}`,sessionId);
     return h;
   }catch(e){
-    if(activeSessionId!==sessionId)return null;
+    if(activeSessionId!==sessionId||generation!==agentHistoryLoadGeneration)return null;
     const reason=String(e?.message||e||"unknown");
     if(chatLog.dataset.sessionId!==sessionId){
       chatLog.className="chat";chatLog.dataset.sessionId=sessionId;chatLog.innerHTML="";
       projectAgentHistory([],provisionalAgentSessions.get(sessionId)).forEach(renderHistoryRecord);
+      const pending=pendingForSession();
+      if(pending)chatLog.appendChild(pending);
     }
     let notice=chatLog.querySelector(".history-read-error");
     if(!notice){notice=addBubble("system","");notice.classList.add("history-read-error")}
@@ -922,8 +930,10 @@ async function loadAgentHistory(){
   }
 }
 let activeAgentJob=null;
+let agentSendOwner=null;
 let activeAgentPoll=null;
 let activeAgentPollBusy=false;
+let activeAgentPollGeneration=0;
 let activeAgentPending=null;
 let activeAgentContext=null;
 let activeAgentLastStage="";
@@ -1000,8 +1010,8 @@ async function cancelBootKeyPlan(){
 }
 async function cancelAgentRun(){return controlAgentRun("abort")}
 function agentStatusFinished(status){return status&&["done","failed","aborted"].includes(status.state)}
-function clearAgentPoll(){if(activeAgentPoll){UI.lifecycle.clearTimer(activeAgentPoll);activeAgentPoll=null}activeAgentPollBusy=false}
-function setAgentButtonRunning(running){sendPrompt.disabled=false;sendPrompt.textContent=running?"Send update":"Send";stopPrompt.hidden=!running}
+function clearAgentPoll(){activeAgentPollGeneration++;if(activeAgentPoll){UI.lifecycle.clearTimer(activeAgentPoll);activeAgentPoll=null}activeAgentPollBusy=false}
+function setAgentButtonRunning(running){sendPrompt.disabled=!!agentSendOwner;sendPrompt.textContent=running?"Send update":"Send";stopPrompt.hidden=!running}
 function renderAgentEvents(status,sessionId){
   const events=Array.isArray(status?.events)?status.events:[];
   events.forEach(ev=>{
@@ -1078,11 +1088,14 @@ function runFromStatus(status,context){
   return result;
 }
 async function finishAgentJob(status){
+  const jobId=activeAgentJob;
+  if(!jobId||status.job_id!==jobId||UI.lifecycle.destroyed)return;
   const context=activeAgentContext||{};
   const sessionId=safeSessionId(status.session_id||context.sessionId||activeSessionId);
   const run=runFromStatus(status,context);
   const finalText=summarizeRun(run);
   clearAgentPoll();
+  const generation=activeAgentPollGeneration;
   renderAgentRunStatus(status,activeAgentPending,context);
   logRunResult(run,run.model||context.model,run.profile||context.profile,sessionId);
   settleTerminalProgress(sessionId);
@@ -1095,6 +1108,7 @@ async function finishAgentJob(status){
   const historyError=run.history?.error||run.history_error||"";
   setProvisionalAgentHistoryState(sessionId,historyState,historyError);
   agentSessions=projectAgentSessions(agentSessions);
+  if(activeAgentJob!==jobId||generation!==activeAgentPollGeneration||UI.lifecycle.destroyed)return;
   renderSessions();
   activeAgentJob=null;
   activeAgentPending=null;
@@ -1104,15 +1118,19 @@ async function finishAgentJob(status){
   activeAgentHeartbeats=new Set();
   setAgentButtonRunning(false);
   await loadAgentSessions();
+  if(activeAgentJob||generation!==activeAgentPollGeneration||UI.lifecycle.destroyed)return;
   showAgentHistoryNotice(sessionId);
   setBadge(badgeAgent,"AGENT",run.ok?(run.dry_run?"DRY-RUN":"DONE"):"CHECK",run.ok?(run.dry_run?"warn":"ok"):"bad");
   refreshStatus().catch(()=>{});
 }
 async function pollAgentRun(){
-  if(!activeAgentJob||activeAgentPollBusy)return;
+  if(!activeAgentJob||activeAgentPollBusy||UI.lifecycle.destroyed)return;
+  const jobId=activeAgentJob,generation=activeAgentPollGeneration;
+  const current=()=>activeAgentJob===jobId&&generation===activeAgentPollGeneration&&!UI.lifecycle.destroyed;
   activeAgentPollBusy=true;
   try{
     const status=await getAgentRunStatus();
+    if(!current())return;
     if(!status.job_id||status.job_id!==activeAgentJob){
       const sessionId=activeAgentContext?.sessionId||activeSessionId;
       terminalLine("warn","agent run status changed; current job is no longer active",sessionId);
@@ -1126,24 +1144,26 @@ async function pollAgentRun(){
       return;
     }
     try{
-      const replay=await getAgentRunEvents(activeAgentJob,activeAgentLastEventSeq);
+      const replay=await getAgentRunEvents(jobId,activeAgentLastEventSeq);
+      if(!current())return;
       if(Array.isArray(replay.events))status.events=replay.events;
       if(replay.history_lost)terminalLine("warn","部分早期 Run 事件已从内存 ring 淘汰",activeAgentContext?.sessionId||activeSessionId);
     }catch(e){}
+    if(!current())return;
     renderAgentRunStatus(status,activeAgentPending,activeAgentContext);
     if(!status.request&&(status.waiting_request||status.state==="waiting_request"))refreshAgentRequestQueue().catch(()=>{});
     loadHostDisplayPlan().catch(()=>{});loadBootKeyPlan().catch(()=>{});
     if(agentStatusFinished(status))await finishAgentJob(status);
   }catch(e){
-    terminalLine("warn",`status poll failed: ${e.message||e}`,activeAgentContext?.sessionId||activeSessionId);
+    if(current())terminalLine("warn",`status poll failed: ${e.message||e}`,activeAgentContext?.sessionId||activeSessionId);
   }finally{
-    activeAgentPollBusy=false;
+    if(generation===activeAgentPollGeneration)activeAgentPollBusy=false;
   }
 }
 async function attachAgentJob(status,context){
   const sessionId=safeSessionId(status.session_id||context?.sessionId||activeSessionId);
   const nextJob=status.job_id||activeAgentJob;
-  if(nextJob!==activeAgentJob)activeAgentLastEventSeq=0;
+  if(nextJob!==activeAgentJob){activeAgentLastEventSeq=0;activeAgentPending=null}
   activeAgentJob=nextJob;
   activeAgentContext=Object.assign({},context||{},{
     sessionId,
@@ -1250,37 +1270,51 @@ function validateOutgoingPrompt(text){
   return false;
 }
 async function sendAgentMessage(){
-  const text=promptBox.value.trim();
-  if(!text)return;
+  const draft=promptBox.value,text=draft.trim();
+  if(!text||agentSendOwner||UI.lifecycle.destroyed)return;
   if(!validateOutgoingPrompt(text))return;
+  const owner={};
+  agentSendOwner=owner;
+  let sessionId=activeSessionId,generation=activeSessionGeneration;
+  const current=()=>agentSendOwner===owner&&activeSessionId===sessionId&&
+    activeSessionGeneration===generation&&!UI.lifecycle.destroyed;
   if(activeAgentJob){
+    const jobId=activeAgentJob;
     sendPrompt.disabled=true;
     try{
-      const steered=await API.post("/api/agent/run/steer",{run_id:activeAgentJob,message:text});
+      const steered=await API.post("/api/agent/run/steer",{run_id:jobId,message:text});
+      if(!current()||activeAgentJob!==jobId)return;
       if(!steered.accepted)throw new Error("当前任务没有接受补充要求");
-      addBubble("user",text);promptBox.value="";
+      addBubble("user",text);if(promptBox.value===draft)promptBox.value="";
       terminalLine("info",`steer accepted · intent revision ${steered.intent_revision||"--"}`,activeAgentContext?.sessionId||activeSessionId);
       renderWorkspaceRun(steered);
     }catch(e){
+      if(!current()||activeAgentJob!==jobId)return;
       terminalLine("bad",e.message||"补充要求发送失败",activeAgentContext?.sessionId||activeSessionId);
       addBubble("system",`补充要求未送达：${e.message||e}`);
-    }finally{sendPrompt.disabled=false}
+    }finally{
+      if(agentSendOwner===owner){
+        agentSendOwner=null;
+        if(!UI.lifecycle.destroyed)setAgentButtonRunning(!!activeAgentJob);
+      }
+    }
     return;
   }
-  let sessionId=activeSessionId;
-  const profile=agentProfile.value||"-";
-  const model=agentModel.value||localStorage.getItem("ea_agent_model")||"";
-  const dryRun=false;
-  const includeScreenshot=!agentKvmPermission.disabled&&agentKvmPermission.checked;
-  const includeWebSearch=!agentWebPermission.disabled&&agentWebPermission.checked;
   sendPrompt.disabled=true;
   sendPrompt.textContent="Starting";
-  if(model)localStorage.setItem("ea_agent_model",model);
   try{
+    const profile=agentProfile.value||"-";
+    const model=agentModel.value||localStorage.getItem("ea_agent_model")||"";
+    const dryRun=false;
+    const includeScreenshot=!agentKvmPermission.disabled&&agentKvmPermission.checked;
+    const includeWebSearch=!agentWebPermission.disabled&&agentWebPermission.checked;
+    if(model)localStorage.setItem("ea_agent_model",model);
     if(!sessionId)sessionId=materializeSession(text);
+    generation=activeSessionGeneration;
     terminalLine("cmd",`agent run --session ${sessionId} --profile ${profile} --model ${model||"(default)"} ${dryRun?"--dry-run":"--execute"}${includeScreenshot?" --screenshot":""}${includeWebSearch?" --web-search":""}`,sessionId);
     terminalLine("info",`user: ${compactTerminalText(text,260)}`,sessionId);
     const started=await postAgentRun({session_id:sessionId,message:text,profile,model,authority_mode:"policy",dry_run:dryRun,include_screenshot:includeScreenshot,include_web_search:includeWebSearch,page_context:currentPageContext()});
+    if(!current())return;
     if(started.busy&&!started.accepted){
       terminalLine("warn","device already has an active agent run; attaching to it",sessionId);
       await attachAgentJob(started,{sessionId,profile,model,dryRun,includeScreenshot,includeWebSearch,userText:"(已有后台任务)"});
@@ -1291,18 +1325,23 @@ async function sendAgentMessage(){
     addBubble("user",text);
     rememberProvisionalAgentTurn(sessionId,"user",text);
     agentSessions=projectAgentSessions(agentSessions);renderSessions();
-    promptBox.value="";
+    if(promptBox.value===draft)promptBox.value="";
     const pending=addRunBubble("ESP32 Agent 已进入设备后台运行...");
     terminalLine("info","agent run accepted by device; polling status",sessionId);
     await attachAgentJob(started,{pending,sessionId,profile,model,dryRun,includeScreenshot,includeWebSearch,userText:text});
   }catch(e){
+    if(!current())return;
     const msg=e.message||"Agent request failed";
     terminalLine("bad",msg,sessionId);
     addBubble("system",`Agent 启动失败\n原因: ${msg}`);
-    await loadAgentSessions();
+    await loadAgentSessions().catch(()=>{});
+    if(!current())return;
     setBadge(badgeAgent,"AGENT","ERROR","bad");
   }finally{
-    if(!activeAgentJob)setAgentButtonRunning(false);
+    if(agentSendOwner===owner){
+      agentSendOwner=null;
+      if(!UI.lifecycle.destroyed)setAgentButtonRunning(!!activeAgentJob);
+    }
   }
 }
 async function resumeAgentJob(){

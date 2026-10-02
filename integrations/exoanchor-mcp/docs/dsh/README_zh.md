@@ -21,7 +21,7 @@ stdio server，并把工具公开为 `mcp__exoanchor__exoanchor_*`。
 
 ```bash
 chmod 600 "$HOME/.codex/secrets/exoanchor-password"
-export EXOANCHOR_BASE_URL='http://<设备地址>'
+export EXOANCHOR_BASE_URL='https://<设备地址>'
 export EXOANCHOR_DEVICE_ID='<已核验设备 ID>'
 export EXOANCHOR_USERNAME='<设备 API 用户名>'
 export EXOANCHOR_PASSWORD_FILE="$HOME/.codex/secrets/exoanchor-password"

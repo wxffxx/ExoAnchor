@@ -444,7 +444,7 @@ def _add_transport_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--device",
         default="",
-        help="device IPv4 address, optionally with an HTTP port",
+        help="device IPv4 address (HTTPS by default); explicit http:// for legacy firmware",
     )
     parser.add_argument(
         "--username",
@@ -495,7 +495,7 @@ def _add_network_child_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--device",
         default=argparse.SUPPRESS,
-        help="device IPv4 address, optionally with an HTTP port",
+        help="device IPv4 address (HTTPS by default); explicit http:// for legacy firmware",
     )
     parser.add_argument(
         "--username",

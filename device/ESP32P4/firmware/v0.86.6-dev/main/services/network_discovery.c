@@ -121,6 +121,7 @@ static char *build_discovery_response(const char *nonce)
     cJSON_AddStringToObject(root, "firmware", SI_BMC_VERSION);
     cJSON_AddStringToObject(root, "board", SI_BOARD_ID);
     cJSON_AddNumberToObject(root, "http_port", SI_DEFAULT_HTTP_PORT);
+    cJSON_AddStringToObject(root, "scheme", "https");
     char *response = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     return response;

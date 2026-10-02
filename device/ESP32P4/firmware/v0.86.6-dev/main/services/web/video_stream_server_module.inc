@@ -14,7 +14,7 @@ static esp_err_t start_stream_server(void)
     config.max_open_sockets = SI_STREAM_HTTP_MAX_OPEN_SOCKETS;
     config.lru_purge_enable = true;
     config.send_wait_timeout = 1;
-    ESP_RETURN_ON_ERROR(httpd_start(&s_stream_server, &config), TAG,
+    ESP_RETURN_ON_ERROR(si_tls_server_start(&s_stream_server, &config), TAG,
                         "httpd_start stream");
     register_uri(s_stream_server, "/api/stream", HTTP_GET, stream_handler,
                  false);
