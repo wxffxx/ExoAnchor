@@ -41,8 +41,12 @@ static int open_discovery_socket(void)
         .tv_sec = 1,
         .tv_usec = 0,
     };
-    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout,
-               sizeof(timeout));
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout,
+                   sizeof(timeout)) != 0) {
+        ESP_LOGE(TAG, "set UDP receive timeout failed errno=%d", errno);
+        close(socket_fd);
+        return -1;
+    }
     int reuse = 1;
     setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     struct sockaddr_in address = {
@@ -215,7 +219,19 @@ static void discovery_task(void *arg)
         int received = recvfrom(socket_fd, request,
                                 DISCOVERY_REQUEST_MAX + 1, 0,
                                 (struct sockaddr *)&source, &source_len);
-        if (received <= 0) {
+        if (received < 0) {
+            int receive_error = errno;
+            if (receive_error != EAGAIN && receive_error != EWOULDBLOCK &&
+                receive_error != EINTR) {
+                ESP_LOGW(TAG, "receive UDP discovery failed errno=%d; retrying",
+                         receive_error);
+                close(socket_fd);
+                socket_fd = -1;
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
+            continue;
+        }
+        if (received == 0) {
             continue;
         }
         if (received > DISCOVERY_REQUEST_MAX ||

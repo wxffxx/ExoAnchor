@@ -150,8 +150,13 @@
       // Logout must still let page cleanup release its existing video lease.
       const releasesVideoLease = method === "POST" && path === "/api/video/lease" &&
         body?.active === false && !promptAuth;
+      // A reset device needs its public first-account ticket even when this
+      // browser still holds the logout marker from its previous account.
+      const requestsSetupTicket = method === "GET" && path === "/api/auth/setup";
       if (path !== "/api/auth/status" && path !== "/api/auth/logout" &&
-          !releasesVideoLease && !session.active()) throw new Error("login required");
+          !requestsSetupTicket && !releasesVideoLease && !session.active()) {
+        throw new Error("login required");
+      }
       const baseSignal = options.signal === undefined ? lifecycle.signal() : options.signal;
       const configuredTimeout = options.timeoutMs;
       const timeoutMs = Math.max(

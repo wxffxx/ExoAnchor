@@ -425,6 +425,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 
 "$DIAGNOSTICS_FORMATTER_TEST_BIN"
 "$PYTHON" "$SCRIPT_DIR/test_net_manager_runtime.py"
+"$PYTHON" "$SCRIPT_DIR/test_network_discovery_runtime.py"
 "$PYTHON" "$SCRIPT_DIR/test_h264_send_runtime.py"
 "$PYTHON" "$SCRIPT_DIR/test_hid_ws_handshake_runtime.py"
 "$PYTHON" "$SCRIPT_DIR/check_web_contract.py"
