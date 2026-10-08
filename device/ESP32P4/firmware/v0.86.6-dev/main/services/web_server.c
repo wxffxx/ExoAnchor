@@ -54,6 +54,7 @@
 #include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "esp_image_format.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
 #include "freertos/semphr.h"
@@ -616,6 +617,7 @@ esp_err_t si_web_server_start(void)
     ESP_RETURN_ON_ERROR(terminal_control_start(), TAG, "start terminal control");
     ESP_RETURN_ON_ERROR(resource_operation_start(), TAG,
                         "start resource operation manager");
+    ESP_RETURN_ON_ERROR(ota_upload_session_watchdog_start(), TAG, "start OTA expiry watchdog");
     ESP_RETURN_ON_ERROR(ssh_ws_bridge_start(), TAG, "start SSH WebSocket bridge");
     ESP_RETURN_ON_ERROR(uart_ws_bridge_start(), TAG,
                         "start target UART WebSocket bridge");
