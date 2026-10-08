@@ -107,7 +107,7 @@ toolMouseTab.onclick=()=>setToolPanel("mouse");
 toolKeyboardTab.onclick=()=>setToolPanel("keyboard");
 let videoTimer=0;
 function authUrl(path){return path}
-function streamUrl(){const host=location.hostname||location.host.split(":")[0];return authUrl(location.protocol+"//"+host+":81/api/stream?t="+Date.now())}
+function streamUrl(){const url=new URL("/api/stream",location.href);url.port="444";url.searchParams.set("t",Date.now());return authUrl(url.href)}
 function startVideo(delay=0){clearTimeout(videoTimer);videoTimer=setTimeout(()=>{video.src=streamUrl()},delay)}
 video.onload=()=>nosignal.classList.add("hide");
 video.onerror=()=>{nosignal.classList.remove("hide");startVideo(1000)};

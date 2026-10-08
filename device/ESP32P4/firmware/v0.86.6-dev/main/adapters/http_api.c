@@ -349,8 +349,9 @@ esp_err_t si_http_recv_json(httpd_req_t *req, char *buf, size_t buf_size,
 
     esp_err_t body_ret = si_http_recv_body(req, buf, buf_size);
     if (body_ret == ESP_ERR_INVALID_SIZE) {
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                   "request body too large");
+        esp_err_t sent = httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                                            "request body too large");
+        return sent == ESP_OK ? ESP_ERR_INVALID_SIZE : sent;
     }
     if (body_ret != ESP_OK) {
         return ESP_FAIL;
@@ -358,8 +359,9 @@ esp_err_t si_http_recv_json(httpd_req_t *req, char *buf, size_t buf_size,
 
     cJSON *root = cJSON_Parse(buf);
     if (!root) {
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                   "invalid json");
+        esp_err_t sent = httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                                            "invalid json");
+        return sent == ESP_OK ? ESP_ERR_INVALID_ARG : sent;
     }
     *out_root = root;
     return ESP_OK;
