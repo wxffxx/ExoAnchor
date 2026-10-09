@@ -214,9 +214,24 @@ static esp_err_t ota_begin_update(uint32_t expected_size, esp_ota_handle_t *hand
     return ESP_OK;
 }
 
-static esp_err_t ota_finish_update(esp_ota_handle_t handle, const esp_partition_t *partition)
+static esp_err_t ota_finish_update(esp_ota_handle_t handle,
+                                    const esp_partition_t *partition,
+                                    uint32_t written)
 {
     ESP_RETURN_ON_ERROR(esp_ota_end(handle), TAG, "end ota");
+    /* esp_ota_end validates the entire partition. With sequential erase, an
+     * identical old image tail can make a truncated upload appear complete.
+     * Bound a second verification to bytes received in THIS transaction,
+     * including the image checksum/hash and any required signature. The OTA
+     * handle is already consumed; never change the boot slot on failure. */
+    const esp_partition_pos_t received_image = {
+        .offset = partition->address,
+        .size = written,
+    };
+    esp_image_metadata_t metadata = {0};
+    ESP_RETURN_ON_ERROR(esp_image_verify(ESP_IMAGE_VERIFY, &received_image,
+                                          &metadata), TAG,
+                        "verify received OTA image extent");
     ESP_RETURN_ON_ERROR(esp_ota_set_boot_partition(partition), TAG, "set ota boot partition");
     return ESP_OK;
 }
@@ -272,6 +287,33 @@ static bool ota_upload_session_expire_locked(void)
     ota_set_last_message("chunked OTA session expired and was aborted");
     si_web_log("WARN", "Chunked OTA session expired");
     return true;
+}
+
+static TaskHandle_t s_ota_session_watchdog;
+
+static void ota_upload_session_watchdog_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        /* An abandoned client sends no more requests to trigger lazy expiry.
+         * Serialize cleanup with writes/finish and never interrupt an active
+         * handler. Keep flash cleanup off the shared esp_timer task. */
+        if (xSemaphoreTake(s_ota_lock, 0) == pdTRUE) {
+            (void)ota_upload_session_expire_locked();
+            xSemaphoreGive(s_ota_lock);
+        }
+    }
+}
+
+static esp_err_t ota_upload_session_watchdog_start(void)
+{
+    if (s_ota_session_watchdog) {
+        return ESP_OK;
+    }
+    return xTaskCreate(ota_upload_session_watchdog_task, "ota_expiry", 4096,
+                       NULL, 3, &s_ota_session_watchdog) == pdPASS ?
+           ESP_OK : ESP_ERR_NO_MEM;
 }
 
 static void ota_upload_add_session_json(cJSON *root)
@@ -574,7 +616,7 @@ static esp_err_t ota_upload_finish_handler(httpd_req_t *req)
         /* esp_ota_end consumes the handle even when image validation fails. */
         handle_consumed = true;
         ret = ota_finish_update(s_ota_upload_session.handle,
-                                s_ota_upload_session.partition);
+                                s_ota_upload_session.partition, written);
     }
     if (ret != ESP_OK) {
         char error_message[96] = {0};
@@ -731,7 +773,7 @@ static esp_err_t ota_apply_http_firmware(const ota_manifest_t *manifest,
     }
 
     if (ret == ESP_OK) {
-        ret = ota_finish_update(ota_handle, partition);
+        ret = ota_finish_update(ota_handle, partition, written);
     } else {
         (void)esp_ota_abort(ota_handle);
     }
@@ -808,7 +850,7 @@ static esp_err_t ota_apply_uploaded_firmware(httpd_req_t *req,
     free(buffer);
 
     if (ret == ESP_OK) {
-        ret = ota_finish_update(ota_handle, partition);
+        ret = ota_finish_update(ota_handle, partition, written);
     } else {
         (void)esp_ota_abort(ota_handle);
     }

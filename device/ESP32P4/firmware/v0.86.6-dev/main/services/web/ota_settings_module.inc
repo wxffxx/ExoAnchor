@@ -123,7 +123,9 @@ static esp_err_t ota_require_auth(httpd_req_t *req)
     si_auth_status_t auth_status;
     si_auth_get_status(&auth_status);
     if (auth_status.enabled && auth_status.using_default) {
-        return si_http_send_text_status(req, "403 Forbidden", "change default credentials before OTA");
+        esp_err_t send_ret = si_http_send_text_status(
+            req, "403 Forbidden", "change default credentials before OTA");
+        return send_ret == ESP_OK ? ESP_ERR_INVALID_STATE : send_ret;
     }
     return ESP_OK;
 }

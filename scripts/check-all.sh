@@ -38,8 +38,13 @@ run_toolkit_tests() {
 "$REPO_DIR/device/ESP32P4/firmware/v0.86.6-dev/tests/host/run.sh"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_auth_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_http_security_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_http_json_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_ota_auth_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_ota_session_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_ota_image_extent_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_tls_clients.py"
 node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_browser_setup.mjs"
+node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_stream_endpoint.mjs"
 
 (
     cd "$REPO_DIR/integrations/exoanchor-mcp"

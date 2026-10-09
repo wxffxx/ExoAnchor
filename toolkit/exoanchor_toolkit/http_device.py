@@ -10,7 +10,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from http.client import HTTPException
+from http.client import HTTPException, HTTPResponse, IncompleteRead
 from typing import Callable
 
 from .tls_transport import verified_https_handler
@@ -38,6 +38,50 @@ NETWORK_OTA_BOARD_ALLOWLIST = frozenset(
 
 MAX_JSON_RESPONSE_BYTES = 2 * 1024 * 1024
 LOGIN_TIMEOUT_SECONDS = 30.0
+
+
+def _read_response(response: object, limit: int, deadline: float) -> bytes:
+    """Bound a urllib body by size, declared length, and a total read deadline."""
+    wire = response.fp if isinstance(response, urllib.error.HTTPError) else response
+    headers = getattr(response, "headers", {})
+    declared = headers.get("Content-Length")
+    expected = None
+    # HTTPResponse ignores Content-Length when Transfer-Encoding is chunked.
+    if declared is not None and not getattr(wire, "chunked", False):
+        try:
+            expected = int(declared)
+        except (ValueError, TypeError) as exc:
+            raise ToolkitError("device response Content-Length is invalid") from exc
+        if expected < 0 or expected > limit:
+            raise ToolkitError("device response is unexpectedly large")
+
+    chunks = []
+    size = 0
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ToolkitError("device response deadline exceeded")
+        if isinstance(wire, HTTPResponse):
+            if wire.fp is not None:
+                sock = getattr(getattr(wire.fp, "raw", None), "_sock", None)
+                if sock is not None:
+                    sock.settimeout(remaining)
+            # read(n) may perform many socket reads, resetting the timeout each
+            # time. read1 returns after one buffered read so we can re-budget.
+            chunk = wire.read1(min(65536, limit + 1 - size))
+        else:
+            # Custom openers retain the existing bounded read protocol.
+            chunk = response.read(limit + 1)
+        if time.monotonic() >= deadline:
+            raise ToolkitError("device response deadline exceeded")
+        size += len(chunk)
+        if size > limit:
+            raise ToolkitError("device response is unexpectedly large")
+        chunks.append(chunk)
+        if not chunk or not isinstance(wire, HTTPResponse):
+            if expected is not None and size != expected:
+                raise IncompleteRead(b"", expected - size)
+            return b"".join(chunks)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -151,14 +195,18 @@ class DeviceHttpClient:
             headers=headers,
             method=method,
         )
+        budget = self.timeout if timeout is None else timeout
+        if not math.isfinite(budget) or budget <= 0:
+            raise ToolkitError("device HTTP timeout must be finite and positive")
+        deadline = time.monotonic() + budget
         try:
-            with self._opener(request, timeout=self.timeout if timeout is None else timeout) as response:
-                content = response.read(MAX_JSON_RESPONSE_BYTES + 1)
+            with self._opener(request, timeout=budget) as response:
+                content = _read_response(response, MAX_JSON_RESPONSE_BYTES, deadline)
                 status = int(getattr(response, "status", 200))
         except urllib.error.HTTPError as exc:
             try:
-                detail = exc.read(4096).decode("utf-8", errors="replace").strip()
-            except (OSError, HTTPException):
+                detail = _read_response(exc, 4096, deadline).decode("utf-8", errors="replace").strip()
+            except (OSError, HTTPException, ToolkitError):
                 detail = "response body unavailable"
             finally:
                 exc.close()
