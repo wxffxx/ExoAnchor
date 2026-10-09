@@ -254,6 +254,26 @@ int main(void)
     assert(s_nvs_read_calls == reads_before_snapshot);
     assert(status.have_staged);
     assert(status.staged.generation == 1);
+
+    value_t values_before_invalid[sizeof(s_values) / sizeof(s_values[0])];
+    memcpy(values_before_invalid, s_values, sizeof(s_values));
+    const char *invalid_gateways[] = {"192.0.2.0", "192.0.2.255"};
+    for (size_t i = 0;
+         i < sizeof(invalid_gateways) / sizeof(invalid_gateways[0]); ++i) {
+        si_network_config_t invalid = static_ip;
+        snprintf(invalid.gateway, sizeof(invalid.gateway), "%s",
+                 invalid_gateways[i]);
+        assert(si_network_settings_stage(&invalid) == ESP_ERR_INVALID_ARG);
+        assert(si_network_settings_get(&status) == ESP_OK);
+        assert(s_nvs_read_calls == reads_before_snapshot);
+        assert(memcmp(s_values, values_before_invalid, sizeof(s_values)) == 0);
+        assert(status.active.mode == SI_NETWORK_MODE_DHCP);
+        assert(status.have_staged && !status.pending);
+        assert(status.staged.generation == 1);
+        assert(strcmp(status.staged.address, static_ip.address) == 0);
+        assert(strcmp(status.staged.gateway, static_ip.gateway) == 0);
+    }
+
     assert(si_network_settings_mark_pending() == ESP_OK);
     reads_before_snapshot = s_nvs_read_calls;
     assert(si_network_settings_get(&status) == ESP_OK);
@@ -290,6 +310,23 @@ int main(void)
     assert(s_nvs_read_calls == reads_before_snapshot);
     assert(status.active.mode == SI_NETWORK_MODE_DHCP);
     assert(strcmp(status.active.hostname, "exoanchor-123456") == 0);
+
+    /* Older firmware could persist a subnet broadcast as the gateway. The
+     * existing invalid-active-slot recovery must restore factory defaults. */
+    assert(si_network_settings_stage(&static_ip) == ESP_OK);
+    assert(si_network_settings_mark_pending() == ESP_OK);
+    assert(si_network_settings_confirm() == ESP_OK);
+    assert(si_network_settings_get(&status) == ESP_OK);
+    value_t *legacy_gateway = find_value(
+        status.active_slot == 1 ? "a_gw" : "b_gw", false);
+    assert(legacy_gateway && legacy_gateway->type == VALUE_STRING);
+    snprintf(legacy_gateway->string, sizeof(legacy_gateway->string),
+             "192.0.2.255");
+    assert(si_network_settings_initialize(&defaults, &status) == ESP_OK);
+    assert(status.active.mode == SI_NETWORK_MODE_DHCP);
+    assert(strcmp(status.active.hostname, defaults.hostname) == 0);
+    assert(!status.have_staged && !status.pending);
+
     puts("host network settings tests: PASS");
     return 0;
 }

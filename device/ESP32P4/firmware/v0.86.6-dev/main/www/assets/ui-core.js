@@ -359,7 +359,8 @@
       window.addEventListener("pagehide", event => {
         this.destroy("pagehide", { persisted: !!event.persisted });
       });
-      window.addEventListener("beforeunload", () => this.destroy("beforeunload"));
+      // beforeunload can be canceled by an unsaved-settings warning. Release
+      // one-shot resource owners only once pagehide confirms actual departure.
       window.addEventListener("pageshow", event => {
         if (event.persisted) {
           // Resource owners are one-shot by design. A BFCache restore gets a

@@ -509,11 +509,8 @@
         event.preventDefault();
         return;
       }
-      if (!link.hasAttribute("href")) return;
-      const destination = link.href;
-      if (!destination || destination === location.href) return;
-      link.setAttribute("aria-busy", "true");
-      UI.lifecycle.navigate(destination);
+      // Native navigation may still be canceled by beforeunload. pagehide
+      // owns resource cleanup after the browser actually leaves this page.
     }, true);
   }
 

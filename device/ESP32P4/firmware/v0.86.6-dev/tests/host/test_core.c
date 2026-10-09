@@ -670,6 +670,36 @@ static void test_network_config(void)
     assert(si_network_config_validate(&config, error, sizeof(error)));
     assert(strcmp(si_network_mode_name(config.mode), "static") == 0);
 
+    const struct {
+        const char *netmask;
+        const char *gateway;
+        bool valid;
+    } gateway_cases[] = {
+        {"255.255.255.0", "", true},
+        {"255.255.255.0", "192.0.2.1", true},
+        {"255.255.255.0", "192.0.2.0", false},
+        {"255.255.255.0", "192.0.2.255", false},
+        {"255.255.255.128", "192.0.2.129", true},
+        {"255.255.255.128", "192.0.2.128", false},
+        {"255.255.255.128", "192.0.2.255", false},
+        {"255.255.254.0", "192.0.2.255", true},
+        {"255.255.254.0", "192.0.3.0", true},
+        {"255.255.254.0", "192.0.2.0", false},
+        {"255.255.254.0", "192.0.3.255", false},
+    };
+    for (size_t i = 0; i < sizeof(gateway_cases) / sizeof(gateway_cases[0]); ++i) {
+        snprintf(config.netmask, sizeof(config.netmask), "%s",
+                 gateway_cases[i].netmask);
+        snprintf(config.gateway, sizeof(config.gateway), "%s",
+                 gateway_cases[i].gateway);
+        assert(si_network_config_validate(&config, error, sizeof(error)) ==
+               gateway_cases[i].valid);
+        if (!gateway_cases[i].valid) {
+            assert(strstr(error, "gateway") != NULL);
+        }
+    }
+
+    snprintf(config.gateway, sizeof(config.gateway), "192.0.2.1");
     snprintf(config.netmask, sizeof(config.netmask), "255.0.255.0");
     assert(!si_network_config_validate(&config, error, sizeof(error)));
     snprintf(config.netmask, sizeof(config.netmask), "255.255.255.0");

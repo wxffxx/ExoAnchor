@@ -1969,9 +1969,10 @@ def main() -> int:
     ):
         if marker not in core_js:
             failures.append(f"shared page lifecycle contract missing {marker}")
+    # Native link navigation can be canceled. Its cleanup is covered by the
+    # pagehide contract above and test_ui_navigation_cancellation.mjs at runtime.
     for marker in (
         "UI.lifecycle.mount(activePage)",
-        "UI.lifecycle.navigate(destination)",
         "UI.session.logout()",
         'UI.lifecycle.destroy("logout")',
     ):

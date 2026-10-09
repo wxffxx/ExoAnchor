@@ -154,6 +154,11 @@ bool si_network_config_validate(const si_network_config_t *config,
                       "gateway must be a unicast address in the subnet");
             return false;
         }
+        uint32_t gateway_host_bits = gateway & ~netmask;
+        if (gateway_host_bits == 0 || gateway_host_bits == ~netmask) {
+            set_error(error, error_size, "gateway is network or broadcast");
+            return false;
+        }
     }
     const char *dns_values[] = {
         config->dns_primary,
