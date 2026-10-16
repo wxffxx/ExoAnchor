@@ -139,6 +139,9 @@ tbody tr{cursor:pointer}tbody tr:hover{background:#151b20}tbody tr.selected{back
       <label>设备密码
         <input id="devicePassword" type="password" autocomplete="current-password" placeholder="输入设备密码">
       </label>
+      <label for="deviceOtp">动态验证码 / 恢复码（启用两步验证时）
+        <input id="deviceOtp" autocomplete="one-time-code" maxlength="32" placeholder="每次登录使用新验证码">
+      </label>
     </div>
     <div id="uartTargetFields" class="transport-fields uart-fields" hidden>
       <label>诊断串口 UART0
@@ -308,7 +311,8 @@ async function callApi(path,payload={},label="WORKING"){
 }
 function selectedPort(){return $("portSelect").value||"auto"}
 function transportPayload(){
-  return{transport:state.transport,target:$("deviceTarget").value,username:$("deviceUsername").value||"admin",password:$("devicePassword").value,port:selectedPort(),baud:state.serialBaud};
+  const otp=$("deviceOtp").value.trim();$("deviceOtp").value="";
+  return{otp,transport:state.transport,target:$("deviceTarget").value,username:$("deviceUsername").value||"admin",password:$("devicePassword").value,port:selectedPort(),baud:state.serialBaud};
 }
 function networkPayload(action){
   return{...transportPayload(),action,mode:state.networkMode,hostname:$("hostname").value,address:$("address").value,netmask:$("netmask").value,gateway:$("gateway").value||"-",dns_primary:$("dnsPrimary").value||"-",dns_secondary:$("dnsSecondary").value||"-"};

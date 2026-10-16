@@ -136,3 +136,5 @@ HTTP_GET /terminal
 HTTP_GET /api/auth/setup
 HTTP_POST /api/auth/setup
 HTTP_GET /api/auth/certificate
+HTTP_GET /api/auth/two-step
+HTTP_POST /api/auth/two-step

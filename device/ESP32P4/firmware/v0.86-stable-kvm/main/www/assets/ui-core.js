@@ -44,13 +44,13 @@
       return this.login(username, password, ticket.nonce);
     }
 
-    async login(username, password, setupNonce = "") {
+    async login(username, password, setupNonce = "", otp = "") {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 75000);
       try {
         let response = await fetch(setupNonce ? "/api/auth/setup" : "/api/auth/login", {
           method: "POST", headers: { "Content-Type": "application/json", ...(setupNonce ? { "X-ExoAnchor-Setup": setupNonce } : {}) },
-          body: JSON.stringify({ username, password, request_id: crypto.randomUUID() }),
+          body: JSON.stringify({ username, password, ...(otp ? { otp } : {}), request_id: crypto.randomUUID() }),
           credentials: "same-origin", signal: controller.signal,
         });
         while (response.status === 202) {
@@ -71,6 +71,7 @@
     async logout() {
       const headers = this.authHeader();
       this.setSession("", this.username);
+      document.dispatchEvent(new CustomEvent("exoanchor:logout"));
       await fetch("/api/auth/logout", { method: "POST", headers, credentials: "same-origin" });
     }
 
@@ -159,7 +160,8 @@
         '<form id="authForm" class="ui-dialog dialog">' +
           '<h2 id="authTitle">登录本地账户</h2><p id="authHint">需要登录后才能继续。</p>' +
           '<div id="authCurrentFields"><div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>' +
-          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div></div>' +
+          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div>' +
+          '<div class="field"><label for="authOtp">验证码 / 恢复码（已启用两步验证时填写）</label><input id="authOtp" type="text" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div></div>' +
           '<div id="authNewFields"><div class="field"><label for="authNewUsername">新用户名</label><input id="authNewUsername" type="text" autocomplete="username" maxlength="32"></div>' +
           '<div class="field"><label for="authNewPassword">新密码</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>' +
           '<div class="field"><label for="authConfirmPassword">确认新密码</label><input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div></div>' +
@@ -177,18 +179,26 @@
       byId("authCurrentFields").style.display = mode === "setup" ? "none" : "block";
       byId("authTitle").textContent = mode === "setup" ? "创建管理员账号" : mode === "login" ? "登录本地账户" : "请修改默认账户";
       byId("authHint").textContent = mode === "setup" ? "在可信的本地网络完成首次配置。" : mode === "login" ? "需要登录后才能继续。" : "当前账户仍使用默认凭据，请先更新。";
+      byId("authSubmit").disabled = false;
       byId("authSubmit").textContent = mode === "setup" ? "创建并继续" : mode === "login" ? "登录" : "保存并继续";
+      if (mode === "login" && this.state.two_step_storage_ok === false) {
+        byId("authHint").textContent = "两步验证存储异常，认证已锁定。请检查设备存储或使用本地恢复流程。";
+      } else if (mode === "login" && this.state.two_step_enabled && this.state.two_step_time_ready === false) {
+        byId("authHint").textContent = "设备正在等待网络校时。请稍后使用动态验证码，或使用一次性恢复码登录。";
+      }
       byId("authMsg").textContent = "";
       byId("authMsg").className = "msg";
       byId("authCurrentUsername").value = this.state.username || this.state.default_username || api.username || "admin";
       byId("authNewUsername").value = this.state.username || api.username || "admin";
       byId("authCurrentPassword").value = "";
+      byId("authOtp").value = "";
       byId("authNewPassword").value = "";
       byId("authConfirmPassword").value = "";
       setTimeout(() => byId(mode === "setup" ? "authNewUsername" : "authCurrentPassword").focus(), 0);
     },
 
     hide(ok) {
+      if (byId("authOtp")) byId("authOtp").value = "";
       byId("authModal")?.classList.remove("show");
       if (this.pending) {
         this.pending(ok);
@@ -197,9 +207,9 @@
       this.waiting = null;
     },
 
-    requireLogin() {
+    requireLogin(state = {}) {
       if (byId("authModal")?.classList.contains("show") && this.mode === "login" && this.waiting) return this.waiting;
-      this.show("login", {});
+      this.show("login", state);
       this.waiting = new Promise(resolve => { this.pending = resolve; });
       return this.waiting;
     },
@@ -223,7 +233,7 @@
         const state = await api.getSilent("/api/auth/status");
         if (state.setup_required) return await this.requireSetup(state);
         if (state.enabled && !state.token_valid) {
-          return await this.requireLogin();
+          return await this.requireLogin(state);
         }
         if (state.must_change_credentials) {
           return await this.requireChange(state);
@@ -244,9 +254,11 @@
         message.className = "msg";
         const currentUsername = byId("authCurrentUsername").value.trim();
         const currentPassword = byId("authCurrentPassword").value;
+        const otp = byId("authOtp").value.trim();
+        byId("authOtp").value = "";
         try {
           if (this.mode === "login") {
-            const result = await api.login(currentUsername, currentPassword);
+            const result = await api.login(currentUsername, currentPassword, "", otp);
             if (result.must_change_credentials) {
               this.show("change", result);
               return;
@@ -266,7 +278,7 @@
             if (this.onAuthenticated) await this.onAuthenticated(result);
             return;
           }
-          await api.login(currentUsername, currentPassword);
+          await api.login(currentUsername, currentPassword, "", otp);
           const result = await api.post("/api/settings/account", {
             current_username: currentUsername,
             current_password: currentPassword,

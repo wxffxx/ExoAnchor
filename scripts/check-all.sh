@@ -37,6 +37,8 @@ run_toolkit_tests() {
 "$REPO_DIR/device/ESP32P4/firmware/v0.86-stable-kvm/tests/host/run.sh"
 "$REPO_DIR/device/ESP32P4/firmware/v0.86.6-dev/tests/host/run.sh"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_auth_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_two_step_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_two_step_http_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_http_security_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_http_json_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_ota_auth_runtime.py"

@@ -29,6 +29,7 @@
 #include "agent_history_writer.h"
 #include "agent_repository.h"
 #include "auth_service.h"
+#include "two_step.h"
 #include "cJSON.h"
 #if SI_CFG_EMBEDDED_AGENT_ENABLED
 #include "agent_result_error.h"
@@ -467,6 +468,7 @@ static esp_err_t agent_run_revoke_page_context(const si_product_feature_settings
 #endif
 #include "web/resource_operation_contract.inc"
 #include "web/base_settings_http_module.inc"
+#include "web/two_step_http_module.inc"
 #include "web/access_mode_http_module.inc"
 #include "web/product_features_http_module.inc"
 #include "web/power_http_module.inc"
@@ -588,12 +590,7 @@ esp_err_t si_web_server_start(void)
     s_server_boot_id =
         ((uint64_t)esp_random() << 32U) | (uint64_t)esp_random();
     register_diagnostics_backend();
-    (void)si_auth_is_enabled();
-    if (!s_auth_login_lock) {
-        s_auth_login_lock = xSemaphoreCreateMutex();
-        ESP_RETURN_ON_FALSE(s_auth_login_lock, ESP_ERR_NO_MEM, TAG,
-                            "create auth login mutex");
-    }
+    ESP_RETURN_ON_ERROR(auth_http_initialize(), TAG, "initialize login service");
     ESP_RETURN_ON_ERROR(init_http_worker_slots(), TAG,
                         "create HTTP worker slots");
     ota_settings_load();
@@ -664,6 +661,8 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/api/auth/login/status", HTTP_GET, auth_login_status_handler, false);
     register_uri(s_server, "/api/auth/logout", HTTP_POST, auth_logout_handler, false);
     register_uri(s_server, "/api/auth/status", HTTP_GET, auth_status_handler, false);
+    register_uri(s_server, "/api/auth/two-step", HTTP_GET, two_step_handler, false);
+    register_uri(s_server, "/api/auth/two-step", HTTP_POST, two_step_handler, false);
     register_uri(s_server, "/api/settings/account", HTTP_POST, settings_password_handler, false);
     register_uri(s_server, "/api/settings/password", HTTP_POST, settings_password_handler, false);
     register_uri(s_server, "/api/settings/device", HTTP_GET, settings_device_handler, false);

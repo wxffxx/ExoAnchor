@@ -47,6 +47,8 @@
 python3 -m exoanchor_mcp.server --list-tools
 ```
 
+两步验证的启用与恢复方法见[动态验证码指南](../../docs/guides/TWO_STEP_zh.md)。
+
 ## 安全契约
 
 - 服务器协商 MCP `2025-06-18` 协议，并为每个工具声明只读、破坏性、幂等性和开放世界提示。
@@ -80,6 +82,8 @@ python3 -m exoanchor_mcp.server --list-tools
 | `EXOANCHOR_TLS_CERTIFICATE_FILE` | 未设置 | 首次在可信局域网中配对后，从设备网页下载的单个 PEM 证书；未设置时使用系统 CA 和 hostname 校验 |
 | `EXOANCHOR_ALLOW_INSECURE_HTTP` | `0` | 仅旧固件显式设为 `1` 才接受 HTTP；没有自动降级 |
 | `EXOANCHOR_USERNAME` | 未设置 | 本地设备用户名 |
+| `EXOANCHOR_OTP_CODE` | 未设置 | 下一次登录使用的动态验证码或恢复码，提交后不重用 |
+| `EXOANCHOR_OTP_CODE_FILE` | 未设置 | 启动时读取一次的验证码文件 |
 | `EXOANCHOR_PASSWORD` | 未设置 | 本地设备密码 |
 | `EXOANCHOR_PASSWORD_FILE` | 未设置 | 保存本地设备密码的文件，优先于命令行内嵌 |
 | `EXOANCHOR_TOKEN` | 未设置 | 可选 bearer token |

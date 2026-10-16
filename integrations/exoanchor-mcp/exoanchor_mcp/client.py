@@ -107,6 +107,7 @@ class ExoAnchorConfig:
     allow_arbitrary_ssh: bool
     tls_certificate_file: str | None = None
     allow_insecure_http: bool = False
+    otp_code: str | None = None
 
     @classmethod
     def from_env(cls) -> "ExoAnchorConfig":
@@ -129,6 +130,7 @@ class ExoAnchorConfig:
             base_url=base_url,
             username=os.environ.get("EXOANCHOR_USERNAME", "").strip(),
             password=os.environ.get("EXOANCHOR_PASSWORD") or _read_secret_file("EXOANCHOR_PASSWORD_FILE"),
+            otp_code=os.environ.get("EXOANCHOR_OTP_CODE") or _read_secret_file("EXOANCHOR_OTP_CODE_FILE"),
             token=os.environ.get("EXOANCHOR_TOKEN") or _read_secret_file("EXOANCHOR_TOKEN_FILE"),
             timeout=timeout,
             allow_write=_env_bool("EXOANCHOR_ALLOW_WRITE", False),
@@ -246,12 +248,14 @@ class ExoAnchorClient:
         if not self.config.username:
             raise ExoAnchorError("password login requires EXOANCHOR_USERNAME")
         deadline = time.monotonic() + self.config.timeout
+        otp_code, self.config.otp_code = self.config.otp_code, None
         resp = self._request(
             "POST",
             "/api/auth/login",
             {
                 "username": self.config.username,
                 "password": self.config.password,
+                **({"otp": otp_code} if otp_code else {}),
                 "request_id": secrets.token_hex(16),
             },
             retry_auth=False,

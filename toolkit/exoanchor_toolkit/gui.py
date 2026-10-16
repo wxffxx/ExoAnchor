@@ -194,6 +194,7 @@ class ToolkitController:
                 target,
                 username=username,
                 password=password,
+                otp_code=_string(payload, "otp", limit=32),
                 token=self._device_tokens.get(key, ""),
                 timeout=timeout,
             ),
@@ -253,6 +254,7 @@ class ToolkitController:
             target,
             username=username,
             password=password,
+            otp_code=_string(payload, "otp", limit=32),
             token=token,
             timeout=2,
         )

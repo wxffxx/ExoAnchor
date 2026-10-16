@@ -45,7 +45,7 @@ typedef struct {
     bool browser;
 } auth_session_t;
 static auth_session_t s_sessions[AUTH_SESSION_SLOTS];
-static esp_err_t set_credentials_internal(const char *, const char *, bool, bool, bool, bool);
+static esp_err_t set_credentials_internal(const char *, const char *, bool, bool, bool, bool, uint32_t expected_generation);
 
 static bool secure_equal(const char *a, const char *b)
 {
@@ -218,7 +218,7 @@ esp_err_t si_auth_initialize(void)
     bytes_to_hex(random, sizeof(random), bootstrap, sizeof(bootstrap));
     si_secret_store_clear(random, sizeof(random));
     bool configured = si_auth_validate_password(SI_CFG_AUTH_PASSWORD) == ESP_OK;
-    ret = set_credentials_internal(si_auth_default_username(), configured ? SI_CFG_AUTH_PASSWORD : bootstrap, true, true, false, !configured);
+    ret = set_credentials_internal(si_auth_default_username(), configured ? SI_CFG_AUTH_PASSWORD : bootstrap, true, true, false, !configured, 0);
     s_initialized = ret == ESP_OK;
     s_using_default = true;
     si_secret_store_clear(bootstrap, sizeof(bootstrap));
@@ -261,7 +261,7 @@ bool si_auth_credentials_match(const char *username, const char *password)
     }
     /* Hash migration preserves the logical credential generation and stays
        under the same lock as verification, so it cannot restore an old password. */
-    if (migrate && set_credentials_internal(username, password, s_using_default, false, true, s_setup_pending) != ESP_OK) matches = false;
+    if (migrate && set_credentials_internal(username, password, s_using_default, false, true, s_setup_pending, 0) != ESP_OK) matches = false;
     xSemaphoreGive(s_lock);
     return matches;
 }
@@ -277,7 +277,9 @@ static bool session_live(auth_session_t *session, int64_t now, const si_session_
     return true;
 }
 
-static bool token_lookup(const char *token, bool recent, bool revoke)
+typedef enum { AUTH_TOKEN_ANY, AUTH_TOKEN_RECENT_BROWSER, AUTH_TOKEN_BROWSER } auth_token_scope_t;
+
+static bool token_lookup(const char *token, auth_token_scope_t scope, bool revoke)
 {
     if (!token || strlen(token) != SI_AUTH_TOKEN_LEN) return false;
     uint8_t digest[32];
@@ -292,7 +294,8 @@ static bool token_lookup(const char *token, bool recent, bool revoke)
         unsigned diff = 0;
         for (size_t j = 0; j < sizeof(digest); ++j) diff |= digest[j] ^ s_sessions[i].digest[j];
         if (diff) continue;
-        found = !recent || (s_sessions[i].browser && now - s_sessions[i].created <= 60000000LL);
+        found = scope == AUTH_TOKEN_ANY || (s_sessions[i].browser &&
+            (scope != AUTH_TOKEN_RECENT_BROWSER || now - s_sessions[i].created <= 60000000LL));
         if (revoke) si_secret_store_clear(&s_sessions[i], sizeof(s_sessions[i]));
         else if (found) s_sessions[i].touched = now;
         break;
@@ -302,9 +305,9 @@ static bool token_lookup(const char *token, bool recent, bool revoke)
     return found;
 }
 
-bool si_auth_token_matches(const char *token) { return token_lookup(token, false, false); }
-bool si_auth_token_is_recent(const char *token) { return token_lookup(token, true, false); }
-void si_auth_revoke_session(const char *token) { (void)token_lookup(token, false, true); }
+bool si_auth_token_matches(const char *token) { return token_lookup(token, AUTH_TOKEN_ANY, false); }
+bool si_auth_token_is_recent(const char *token) { return token_lookup(token, AUTH_TOKEN_RECENT_BROWSER, false); }
+void si_auth_revoke_session(const char *token) { (void)token_lookup(token, AUTH_TOKEN_ANY, true); }
 
 esp_err_t si_auth_create_session_for_generation(const char *client, uint32_t expected_generation, char out_token[65])
 {
@@ -371,7 +374,7 @@ void si_auth_record_login(void)
 
 
 static esp_err_t set_credentials_internal(const char *username, const char *password,
-                                          bool bootstrap, bool rotate, bool locked, bool allow_setup)
+                                          bool bootstrap, bool rotate, bool locked, bool allow_setup, uint32_t expected_generation)
 {
     char verifier[65] = {0}, salt_hex[33] = {0};
     uint8_t salt[16];
@@ -384,6 +387,12 @@ static esp_err_t set_credentials_internal(const char *username, const char *pass
     char next_username[sizeof(s_username)];
     strlcpy(next_username, username, sizeof(next_username));
     if (!locked && !lock_auth()) return ESP_ERR_TIMEOUT;
+    if (expected_generation && expected_generation != si_auth_credential_generation()) {
+        if (!locked) xSemaphoreGive(s_lock);
+        si_secret_store_clear(verifier, sizeof(verifier));
+        si_secret_store_clear(salt_hex, sizeof(salt_hex));
+        return ESP_ERR_INVALID_STATE;
+    }
     si_settings_store_t store = SI_SETTINGS_STORE_INITIALIZER;
     esp_err_t ret = si_settings_store_open_write(&store, AUTH_NAMESPACE);
     if (ret == ESP_OK) ret = si_settings_store_set_string(&store, AUTH_USERNAME_KEY, username);
@@ -413,7 +422,7 @@ static esp_err_t set_credentials_internal(const char *username, const char *pass
 
 esp_err_t si_auth_set_credentials(const char *username, const char *password)
 {
-    return set_credentials_internal(username, password, false, true, false, false);
+    return set_credentials_internal(username, password, false, true, false, false, 0);
 }
 
 void si_auth_get_status(si_auth_status_t *status)
@@ -440,8 +449,30 @@ esp_err_t si_auth_setup_credentials(const char *username, const char *password,
     if (!lock_auth()) return ESP_ERR_TIMEOUT;
     esp_err_t ret = ESP_ERR_INVALID_STATE;
     if (si_auth_setup_required() && expected_generation == si_auth_credential_generation()) {
-        ret = set_credentials_internal(username, password, false, true, true, false);
+        ret = set_credentials_internal(username, password, false, true, true, false, 0);
     }
     xSemaphoreGive(s_lock);
     return ret;
+}
+
+bool si_auth_token_is_browser(const char *token) { return token_lookup(token, AUTH_TOKEN_BROWSER, false); }
+esp_err_t si_auth_security_changed(uint32_t expected_generation)
+{
+    if (!lock_auth()) return ESP_FAIL;
+    if (expected_generation != si_auth_credential_generation()) {
+        xSemaphoreGive(s_lock);
+        return ESP_ERR_INVALID_STATE;
+    }
+    __atomic_add_fetch(&s_credential_generation, 1U, __ATOMIC_RELEASE);
+    si_secret_store_clear(s_sessions, sizeof(s_sessions));
+    xSemaphoreGive(s_lock);
+    return ESP_OK;
+}
+
+esp_err_t si_auth_set_credentials_for_generation(const char *username, const char *password,
+                                                  uint32_t expected_generation)
+{
+    if (!expected_generation) return ESP_ERR_INVALID_STATE;
+    /* Derive outside the lock; compare again under the persistence lock. */
+    return set_credentials_internal(username, password, false, true, false, false, expected_generation);
 }

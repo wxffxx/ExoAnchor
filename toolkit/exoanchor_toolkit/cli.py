@@ -62,6 +62,7 @@ def _network_client(
                 args.device,
                 username=args.username,
                 password=_device_password(args),
+                otp_code=getattr(args, "otp_code", None) or os.environ.get("EXOANCHOR_OTP_CODE", ""),
                 timeout=args.timeout,
             )
         )
@@ -344,6 +345,7 @@ def _command_firmware(args: argparse.Namespace) -> int:
                     args.device,
                     username=args.username,
                     password=_device_password(args),
+                    otp_code=getattr(args, "otp_code", None) or os.environ.get("EXOANCHOR_OTP_CODE", ""),
                     timeout=args.timeout,
                 )
                 target = client.target.base_url
@@ -451,6 +453,7 @@ def _add_transport_options(parser: argparse.ArgumentParser) -> None:
         default="admin",
         help="device web account username for network transport",
     )
+    parser.add_argument("--otp-code", default=argparse.SUPPRESS, help="one-use TOTP or recovery code; alternatively EXOANCHOR_OTP_CODE")
     parser.add_argument(
         "--password",
         help=(
@@ -502,6 +505,7 @@ def _add_network_child_options(parser: argparse.ArgumentParser) -> None:
         default=argparse.SUPPRESS,
         help="device web account username for network transport",
     )
+    parser.add_argument("--otp-code", default=argparse.SUPPRESS, help="one-use TOTP or recovery code; alternatively EXOANCHOR_OTP_CODE")
     parser.add_argument(
         "--password",
         default=argparse.SUPPRESS,

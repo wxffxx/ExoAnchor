@@ -386,7 +386,7 @@ button,.button-link{min-height:38px}
       <details class="editor"><summary>编辑本地账户</summary>
       <form id="accountForm">
         <div class="field"><label for="currentPassword">当前密码</label><input id="currentPassword" type="password" autocomplete="current-password"></div>
-        <div class="field"><label for="accountUsername">新用户名</label><input id="accountUsername" type="text" autocomplete="username" maxlength="32"></div>
+        <div class="field"><label for="accountOtp">验证码 / 恢复码（已启用时填写）</label><input id="accountOtp" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div><div class="field"><label for="accountUsername">新用户名</label><input id="accountUsername" type="text" autocomplete="username" maxlength="32"></div>
         <div class="field"><label for="newPassword">新密码</label><input id="newPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
         <div class="field"><label for="confirmPassword">确认新密码</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
         <div class="actions"><button class="primary" type="submit">保存账户</button></div>
@@ -394,6 +394,27 @@ button,.button-link{min-height:38px}
         <a href="/api/auth/certificate" download="exoanchor-device.pem">下载设备证书</a>
       </form>
       </details>
+    </div>
+
+    <div class="card" id="twoStepCard">
+      <h2>两步验证 · 动态验证码</h2>
+      <p>验证器每 30 秒生成一个 6 位验证码。启用后，登录需要密码和验证码，也可使用一次性恢复码。</p>
+      <p id="twoStepStatus" role="status">正在读取状态…</p>
+      <div class="actions"><button id="twoStepRefresh" type="button">刷新状态</button><button id="twoStepLogin" type="button">重新登录</button></div>
+      <form id="twoStepForm" autocomplete="off">
+        <div class="field"><label for="twoStepPassword">当前密码</label><input id="twoStepPassword" type="password" autocomplete="current-password" maxlength="64"></div>
+        <div id="twoStepEnrollment" hidden>
+          <p>在验证器中手动添加以下密钥，选择基于时间。请将恢复码保存在安全位置；它们只显示这一次。5 分钟内确认启用。</p>
+          <div class="field"><label for="twoStepSecret">验证器密钥</label><input id="twoStepSecret" readonly autocomplete="off" spellcheck="false"></div>
+          <a id="twoStepOpen">在本机验证器中打开</a>
+          <pre id="twoStepRecovery" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+          <label><input id="twoStepSaved" type="checkbox">我已保存恢复码</label>
+        </div>
+        <div class="field"><label for="twoStepOtp">验证码 / 恢复码</label><input id="twoStepOtp" type="text" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div>
+        <p>开始或停用前需在 1 分钟内重新登录。验证码不能重复使用，登录后停用请等待下一组验证码。</p>
+        <div class="actions"><button id="twoStepBegin" type="button">设置两步验证</button><button id="twoStepConfirm" type="submit" hidden>确认启用</button><button id="twoStepCancel" type="button" hidden>取消设置</button><button id="twoStepDisable" type="button" hidden>停用两步验证</button></div>
+      </form>
+      <div id="twoStepMsg" class="msg" role="status"></div>
     </div>
     <div class="card">
       <div class="card-head"><h2>会话</h2></div>
@@ -648,6 +669,81 @@ button,.button-link{min-height:38px}
   </section>
   </div>
 </main>
+<script id="two-step-settings-script">
+(() => {
+  const ui = window.ExoAnchorUI, el = id => document.getElementById(id);
+  let enrollmentId = "", busy = false, loaded = false, enrollmentTimer;
+  const message = (text, bad = false) => {
+    el("twoStepMsg").textContent = text;
+    el("twoStepMsg").className = bad ? "msg bad" : "msg";
+  };
+  function clearEnrollment() {
+    clearTimeout(enrollmentTimer);
+    enrollmentId = "";
+    el("twoStepSecret").value = "";
+    el("twoStepRecovery").textContent = "";
+    el("twoStepOpen").removeAttribute("href");
+    el("twoStepSaved").checked = false;
+    el("twoStepEnrollment").hidden = el("twoStepConfirm").hidden = el("twoStepCancel").hidden = true;
+    el("twoStepPassword").value = el("twoStepOtp").value = "";
+  }
+  async function refresh() {
+    try {
+      const state = await ui.api.request("GET", "/api/auth/two-step", undefined, false);
+      loaded = true;
+      if (!busy && !enrollmentId) message("");
+      el("twoStepStatus").textContent = !state.storage_ok ? "验证存储异常，认证已锁定。" :
+        (state.enabled ? `已启用 · 剩余 ${state.recovery_remaining} 个恢复码` : "尚未启用") +
+        (state.time_ready ? " · 设备时间已就绪" : " · 等待网络校时；恢复码仍可使用");
+      el("twoStepBegin").hidden = state.enabled;
+      el("twoStepBegin").disabled = !state.storage_ok || !state.time_ready;
+      el("twoStepDisable").hidden = !state.enabled;
+      el("twoStepDisable").disabled = !state.storage_ok;
+    } catch (error) { message("读取失败，请登录后刷新：" + error.message, true); }
+  }
+  async function run(action) {
+    if (busy) return;
+    if (!el("twoStepPassword").value) return message("请输入当前密码。", true);
+    if (action === "confirm" && !el("twoStepSaved").checked) return message("请先保存恢复码。", true);
+    busy = true;
+    const body = {action, current_password: el("twoStepPassword").value, otp: el("twoStepOtp").value.trim(), enrollment_id: enrollmentId || undefined};
+    el("twoStepOtp").value = "";
+    if (action === "begin") clearEnrollment();
+    message("正在验证…");
+    try {
+      const result = await ui.api.request("POST", "/api/auth/two-step", body, false);
+      if (action === "begin") {
+        if (!result.enrollment_id || !result.secret || result.recovery_codes?.length !== 8) throw new Error("设置响应不完整，请重新开始");
+        enrollmentId = result.enrollment_id;
+        enrollmentTimer = setTimeout(() => { clearEnrollment(); message("设置已超时，请重新开始。", true); }, 300000);
+        el("twoStepSecret").value = result.secret;
+        el("twoStepRecovery").textContent = result.recovery_codes.join("\n");
+        if (String(result.otpauth_uri).startsWith("otpauth://totp/")) el("twoStepOpen").href = result.otpauth_uri;
+        el("twoStepEnrollment").hidden = el("twoStepConfirm").hidden = el("twoStepCancel").hidden = false;
+        message("请保存恢复码，输入验证器显示的验证码，并再次输入当前密码后确认。");
+      } else {
+        clearEnrollment();
+        ui.api.setSession("", ui.api.username);
+        loaded = false;
+        el("twoStepStatus").textContent = action === "confirm" ? "已启用 · 请重新登录" : "已停用 · 请重新登录";
+        message(action === "confirm" ? "已启用。所有旧会话已退出，请等待下一组验证码后重新登录。" : "已停用。所有旧会话已退出，请重新登录。");
+      }
+    } catch (error) { message(error.message + "；如请求中断，请刷新状态后再试。", true); }
+    finally { body.current_password = body.otp = ""; el("twoStepPassword").value = ""; busy = false; }
+  }
+  el("twoStepBegin").onclick = () => run("begin");
+  el("twoStepDisable").onclick = () => run("disable");
+  el("twoStepForm").onsubmit = event => { event.preventDefault(); if (enrollmentId) run("confirm"); };
+  el("twoStepCancel").onclick = () => { clearEnrollment(); message("已取消；尚未启用两步验证。"); };
+  el("twoStepRefresh").onclick = refresh;
+  el("twoStepLogin").onclick = async () => { clearEnrollment(); if (await ui.auth.requireLogin()) await refresh(); };
+  document.addEventListener("exoanchor:logout", clearEnrollment);
+  document.addEventListener("exoanchor:session-expired", clearEnrollment);
+  window.addEventListener("pagehide", clearEnrollment);
+  window.ExoAnchorTwoStep = {refresh, load: () => { if (!loaded) refresh(); }};
+})();
+</script>
+
 
 <script>
 let authState={username:localStorage.getItem("si_username")||"admin"},gpioMapDirty=false,powerResetSwapBusy=false,settingsLocatorReverseBusy=false,settingsLocatorReversePending=null,lastSettingsLocator={supported:false,gpio:-1,return_gpio:-1,active:false,active_high:true,bidirectional:false,reversed:false},lastGpioMatrix={gpio_min:0,gpio_max:54,assignments:[]};
@@ -1186,6 +1282,7 @@ function renderSettingsRuntime(status){
   if(active==="advanced")renderGpioMap(power,hid,pins);
 }
 function renderAuthStatus(auth){
+  if (!auth.enabled || auth.token_valid) window.ExoAnchorTwoStep?.load();
   authState=auth;API.username=auth.username||API.username||"admin";
   const valid=!auth.enabled||auth.token_valid,must=!!auth.must_change_credentials;
   authRows.innerHTML=row("用户名",auth.username||"--")+row("凭据",must?"默认，需修改":auth.local_credentials?"已设置":"默认")+row("会话",valid?"有效":"缺失");
@@ -1225,7 +1322,8 @@ accountForm.onsubmit=async e=>{
   if(!username){msg(accountMsg,"用户名不能为空","bad");return}
   if(next!==confirm){msg(accountMsg,"两次密码不一致","bad");return}
   try{
-    await API.login(authState.username||API.username,currentPassword.value);
+    const otp=accountOtp.value.trim();accountOtp.value="";
+    await API.login(authState.username||API.username,currentPassword.value,"",otp);
     const r=await API.post("/api/settings/account",{current_username:authState.username||API.username,current_password:currentPassword.value,username,new_password:next});
     API.setSession(r.token,r.username||username);currentPassword.value="";newPassword.value="";confirmPassword.value="";fillUsernames(r.username||username);
     SettingsDirty.capture("account");msg(accountMsg,"账户已保存","ok");await refresh();

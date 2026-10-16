@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import hmac
+import secrets
 import json
 import mimetypes
 import os
@@ -166,6 +168,11 @@ class MockState:
     username = default_username
     password = "admin"
     token = "local-mock-token"
+    # Preview-only state; production persistence and throttling live in C.
+    two_step_secret = ""
+    two_step_pending = None
+    two_step_recovery = []
+    two_step_last = 0
     # Opt into the real first-claim flow for browser acceptance without
     # changing the normal visual-preview behavior.
     local_credentials = os.environ.get("SI_UI_FACTORY_CLAIM", "").lower() not in (
@@ -1463,6 +1470,22 @@ def _make_token(username: str, password: str) -> str:
     return "local-mock-token-" + hashlib.sha1(raw).hexdigest()[:12]
 
 
+
+def _mock_two_step_verify(code: str, secret: str, recovery: bool = True) -> bool:
+    if not isinstance(code, str):
+        return False
+    if recovery and code in MockState.two_step_recovery:
+        MockState.two_step_recovery.remove(code)
+        return True
+    for step in range(int(time.time()) // 30 - 1, int(time.time()) // 30 + 2):
+        digest = hmac.new(base64.b32decode(secret), step.to_bytes(8, "big"), "sha1").digest()
+        offset = digest[-1] & 15
+        expected = f"{(int.from_bytes(digest[offset:offset+4], 'big') & 0x7fffffff) % 1000000:06d}"
+        if step > MockState.two_step_last and hmac.compare_digest(code.encode(), expected.encode()):
+            MockState.two_step_last = step
+            return True
+    return False
+
 def _auth_header_valid(headers) -> bool:
     auth = headers.get("Authorization", "")
     return auth == f"Bearer {MockState.token}"
@@ -1740,10 +1763,20 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._send_json({"nonce": MockState.setup_nonce})
             return
+        if path == "/api/auth/two-step":
+            if not _auth_header_valid(self.headers):
+                self._send_json({"error": "browser login required"}, 401)
+            else:
+                self._send_json({"enabled": bool(MockState.two_step_secret), "storage_ok": True,
+                                 "time_ready": True, "recovery_remaining": len(MockState.two_step_recovery)})
+            return
         if path == "/api/auth/status":
             self._send_json({
                 "enabled": True,
                 "setup_required": not MockState.local_credentials,
+                "two_step_enabled": bool(MockState.two_step_secret),
+                "two_step_time_ready": True,
+                "two_step_storage_ok": True,
                 "username": MockState.username,
                 "default_username": MockState.default_username,
                 "local_password": MockState.local_credentials,
@@ -2113,6 +2146,38 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"token": MockState.token, "username": username, "enabled": True, "using_default": False, "must_change_credentials": False})
             return
 
+        if path == "/api/auth/two-step":
+            try:
+                payload = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                self._send_json({"error": "invalid json"}, 400)
+                return
+            if not _auth_header_valid(self.headers) or payload.get("current_password") != MockState.password:
+                self._send_json({"error": "current browser login and password required"}, 403)
+                return
+            action = payload.get("action")
+            if action == "begin" and not MockState.two_step_secret:
+                secret = base64.b32encode(secrets.token_bytes(20)).decode()
+                identifier = secrets.token_hex(16)
+                codes = [secrets.token_hex(16) for _ in range(8)]
+                MockState.two_step_pending = (identifier, secret, codes, time.monotonic() + 300)
+                self._send_json({"enrollment_id": identifier, "secret": secret, "recovery_codes": codes,
+                    "otpauth_uri": f"otpauth://totp/ExoAnchor:preview?secret={secret}&issuer=ExoAnchor&digits=6&period=30"})
+                return
+            pending = MockState.two_step_pending
+            if action == "confirm" and pending and time.monotonic() < pending[3] and payload.get("enrollment_id") == pending[0] and _mock_two_step_verify(payload.get("otp", ""), pending[1], False):
+                MockState.two_step_secret, MockState.two_step_recovery = pending[1:3]
+                MockState.two_step_pending = None
+            elif action == "disable" and MockState.two_step_secret and _mock_two_step_verify(payload.get("otp", ""), MockState.two_step_secret):
+                MockState.two_step_secret = ""
+                MockState.two_step_recovery = []
+                MockState.two_step_last = 0
+            else:
+                self._send_json({"error": "invalid or used code"}, 403)
+                return
+            MockState.token = secrets.token_hex(32)
+            self._send_json({"ok": True, "login_required": True})
+            return
         if path == "/api/auth/login":
             try:
                 payload = json.loads(raw.decode("utf-8") or "{}")
@@ -2122,6 +2187,9 @@ class Handler(BaseHTTPRequestHandler):
             password = payload.get("password")
             if not MockState.local_credentials or username != MockState.username or password != MockState.password:
                 self._send_json({"error": "invalid credentials"}, 401)
+                return
+            if MockState.two_step_secret and not _mock_two_step_verify(payload.get("otp", ""), MockState.two_step_secret):
+                self._send_json({"error": "invalid credentials or used code"}, 401)
                 return
             self._send_json({
                 "token": MockState.token,

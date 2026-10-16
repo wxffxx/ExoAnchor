@@ -148,6 +148,7 @@ class DeviceHttpClient:
         *,
         username: str = "admin",
         password: str = "",
+        otp_code: str = "",
         token: str = "",
         timeout: float = 10.0,
         opener: Callable[..., object] | None = None,
@@ -159,6 +160,7 @@ class DeviceHttpClient:
         self.target = parse_device_target(target)
         self.username = username.strip() or "admin"
         self.password = password
+        self.otp_code = otp_code
         self.token = token
         self.timeout = timeout
         self.tls_certificate_file = tls_certificate_file or os.environ.get("EXOANCHOR_TLS_CERTIFICATE_FILE")
@@ -260,8 +262,10 @@ class DeviceHttpClient:
                 raise ToolkitError("device login timed out")
             return remaining
 
+        otp_code, self.otp_code = self.otp_code, ""
         body = json.dumps(
             {
+                **({"otp": otp_code} if otp_code else {}),
                 "username": self.username,
                 "password": self.password,
                 "request_id": secrets.token_hex(12),

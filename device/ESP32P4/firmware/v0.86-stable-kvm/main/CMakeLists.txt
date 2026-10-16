@@ -3,6 +3,7 @@ set(SI_MAIN_SRCS
         "adapters/hid_json.c"
         "adapters/http_api.c"
         "application/auth_service.c"
+    "application/two_step.c"
         "application/control_lease.c"
         "application/device_settings.c"
         "application/device_observation_service.c"

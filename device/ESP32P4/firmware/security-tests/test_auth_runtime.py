@@ -37,6 +37,7 @@ MOCKS = r'''
 static int64_t now_us = 1000000;
 static unsigned random_counter;
 static unsigned kdf_calls;
+static bool rotate_during_kdf;
 static int storage_mode;
 static char stored_username[33], stored_verifier[65], stored_salt[33];
 static uint32_t stored_iterations, stored_login_count;
@@ -57,6 +58,7 @@ bool si_control_lease_revoke_auth_session(const char *s,uint32_t g) {(void)s;(vo
 int mbedtls_sha256(const unsigned char *p,size_t n,unsigned char *out,int mode) {(void)mode;return SHA256(p,n,out)?0:-1;}
 int mbedtls_pkcs5_pbkdf2_hmac_ext(int md,const uint8_t *p,size_t pn,const uint8_t *salt,size_t sn,unsigned iterations,unsigned n,uint8_t *out) {
     (void)md;kdf_calls++;
+    if (rotate_during_kdf) {rotate_during_kdf=false;assert(si_auth_security_changed(si_auth_credential_generation())==ESP_OK);}
     return PKCS5_PBKDF2_HMAC((const char *)p,(int)pn,salt,(int)sn,(int)iterations,EVP_sha256(),(int)n,out)==1?0:-1;
 }
 const char *esp_err_to_name(esp_err_t e) {(void)e;return "mock";}
@@ -153,6 +155,23 @@ int main(int argc,char **argv) {
     assert(si_auth_set_credentials("owner","replacement-password")==ESP_OK);
     assert(!si_auth_token_matches(b));
     assert(si_auth_create_session_for_generation("web",old_generation,b)!=ESP_OK);
+    assert(si_auth_create_session_for_generation("web",si_auth_credential_generation(),a)==ESP_OK);
+    assert(si_auth_token_is_browser(a) && si_auth_token_is_recent(a));
+    assert(si_auth_create_session_for_generation("exoanchor-mcp",si_auth_credential_generation(),b)==ESP_OK);
+    assert(!si_auth_token_is_browser(b) && !si_auth_token_is_recent(b));
+    old_generation=si_auth_credential_generation();
+    assert(si_auth_security_changed(old_generation+1)!=ESP_OK);
+    assert(si_auth_token_matches(a));
+    assert(si_auth_security_changed(old_generation)==ESP_OK);
+    assert(si_auth_credential_generation()!=old_generation);
+    assert(!si_auth_token_matches(a) && !si_auth_token_matches(b));
+    assert(si_auth_create_session_for_generation("web",old_generation,b)!=ESP_OK);
+    assert(si_auth_set_credentials_for_generation("intruder","stale-password",old_generation)!=ESP_OK);
+    assert(si_auth_credentials_match("owner","replacement-password"));
+    assert(si_auth_set_credentials_for_generation("owner","replacement-password",si_auth_credential_generation())==ESP_OK);
+    rotate_during_kdf=true;
+    assert(si_auth_set_credentials_for_generation("intruder","stale-password",si_auth_credential_generation())!=ESP_OK);
+    assert(si_auth_credentials_match("owner","replacement-password"));
     for(int i=0;i<5;++i){
         assert(!si_auth_credentials_match("owner","incorrect"));
 #ifdef DEV_PROFILE

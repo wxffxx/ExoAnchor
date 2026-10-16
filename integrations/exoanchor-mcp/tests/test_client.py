@@ -61,6 +61,28 @@ class TransportTests(unittest.TestCase):
 
 
 class LoginPollingTests(unittest.TestCase):
+    def test_two_step_code_is_not_reused(self):
+        config = client_config(otp_code="012345")
+        client = ExoAnchorClient(config)
+        with patch.object(client, "_request", return_value={"token": "test-token"}) as request:
+            client.login()
+            self.assertEqual(request.call_args.args[2]["otp"], "012345")
+            client.login()
+            self.assertNotIn("otp", request.call_args.args[2])
+        self.assertIsNone(config.otp_code)
+
+    def test_failed_login_also_consumes_supplied_code(self):
+        config = client_config(otp_code="012345")
+        client = ExoAnchorClient(config)
+        with patch.object(client, "_request", side_effect=ExoAnchorError("test failure")):
+            with self.assertRaises(ExoAnchorError):
+                client.login()
+        self.assertIsNone(config.otp_code)
+
+    def test_one_time_code_from_environment(self):
+        with patch.dict("os.environ", {"EXOANCHOR_BASE_URL": "https://device.test", "EXOANCHOR_OTP_CODE": "012345"}, clear=True):
+            self.assertEqual(ExoAnchorConfig.from_env().otp_code, "012345")
+
     def test_invalid_token_type_does_not_replace_an_existing_session(self):
         for token in (True, 7, ["not-a-token"], {"secret": "do-not-echo"}):
             with self.subTest(token_type=type(token).__name__):

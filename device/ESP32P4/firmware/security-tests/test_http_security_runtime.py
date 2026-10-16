@@ -98,8 +98,16 @@ static bool si_auth_credentials_match(const char *u,const char *p) {(void)u;(voi
 static esp_err_t si_auth_validate_username(const char *u) {return u&&strlen(u)?ESP_OK:ESP_ERR_INVALID_ARG;}
 static esp_err_t si_auth_validate_password(const char *p) {return p&&strlen(p)>=6?ESP_OK:ESP_ERR_INVALID_ARG;}
 static esp_err_t si_auth_set_credentials(const char *u,const char *p) {(void)u;(void)p;credential_changed++;return ESP_OK;}
+static uint32_t credential_generation=1;
+static uint32_t si_auth_credential_generation(void) {return credential_generation;}
+static esp_err_t si_auth_set_credentials_for_generation(const char *u,const char *p,uint32_t g) {
+    assert(g==credential_generation);credential_generation++;return si_auth_set_credentials(u,p);
+}
 static esp_err_t si_auth_create_session_for_client(const char *c,char out[65]) {
     created_client=c;token_created++;strcpy(out,"synthetic-browser-token");return ESP_OK;
+}
+static esp_err_t si_auth_create_session_for_generation(const char *c,uint32_t g,char out[65]) {
+    assert(g==credential_generation);return si_auth_create_session_for_client(c,out);
 }
 static esp_err_t si_http_set_session_cookie(httpd_req_t *r,const char *t,char *c,size_t n) {
     (void)r;(void)t;(void)c;(void)n;return ESP_OK;
