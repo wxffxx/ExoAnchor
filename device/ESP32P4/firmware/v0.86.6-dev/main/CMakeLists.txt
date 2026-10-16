@@ -6,6 +6,7 @@ set(SI_MAIN_SRCS
         "application/agent_tools_settings.c"
         "application/auth_service.c"
     "application/two_step.c"
+    "application/passkey.c"
         "application/boot_key_manager.c"
         "application/control_lease.c"
         "application/console_credentials.c"

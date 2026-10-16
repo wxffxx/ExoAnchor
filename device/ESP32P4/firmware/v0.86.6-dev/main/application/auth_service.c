@@ -1125,7 +1125,7 @@ esp_err_t si_auth_setup_credentials(const char *username, const char *password,
     return ret;
 }
 
-esp_err_t si_auth_security_changed(uint32_t expected_generation)
+esp_err_t si_auth_security_commit(uint32_t expected_generation, esp_err_t (*commit)(void *), void *context)
 {
     if (!s_credentials_lock || xSemaphoreTake(s_credentials_lock,
             pdMS_TO_TICKS(AUTH_SESSION_LOCK_WAIT_MS)) != pdTRUE) return ESP_ERR_TIMEOUT;
@@ -1148,9 +1148,15 @@ esp_err_t si_auth_security_changed(uint32_t expected_generation)
     }
     retained_commit_locked(esp_timer_get_time());
     xSemaphoreGive(s_lock);
+    esp_err_t result = commit ? commit(context) : ESP_OK;
     xSemaphoreGive(s_credentials_lock);
     revoked_sessions_apply(&revoked);
-    return ESP_OK;
+    return result;
+}
+
+esp_err_t si_auth_security_changed(uint32_t expected_generation)
+{
+    return si_auth_security_commit(expected_generation, NULL, NULL);
 }
 
 bool si_auth_token_is_browser(const char *token)

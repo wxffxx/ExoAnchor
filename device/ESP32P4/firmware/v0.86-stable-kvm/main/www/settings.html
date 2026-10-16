@@ -68,6 +68,23 @@ code{padding:2px 5px;border:1px solid var(--line);border-radius:5px;background:#
         <a href="/api/auth/certificate" download="exoanchor-device.pem">下载设备证书</a>
     </article>
 
+    <div class="card" id="passkeyCard">
+      <h2>通行密钥 · Passkey</h2>
+      <p>用 iPhone / Mac 的 Face ID、Touch ID 或设备解锁登录。密码和两步验证仍可用于备用登录。</p>
+      <p id="passkeyStatus" role="status">正在读取状态…</p>
+      <p id="passkeyEnvironment" role="status" style="overflow-wrap:anywhere"></p>
+      <p>先通过固定主机名打开设备并信任 HTTPS 证书，再绑定当前网址。添加或删除前请重新登录，并输入当前密码和已启用的验证码。删除所有密钥后才能更换绑定网址。</p>
+      <div class="actions"><button id="passkeyRefresh" type="button">刷新状态</button><button id="passkeyLogin" type="button">重新登录</button></div>
+      <form id="passkeyForm" autocomplete="off">
+        <div class="field"><label for="passkeyPassword">当前密码</label><input id="passkeyPassword" type="password" autocomplete="current-password" maxlength="64"></div>
+        <div class="field"><label for="passkeyOtp">验证码 / 恢复码（已启用时填写）</label><input id="passkeyOtp" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div>
+        <div class="field"><label for="passkeyLabel">密钥名称</label><input id="passkeyLabel" value="我的通行密钥" maxlength="16" autocomplete="off"></div>
+        <div class="actions"><button id="passkeyConfigure" type="button" disabled>绑定当前网址</button><button id="passkeyAdd" type="submit" disabled>添加通行密钥</button><button id="passkeyCancel" type="button" hidden>取消操作</button></div>
+      </form>
+      <div id="passkeyList"></div>
+      <div id="passkeyMsg" class="msg" role="status"></div>
+    </div>
+
     <div class="card" id="twoStepCard">
       <h2>两步验证 · 动态验证码</h2>
       <p>验证器每 30 秒生成一个 6 位验证码。启用后，登录需要密码和验证码，也可使用一次性恢复码。</p>
@@ -112,6 +129,64 @@ code{padding:2px 5px;border:1px solid var(--line);border-radius:5px;background:#
     </article>
   </section>
 </main>
+<script id="passkey-settings-script">
+(() => {
+  const ui = window.ExoAnchorUI, el = id => document.getElementById(id);
+  let busy = false, loaded = false, state = null;
+  const message = (text, bad = false) => { el("passkeyMsg").textContent = text; el("passkeyMsg").className = bad ? "msg bad" : "msg"; };
+  function clear() { el("passkeyPassword").value = el("passkeyOtp").value = ""; }
+  function controls() {
+    const problem = ui.passkeys.problem();
+    el("passkeyEnvironment").textContent = problem || "当前网址：" + location.origin;
+    el("passkeyConfigure").disabled = busy || !!problem || !state?.storage_ok || !!state?.credentials?.length;
+    el("passkeyAdd").disabled = busy || !!problem || !state?.storage_ok || state.origin !== location.origin || state.credentials.length >= state.limit;
+    el("passkeyCancel").hidden = !busy;
+    for (const button of el("passkeyList").querySelectorAll("button")) button.disabled = busy || !!problem;
+  }
+  async function refresh() {
+    try {
+      state = await ui.api.request("GET", "/api/auth/passkeys", undefined, false); loaded = true; message("");
+      el("passkeyStatus").textContent = !state.storage_ok ? "通行密钥存储异常，请使用密码登录并检查设备存储。" :
+        state.origin ? `已绑定 ${state.origin} · ${state.credentials.length} / ${state.limit} 个通行密钥` : "尚未绑定网址";
+      el("passkeyStatus").style.overflowWrap = "anywhere";
+      el("passkeyList").replaceChildren();
+      for (const key of state.credentials || []) {
+        const row = document.createElement("div"), label = document.createElement("span"), button = document.createElement("button");
+        row.className = "actions"; label.textContent = key.label; label.style.overflowWrap = "anywhere";
+        button.type = "button"; button.textContent = "删除";
+        button.onclick = () => { if (window.confirm(`删除“${key.label}”？这会退出所有会话。`)) run("remove", {id: key.id}); };
+        row.append(label, button); el("passkeyList").append(row);
+      }
+    } catch (error) { message(error.message, true); }
+    controls();
+  }
+  async function run(action, extra = {}) {
+    if (busy) return;
+    if (!el("passkeyPassword").value) return message("请输入当前密码。", true);
+    busy = true; controls(); message(action === "register" ? "正在验证；随后请在系统提示中创建通行密钥…" : "正在保存…");
+    const body = {current_password: el("passkeyPassword").value, otp: el("passkeyOtp").value.trim(), label: el("passkeyLabel").value.trim(), ...extra}; clear();
+    try {
+      await ui.passkeys.perform(action, body);
+      ui.api.setSession("", ui.api.username); loaded = false; state = null;
+      el("passkeyList").replaceChildren();
+      el("passkeyStatus").textContent = "已保存 · 请重新登录";
+      message("已保存，所有旧会话已退出。请重新登录后刷新状态。若刚使用动态码，请等待下一组验证码。");
+    } catch (error) { message(error.message + " 如请求中断，请重新登录并刷新状态确认结果。", true); }
+    finally { body.current_password = body.otp = ""; clear(); busy = false; controls(); }
+  }
+  el("passkeyConfigure").onclick = () => run("configure");
+  el("passkeyForm").onsubmit = event => { event.preventDefault(); run("register"); };
+  el("passkeyCancel").onclick = () => ui.passkeys.cancel();
+  el("passkeyRefresh").onclick = refresh;
+  el("passkeyLogin").onclick = async () => { clear(); if (await ui.auth.requireLogin()) await refresh(); };
+  document.addEventListener("exoanchor:logout", clear);
+  document.addEventListener("exoanchor:session-expired", clear);
+  window.addEventListener("pagehide", clear);
+  window.ExoAnchorPasskeys = {refresh, load: () => { if (!loaded) refresh(); }};
+  controls();
+})();
+</script>
+
 <script id="two-step-settings-script">
 (() => {
   const ui = window.ExoAnchorUI, el = id => document.getElementById(id);
@@ -219,7 +294,7 @@ function collectGpioUpdates(){
     return{role:item.role,gpio,active_high:level?.value==="high"};
   });
 }
-async function loadAll(){window.ExoAnchorTwoStep?.load();for(const fn of [loadDevice,loadAuth,loadSession,loadVideo,loadGpio]){try{await fn()}catch(e){console.error(e)}}}
+async function loadAll(){{ window.ExoAnchorTwoStep?.load(); window.ExoAnchorPasskeys?.load(); }for(const fn of [loadDevice,loadAuth,loadSession,loadVideo,loadGpio]){try{await fn()}catch(e){console.error(e)}}}
 $("deviceForm").onsubmit=async e=>{e.preventDefault();try{await API.post("/api/settings/device",{label:$("deviceLabel").value.trim()});message("deviceMsg","设备名称已保存");await UI.info.refresh()}catch(err){message("deviceMsg",err.message,false)}};
 $("accountForm").onsubmit=async e=>{e.preventDefault();const password=$("newPassword").value;if(password!==$("confirmPassword").value){message("accountMsg","两次密码不一致",false);return}try{const otp=$("accountOtp").value.trim();$("accountOtp").value="";await API.login(API.username,$("currentPassword").value,"",otp);const r=await API.post("/api/settings/account",{current_password:$("currentPassword").value,username:$("accountUsername").value.trim(),new_password:password});if(r.token)API.setSession(r.token,r.username);message("accountMsg","本地账户已更新");$("currentPassword").value=$("newPassword").value=$("confirmPassword").value=""}catch(err){message("accountMsg",err.message,false)}};
 $("saveSession").onclick=async()=>{try{await API.post("/api/settings/session",{auto_logout_enabled:$("autoLogoutEnabled").checked,auto_logout_minutes:Number($("autoLogoutMinutes").value)});message("sessionMsg","会话设置已保存");await Session.load()}catch(err){message("sessionMsg",err.message,false)}};

@@ -448,6 +448,81 @@
     },
   };
 
+  const passkeys = {
+    controller: null,
+    problem() {
+      if (!window.isSecureContext || location.protocol !== "https:") return "请使用浏览器信任的 HTTPS 网址。";
+      const host = location.hostname;
+      if (host.includes(":") || /^[\d.]+$/.test(host)) return "请通过设备主机名访问，通行密钥不能绑定 IP 地址。";
+      if (!window.PublicKeyCredential || !navigator.credentials?.create || !navigator.credentials?.get) return "当前浏览器不支持通行密钥，请使用密码登录。";
+      return "";
+    },
+    cancel() { this.controller?.abort(); },
+    decode(text) {
+      return Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    },
+    encode(bytes) {
+      return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    },
+    async post(action, body, signal) {
+      const response = await fetch("/api/auth/passkeys", {
+        method: "POST", headers: api.headers(), credentials: "same-origin", cache: "no-store",
+        body: JSON.stringify({action, ...body}), signal,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    },
+    async perform(action, body = {}) {
+      const problem = this.problem(); if (problem) throw new Error(problem);
+      if (this.controller) throw new Error("请先完成或取消当前通行密钥操作。");
+      if (action === "login" && session.loggedOut?.()) await session.logout();
+      const logoutGeneration = localStorage.getItem("ea_auth_logout_generation");
+      const controller = new AbortController(); this.controller = controller;
+      const cancel = () => controller.abort();
+      document.addEventListener("exoanchor:logout", cancel);
+      document.addEventListener("exoanchor:session-expired", cancel);
+      window.addEventListener("pagehide", cancel);
+      const timer = setTimeout(() => controller.abort(), 210000);
+      try {
+        let result;
+        if (action === "register" || action === "login") {
+          const create = action === "register";
+          const options = await this.post(create ? "register_options" : "login_options", body, controller.signal);
+          options.challenge = this.decode(options.challenge);
+          if (create) {
+            options.user.id = this.decode(options.user.id);
+            options.excludeCredentials = (options.excludeCredentials || []).map(k => ({...k, id: this.decode(k.id)}));
+          }
+          const credential = await navigator.credentials[create ? "create" : "get"]({publicKey: options, signal: controller.signal});
+          if (!credential) throw new Error("未返回通行密钥。");
+          const data = {type: credential.type, rawId: this.encode(credential.rawId), clientDataJSON: this.encode(credential.response.clientDataJSON)};
+          if (create) data.attestationObject = this.encode(credential.response.attestationObject);
+          else {
+            data.authenticatorData = this.encode(credential.response.authenticatorData);
+            data.signature = this.encode(credential.response.signature);
+            data.userHandle = credential.response.userHandle ? this.encode(credential.response.userHandle) : "";
+          }
+          if (controller.signal.aborted) throw new DOMException("已取消", "AbortError");
+          result = await this.post(create ? "register_finish" : "login_finish", data, controller.signal);
+        } else result = await this.post(action, body, controller.signal);
+        if (controller.signal.aborted || logoutGeneration !== localStorage.getItem("ea_auth_logout_generation"))
+          throw new DOMException("登录已取消", "AbortError");
+        if (action === "login") api.setSession(result.token, result.username);
+        return result;
+      } catch (error) {
+        if (error.name === "NotAllowedError" || error.name === "AbortError") throw new Error("操作已取消或超时；可以重新尝试或使用密码登录。");
+        if (error.name === "InvalidStateError") throw new Error("此验证器已添加过通行密钥。");
+        throw error;
+      } finally {
+        clearTimeout(timer); this.controller = null;
+        document.removeEventListener("exoanchor:logout", cancel);
+        document.removeEventListener("exoanchor:session-expired", cancel);
+        window.removeEventListener("pagehide", cancel);
+        body.current_password = body.otp = "";
+      }
+    },
+  };
+
   const auth = {
     mounted: false,
     mode: "login",
@@ -469,7 +544,7 @@
           '<div id="authNewFields"><div class="field"><label for="authNewUsername">新用户名</label><input id="authNewUsername" type="text" autocomplete="username" maxlength="32"></div>' +
           '<div class="field"><label for="authNewPassword">新密码（至少 6 位）</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>' +
           '<div class="field"><label for="authConfirmPassword">确认新密码</label><input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div></div>' +
-          '<div class="actions"><button id="authSubmit" class="primary" type="submit">登录</button></div><div id="authMsg" class="msg"></div>' +
+          '<div class="actions"><button id="authSubmit" class="primary" type="submit">登录</button></div><button id="authPasskey" type="button">使用通行密钥登录</button><p id="authPasskeyHint" role="status"></p><div id="authMsg" class="msg"></div>' +
         '</form></div>');
       this.mounted = true;
       lifecycle.addCleanup(() => this.hide(false));
@@ -489,6 +564,10 @@
           "请使用预设凭据登录，随后设置新密码。" :
           "需要登录后才能继续。") :
         "当前账户仍使用默认凭据，请设置至少六位的新密码。";
+      byId("authPasskey").hidden = mode !== "login" || this.state.passkey?.enabled === false;
+      const passkeyProblem = passkeys.problem();
+      byId("authPasskey").disabled = !!passkeyProblem;
+      byId("authPasskeyHint").textContent = mode === "login" && !byId("authPasskey").hidden ? passkeyProblem : "";
       byId("authSubmit").disabled = false;
       byId("authSubmit").textContent = mode === "setup" ? "创建并继续" : mode === "login" ? "登录" : "保存并继续";
       if (mode === "login" && this.state.two_step_storage_ok === false) {
@@ -512,6 +591,7 @@
     },
 
     hide(ok) {
+      passkeys.cancel();
       if (byId("authOtp")) byId("authOtp").value = "";
       byId("authModal")?.classList.remove("show");
       if (ok) {
@@ -657,8 +737,21 @@
     bindForm(onAuthenticated) {
       this.mount();
       this.onAuthenticated = onAuthenticated || null;
+      byId("authPasskey").onclick = async () => {
+        const button = byId("authPasskey"), message = byId("authMsg");
+        button.disabled = byId("authSubmit").disabled = true;
+        byId("authCurrentPassword").value = byId("authOtp").value = "";
+        message.textContent = "请在系统提示中确认通行密钥…"; message.className = "msg";
+        try {
+          const result = await passkeys.perform("login");
+          this.finishAuthentication(result);
+        } catch (error) { message.textContent = error.message; message.className = "msg bad"; }
+        finally { button.disabled = !!passkeys.problem(); byId("authSubmit").disabled = false; }
+      };
+
       byId("authForm").onsubmit = async event => {
         event.preventDefault();
+        passkeys.cancel();
         const message = byId("authMsg");
         const submit = byId("authSubmit");
         message.textContent = "";
@@ -1283,6 +1376,7 @@
   }
 
   window.ExoAnchorUI = {
+    passkeys,
     VERSION,
     features: FEATURES,
     api,

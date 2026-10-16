@@ -423,6 +423,7 @@ static esp_err_t auth_logout_handler(httpd_req_t *req)
 static esp_err_t auth_status_handler(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "passkey", si_passkey_status(false));
     si_two_step_status_t two;
     si_two_step_get_status(&two);
     cJSON_AddBoolToObject(root, "two_step_enabled", two.enabled);

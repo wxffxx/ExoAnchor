@@ -50,9 +50,9 @@ void esp_fill_random(void *out, size_t n) {
     unsigned char *p = out;
     for (size_t i=0;i<n;++i) p[i]=(unsigned char)++random_counter;
 }
-SemaphoreHandle_t xSemaphoreCreateMutex(void) {return malloc(1);}
-int xSemaphoreTake(SemaphoreHandle_t p, unsigned ms) {(void)ms;return p!=NULL;}
-void xSemaphoreGive(SemaphoreHandle_t p) {(void)p;}
+SemaphoreHandle_t xSemaphoreCreateMutex(void) {return calloc(1,1);}
+int xSemaphoreTake(SemaphoreHandle_t p, unsigned ms) {(void)ms;if(p)*(unsigned char *)p=1;return p!=NULL;}
+void xSemaphoreGive(SemaphoreHandle_t p) {if(p)*(unsigned char *)p=0;}
 void si_session_settings_get(si_session_settings_t *s) {s->auto_logout_enabled=true;s->auto_logout_minutes=1;}
 bool si_control_lease_revoke_auth_session(const char *s,uint32_t g) {(void)s;(void)g;return 0;}
 int mbedtls_sha256(const unsigned char *p,size_t n,unsigned char *out,int mode) {(void)mode;return SHA256(p,n,out)?0:-1;}
@@ -89,6 +89,15 @@ esp_err_t si_settings_store_erase_key(si_settings_store_t *s,const char *key) {(
 esp_err_t si_settings_store_commit(si_settings_store_t *s) {(void)s;return storage_mode==3?ESP_FAIL:ESP_OK;}
 '''
 CASES = r'''
+static unsigned commit_calls;
+static esp_err_t factor_commit_probe(void *context) {
+#ifdef DEV_PROFILE
+    assert(*(unsigned char *)s_credentials_lock == 1);
+#else
+    assert(*(unsigned char *)s_lock == 1);
+#endif
+    commit_calls++;return *(esp_err_t *)context;
+}
 int main(int argc,char **argv) {
     assert(argc==2);
     if(strcmp(argv[1],"read-failure")==0)storage_mode=1;
@@ -169,6 +178,14 @@ int main(int argc,char **argv) {
     assert(si_auth_set_credentials_for_generation("intruder","stale-password",old_generation)!=ESP_OK);
     assert(si_auth_credentials_match("owner","replacement-password"));
     assert(si_auth_set_credentials_for_generation("owner","replacement-password",si_auth_credential_generation())==ESP_OK);
+    esp_err_t commit_result=ESP_OK;
+    old_generation=si_auth_credential_generation();
+    assert(si_auth_security_commit(old_generation+1,factor_commit_probe,&commit_result)!=ESP_OK && commit_calls==0);
+    assert(si_auth_security_commit(old_generation,factor_commit_probe,&commit_result)==ESP_OK && commit_calls==1);
+    assert(si_auth_create_session(a)==ESP_OK);
+    commit_result=ESP_FAIL;old_generation=si_auth_credential_generation();
+    assert(si_auth_security_commit(old_generation,factor_commit_probe,&commit_result)==ESP_FAIL && commit_calls==2);
+    assert(si_auth_credential_generation()!=old_generation && !si_auth_token_matches(a));
     rotate_during_kdf=true;
     assert(si_auth_set_credentials_for_generation("intruder","stale-password",si_auth_credential_generation())!=ESP_OK);
     assert(si_auth_credentials_match("owner","replacement-password"));

@@ -30,6 +30,7 @@
 #include "agent_repository.h"
 #include "auth_service.h"
 #include "two_step.h"
+#include "passkey.h"
 #include "cJSON.h"
 #if SI_CFG_EMBEDDED_AGENT_ENABLED
 #include "agent_result_error.h"
@@ -469,6 +470,7 @@ static esp_err_t agent_run_revoke_page_context(const si_product_feature_settings
 #include "web/resource_operation_contract.inc"
 #include "web/base_settings_http_module.inc"
 #include "web/two_step_http_module.inc"
+#include "web/passkey_http_module.inc"
 #include "web/access_mode_http_module.inc"
 #include "web/product_features_http_module.inc"
 #include "web/power_http_module.inc"
@@ -654,15 +656,7 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/skills", HTTP_GET, skills_handler, false);
 #endif
     register_uri(s_server, "/settings", HTTP_GET, settings_handler, false);
-    register_uri(s_server, "/api/auth/setup", HTTP_GET, auth_setup_handler, false);
-    register_uri(s_server, "/api/auth/setup", HTTP_POST, auth_setup_handler, false);
-    register_uri(s_server, "/api/auth/certificate", HTTP_GET, auth_certificate_handler, false);
-    register_uri(s_server, "/api/auth/login", HTTP_POST, auth_login_handler, false);
-    register_uri(s_server, "/api/auth/login/status", HTTP_GET, auth_login_status_handler, false);
-    register_uri(s_server, "/api/auth/logout", HTTP_POST, auth_logout_handler, false);
-    register_uri(s_server, "/api/auth/status", HTTP_GET, auth_status_handler, false);
-    register_uri(s_server, "/api/auth/two-step", HTTP_GET, two_step_handler, false);
-    register_uri(s_server, "/api/auth/two-step", HTTP_POST, two_step_handler, false);
+#include "web/auth_routes_module.inc"
     register_uri(s_server, "/api/settings/account", HTTP_POST, settings_password_handler, false);
     register_uri(s_server, "/api/settings/password", HTTP_POST, settings_password_handler, false);
     register_uri(s_server, "/api/settings/device", HTTP_GET, settings_device_handler, false);

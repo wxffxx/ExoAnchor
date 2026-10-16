@@ -37,6 +37,8 @@ run_toolkit_tests() {
 "$REPO_DIR/device/ESP32P4/firmware/v0.86-stable-kvm/tests/host/run.sh"
 "$REPO_DIR/device/ESP32P4/firmware/v0.86.6-dev/tests/host/run.sh"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_auth_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_passkey_runtime.py"
+"${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_passkey_http_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_two_step_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_two_step_http_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_http_security_runtime.py"
@@ -45,6 +47,7 @@ run_toolkit_tests() {
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_ota_session_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_ota_image_extent_runtime.py"
 "${PYTHON:-python3}" "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_tls_clients.py"
+node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_passkey_browser.mjs"
 node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_browser_setup.mjs"
 node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_stream_endpoint.mjs"
 

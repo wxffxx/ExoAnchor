@@ -456,7 +456,7 @@ esp_err_t si_auth_setup_credentials(const char *username, const char *password,
 }
 
 bool si_auth_token_is_browser(const char *token) { return token_lookup(token, AUTH_TOKEN_BROWSER, false); }
-esp_err_t si_auth_security_changed(uint32_t expected_generation)
+esp_err_t si_auth_security_commit(uint32_t expected_generation, esp_err_t (*commit)(void *), void *context)
 {
     if (!lock_auth()) return ESP_FAIL;
     if (expected_generation != si_auth_credential_generation()) {
@@ -465,8 +465,14 @@ esp_err_t si_auth_security_changed(uint32_t expected_generation)
     }
     __atomic_add_fetch(&s_credential_generation, 1U, __ATOMIC_RELEASE);
     si_secret_store_clear(s_sessions, sizeof(s_sessions));
+    esp_err_t result = commit ? commit(context) : ESP_OK;
     xSemaphoreGive(s_lock);
-    return ESP_OK;
+    return result;
+}
+
+esp_err_t si_auth_security_changed(uint32_t expected_generation)
+{
+    return si_auth_security_commit(expected_generation, NULL, NULL);
 }
 
 esp_err_t si_auth_set_credentials_for_generation(const char *username, const char *password,

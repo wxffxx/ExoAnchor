@@ -1763,6 +1763,9 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._send_json({"nonce": MockState.setup_nonce})
             return
+        if path == "/api/auth/passkeys":
+            self._send_json({"storage_ok": True, "enabled": False, "origin": "", "limit": 4, "credentials": []})
+            return
         if path == "/api/auth/two-step":
             if not _auth_header_valid(self.headers):
                 self._send_json({"error": "browser login required"}, 401)
@@ -1774,6 +1777,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({
                 "enabled": True,
                 "setup_required": not MockState.local_credentials,
+                "passkey": {"enabled": False, "origin": "", "storage_ok": True},
                 "two_step_enabled": bool(MockState.two_step_secret),
                 "two_step_time_ready": True,
                 "two_step_storage_ok": True,
@@ -2146,6 +2150,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"token": MockState.token, "username": username, "enabled": True, "using_default": False, "must_change_credentials": False})
             return
 
+        if path == "/api/auth/passkeys":
+            self._send_json({"error": "Passkeys require HTTPS and a real verifier; plain HTTP preview cannot enroll credentials"}, 503)
+            return
         if path == "/api/auth/two-step":
             try:
                 payload = json.loads(raw.decode("utf-8") or "{}")

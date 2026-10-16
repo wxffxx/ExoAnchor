@@ -138,3 +138,5 @@ HTTP_POST /api/auth/setup
 HTTP_GET /api/auth/certificate
 HTTP_GET /api/auth/two-step
 HTTP_POST /api/auth/two-step
+HTTP_GET /api/auth/passkeys
+HTTP_POST /api/auth/passkeys

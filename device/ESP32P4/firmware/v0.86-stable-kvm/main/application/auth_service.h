@@ -50,3 +50,7 @@ esp_err_t si_auth_security_changed(uint32_t expected_generation);
 bool si_auth_token_is_browser(const char *token);
 
 esp_err_t si_auth_set_credentials_for_generation(const char *username, const char *password, uint32_t expected_generation);
+
+/* Commit a factor change while fencing concurrent credential replacement.
+ * Callback must not call auth APIs; failure still revokes previous sessions. */
+esp_err_t si_auth_security_commit(uint32_t expected_generation, esp_err_t (*commit)(void *), void *context);

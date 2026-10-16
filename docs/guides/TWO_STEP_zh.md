@@ -43,3 +43,5 @@ Toolkit GUI 的网络连接区域提供“动态验证码 / 恢复码”。CLI �
 所有测试均为主机模拟；本地 UI mock 的状态也仅用于页面预览。真实设备 SNTP、断电写入行为、验证器互操作和硬件验收仍需在授权的真机测试中验证。
 
 标准：[RFC 6238](https://www.rfc-editor.org/rfc/rfc6238)、[RFC 4226](https://www.rfc-editor.org/rfc/rfc4226)；配对见 [HTTPS 指南](SECURITY_TRANSPORT_zh.md)。
+
+浏览器也可添加 [通行密钥（Passkey）](PASSKEY_zh.md)作为独立快捷登录方式；原有密码登录仍要求已启用的动态码或恢复码。

@@ -108,6 +108,7 @@ static esp_err_t auth_http_initialize(void)
 {
     (void)si_auth_is_enabled();
     (void)si_two_step_initialize(); /* Storage errors fail closed at login. */
+    (void)si_passkey_initialize();
     si_two_step_clock_start();
     if (!s_auth_login_lock) s_auth_login_lock = xSemaphoreCreateMutex();
     return s_auth_login_lock ? ESP_OK : ESP_ERR_NO_MEM;
