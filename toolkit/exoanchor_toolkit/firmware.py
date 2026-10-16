@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 from .errors import ToolkitError
+from .json_limits import loads_bounded_json
 from .identity import (
     load_board_identity_credential,
     probe_chip_identity,
@@ -26,6 +27,7 @@ from .identity import (
 MANIFEST_NAME = "exoanchor-firmware.json"
 THIRD_PARTY_NOTICES_NAME = "THIRD_PARTY_NOTICES.txt"
 SCHEMA_VERSION = 1
+MAX_MANIFEST_BYTES = 1024 * 1024
 PRODUCT_ID = "exoanchor-esp32p4"
 REQUIRED_OFFSETS = {0x2000, 0x8000, 0xF000, 0x20000}
 FLASH_SIZES = {
@@ -110,10 +112,14 @@ def _parse_address(value: object) -> int:
 
 def _read_json(path: Path) -> dict[str, object]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        with path.open("rb") as handle:
+            content = handle.read(MAX_MANIFEST_BYTES + 1)
+        if len(content) > MAX_MANIFEST_BYTES:
+            raise ValueError("firmware manifest is too large")
+        value = loads_bounded_json(content.decode("utf-8"))
     except FileNotFoundError as exc:
         raise ToolkitError(f"missing firmware manifest: {path}") from exc
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, RecursionError) as exc:
         raise ToolkitError(f"cannot read firmware manifest {path}: {exc}") from exc
     if not isinstance(value, dict):
         raise ToolkitError("firmware manifest root must be an object")

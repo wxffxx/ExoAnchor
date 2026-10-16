@@ -17,6 +17,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 from .tls_transport import verified_https_handler
+from .json_limits import loads_bounded_json
 
 JSON = dict[str, Any]
 JSON_RESPONSE_LIMIT = 2 * 1024 * 1024
@@ -202,14 +203,14 @@ class ExoAnchorClient:
                     # Current firmware sanitizes at the source; replacement
                     # here keeps the bridge usable during mixed-version repair.
                     try:
-                        return json.loads(
+                        return loads_bounded_json(
                             payload.decode("utf-8", errors="replace") or "{}"
                         )
                     except (ValueError, RecursionError) as exc:
                         raise ExoAnchorError(f"invalid JSON from {path}") from exc
                 text = payload.decode("utf-8", errors="replace")
                 try:
-                    return json.loads(text)
+                    return loads_bounded_json(text)
                 except (ValueError, RecursionError):
                     return {"ok": True, "text": text}
         except HTTPError as exc:

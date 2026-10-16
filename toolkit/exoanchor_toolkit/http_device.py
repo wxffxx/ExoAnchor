@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import json
 import math
@@ -15,7 +16,8 @@ from typing import Callable
 
 from .tls_transport import verified_https_handler
 from .errors import ToolkitError
-from .firmware import FirmwarePackage
+from .json_limits import loads_bounded_json
+from .firmware import FirmwarePackage, FirmwareSegment
 from .network import (
     NetworkSnapshot,
     validate_hostname,
@@ -240,7 +242,7 @@ class DeviceHttpClient:
     @staticmethod
     def _decode_json(content: bytes) -> dict[str, object]:
         try:
-            value = json.loads(content.decode("utf-8"))
+            value = loads_bounded_json(content.decode("utf-8"))
         except (ValueError, RecursionError) as exc:
             raise ToolkitError("device returned invalid JSON") from exc
         if not isinstance(value, dict):
@@ -453,6 +455,33 @@ class NetworkOtaUpdater:
     def __init__(self, client: DeviceHttpClient) -> None:
         self.client = client
 
+    @staticmethod
+    def _resume_offset(
+        status: dict[str, object],
+        segment: FirmwareSegment,
+        *,
+        session_id: str | None = None,
+    ) -> int:
+        current_session = status.get("session_id")
+        offset = status.get("offset")
+        if (
+            status.get("ok") is not True
+            or status.get("active") is not True
+            or status.get("sha256") != segment.sha256
+            or type(status.get("size")) is not int
+            or status.get("size") != segment.size
+            or not isinstance(current_session, str)
+            or not current_session
+            or (session_id is not None and current_session != session_id)
+            or type(offset) is not int
+            or not 0 <= offset <= segment.size
+        ):
+            raise ToolkitError(
+                "device has a different or invalid active OTA upload session; "
+                "inspect its status before resuming or explicitly aborting it"
+            )
+        return offset
+
     def update(
         self,
         package: FirmwarePackage,
@@ -460,14 +489,6 @@ class NetworkOtaUpdater:
         reboot: bool = True,
     ) -> list[str]:
         ensure_network_ota_allowed(package)
-        capabilities = self.client.get_json("/api/capabilities")
-        device = capabilities.get("device")
-        board = device.get("board") if isinstance(device, dict) else None
-        if not isinstance(board, str) or board != package.board:
-            raise ToolkitError(
-                f"firmware board {package.board} does not match device "
-                f"{board or 'unknown'}"
-            )
         app_segments = [
             segment for segment in package.segments if segment.address == 0x20000
         ]
@@ -476,49 +497,56 @@ class NetworkOtaUpdater:
                 "network OTA requires exactly one application segment at 0x20000"
             )
         segment = app_segments[0]
+        if type(segment.size) is not int or segment.size <= 0:
+            raise ToolkitError("OTA application image size must be positive")
         try:
-            payload = segment.path.read_bytes()
+            with segment.path.open("rb") as handle:
+                payload = handle.read(segment.size + 1)
         except OSError as exc:
             raise ToolkitError(f"cannot read OTA application image: {exc}") from exc
+        # The file may have changed since package verification. Verify the exact
+        # immutable bytes to be uploaded before any device operation.
+        if len(payload) != segment.size:
+            raise ToolkitError("OTA application image size changed after verification")
+        if hashlib.sha256(payload).hexdigest() != segment.sha256:
+            raise ToolkitError("OTA application image SHA-256 changed after verification")
+
+        capabilities = self.client.get_json("/api/capabilities")
+        device = capabilities.get("device")
+        board = device.get("board") if isinstance(device, dict) else None
+        if not isinstance(board, str) or board != package.board:
+            raise ToolkitError(
+                f"firmware board {package.board} does not match device "
+                f"{board or 'unknown'}"
+            )
 
         status = self.client.get_json("/api/ota/upload/status")
+        if status.get("ok") is not True or type(status.get("active")) is not bool:
+            raise ToolkitError("device returned an invalid OTA upload status")
         session_id = ""
         offset = 0
         if status.get("active") is True:
-            status_sha = status.get("sha256")
-            status_size = status.get("size")
-            status_session = status.get("session_id")
-            status_offset = status.get("offset")
-            if (
-                status_sha != segment.sha256
-                or status_size != len(payload)
-                or not isinstance(status_session, str)
-                or not isinstance(status_offset, int)
-                or not 0 <= status_offset <= len(payload)
-            ):
-                raise ToolkitError(
-                    "device has a different active OTA upload session; "
-                    "abort it explicitly before starting another image"
-                )
-            session_id = status_session
-            offset = status_offset
+            offset = self._resume_offset(status, segment)
+            session_id = status["session_id"]
         else:
             started = self.client.post_json(
                 "/api/ota/upload/start",
                 {"size": len(payload), "sha256": segment.sha256},
             )
-            session_id = str(started.get("session_id") or "")
+            session_id = started.get("session_id")
             offset_value = started.get("offset")
-            if started.get("ok") is not True or not session_id:
+            if (started.get("ok") is not True
+                    or not isinstance(session_id, str) or not session_id):
                 raise ToolkitError("device did not create an OTA upload session")
-            if not isinstance(offset_value, int) or offset_value != 0:
+            if type(offset_value) is not int or offset_value != 0:
                 raise ToolkitError("device returned an invalid OTA start offset")
             offset = offset_value
+            status = started
 
         chunk_size_value = status.get("chunk_size", 64 * 1024)
-        if not isinstance(chunk_size_value, int):
-            chunk_size_value = 64 * 1024
-        chunk_size = max(4096, min(64 * 1024, chunk_size_value))
+        if type(chunk_size_value) is not int or chunk_size_value <= 0:
+            raise ToolkitError("device returned an invalid OTA chunk size")
+        chunk_size = min(64 * 1024, chunk_size_value)
         while offset < len(payload):
             end = min(len(payload), offset + chunk_size)
             path = (
@@ -534,20 +562,17 @@ class NetworkOtaUpdater:
                 # the response was lost. Read its authoritative offset instead
                 # of blindly replaying bytes into the OTA stream.
                 recovered = self.client.get_json("/api/ota/upload/status")
-                recovered_offset = recovered.get("offset")
-                if (
-                    recovered.get("active") is True
-                    and recovered.get("session_id") == session_id
-                    and isinstance(recovered_offset, int)
-                    and offset < recovered_offset <= end
-                ):
+                recovered_offset = self._resume_offset(
+                    recovered, segment, session_id=session_id,
+                )
+                if offset < recovered_offset <= end:
                     offset = recovered_offset
                     continue
                 raise
             next_offset = chunk_result.get("offset")
             if (
                 chunk_result.get("ok") is not True
-                or not isinstance(next_offset, int)
+                or type(next_offset) is not int
                 or not offset < next_offset <= end
             ):
                 raise ToolkitError("device returned an invalid OTA chunk offset")
@@ -557,6 +582,8 @@ class NetworkOtaUpdater:
             "/api/ota/upload/finish", {"session_id": session_id}
         )
         returned_sha = result.get("sha256")
+        if result.get("ok") is not True:
+            raise ToolkitError("device did not confirm OTA image installation")
         if not isinstance(returned_sha, str) or returned_sha.lower() != segment.sha256:
             raise ToolkitError(
                 "device OTA SHA-256 does not match the verified package"
@@ -566,7 +593,9 @@ class NetworkOtaUpdater:
             f"SHA-256 verified: {segment.sha256}",
         ]
         if reboot:
-            self.client.post_json("/api/ota/reboot", {})
+            restarted = self.client.post_json("/api/ota/reboot", {})
+            if restarted.get("ok") is not True:
+                raise ToolkitError("OTA image installed but device did not confirm reboot request")
             lines.append("Device reboot requested")
         else:
             lines.append("Reboot required to activate the update")
