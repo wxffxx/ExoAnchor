@@ -995,6 +995,7 @@
     grid-column: 1;
     width: auto;
     min-width: 0;
+    flex-wrap: wrap;
     justify-content: flex-start;
     margin-left: 0;
     overflow-x: auto;

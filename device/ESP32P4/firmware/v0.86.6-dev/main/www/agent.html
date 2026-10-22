@@ -100,7 +100,7 @@
     <section id="workspace-threads" class="workspace-view active">
       <div id="threadWorkspace" class="thread-layout">
         <aside class="thread-history">
-          <div class="thread-history-head"><div><b>Threads</b><span class="thread-history-actions"><button id="clearAgentData" class="clear-agent-data" type="button">Clear all</button><button id="newThread" type="button">New</button></span></div><input id="threadSearch" class="thread-search" type="search" placeholder="搜索对话" autocomplete="off"></div>
+          <div class="thread-history-head"><div><b>Threads</b><span class="thread-history-actions"><button id="clearAgentData" class="clear-agent-data" type="button">Clear all</button><button id="newThread" type="button">New</button></span></div><input id="threadSearch" aria-label="搜索对话" class="thread-search" type="search" placeholder="搜索对话" autocomplete="off"></div>
           <div id="sessionList" class="sessions"></div>
         </aside>
         <div id="threadListResizer" class="column-resizer" role="separator" aria-orientation="vertical" aria-label="调整对话列表宽度" tabindex="0"></div>
@@ -120,11 +120,11 @@
               </div>
             </div>
             <div id="threadAgentRequestMeta" class="thread-agent-request-meta"></div>
-            <textarea id="threadAgentRequestResponse" maxlength="512" placeholder="输入给 Agent 的回答" hidden></textarea>
+            <textarea id="threadAgentRequestResponse" aria-label="回答 Agent 的请求" maxlength="512" placeholder="输入给 Agent 的回答" hidden></textarea>
             <details id="threadAgentRequestDetails" hidden><summary>查看精确参数</summary><pre id="threadAgentRequestParameters"></pre></details>
           </section>
           <div class="composer">
-            <textarea id="prompt" placeholder="给 Agent 发送消息；Cmd/Ctrl + Enter 发送"></textarea>
+            <textarea id="prompt" aria-label="给 Agent 发送消息" placeholder="给 Agent 发送消息；Cmd/Ctrl + Enter 发送"></textarea>
             <div class="composer-settings">
               <div class="composer-models"><div class="field"><label for="agentProfile">API Profile</label><select id="agentProfile"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="kimi">Kimi K3</option><option value="custom">Custom</option></select></div><div class="field"><label for="agentModel">Model</label><select id="agentModel"><option value="deepseek-v4-pro">deepseek-v4-pro</option></select></div><button id="refreshModels" type="button">Models</button></div>
               <div class="composer-permission-stack">
@@ -207,7 +207,7 @@ function authUrl(path){return path}
 function streamUrl(){return authUrl("/api/stream?owner=agent&t="+Date.now())}
 function setBadge(el,label,state,kind){el.textContent=`${label} ${state}`;el.className=`data-state ${kind||""}`.trim()}
 const workspaceState={ready:false,booted:false,capabilities:null,toolSettings:null,mcp:null,memory:null,targetProfile:null,run:null,requestQueue:null,displayPlan:null,bootKeyPlan:null,api:null};
-$("hostDisplayRequestCard").insertAdjacentHTML("beforebegin",'<article id="agentRequestCard" class="panel host-display-plan" hidden><div class="panel-head"><h2>Agent 请求</h2><span id="agentRequestState" class="data-state">无请求</span></div><div class="host-display-body"><p id="agentRequestCopy" class="host-display-copy">当前没有 Agent 请求。</p><div id="agentRequestSummary" class="run-kv"></div><textarea id="agentRequestResponse" class="agent-request-response" maxlength="512" placeholder="输入给 Agent 的回答" hidden></textarea><details id="agentRequestDetails" class="developer-details" hidden><summary>精确参数</summary><pre id="agentRequestParameters"></pre></details><div class="host-display-actions"><button id="agentRequestCancel" type="button" disabled>拒绝</button><button id="agentRequestApprove" class="primary" type="button" disabled>允许一次</button></div></div></article>');
+$("hostDisplayRequestCard").insertAdjacentHTML("beforebegin",'<article id="agentRequestCard" class="panel host-display-plan" hidden><div class="panel-head"><h2>Agent 请求</h2><span id="agentRequestState" class="data-state">无请求</span></div><div class="host-display-body"><p id="agentRequestCopy" class="host-display-copy">当前没有 Agent 请求。</p><div id="agentRequestSummary" class="run-kv"></div><textarea id="agentRequestResponse" aria-label="回答 Agent 的请求" class="agent-request-response" maxlength="512" placeholder="输入给 Agent 的回答" hidden></textarea><details id="agentRequestDetails" class="developer-details" hidden><summary>精确参数</summary><pre id="agentRequestParameters"></pre></details><div class="host-display-actions"><button id="agentRequestCancel" type="button" disabled>拒绝</button><button id="agentRequestApprove" class="primary" type="button" disabled>允许一次</button></div></div></article>');
 const agentRequestCard=$("agentRequestCard"),agentRequestState=$("agentRequestState"),agentRequestCopy=$("agentRequestCopy"),agentRequestSummary=$("agentRequestSummary"),agentRequestResponse=$("agentRequestResponse"),agentRequestDetails=$("agentRequestDetails"),agentRequestParameters=$("agentRequestParameters"),agentRequestCancel=$("agentRequestCancel"),agentRequestApprove=$("agentRequestApprove");
 const threadAgentRequest=$("threadAgentRequest"),threadAgentRequestState=$("threadAgentRequestState"),threadAgentRequestResource=$("threadAgentRequestResource"),threadAgentRequestCopy=$("threadAgentRequestCopy"),threadAgentRequestMeta=$("threadAgentRequestMeta"),threadAgentRequestResponse=$("threadAgentRequestResponse"),threadAgentRequestDetails=$("threadAgentRequestDetails"),threadAgentRequestParameters=$("threadAgentRequestParameters"),threadAgentRequestCancel=$("threadAgentRequestCancel"),threadAgentRequestApprove=$("threadAgentRequestApprove");
 const bootKeyDeveloperPanel=bootKeyRequestCard.querySelector(".developer-details");
