@@ -22,7 +22,9 @@
 #include "lwip/inet.h"
 #include "lwip/sockets.h"
 #include "mbedtls/sha256.h"
+#include "secret_store.h"
 #include "ssh_hostkey_store.h"
+#include "time_utils.h"
 
 #include "libssh2_config.h"
 #include "libssh2.h"
@@ -87,10 +89,7 @@ static esp_err_t ssh_verify_host_key(LIBSSH2_SESSION *session,
 
 static void ssh_secure_clear(void *data, size_t len)
 {
-    static void *(*const volatile memset_fn)(void *, int, size_t) = memset;
-    if (data && len > 0) {
-        (void)memset_fn(data, 0, len);
-    }
+    si_secret_store_clear(data, len);
 }
 
 typedef struct {
@@ -121,11 +120,6 @@ static esp_err_t ensure_ssh_lock(void)
         ESP_RETURN_ON_FALSE(s_ssh_lock != NULL, ESP_ERR_NO_MEM, TAG, "create ssh lock");
     }
     return ESP_OK;
-}
-
-static uint32_t now_ms(void)
-{
-    return (uint32_t)(esp_timer_get_time() / 1000);
 }
 
 static void set_error(si_ssh_exec_result_t *result, const char *message)
@@ -175,7 +169,7 @@ static void append_output(si_ssh_exec_result_t *result, const char *data, size_t
 
 static bool deadline_valid(uint32_t deadline_ms)
 {
-    return (int32_t)(deadline_ms - now_ms()) > 0;
+    return (int32_t)(deadline_ms - si_monotonic_ms()) > 0;
 }
 
 static bool ssh_exec_cancel_requested(const si_ssh_exec_config_t *config)
@@ -186,7 +180,7 @@ static bool ssh_exec_cancel_requested(const si_ssh_exec_config_t *config)
 
 static int wait_fd(int sock, LIBSSH2_SESSION *session, uint32_t deadline_ms)
 {
-    uint32_t current = now_ms();
+    uint32_t current = si_monotonic_ms();
     if ((int32_t)(deadline_ms - current) <= 0) {
         return 0;
     }
@@ -239,13 +233,13 @@ static int connect_with_timeout(int sock, const struct sockaddr *addr,
         return -1;
     }
 
-    uint32_t deadline_ms = now_ms() + timeout_ms;
+    uint32_t deadline_ms = si_monotonic_ms() + timeout_ms;
     while (deadline_valid(deadline_ms)) {
         if (cancel_cb && cancel_cb(cancel_user_ctx)) {
             errno = ECANCELED;
             return -1;
         }
-        uint32_t remaining_ms = deadline_ms - now_ms();
+        uint32_t remaining_ms = deadline_ms - si_monotonic_ms();
         uint32_t wait_ms = MIN(remaining_ms, SI_SSH_IO_WAIT_SLICE_MS);
         struct timeval tv = {
             .tv_sec = (time_t)(wait_ms / 1000U),
@@ -368,7 +362,7 @@ static esp_err_t ssh_exec_worker(const si_ssh_exec_config_t *config,
 
     uint32_t timeout_ms = config->timeout_ms ? config->timeout_ms : SI_SSH_DEFAULT_TIMEOUT_MS;
     timeout_ms = MIN(timeout_ms, SI_SSH_MAX_TIMEOUT_MS);
-    uint32_t deadline = now_ms() + timeout_ms;
+    uint32_t deadline = si_monotonic_ms() + timeout_ms;
     if (ssh_exec_cancel_requested(config)) {
         set_error(result, "ssh command cancelled");
         return ESP_ERR_INVALID_STATE;
@@ -735,7 +729,7 @@ static bool shell_write_channel(si_ssh_shell_t *shell, int sock, LIBSSH2_SESSION
             continue;
         }
         if (rc == LIBSSH2_ERROR_EAGAIN) {
-            (void)wait_fd(sock, session, now_ms() + 100U);
+            (void)wait_fd(sock, session, si_monotonic_ms() + 100U);
             continue;
         }
         shell_emit_error(shell, session, (int)rc, "channel write failed");
@@ -754,7 +748,7 @@ static esp_err_t ssh_shell_worker(si_ssh_shell_t *shell)
 {
     uint32_t timeout_ms = shell->config.timeout_ms ? shell->config.timeout_ms : SI_SSH_DEFAULT_TIMEOUT_MS;
     timeout_ms = MIN(timeout_ms, SI_SSH_MAX_TIMEOUT_MS);
-    uint32_t deadline = now_ms() + timeout_ms;
+    uint32_t deadline = si_monotonic_ms() + timeout_ms;
 
     struct in_addr addr;
     if (inet_pton(AF_INET, shell->config.host, &addr) != 1) {
@@ -934,7 +928,7 @@ static esp_err_t ssh_shell_worker(si_ssh_shell_t *shell)
         }
 
         if (!did_work) {
-            (void)wait_fd(sock, session, now_ms() + 50U);
+            (void)wait_fd(sock, session, si_monotonic_ms() + 50U);
             vTaskDelay(pdMS_TO_TICKS(1));
         }
     }

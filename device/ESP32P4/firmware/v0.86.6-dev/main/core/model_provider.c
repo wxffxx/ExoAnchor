@@ -3,20 +3,11 @@
 #include <ctype.h>
 #include <stddef.h>
 #include <string.h>
+#include <strings.h>
 
 static bool text_equal_ci(const char *left, const char *right)
 {
-    if (!left || !right) {
-        return false;
-    }
-    while (*left && *right) {
-        if (tolower((unsigned char)*left) != tolower((unsigned char)*right)) {
-            return false;
-        }
-        left++;
-        right++;
-    }
-    return *left == '\0' && *right == '\0';
+    return left && right && strcasecmp(left, right) == 0;
 }
 
 static bool text_starts_with_ci(const char *value, const char *prefix)

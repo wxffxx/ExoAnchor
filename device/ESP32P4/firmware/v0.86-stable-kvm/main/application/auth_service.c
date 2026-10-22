@@ -482,11 +482,6 @@ esp_err_t si_auth_security_commit(uint32_t expected_generation, esp_err_t (*comm
     return result;
 }
 
-esp_err_t si_auth_security_changed(uint32_t expected_generation)
-{
-    return si_auth_security_commit(expected_generation, NULL, NULL);
-}
-
 esp_err_t si_auth_set_credentials_for_generation(const char *username, const char *password,
                                                   uint32_t expected_generation)
 {

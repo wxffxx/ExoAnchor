@@ -1,10 +1,7 @@
 // Transitional domain module: SSH settings, HTTP and WebSocket. Kept in the web compilation unit until its service contract is independent.
 static void ssh_secure_clear(void *data, size_t len)
 {
-    static void *(*const volatile memset_fn)(void *, int, size_t) = memset;
-    if (data && len > 0) {
-        (void)memset_fn(data, 0, len);
-    }
+    si_secret_store_clear(data, len);
 }
 
 static void ssh_ws_delete_connect_json(cJSON *root)
