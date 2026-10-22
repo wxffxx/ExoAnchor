@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 import io
 import threading
@@ -67,9 +69,37 @@ class LoginPollingTests(unittest.TestCase):
         with patch.object(client, "_request", return_value={"token": "test-token"}) as request:
             client.login()
             self.assertEqual(request.call_args.args[2]["otp"], "012345")
-            client.login()
-            self.assertNotIn("otp", request.call_args.args[2])
+            self.assertIsInstance(request.call_args.args[2]["client_time"], int)
+            # A password-only retry cannot succeed and would feed the device lockout.
+            with self.assertRaisesRegex(ExoAnchorError, "new code"):
+                client.login()
+            self.assertEqual(request.call_count, 1)
         self.assertIsNone(config.otp_code)
+
+    def test_code_file_supplies_fresh_codes_after_session_expiry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "otp")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("111111\n")
+            client = ExoAnchorClient(client_config(otp_code_file=path))
+            with patch.object(client, "_request", return_value={"token": "test-token"}) as request:
+                client.login()
+                self.assertEqual(request.call_args.args[2]["otp"], "111111")
+                with self.assertRaisesRegex(ExoAnchorError, "new code"):
+                    client.login()  # the same code is never replayed
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write("222222")
+                client.login()
+                self.assertEqual(request.call_args.args[2]["otp"], "222222")
+                self.assertEqual(request.call_count, 2)
+
+    def test_password_only_login_still_retries_without_two_step(self):
+        client = ExoAnchorClient(client_config())
+        with patch.object(client, "_request", return_value={"token": "test-token"}) as request:
+            client.login()
+            client.login()
+            self.assertEqual(request.call_count, 2)
+            self.assertNotIn("otp", request.call_args.args[2])
 
     def test_failed_login_also_consumes_supplied_code(self):
         config = client_config(otp_code="012345")

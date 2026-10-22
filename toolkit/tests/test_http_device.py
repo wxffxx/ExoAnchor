@@ -182,11 +182,17 @@ class DeviceHttpTests(unittest.TestCase):
             client = DeviceHttpClient("192.0.2.223", password="test-only",
                                       otp_code=code, opener=router, sleeper=lambda _: None)
             client.login()
+            with self.assertRaisesRegex(ToolkitError, "new two-step"):
+                client.login()
+            bodies = [json.loads(r.data) for r in router.requests if r.full_url.endswith("/api/auth/login")]
+            self.assertEqual(len(bodies), 1)
+            self.assertEqual(bodies[0]["otp"], code)
+            self.assertIsInstance(bodies[0]["client_time"], int)
+            self.assertEqual(client.otp_code, "")
+            client.otp_code = "654321"
             client.login()
             bodies = [json.loads(r.data) for r in router.requests if r.full_url.endswith("/api/auth/login")]
-            self.assertEqual(bodies[0]["otp"], code)
-            self.assertNotIn("otp", bodies[1])
-            self.assertEqual(client.otp_code, "")
+            self.assertEqual(bodies[-1]["otp"], "654321")
 
     def test_two_step_code_is_consumed_even_on_failed_request(self) -> None:
         def fail(*args, **kwargs):

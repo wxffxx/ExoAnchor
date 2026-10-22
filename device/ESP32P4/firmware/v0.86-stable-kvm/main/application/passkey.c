@@ -350,6 +350,32 @@ cJSON *si_passkey_status(bool list)
     }
     xSemaphoreGive(s_pk_lock); return j;
 }
+static bool pk_enroll_ready_locked(const char *origin, uint32_t generation, const char *session_id, const char *label)
+{
+    return s_pk_storage_ok && s_pk.origin[0] && origin && !strcmp(origin, s_pk.origin) &&
+        generation == si_auth_credential_generation() && s_pk.count < SI_PASSKEY_LIMIT &&
+        session_id && session_id[0] && strlen(session_id) <= SI_AUTH_TOKEN_LEN &&
+        label && label[0] && strlen(label) <= PK_LABEL_MAX;
+}
+static int pk_find_locked(const uint8_t *id, size_t n)
+{
+    for (unsigned i = 0; i < s_pk.count; ++i)
+        if (s_pk.keys[i].id_len == n && pk_equal(id, s_pk.keys[i].id, n)) return (int)i;
+    return -1;
+}
+bool si_passkey_action_ready(si_passkey_action_t action, const char *origin, uint32_t generation,
+                             const char *session_id, const char *target)
+{
+    char rp[254]; uint8_t id[SI_PASSKEY_ID_MAX]; size_t n = 0;
+    if (action == SI_PASSKEY_ACTION_CONFIGURE && !pk_origin(origin, rp)) return false;
+    if (action == SI_PASSKEY_ACTION_REMOVE && !pk_decode(target, id, sizeof(id), &n)) return false;
+    if (!pk_lock()) return false;
+    bool ready = s_pk_storage_ok && generation == si_auth_credential_generation();
+    if (action == SI_PASSKEY_ACTION_CONFIGURE) ready = ready && !s_pk.count;
+    else if (action == SI_PASSKEY_ACTION_ENROLL) ready = pk_enroll_ready_locked(origin, generation, session_id, target);
+    else ready = ready && origin && !strcmp(origin, s_pk.origin) && pk_find_locked(id, n) >= 0;
+    xSemaphoreGive(s_pk_lock); return ready;
+}
 esp_err_t si_passkey_configure(const char *origin, uint32_t generation)
 {
     char rp[254]; if (!pk_origin(origin, rp) || !pk_lock()) return ESP_ERR_INVALID_ARG;
@@ -371,15 +397,17 @@ esp_err_t si_passkey_remove(const char *id, uint32_t generation)
     uint8_t bytes[SI_PASSKEY_ID_MAX]; size_t n;
     if (!pk_decode(id, bytes, sizeof(bytes), &n) || !pk_lock()) return ESP_ERR_INVALID_ARG;
     esp_err_t ret = ESP_ERR_INVALID_STATE;
-    for (unsigned i = 0; s_pk_storage_ok && generation == si_auth_credential_generation() && i < s_pk.count; ++i) {
-        if (s_pk.keys[i].id_len != n || !pk_equal(bytes, s_pk.keys[i].id, n)) continue;
+    int i = s_pk_storage_ok && generation == si_auth_credential_generation() ? pk_find_locked(bytes, n) : -1;
+    if (i >= 0) {
         pk_state_t *candidate = malloc(sizeof(*candidate));
-        if (!candidate) { ret = ESP_ERR_NO_MEM; break; }
-        *candidate = s_pk;
-        memmove(&candidate->keys[i], &candidate->keys[i + 1], (candidate->count - i - 1) * sizeof(candidate->keys[0]));
-        memset(&candidate->keys[--candidate->count], 0, sizeof(candidate->keys[0]));
-        ret = si_auth_security_commit(generation, pk_commit, candidate);
-        free(candidate); memset(s_pk_pending, 0, sizeof(s_pk_pending)); break;
+        if (!candidate) ret = ESP_ERR_NO_MEM;
+        else {
+            *candidate = s_pk;
+            memmove(&candidate->keys[i], &candidate->keys[i + 1], (candidate->count - (unsigned)i - 1) * sizeof(candidate->keys[0]));
+            memset(&candidate->keys[--candidate->count], 0, sizeof(candidate->keys[0]));
+            ret = si_auth_security_commit(generation, pk_commit, candidate);
+            free(candidate); memset(s_pk_pending, 0, sizeof(s_pk_pending));
+        }
     }
     xSemaphoreGive(s_pk_lock); return ret;
 }
@@ -391,8 +419,8 @@ esp_err_t si_passkey_begin(bool registration, const char *origin, uint32_t gener
     if (!origin || !pk_lock()) return ESP_FAIL;
     int64_t now = esp_timer_get_time(); int slot = -1;
     esp_err_t ret = ESP_ERR_INVALID_STATE;
-    if (!s_pk_storage_ok || !s_pk.origin[0] || strcmp(origin, s_pk.origin) || generation != si_auth_credential_generation() ||
-        (registration ? (s_pk.count >= SI_PASSKEY_LIMIT || !session_id || !session_id[0] || strlen(session_id) > SI_AUTH_TOKEN_LEN || !label || !label[0] || strlen(label) > PK_LABEL_MAX) : !s_pk.count)) goto done;
+    if (registration ? !pk_enroll_ready_locked(origin, generation, session_id, label) :
+        (!s_pk_storage_ok || !s_pk.origin[0] || strcmp(origin, s_pk.origin) || generation != si_auth_credential_generation() || !s_pk.count)) goto done;
     pk_challenge_t login = {0}, *p = &login;
     if (registration) {
         /* Authenticated enrollment owns server state; never evict another
@@ -586,9 +614,7 @@ esp_err_t si_passkey_finish(bool registration, const char *origin, const char *s
         (cross && !cJSON_IsFalse(cross)) || cJSON_GetObjectItemCaseSensitive(json, "topOrigin")) goto done;
     pk_credential_t key = {0};
     if (!pk_decode(pk_string(response, "rawId"), key.id, sizeof(key.id), &key.id_len)) goto done;
-    int index = -1;
-    for (unsigned i = 0; i < s_pk.count; ++i)
-        if (key.id_len == s_pk.keys[i].id_len && pk_equal(key.id, s_pk.keys[i].id, key.id_len)) index = (int)i;
+    int index = pk_find_locked(key.id, key.id_len);
     if (registration) {
         const uint8_t *auth_data = NULL; size_t n = 0;
         if (index >= 0 || s_pk.count >= SI_PASSKEY_LIMIT || !pk_decode(pk_string(response, "attestationObject"), bytes, PK_DATA_MAX, &data_len) ||

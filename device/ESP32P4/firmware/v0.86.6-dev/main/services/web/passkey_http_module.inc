@@ -23,8 +23,6 @@ static esp_err_t passkey_handler(httpd_req_t *req)
     si_auth_status_t auth_status; si_auth_get_status(&auth_status);
     if (!auth_status.enabled || auth_status.using_default || auth_status.setup_required)
         return httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "complete account setup first");
-    if (si_auth_login_retry_after_ms())
-        return si_http_send_text_status(req, "429 Too Many Requests", "authentication temporarily locked");
     /* Flat requests only. Bound allocation before receiving/parsing. */
     if (req->content_len == 0 || req->content_len >= 6144)
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "invalid passkey request size");
@@ -50,6 +48,11 @@ static esp_err_t passkey_handler(httpd_req_t *req)
     if (!login_begin && !login_finish && !browser) {
         ret = httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "browser login required"); goto cleanup;
     }
+    /* The password lockout guards password checks only. Passkey assertions are
+     * not guessable, so anonymous passkey traffic neither triggers nor obeys it. */
+    if (!login_begin && !login_finish && si_auth_login_retry_after_ms()) {
+        ret = si_http_send_text_status(req, "429 Too Many Requests", "authentication temporarily locked"); goto cleanup;
+    }
     if (enroll || configure || remove) {
         const char *password = json_string_any(body, "current_password", NULL, NULL);
         const char *otp = json_string_any(body, "otp", NULL, NULL);
@@ -57,6 +60,11 @@ static esp_err_t passkey_handler(httpd_req_t *req)
             ret = httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "sign in again before managing passkeys"); goto cleanup;
         }
         if (!password || !password[0] || strlen(password) > SI_AUTH_PASSWORD_MAX_LEN || (otp && strlen(otp) > SI_TWO_STEP_CODE_MAX)) goto invalid;
+        /* Reject impossible requests before spending a one-time code. */
+        if (!si_passkey_action_ready(configure ? SI_PASSKEY_ACTION_CONFIGURE : enroll ? SI_PASSKEY_ACTION_ENROLL : SI_PASSKEY_ACTION_REMOVE,
+                                     origin, generation, binding, json_string_any(body, remove ? "id" : "label", NULL, NULL))) {
+            ret = httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "passkey request rejected; check hostname, storage, expiry, and credential limit"); goto cleanup;
+        }
         if (!si_auth_credentials_match(auth_status.username, password) || !si_two_step_verify(otp, auth_client_time(body), generation)) {
             si_auth_record_login_failure();
             ret = httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "current password and second factor required"); goto cleanup;
@@ -71,7 +79,6 @@ static esp_err_t passkey_handler(httpd_req_t *req)
             si_auth_clear_login_failures();
             ret = auth_login_send_success(req, false, generation); goto cleanup;
         }
-        if (ret != ESP_OK) si_auth_record_login_failure();
     } else if (configure) {
         ret = si_passkey_configure(origin, generation);
     } else {

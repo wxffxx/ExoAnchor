@@ -83,7 +83,7 @@ python3 -m exoanchor_mcp.server --list-tools
 | `EXOANCHOR_ALLOW_INSECURE_HTTP` | `0` | 仅旧固件显式设为 `1` 才接受 HTTP；没有自动降级 |
 | `EXOANCHOR_USERNAME` | 未设置 | 本地设备用户名 |
 | `EXOANCHOR_OTP_CODE` | 未设置 | 下一次登录使用的动态验证码或恢复码，提交后不重用 |
-| `EXOANCHOR_OTP_CODE_FILE` | 未设置 | 启动时读取一次的验证码文件 |
+| `EXOANCHOR_OTP_CODE_FILE` | 未设置 | 每次密码登录前重新读取的验证码文件；同一验证码不会提交两次，会话到期后写入新验证码即可续登 |
 | `EXOANCHOR_PASSWORD` | 未设置 | 本地设备密码 |
 | `EXOANCHOR_PASSWORD_FILE` | 未设置 | 保存本地设备密码的文件，优先于命令行内嵌 |
 | `EXOANCHOR_TOKEN` | 未设置 | 可选 bearer token |

@@ -78,8 +78,17 @@ int main(void) {
     req.origin="https://other.example.test";req.host="other.example.test";
     post(&req,"{\"action\":\"register_options\",\"label\":\"Mac\",\"current_password\":\"test-password\"}",403);
     req.origin="https://kvm.example.test";req.host="kvm.example.test";
+    /* Impossible management requests are rejected before any factor is spent. */
+    before=checks;
+    post(&req,"{\"action\":\"register_options\",\"label\":\"0123456789012345678901234567890123456789012345678\",\"current_password\":\"test-password\"}",403);
+    post(&req,"{\"action\":\"remove\",\"id\":\"AAAA\",\"current_password\":\"test-password\"}",403);
+    assert(checks==before);
     browser=false;post(&req,"{\"action\":\"register_finish\"}",401);
-    post(&req,"{\"action\":\"login_finish\"}",403);assert(minted==0&&failures>=3);
+    /* Anonymous passkey failures neither feed nor obey the password lockout. */
+    unsigned failures_before=failures;
+    post(&req,"{\"action\":\"login_finish\"}",403);assert(minted==0&&failures==failures_before);
+    locked=true;post(&req,"{\"action\":\"login_finish\"}",403);assert(failures==failures_before);
+    browser=true;post(&req,"{\"action\":\"register_options\",\"label\":\"Mac\",\"current_password\":\"test-password\"}",429);locked=false;
     cJSON_Delete(reply);puts("HTTP: browser/recent/password/TOTP gates, exact Origin+Host, bounds, strict JSON, generation, session revocation: PASS");
 }
 '''

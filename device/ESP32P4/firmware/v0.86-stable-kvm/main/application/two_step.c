@@ -32,8 +32,14 @@ static bool s_two_loaded, s_two_storage_ok;
 static two_step_state_t s_two_state, s_two_pending;
 static char s_two_pending_id[33];
 static uint32_t s_two_pending_generation;
-static int64_t s_two_pending_until, s_two_locked_until;
-static unsigned s_two_failures;
+static int64_t s_two_pending_until;
+/* Guessing budgets are per secret: codes for the active secret (login,
+ * management, disable) share one; a pending enrollment secret has its own. */
+typedef struct {
+    unsigned failures;
+    int64_t locked_until;
+} two_throttle_t;
+static two_throttle_t s_two_active, s_two_enroll;
 
 static bool two_equal(const uint8_t *a, const uint8_t *b, size_t n)
 {
@@ -269,13 +275,13 @@ static bool two_check_code(two_step_state_t *candidate, const char *code, bool r
     return true;
 }
 
-static bool two_attempt_allowed(void) { return esp_timer_get_time() >= s_two_locked_until; }
-static void two_attempt_result(bool ok)
+static bool two_attempt_allowed(const two_throttle_t *t) { return esp_timer_get_time() >= t->locked_until; }
+static void two_attempt_result(two_throttle_t *t, bool ok)
 {
-    if (ok) s_two_failures = 0;
-    else if (++s_two_failures >= 5) {
-        s_two_locked_until = esp_timer_get_time() + 30000000LL;
-        s_two_failures = 0;
+    if (ok) t->failures = 0;
+    else if (++t->failures >= 5) {
+        t->locked_until = esp_timer_get_time() + 30000000LL;
+        t->failures = 0;
     }
 }
 
@@ -286,10 +292,10 @@ bool si_two_step_verify(const char *code, int64_t client_unix, uint32_t generati
     two_step_state_t candidate = s_two_state;
     if (ok && candidate.enabled) {
         int64_t adopt = 0;
-        ok = two_attempt_allowed() && two_check_code(&candidate, code, true, client_unix, &adopt);
+        ok = two_attempt_allowed(&s_two_active) && two_check_code(&candidate, code, true, client_unix, &adopt);
         if (ok) ok = two_save_locked(&candidate, false) == ESP_OK;
         if (ok) two_adopt_clock(adopt);
-        two_attempt_result(ok);
+        two_attempt_result(&s_two_active, ok);
     }
     si_secret_store_clear(&candidate, sizeof(candidate));
     xSemaphoreGive(s_two_lock);
@@ -336,11 +342,11 @@ esp_err_t si_two_step_confirm(const char *id, const char *code, int64_t client_u
     if (s_two_storage_ok && !s_two_state.enabled && id && strlen(id) == 32 &&
         two_equal((const uint8_t *)id, (const uint8_t *)s_two_pending_id, 32) &&
         generation == s_two_pending_generation && generation == si_auth_credential_generation() &&
-        esp_timer_get_time() < s_two_pending_until && two_attempt_allowed()) {
+        esp_timer_get_time() < s_two_pending_until && two_attempt_allowed(&s_two_enroll)) {
         two_step_state_t candidate = s_two_pending;
         int64_t adopt = 0;
         bool valid = two_check_code(&candidate, code, false, client_unix, &adopt);
-        two_attempt_result(valid);
+        two_attempt_result(&s_two_enroll, valid);
         if (valid) {
             /* Persist inside the credential fence; sessions are revoked either way. */
             ret = si_auth_security_commit(generation, two_commit_transition, &candidate);
@@ -358,11 +364,11 @@ esp_err_t si_two_step_disable(const char *code, int64_t client_unix, uint32_t ge
 {
     if (!two_lock()) return ESP_FAIL;
     esp_err_t ret = ESP_ERR_INVALID_STATE;
-    if (s_two_storage_ok && s_two_state.enabled && generation == si_auth_credential_generation() && two_attempt_allowed()) {
+    if (s_two_storage_ok && s_two_state.enabled && generation == si_auth_credential_generation() && two_attempt_allowed(&s_two_active)) {
         two_step_state_t candidate = s_two_state;
         int64_t adopt = 0;
         bool valid = two_check_code(&candidate, code, true, client_unix, &adopt);
-        two_attempt_result(valid);
+        two_attempt_result(&s_two_active, valid);
         if (valid) {
             si_secret_store_clear(&candidate, sizeof(candidate));
             ret = si_auth_security_commit(generation, two_commit_transition, &candidate);

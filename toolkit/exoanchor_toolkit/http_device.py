@@ -161,6 +161,7 @@ class DeviceHttpClient:
         self.username = username.strip() or "admin"
         self.password = password
         self.otp_code = otp_code
+        self._otp_required = False
         self.token = token
         self.timeout = timeout
         self.tls_certificate_file = tls_certificate_file or os.environ.get("EXOANCHOR_TLS_CERTIFICATE_FILE")
@@ -263,6 +264,11 @@ class DeviceHttpClient:
             return remaining
 
         otp_code, self.otp_code = self.otp_code, ""
+        if self._otp_required and not otp_code:
+            # A password-only retry cannot pass two-step verification and would
+            # count toward the device's global login lockout.
+            raise ToolkitError("device session expired; enter a new two-step verification code")
+        self._otp_required = self._otp_required or bool(otp_code)
         body = json.dumps(
             {
                 **({"otp": otp_code, "client_time": int(time.time())} if otp_code else {}),

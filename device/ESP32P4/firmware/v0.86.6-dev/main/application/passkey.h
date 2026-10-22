@@ -12,6 +12,16 @@ esp_err_t si_passkey_initialize(void);
 bool si_passkey_origin_valid(const char *origin);
 /* Returned JSON is owned by the caller; never contains private keys. */
 cJSON *si_passkey_status(bool include_credentials);
+typedef enum {
+    SI_PASSKEY_ACTION_CONFIGURE,
+    SI_PASSKEY_ACTION_ENROLL,
+    SI_PASSKEY_ACTION_REMOVE,
+} si_passkey_action_t;
+/* Side-effect-free precondition check, so callers can reject a management
+ * request before spending a one-time second factor. `target` is the label
+ * (enroll) or credential ID (remove). The action re-checks under its lock. */
+bool si_passkey_action_ready(si_passkey_action_t action, const char *origin, uint32_t generation,
+                             const char *session_id, const char *target);
 esp_err_t si_passkey_configure(const char *origin, uint32_t generation);
 esp_err_t si_passkey_remove(const char *id, uint32_t generation);
 esp_err_t si_passkey_begin(bool registration, const char *origin,

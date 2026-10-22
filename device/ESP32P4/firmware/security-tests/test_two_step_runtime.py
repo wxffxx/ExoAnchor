@@ -50,7 +50,7 @@ esp_err_t si_settings_store_erase_key(si_settings_store_t *s,const char *k) {(vo
 static void reboot(void) {
     s_two_loaded=s_two_storage_ok=false;
     memset(&s_two_state,0,sizeof(s_two_state));memset(&s_two_pending,0,sizeof(s_two_pending));
-    memset(s_two_pending_id,0,sizeof(s_two_pending_id));s_two_failures=0;s_two_locked_until=0;
+    memset(s_two_pending_id,0,sizeof(s_two_pending_id));memset(&s_two_active,0,sizeof(s_two_active));memset(&s_two_enroll,0,sizeof(s_two_enroll));
 }
 static void code_for(const two_step_state_t *state,int offset,char code[7]) {
     uint32_t value;assert(two_hotp(state->secret,(uint64_t)(wall/30)+offset,6,&value));snprintf(code,7,"%06u",value);
@@ -114,6 +114,11 @@ int main(void) {
     assert(two_hotp(s_two_pending.secret,(uint64_t)real/30,6,&value));snprintf(code,7,"%06u",value);
     assert(si_two_step_confirm(enrollment.id,code,0,generation)!=ESP_OK && wall==0);
     assert(si_two_step_confirm(enrollment.id,code,real+3600,generation)!=ESP_OK && wall==0);
+    /* Enrollment guesses have their own budget against the pending secret. */
+    for(unsigned i=0;i<3;i++)assert(si_two_step_confirm(enrollment.id,"000000",real+3600,generation)!=ESP_OK);
+    assert(si_two_step_confirm(enrollment.id,code,real,generation)!=ESP_OK && wall==0); /* locked: 5 failures */
+    assert(s_two_enroll.locked_until>mono && s_two_active.locked_until<=mono);
+    mono+=31000000;
     assert(si_two_step_confirm(enrollment.id,code,real,generation)==ESP_OK && wall==real && clock_sets==1);
     wall=0;reboot();assert(si_two_step_initialize()==ESP_OK);
     real+=60;assert(two_hotp(s_two_state.secret,(uint64_t)real/30,6,&value));snprintf(code,7,"%06u",value);
