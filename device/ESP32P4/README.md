@@ -52,7 +52,7 @@ validation image, not the V2.4 product profile.
 | Direct development board | Known good | GPIO26/27 | IP101GRI | None | None |
 | NANO expansion | Supported | Expansion-dependent | IP101GRI | None | Expansion-dependent and not fully modeled |
 | Prototype0 | Verified | Verified | IP101GRI verified | None | PWR/RST/12V/3V3AUX verified |
-| PrototypeV2.3 | Modes verified; image-quality issue remains open | Bring-up verified | DP83825I bring-up | GPIO50/51 verified | Derived from netlist; product validation incomplete |
+| PrototypeV2.3 | Modes verified; 1080p detail issue fixed in firmware | Bring-up verified | DP83825I bring-up | GPIO50/51 verified | Derived from netlist; product validation incomplete |
 | PrototypeV2.4 / V2.4a6 | Profile configured; HIL pending | GPIO26/27; HIL pending | DP83825I; HIL pending | GPIO50/51; HIL pending | PWR/RST/12V/3V3AUX configured only; HIL pending |
 
 The Dashboard and `GET /api/capabilities` must reflect the active profile and
@@ -71,20 +71,14 @@ baseline.
 - Select a version and review upgrade boundaries:
   [`firmware/README.md`](firmware/README.md)
 
-The rev3/ECO7 profiles in the current Dev tree, including PrototypeV2.4, use
-ESP-IDF v5.5.5 or a later compatible version. The frozen rev1/Waveshare path
-uses ESP-IDF v5.4.x. Switching board or silicon profiles requires a fresh build
-directory and generated configuration.
+The ESP-IDF version for each silicon revision, and the rule that a board or
+silicon change needs a fresh build directory, are kept in
+[`firmware/README.md`](firmware/README.md).
 
 ## Runtime entry points
 
-```text
-https://<board-ip>/
-https://<board-ip>/kvm
-https://<board-ip>/agent
-https://<board-ip>/terminal
-https://<board-ip>/settings
-```
+The pages (Dashboard, KVM, Agent, Terminal, Settings) are listed in the
+[practical guide](../../docs/guides/README_zh.md).
 
 The firmware serves HTTPS only. Official builds ship no bootstrap credential:
 on first boot, create the administrator account in the web UI.

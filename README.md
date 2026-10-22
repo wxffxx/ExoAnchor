@@ -38,7 +38,7 @@ can inspect, modify, reproduce, manufacture, and sell their own hardware.
 | --- | --- | --- |
 | Application and control plane | Dashboard, device API, embedded Agent, and optional MCP adapter | ✅ Published and under active development |
 | MCU firmware | Video, HID, networking, UART, power control, configuration, and build scripts | ✅ Stable and Dev source published |
-| Schematics and PCB | Complete schematic and design notes PDF plus editable PADS and Altium Designer projects | ✅ Latest published |
+| Schematics and PCB | Complete schematic and design notes PDF plus editable PADS and Altium Designer projects | 🚧 Double checking, release soon |
 | BOM, netlist, and reproduction guide | Versioned BOM, Protel 2.0 netlist, and build, flashing, assembly, and acceptance instructions | 🚧 BOM and netlist published; the reproduction guide is being expanded |
 | EasyEDA cloud source project | [Online V2.4a6 schematic and PCB source project](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ⏳ Pending |
 | Mechanical design | Editable mechanical CAD source projects | ⏳ Pending |
@@ -48,13 +48,15 @@ can inspect, modify, reproduce, manufacture, and sell their own hardware.
 > Please report any problems through
 > [GitHub Issues](https://github.com/wxffxx/ExoAnchor/issues).
 
-This is an artifact-release commitment, not a manufacturing-readiness claim.
-The
-[ExoAnchor-Hardware hardware release directory](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.4a6)
-is authoritative for the actual publication and validation state of each
-hardware revision. Publishing schematics, PCB projects, and manufacturing
-materials does not itself establish production readiness; reproduction and
-acceptance must follow the guide and validation state for that revision.
+This is an open-materials commitment, not a statement that everything is
+already open source: no material is released until it has been verified and
+checked. The
+[ExoAnchor-Hardware repository](https://github.com/wxffxx/ExoAnchor-Hardware)
+is authoritative for what each hardware revision has actually published and how
+far it has been validated. Publishing schematics, PCB projects, and
+manufacturing materials does not by itself mean production validation is
+complete; reproduction and acceptance must follow the guide and validation state
+for that revision.
 
 ## Core capabilities
 

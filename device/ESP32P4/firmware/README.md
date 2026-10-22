@@ -40,8 +40,8 @@ cd device/ESP32P4/firmware/v0.86.6-dev
 
 当前 Dev 树的 Prototype0、PrototypeV2.1、PrototypeV2.3 和 PrototypeV2.4
 rev3/ECO7 使用 ESP-IDF v5.5.5 基线。V2.4a6 与 V2.4 共用
-`exoanchor-prototype-v2.4` 产品
-profile；`a6` 只表示 PCB 层数，原理图映射不变。Waveshare/rev1 冻结路线使用
+`exoanchor-prototype-v2.4` 产品 profile（原因见
+[板型实现矩阵](../boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线))。Waveshare/rev1 冻结路线使用
 ESP-IDF v5.4.x。具体命令分别记录在两个版本目录的 README 中。
 
 ## 烧录规则

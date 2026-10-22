@@ -224,8 +224,7 @@ Serial/JTAG 主控制台，不能在未知硬件上提前复用 PrototypeV2.3 pr
 - 持久请求队列与完整 Verification；
 - 签名 OTA、自动回滚和正式 NVS schema migration；
 - 完整 HIL、故障注入和长期稳定性回归；
-- V2.3 b4/b6 最终身份复核；
-- MS2109 1080p 有效细节问题闭环。
+- V2.3 b4/b6 最终身份复核。
 
 ## 已知历史异常
 

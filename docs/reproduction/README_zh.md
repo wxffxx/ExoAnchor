@@ -40,14 +40,7 @@
 5. 确认串口和芯片身份后执行完整有线烧录。
 6. 监视启动日志，记录设备获得的地址并完成首次验证。
 
-烧录脚本必须使用与构建时相同的目录：
-
-```bash
-./tools/flash-monitor.sh <PORT> \
-  --build-dir <build-dir> \
-  --wait-ip \
-  --exit-on-ip
-```
+烧录脚本必须使用与构建时相同的 build 目录，命令见[固件烧录规则](../../device/ESP32P4/firmware/README.md#烧录规则)。
 
 分区变化、首次安装和跨版本升级可能要求完整烧录，具体以
 [固件烧录规则](../../device/ESP32P4/firmware/README.md#烧录规则)为准。

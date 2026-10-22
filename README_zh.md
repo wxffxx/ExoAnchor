@@ -55,7 +55,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | --- | --- | --- |
 | 应用与控制面 | Dashboard、设备 API、设备内 Agent 和可选 MCP 适配器 | ✅ 已公开，持续开发 |
 | MCU 固件 | 视频、HID、网络、UART、电源控制、配置和构建脚本 | ✅ Stable 与 Dev 源码已公开 |
-| 原理图、PCB | 全套原理图与设计说明 PDF、PADS 与 Altium Designer 可编辑工程 | 🚧 Double checking, Release soon |
+| 原理图、PCB | 全套原理图与设计说明 PDF、PADS 与 Altium Designer 可编辑工程 | 🚧 核对中，即将发布 |
 | BOM、网表、复刻指南 | 版本化 BOM、Protel 2.0 网表以及构建、烧录、装配与验收说明 | 🚧 BOM 与网表已公开；复刻指南持续补齐 |
 | EasyEDA 云端源工程 | [V2.4a6 原理图与 PCB 在线源工程](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ⏳ 待发布 |
 | 结构设计 | 可编辑的结构 CAD 源工程 | ⏳ 待发布 |
@@ -64,7 +64,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 > 如发现任何问题，欢迎通过 [GitHub Issues](https://github.com/wxffxx/ExoAnchor/issues) 反馈。
 
 这是一项资料开放承诺，并非代表已经开源，在所有产物验证完毕之前，我们不会释放任何未经过验证和检验的资料。每个硬件修订版实际公开了什么、验证到什么程度，以
-[ExoAnchor-Hardware 硬件发布目录](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.4a6)
+[ExoAnchor-Hardware 硬件仓库](https://github.com/wxffxx/ExoAnchor-Hardware)
 为准。公开原理图、PCB 工程和生产资料，不等于已经完成量产验证；复刻与验收仍应遵循对应修订版的指南和验证状态。
 
 ## 核心能力

@@ -108,9 +108,8 @@ idf.py \
 idf.py -B build-exoanchor-prototype-v2.4-rev3 build
 ```
 
-该组合的 Board ID 为 `exoanchor-prototype-v2.4`。项目方确认 V2.4a6 的 `a6`
-只表示 PCB 层数，原理图与 ESP32-P4 映射和 V2.4 相同，因此 V2.4a6 使用同一
-产品 profile，不创建 `a6` 专用 Board ID。详细 GPIO 与能力边界见
+该组合的 Board ID 为 `exoanchor-prototype-v2.4`，V2.4a6 共用同一产品 profile
+（原因见[板型实现矩阵](../../boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线))。详细 GPIO 与能力边界见
 [`configs/boards/exoanchor-prototype-v2.4.md`](configs/boards/exoanchor-prototype-v2.4.md)。
 
 产品 profile 配置 DP83825I、MS2109 正常两级上电、PWR/RST、12V/3V3AUX、
@@ -161,11 +160,8 @@ IP 或现有固件推断身份。
 
 ## 测试、烧录与访问
 
-运行不依赖硬件或 ESP-IDF 的测试。需要支持 C11 的 C 编译器、Python 3.10+
-和 Node.js 18+，以及 `tests/host/requirements.txt` 中的 Python 依赖；可用
-`CC`、`PYTHON` 选择编译器和解释器。cJSON 使用仓库内与 ESP-IDF 5.5.5
-一致的[锁定副本](tests/host/vendor/cjson/README.md)，运行测试时不下载依赖，
-也不读取本机 `IDF_PATH` 下的 JSON 源码：
+运行不依赖硬件或 ESP-IDF 的测试。编译器、Python、Node.js 与锁定 cJSON 等前提见
+[固件验证指南](../../../../docs/guides/FIRMWARE_VALIDATION_zh.md)：
 
 ```bash
 python3 -m venv .venv
@@ -178,28 +174,11 @@ MCP、Toolkit 和文档，同样支持 `PYTHON`；`scripts/test.sh` 只是它的
 `CJSON_DIR` 可覆盖默认的仓库内 cJSON 路径。
 
 主机侧 Agent 调试客户端 `tools/agent-runtime-http.py` 的用法见
-[Agent Runtime HTTP 闭环客户端](tools/AGENT_RUNTIME_HTTP_CLI.md)。主机测试不等于固件编译或板卡验证；检查范围与人工验收步骤见
+[Agent Runtime HTTP 闭环客户端](tools/AGENT_RUNTIME_HTTP_CLI.md)。
+
+主机测试不等于固件编译或板卡验证；检查范围与人工验收步骤见
 [固件验证指南](../../../../docs/guides/FIRMWARE_VALIDATION_zh.md)。
 
-烧录并等待 DHCP 地址：
+烧录并等待 DHCP 地址的命令见[烧录规则](../README.md#烧录规则)；`<build-dir>` 必须与前面构建命令的 `idf.py -B` 参数一致。
 
-```bash
-./tools/flash-monitor.sh <PORT> \
-  --build-dir <build-dir> \
-  --wait-ip \
-  --exit-on-ip
-```
-
-`<build-dir>` 必须与前面构建命令的 `idf.py -B` 参数一致。
-
-可用页面：
-
-```text
-https://<设备地址>/
-https://<设备地址>/kvm
-https://<设备地址>/agent
-https://<设备地址>/terminal
-https://<设备地址>/settings
-```
-
-`/skills` 仅作为兼容重定向，目标是 `/settings#agent`。
+可用页面见[实用指南](../../../../docs/guides/README_zh.md)。`/skills` 仅作为兼容重定向，目标是 `/settings#agent`。
