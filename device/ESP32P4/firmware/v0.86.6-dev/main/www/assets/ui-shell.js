@@ -1270,7 +1270,7 @@
         '<div id="eaAssistantLog" class="ea-assistant-log"><div class="ea-assistant-empty"><b id="eaAssistantEmptyName"></b><span>从当前页面开始对话。</span></div></div>' +
         '<div id="eaAssistantContextPreview" class="ea-assistant-context"></div>' +
         '<form id="eaAssistantForm" class="ea-assistant-compose">' +
-          '<textarea id="eaAssistantInput" rows="3" maxlength="1800" placeholder="问设备、规划任务，或从当前页面继续…"></textarea>' +
+          '<textarea id="eaAssistantInput" aria-label="全局助手输入" rows="3" maxlength="1800" placeholder="问设备、规划任务，或从当前页面继续…"></textarea>' +
           '<div><label><input id="eaAssistantAttachContext" type="checkbox"> 附带当前页面</label><button id="eaAssistantPreviewContext" type="button">预览</button><span></span><button id="eaAssistantSend" class="primary" type="submit">发送</button></div>' +
         '</form>' +
       '</section>');
