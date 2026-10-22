@@ -40,7 +40,7 @@
 #define AUTH_SESSION_ABSOLUTE_MS (24ULL * 60ULL * 60ULL * 1000ULL)
 #define AUTH_SESSION_LOCK_WAIT_MS 1000U
 #define AUTH_RETAINED_MAGIC 0x45415353U
-#define AUTH_RETAINED_VERSION 2U
+#define AUTH_RETAINED_VERSION 3U /* v3 adds auth_session_t.method */
 #define AUTH_FAILURE_WINDOW_MS 60000ULL
 #define AUTH_FAILURE_LIMIT 5U
 #define AUTH_LOCKOUT_MS 30000ULL
@@ -49,6 +49,7 @@ typedef struct {
     bool used;
     si_principal_kind_t principal;
     si_capability_set_t capabilities;
+    si_auth_method_t method;
     uint32_t generation;
     char session_id[SI_AUTH_SESSION_ID_MAX_LEN + 1];
     uint8_t token_digest[AUTH_VERIFIER_BYTES];
@@ -565,7 +566,14 @@ static bool session_expired(const auth_session_t *session, int64_t now_us,
 esp_err_t si_auth_create_session_for_generation(
     const char *client, uint32_t expected_generation, char out_token[SI_AUTH_TOKEN_LEN + 1])
 {
-    if (!out_token || !si_auth_is_enabled() || !s_verifier[0] || si_auth_setup_required()) {
+    return si_auth_create_session_for_method(client, expected_generation, SI_AUTH_METHOD_PASSWORD, out_token);
+}
+
+esp_err_t si_auth_create_session_for_method(const char *client, uint32_t expected_generation,
+                                            si_auth_method_t method, char out_token[SI_AUTH_TOKEN_LEN + 1])
+{
+    if (!out_token || !si_auth_is_enabled() || !s_verifier[0] || si_auth_setup_required() ||
+        (method != SI_AUTH_METHOD_PASSWORD && method != SI_AUTH_METHOD_PASSKEY)) {
         return ESP_ERR_INVALID_ARG;
     }
     ESP_RETURN_ON_ERROR(ensure_lock(), TAG, "create auth lock");
@@ -635,6 +643,7 @@ esp_err_t si_auth_create_session_for_generation(
         is_mcp ? SI_PRINCIPAL_MCP : SI_PRINCIPAL_BROWSER;
     s_sessions[slot].capabilities =
         is_mcp ? SI_CAPABILITIES_MCP_DEFAULT : SI_CAPABILITIES_WEB_DEFAULT;
+    s_sessions[slot].method = method;
     s_sessions[slot].generation = next_session_generation_locked();
     snprintf(s_sessions[slot].session_id,
              sizeof(s_sessions[slot].session_id), "s%08lx%08lx",
@@ -699,6 +708,7 @@ bool si_auth_token_get_context(const char *token, bool touch,
             context->authenticated = true;
             context->principal = s_sessions[i].principal;
             context->capabilities = s_sessions[i].capabilities;
+            context->method = s_sessions[i].method;
             context->generation = s_sessions[i].generation;
             context->authenticated_at_us = s_sessions[i].created_us;
             strlcpy(context->session_id, s_sessions[i].session_id,
@@ -737,6 +747,7 @@ bool si_auth_session_get_live_context(
         context->authenticated = true;
         context->principal = SI_PRINCIPAL_BROWSER;
         context->capabilities = SI_CAPABILITIES_WEB_DEFAULT;
+        context->method = SI_AUTH_METHOD_PASSWORD; /* No credentials to protect. */
         context->generation = SI_AUTH_DISABLED_SESSION_GENERATION;
         strlcpy(context->session_id, "auth-disabled",
                 sizeof(context->session_id));
@@ -774,6 +785,7 @@ bool si_auth_session_get_live_context(
         context->authenticated = true;
         context->principal = s_sessions[i].principal;
         context->capabilities = s_sessions[i].capabilities;
+        context->method = s_sessions[i].method;
         context->generation = s_sessions[i].generation;
         context->authenticated_at_us = s_sessions[i].created_us;
         strlcpy(context->session_id, s_sessions[i].session_id,
@@ -1165,15 +1177,18 @@ bool si_auth_token_is_browser(const char *token)
     return si_auth_token_get_context(token, false, &session) &&
         session.principal == SI_PRINCIPAL_BROWSER && (session.capabilities & SI_CAPABILITY_SETTINGS);
 }
-bool si_auth_token_is_recent(const char *token)
+static bool token_recent_browser(const char *token, bool password_only)
 {
     si_auth_session_context_t session;
     int64_t now = esp_timer_get_time();
     return si_auth_token_get_context(token, false, &session) &&
         session.principal == SI_PRINCIPAL_BROWSER && (session.capabilities & SI_CAPABILITY_SETTINGS) &&
+        (!password_only || session.method == SI_AUTH_METHOD_PASSWORD) &&
         session.authenticated_at_us > 0 && now >= session.authenticated_at_us &&
         now - session.authenticated_at_us <= 60000000LL;
 }
+bool si_auth_token_is_recent(const char *token) { return token_recent_browser(token, false); }
+bool si_auth_token_is_recent_password(const char *token) { return token_recent_browser(token, true); }
 
 esp_err_t si_auth_set_credentials_for_generation(const char *username, const char *password,
                                                   uint32_t expected_generation)

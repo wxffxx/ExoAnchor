@@ -785,7 +785,9 @@
             this.finishAuthentication(result);
             return;
           }
-          if (!api.token) await api.login(currentUsername, currentPassword, "", otp);
+          // Credential changes require a fresh password session, even when the
+          // current session came from a passkey login.
+          await api.login(currentUsername, currentPassword, "", otp);
           const result = await api.post("/api/settings/account", {
             current_username: currentUsername,
             current_password: currentPassword,

@@ -152,13 +152,13 @@ static esp_err_t auth_login_send_pending(httpd_req_t *req,
     cJSON_Delete(root);
     return ret;
 }
-static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint32_t generation)
+static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint32_t generation, si_auth_method_t method)
 {
     si_auth_status_t status;
     si_auth_get_status(&status);
     char token[SI_AUTH_TOKEN_LEN + 1] = {0};
     char cookie[SI_HTTP_SESSION_COOKIE_MAX_LEN];
-    if (si_auth_create_session_for_generation(mcp_client ? "exoanchor-mcp" : "web", generation, token) != ESP_OK)
+    if (si_auth_create_session_for_method(mcp_client ? "exoanchor-mcp" : "web", generation, method, token) != ESP_OK)
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "session creation failed");
     if (!mcp_client && si_http_set_session_cookie(req, token, cookie, sizeof(cookie)) != ESP_OK) {
         si_auth_revoke_session(token);
@@ -249,7 +249,7 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
     bool mcp_client = auth_request_is_mcp(req);
     bool setup = strncmp(req->uri, "/api/auth/setup", 15) == 0;
     if (!si_auth_is_enabled()) {
-        return auth_login_send_success(req, mcp_client, 0);
+        return auth_login_send_success(req, mcp_client, 0, SI_AUTH_METHOD_PASSWORD);
     }
 
     char buf[SCRATCH_BUFSIZE] = {0};
@@ -411,7 +411,7 @@ static esp_err_t auth_login_status_handler(httpd_req_t *req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
                                    "invalid credentials");
     }
-    return auth_login_send_success(req, mcp_client, generation);
+    return auth_login_send_success(req, mcp_client, generation, SI_AUTH_METHOD_PASSWORD);
 }
 
 static esp_err_t auth_logout_handler(httpd_req_t *req)
@@ -493,10 +493,11 @@ static esp_err_t settings_password_handler(httpd_req_t *req)
     if (!username) {
         username = auth_status.username;
     }
-    bool authorized = si_http_check_recent_auth(req);
+    /* Credential changes need a fresh password (+ second factor) login, not a passkey one. */
+    bool authorized = si_http_check_recent_password_auth(req);
     if (!authorized) {
         cJSON_Delete(root);
-        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "unauthorized");
+        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "sign in again with your password before changing credentials");
     }
 
     ret = si_auth_validate_username(username);

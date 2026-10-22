@@ -77,7 +77,7 @@ static esp_err_t passkey_handler(httpd_req_t *req)
         ret = si_passkey_finish(finish, origin, binding, body, &generation);
         if (ret == ESP_OK && login_finish) {
             si_auth_clear_login_failures();
-            ret = auth_login_send_success(req, false, generation); goto cleanup;
+            ret = auth_login_send_success(req, false, generation, SI_AUTH_METHOD_PASSKEY); goto cleanup;
         }
     } else if (configure) {
         ret = si_passkey_configure(origin, generation);

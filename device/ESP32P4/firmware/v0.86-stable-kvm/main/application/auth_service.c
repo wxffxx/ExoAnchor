@@ -43,6 +43,7 @@ typedef struct {
     int64_t created, touched;
     bool used;
     bool browser;
+    si_auth_method_t method;
 } auth_session_t;
 static auth_session_t s_sessions[AUTH_SESSION_SLOTS];
 static esp_err_t set_credentials_internal(const char *, const char *, bool, bool, bool, bool, uint32_t expected_generation);
@@ -277,7 +278,7 @@ static bool session_live(auth_session_t *session, int64_t now, const si_session_
     return true;
 }
 
-typedef enum { AUTH_TOKEN_ANY, AUTH_TOKEN_RECENT_BROWSER, AUTH_TOKEN_BROWSER } auth_token_scope_t;
+typedef enum { AUTH_TOKEN_ANY, AUTH_TOKEN_RECENT_BROWSER, AUTH_TOKEN_RECENT_PASSWORD, AUTH_TOKEN_BROWSER } auth_token_scope_t;
 
 static bool token_lookup(const char *token, auth_token_scope_t scope, bool revoke)
 {
@@ -294,8 +295,10 @@ static bool token_lookup(const char *token, auth_token_scope_t scope, bool revok
         unsigned diff = 0;
         for (size_t j = 0; j < sizeof(digest); ++j) diff |= digest[j] ^ s_sessions[i].digest[j];
         if (diff) continue;
+        bool recent = now - s_sessions[i].created <= 60000000LL;
         found = scope == AUTH_TOKEN_ANY || (s_sessions[i].browser &&
-            (scope != AUTH_TOKEN_RECENT_BROWSER || now - s_sessions[i].created <= 60000000LL));
+            (scope == AUTH_TOKEN_BROWSER || (recent && (scope == AUTH_TOKEN_RECENT_BROWSER ||
+                                                        s_sessions[i].method == SI_AUTH_METHOD_PASSWORD))));
         if (revoke) si_secret_store_clear(&s_sessions[i], sizeof(s_sessions[i]));
         else if (found) s_sessions[i].touched = now;
         break;
@@ -307,12 +310,20 @@ static bool token_lookup(const char *token, auth_token_scope_t scope, bool revok
 
 bool si_auth_token_matches(const char *token) { return token_lookup(token, AUTH_TOKEN_ANY, false); }
 bool si_auth_token_is_recent(const char *token) { return token_lookup(token, AUTH_TOKEN_RECENT_BROWSER, false); }
+bool si_auth_token_is_recent_password(const char *token) { return token_lookup(token, AUTH_TOKEN_RECENT_PASSWORD, false); }
 void si_auth_revoke_session(const char *token) { (void)token_lookup(token, AUTH_TOKEN_ANY, true); }
 
 esp_err_t si_auth_create_session_for_generation(const char *client, uint32_t expected_generation, char out_token[65])
 {
+    return si_auth_create_session_for_method(client, expected_generation, SI_AUTH_METHOD_PASSWORD, out_token);
+}
+
+esp_err_t si_auth_create_session_for_method(const char *client, uint32_t expected_generation,
+                                            si_auth_method_t method, char out_token[65])
+{
     uint8_t random[32], digest[32];
     if (!out_token || si_auth_setup_required() || !s_initialized) return ESP_ERR_INVALID_STATE;
+    if (method != SI_AUTH_METHOD_PASSWORD && method != SI_AUTH_METHOD_PASSKEY) return ESP_ERR_INVALID_ARG;
     esp_fill_random(random, sizeof(random));
     bytes_to_hex(random, sizeof(random), out_token, 65);
     si_secret_store_clear(random, sizeof(random));
@@ -335,6 +346,7 @@ esp_err_t si_auth_create_session_for_generation(const char *client, uint32_t exp
     s_sessions[slot].created = s_sessions[slot].touched = esp_timer_get_time();
     s_sessions[slot].used = true;
     s_sessions[slot].browser = !client || strcmp(client, "exoanchor-mcp") != 0;
+    s_sessions[slot].method = method;
     xSemaphoreGive(s_lock);
     si_secret_store_clear(digest, sizeof(digest));
     return ESP_OK;

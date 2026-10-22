@@ -228,7 +228,7 @@ static esp_err_t auth_login_send_pending(httpd_req_t *req,
     cJSON_Delete(root);
     return ret;
 }
-static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint32_t generation)
+static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint32_t generation, si_auth_method_t method)
 {
     cJSON *resp = cJSON_CreateObject();
     si_auth_record_login();
@@ -238,8 +238,8 @@ static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint
     char token[SI_AUTH_TOKEN_LEN + 1] = {0};
     char session_cookie[SI_HTTP_SESSION_COOKIE_MAX_LEN] = {0};
     if (auth_status.enabled &&
-        si_auth_create_session_for_generation(mcp_client ? "exoanchor-mcp" : "web",
-                                              generation, token) != ESP_OK) {
+        si_auth_create_session_for_method(mcp_client ? "exoanchor-mcp" : "web",
+                                          generation, method, token) != ESP_OK) {
         cJSON_Delete(resp);
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                    "session creation failed");
@@ -361,7 +361,7 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
                                    "mcp disabled in settings");
     }
     if (!si_auth_is_enabled()) {
-        return auth_login_send_success(req, mcp_client, 0);
+        return auth_login_send_success(req, mcp_client, 0, SI_AUTH_METHOD_PASSWORD);
     }
 
     char buf[SCRATCH_BUFSIZE] = {0};
@@ -523,7 +523,7 @@ static esp_err_t auth_login_status_handler(httpd_req_t *req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
                                    "invalid credentials");
     }
-    return auth_login_send_success(req, mcp_client, generation);
+    return auth_login_send_success(req, mcp_client, generation, SI_AUTH_METHOD_PASSWORD);
 }
 
 static esp_err_t auth_logout_handler(httpd_req_t *req)
@@ -647,11 +647,11 @@ static esp_err_t settings_password_handler(httpd_req_t *req)
                                    "browser settings permission required");
     }
     int64_t now_us = esp_timer_get_time();
-    if (session.authenticated_at_us <= 0 ||
-        now_us < session.authenticated_at_us ||
-        now_us - session.authenticated_at_us > 60000000LL) {
+    /* Credential changes need a fresh password (+ second factor) login, not a passkey one. */
+    if (session.method != SI_AUTH_METHOD_PASSWORD || session.authenticated_at_us <= 0 ||
+        now_us < session.authenticated_at_us || now_us - session.authenticated_at_us > 60000000LL) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
-                                   "sign in again before changing credentials");
+                                   "sign in again with your password before changing credentials");
     }
     char buf[SCRATCH_BUFSIZE] = {0};
     cJSON *root = NULL;

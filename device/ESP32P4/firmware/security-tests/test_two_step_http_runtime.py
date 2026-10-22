@@ -19,6 +19,7 @@ typedef int esp_err_t;
 typedef int BaseType_t;
 typedef void *SemaphoreHandle_t;
 typedef struct {const char *uri;const char *body;int method;} httpd_req_t;
+typedef enum {SI_AUTH_METHOD_PASSWORD=1,SI_AUTH_METHOD_PASSKEY=2} si_auth_method_t;
 #define ESP_OK 0
 #define ESP_FAIL -1
 #define HTTPD_400_BAD_REQUEST 400
@@ -65,7 +66,7 @@ static int xTaskCreateWithCaps(void (*fn)(void *),const char *name,unsigned n,vo
 static bool auth_request_is_mcp(httpd_req_t *r) {(void)r;return mcp;}
 static void auth_login_job_make_id(char *id) {memset(id,'a',32);id[32]=0;}
 static esp_err_t auth_login_send_pending(httpd_req_t *r,const char *id) {(void)r;strcpy(query_id,id);status=202;return ESP_OK;}
-static esp_err_t auth_login_send_success(httpd_req_t *r,bool client,uint32_t g) {(void)r;(void)client;assert(g==generations);minted++;status=200;return ESP_OK;}
+static esp_err_t auth_login_send_success(httpd_req_t *r,bool client,uint32_t g,si_auth_method_t m) {(void)r;(void)client;assert(g==generations&&m==SI_AUTH_METHOD_PASSWORD);minted++;status=200;return ESP_OK;}
 static esp_err_t httpd_resp_send_err(httpd_req_t *r,int code,const char *message) {(void)r;(void)message;status=code;return ESP_OK;}
 static esp_err_t httpd_resp_set_hdr(httpd_req_t *r,const char *k,const char *v) {(void)r;(void)k;(void)v;return ESP_OK;}
 static esp_err_t si_http_send_text_status(httpd_req_t *r,const char *s,const char *m) {(void)r;(void)m;status=atoi(s);return ESP_OK;}

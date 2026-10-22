@@ -166,6 +166,10 @@ int main(int argc,char **argv) {
     assert(si_auth_create_session_for_generation("web",old_generation,b)!=ESP_OK);
     assert(si_auth_create_session_for_generation("web",si_auth_credential_generation(),a)==ESP_OK);
     assert(si_auth_token_is_browser(a) && si_auth_token_is_recent(a));
+    assert(si_auth_token_is_recent_password(a)); /* password login may change credentials */
+    assert(si_auth_create_session_for_method("web",si_auth_credential_generation(),SI_AUTH_METHOD_PASSKEY,b)==ESP_OK);
+    assert(si_auth_token_is_browser(b) && si_auth_token_is_recent(b) && !si_auth_token_is_recent_password(b));
+    assert(si_auth_create_session_for_method("web",si_auth_credential_generation(),(si_auth_method_t)0,b)!=ESP_OK);
     assert(si_auth_create_session_for_generation("exoanchor-mcp",si_auth_credential_generation(),b)==ESP_OK);
     assert(!si_auth_token_is_browser(b) && !si_auth_token_is_recent(b));
     old_generation=si_auth_credential_generation();

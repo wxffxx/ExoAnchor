@@ -86,11 +86,13 @@ static int input_settings;
 static int64_t authenticated_at=99000000;
 static int64_t esp_timer_get_time(void) {return 100000000;}
 
-typedef struct { bool authenticated; int principal; uint32_t capabilities; int64_t authenticated_at_us; } si_auth_session_context_t;
+typedef enum { SI_AUTH_METHOD_PASSWORD=1, SI_AUTH_METHOD_PASSKEY=2 } si_auth_method_t;
+typedef struct { bool authenticated; int principal; si_auth_method_t method; uint32_t capabilities; int64_t authenticated_at_us; } si_auth_session_context_t;
+static si_auth_method_t input_method=SI_AUTH_METHOD_PASSWORD;
 typedef struct { bool enabled; char username[33]; } si_auth_status_t;
 static bool si_http_get_session_context(httpd_req_t *r,si_auth_session_context_t *c) {
     (void)r; c->authenticated=auth_allowed; c->principal=input_mcp?2:1;
-    c->authenticated_at_us=authenticated_at; c->capabilities=input_settings?SI_CAPABILITY_SETTINGS:1; /* observe only; no SETTINGS bit */
+    c->method=input_method; c->authenticated_at_us=authenticated_at; c->capabilities=input_settings?SI_CAPABILITY_SETTINGS:1; /* observe only; no SETTINGS bit */
     return auth_allowed;
 }
 static void si_auth_get_status(si_auth_status_t *s) {s->enabled=true;strcpy(s->username,"owner");}
@@ -226,7 +228,9 @@ int main(void) {
     assert(comparisons==0 && credential_changed==0 && token_created==0);
     auth_allowed=true;input_settings=1;authenticated_at=1;
     settings_password_handler(&req);assert(credential_changed==0);
-    authenticated_at=99000000;
+    authenticated_at=99000000;input_method=SI_AUTH_METHOD_PASSKEY;
+    settings_password_handler(&req);assert(credential_changed==0 && token_created==0); /* passkey session */
+    input_method=SI_AUTH_METHOD_PASSWORD;
     settings_password_handler(&req);assert(credential_changed==1 && token_created==1 && created_client==NULL);
     return 0;
 }

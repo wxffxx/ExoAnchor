@@ -40,7 +40,7 @@ static esp_err_t httpd_req_get_hdr_value_str(httpd_req_t *r,const char *name,cha
 }
 static esp_err_t si_http_recv_body(httpd_req_t *r,char *out,size_t n) {if(r->content_len>=n)return ESP_FAIL;memcpy(out,r->body,r->content_len);out[r->content_len]=0;return ESP_OK;}
 static void si_http_clear_session_cookie(httpd_req_t *r) {(void)r;cleared++;}
-static esp_err_t auth_login_send_success(httpd_req_t *r,bool client,uint32_t g) {(void)r;assert(!client&&g==generation);minted++;status=200;return ESP_OK;}
+static esp_err_t auth_login_send_success(httpd_req_t *r,bool client,uint32_t g,si_auth_method_t m) {(void)r;assert(!client&&g==generation&&m==SI_AUTH_METHOD_PASSKEY);minted++;status=200;return ESP_OK;}
 '''
 CASES = r'''
 static void post(httpd_req_t *r,const char *body,int expected) {
