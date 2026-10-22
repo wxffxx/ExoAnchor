@@ -45,7 +45,9 @@ def verified_https_handler(certificate_file: str | None = None) -> HTTPSHandler:
 
     class PairedHTTPSHandler(HTTPSHandler):
         def https_open(self, request):
+            # Hostname checking is already off on the context; Python 3.12
+            # removed HTTPSConnection's check_hostname argument.
             return self.do_open(functools.partial(_PairedConnection, paired_digest=digest),
-                                request, context=context, check_hostname=False)
+                                request, context=context)
 
     return PairedHTTPSHandler(context=context)

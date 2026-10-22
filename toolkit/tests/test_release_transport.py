@@ -47,7 +47,7 @@ class ReleaseTransportTests(unittest.TestCase):
                     self.assertTrue(response.closed)
 
     def test_malformed_metadata_and_parser_depth_use_toolkit_errors(self):
-        payloads = [b"{broken", b"\xff", b"[" * 2000 + b"0" + b"]" * 2000]
+        payloads = [b"{broken", b"\xff", b"[" * 100000 + b"0" + b"]" * 100000]
         for payload in payloads:
             with self.subTest(bytes=len(payload)):
                 response = io.BytesIO(payload)

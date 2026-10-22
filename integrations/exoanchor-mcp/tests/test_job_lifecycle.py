@@ -12,7 +12,7 @@ class JobLifecycleTests(unittest.TestCase):
     def test_json_parser_limits_do_not_prevent_journal_recovery(self):
         with tempfile.TemporaryDirectory() as directory:
             original = {}
-            for index, data in enumerate(("[" * 2000 + "0" + "]" * 2000, "9" * 10000)):
+            for index, data in enumerate(("[" * 100000 + "0" + "]" * 100000, "9" * 10000)):
                 path = Path(directory) / f"job_invalid_{index}.json"
                 path.write_text(data)
                 original[path] = data

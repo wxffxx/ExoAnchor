@@ -71,7 +71,7 @@ class HttpTransportTests(unittest.TestCase):
         self.assertNotIn("do-not-echo", str(caught.exception))
 
     def test_json_parser_limits_are_transport_errors(self):
-        bodies = [b"[" * 2000 + b"0" + b"]" * 2000]
+        bodies = [b"[" * 100000 + b"0" + b"]" * 100000]
         integer_limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
         if integer_limit:
             bodies.append(b"9" * (integer_limit + 1))

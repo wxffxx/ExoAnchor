@@ -24,7 +24,7 @@ class ProtocolResilienceTests(unittest.TestCase):
     def test_stdio_recovers_after_malformed_methods_and_parser_limits(self):
         bad_lines = [
             json.dumps({"jsonrpc": "2.0", "id": 1, "method": []}),
-            "[" * 2000 + "0" + "]" * 2000,
+            "[" * 100000 + "0" + "]" * 100000,
             "9" * 10000,
             "{broken-json",
         ]

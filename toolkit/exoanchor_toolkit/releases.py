@@ -38,6 +38,9 @@ DIGEST_RE = re.compile(r"^sha256:([0-9a-fA-F]{64})$")
 class _ReleaseRedirect(urllib.request.HTTPRedirectHandler):
     """Allow signed asset redirects without forwarding GitHub credentials."""
 
+    # Python 3.10 predates 308 support; 3.11+ handles it exactly like 307.
+    http_error_308 = urllib.request.HTTPRedirectHandler.http_error_302
+
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         try:
             source = urllib.parse.urlsplit(req.full_url)
@@ -50,7 +53,8 @@ class _ReleaseRedirect(urllib.request.HTTPRedirectHandler):
                              443 if target.port is None else target.port)
         except ValueError:
             return None
-        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        redirected = super().redirect_request(req, fp, 307 if code == 308 else code,
+                                              msg, headers, newurl)
         if redirected is not None and source_origin != target_origin:
             redirected.remove_header("Authorization")
         return redirected
