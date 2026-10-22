@@ -79,7 +79,7 @@ schematic, or test from another board is not hardware evidence.
 | 2 | Waveshare ESP32-P4-NANO with a simple expansion board | Prototype |
 | 3 | ExoAnchor PrototypeV0 | Broad hardware-verified reference |
 | 4 | ExoAnchor PrototypeV2.3 | b4-labelled assembly using b6 mapping; bring-up verified, not production-final |
-| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | Formal Dev product profile available; flashing and HIL not yet completed |
+| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | Formal Dev product profile available; flashed and boot-smoke-tested on one V2.4 board; full HIL pending |
 
 See the [ESP32-P4 platform overview](device/ESP32P4/README.md). The detailed
 [implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
@@ -98,7 +98,7 @@ controls and is not a product image.
 | Hardware | Firmware | Build combination | ESP-IDF | Entry |
 | --- | --- | --- | --- | --- |
 | Waveshare ESP32-P4-NANO DIY | Dev; pure-KVM Stable is also available | `waveshare-p4-nano + esp32p4-rev1` | 5.4.x | [Assembly and flashing guide](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-diy) |
-| ExoAnchor PrototypeV0 | Dev or Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev 5.5.5; Stable 5.5.4 | [Dev build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable build](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
+| ExoAnchor PrototypeV0 | Dev or Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev and Stable 5.5.5 | [Dev build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable build](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3bring-up-主线) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 build and capability boundary](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
@@ -185,8 +185,8 @@ TLS certificate and first-login setup: [pairing guide](docs/guides/SECURITY_TRAN
 Optional browser passkey login (including Apple passkeys) requires a trusted HTTPS hostname; see the [passkey guide](docs/guides/PASSKEY_zh.md).
 
 Verify that the Dashboard opens, Ethernet has an address, KVM video is present,
-and HID works. First boot requires replacing the local bootstrap credential;
-shared documentation does not publish its value.
+and HID works. Official builds ship no bootstrap credential: on first boot,
+create the administrator account in the web UI on a trusted local network.
 
 ## Repository layout
 

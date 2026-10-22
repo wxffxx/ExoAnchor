@@ -17,6 +17,8 @@ enabled_tools = [
   "exoanchor_wait_for_status",
   "exoanchor_wait_for_frame_change",
   "exoanchor_open_kvm",
+  "exoanchor_uart_status",
+  "exoanchor_uart_read",
 ]
 
 [mcp_servers.exoanchor.env]

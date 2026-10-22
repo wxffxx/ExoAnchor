@@ -1,6 +1,6 @@
 # ESP32-P4 板型实现矩阵
 
-更新日期：2026-08-23
+更新日期：2026-10-22
 
 本文是物理实现、固件板型配置、芯片 overlay 和验证状态的统一事实入口。构建配置存在只表示固件保留该入口，不代表硬件已打样、验证或可量产。详细 GPIO 以开发固件 `configs/boards/` 下的板型文档和对应 `sdkconfig.defaults` 为准。
 
@@ -12,7 +12,7 @@
 | Waveshare NANO + 简易扩展板 | 暂时复用 `waveshare-p4-nano` | `esp32p4-rev1` | 有 2026-06-27 设计输出；尚无独立 overlay 或电源能力验收 |
 | ExoAnchor PrototypeV0 | `exoanchor-prototype0` | `esp32p4-rev3` | 验证范围较完整的硬件参考 |
 | ExoAnchor PrototypeV2.3 | `exoanchor-prototype-v2.3` | `esp32p4-rev3` | 当前 bring-up 主线；实物标识 b4、映射依据 b6，尚非量产定稿 |
-| ExoAnchor PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4` | `esp32p4-rev3` | 正式产品配置入口；V2.4a6 的 `a6` 只表示 PCB 层数，原理图映射与 V2.4 相同；尚未烧录或完成 HIL |
+| ExoAnchor PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4` | `esp32p4-rev3` | 正式产品配置入口；V2.4a6 的 `a6` 只表示 PCB 层数，原理图映射与 V2.4 相同；已在一块 V2.4（rev3.2）实物上烧录 0.87.6-dev 并通过启动与 TF/Ethernet/HID/UART/HTTP/MCP 冒烟（见 `AGENT_RUNTIME_V2.md` r11/r28）；V2.4a6 实物与完整 HIL 待完成 |
 
 另有三个非现行产品配置：
 
@@ -29,7 +29,7 @@
 | Waveshare 扩展板 | NANO 基础 KVM 路径 | 在独立 GPIO/极性配置与真机验收前，不能声明电源能力 |
 | Prototype0 | IP101GRI、UVC、HID、PWR/RST、12V、3V3AUX、TF | 被控端 UART |
 | PrototypeV2.3 | DP83825I、UVC 模式、HID、目标 UART、基础 Web 与电源 GPIO 的 bring-up 证据 | 整板量产验收；板载 MS2109 的有效原生 1080p |
-| PrototypeV2.4 / V2.4a6 | 产品 profile 配置 DP83825I、UVC、HID、目标 UART、PWR/RST、12V/3V3AUX、TF、Locator 和 MS2109 两级上电 | 这些是可构建的配置契约，不是真机证据；不得声明已烧录、已完成 HIL、EEPROM 产品读写或量产就绪 |
+| PrototypeV2.4 / V2.4a6 | 产品 profile 配置 DP83825I、UVC、HID、目标 UART、PWR/RST、12V/3V3AUX、TF、Locator 和 MS2109 两级上电 | 除上述 V2.4 冒烟外，这些是可构建的配置契约，不是真机证据；不得声明已完成 HIL、EEPROM 产品读写或量产就绪 |
 
 Prototype0 的真机结论不能移植到其他板型。PrototypeV2.3 当前板载 MS2109 在输入为 1280×720@60 时稳定；名义 1080p 输出的有效细节仍接近放大的 720p，该结论只适用于当前板载实现。
 

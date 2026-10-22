@@ -2,7 +2,7 @@
 
 当前版本：**0.87.6-dev「IndigoShore / 靛蓝海岸」**。
 
-本目录是 ESP32-P4 平台的唯一开发主线，包含 KVM、Web 控制台、嵌入式 Agent、SSH、TF 文件管理和外部 MCP 接口。版本号以 [`CMakeLists.txt`](CMakeLists.txt) 中的 `PROJECT_VER` 为准；正式历史见[固件版本历史](../docs/FIRMWARE_VERSION_HISTORY_zh.md)。
+本目录是 ESP32-P4 平台的唯一开发主线，包含 KVM、Web 控制台、嵌入式 Agent、SSH、TF 文件管理和外部 MCP 接口。版本号由 [`CMakeLists.txt`](CMakeLists.txt) 中的 `SI_VERSION_BASE` 加构建配置后缀组成（`tools/build-firmware.sh` 写入 `PROJECT_VER`，如 `-dev`、`-Stable`）；正式历史见[固件版本历史](../docs/FIRMWARE_VERSION_HISTORY_zh.md)。
 
 ## 目录边界
 
@@ -173,11 +173,12 @@ python3 -m venv .venv
 PYTHON="$PWD/.venv/bin/python" ./tests/host/run.sh
 ```
 
-仓库根目录的 `scripts/test.sh` 统一运行 Dev、旧 Stable KVM、MCP 与工具箱的
-离线测试，同样支持 `PYTHON`。`CJSON_DIR` 可覆盖默认的仓库内 cJSON 路径。
+从仓库根目录执行 `./scripts/check-all.sh` 可以同时检查 Stable、Dev、安全运行时、
+MCP、Toolkit 和文档，同样支持 `PYTHON`；`scripts/test.sh` 只是它的兼容入口。
+`CJSON_DIR` 可覆盖默认的仓库内 cJSON 路径。
 
-从仓库根目录执行 `./scripts/check-all.sh` 可以同时检查 Stable、Dev、MCP、
-Toolkit 和文档。主机测试不等于固件编译或板卡验证；检查范围与人工验收步骤见
+主机侧 Agent 调试客户端 `tools/agent-runtime-http.py` 的用法见
+[Agent Runtime HTTP 闭环客户端](tools/AGENT_RUNTIME_HTTP_CLI.md)。主机测试不等于固件编译或板卡验证；检查范围与人工验收步骤见
 [固件验证指南](../../../../docs/guides/FIRMWARE_VALIDATION_zh.md)。
 
 烧录并等待 DHCP 地址：

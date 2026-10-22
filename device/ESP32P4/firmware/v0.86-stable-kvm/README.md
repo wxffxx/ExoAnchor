@@ -2,11 +2,11 @@
 
 `v0.86-stable-kvm` 是从 `v0.86.2-dev` 快照直接复制并裁剪得到的独立纯 KVM 固件，固件版本为 `0.86.0-stable-kvm`。本目录不通过软链接或共享源码依赖 Dev；后续修复需要明确回移。
 
-当前状态：主机测试、ExoAnchor PrototypeV0 和 Waveshare ESP32-P4-NANO 两套完整编译已通过。Prototype0 已完成烧录和启动冒烟测试：ESP32-P4 rev3.2、32 MiB PSRAM、USB HID、ATX GPIO、IP101GRI Ethernet、HTTP 页面和 UART CLI 均已实际启动；UVC 已在 KVM 页面实测输出 `1280x720 @ 30fps` MJPEG 画面。测试地址为 DHCP 动态分配，不应写入固件配置。
+当前状态（以下真机结果早于 HTTPS-only 传输、浏览器首个账户创建、两步验证和通行密钥，这些后续功能目前只有主机测试与完整编译）：主机测试、ExoAnchor PrototypeV0 和 Waveshare ESP32-P4-NANO 两套完整编译已通过。Prototype0 已完成烧录和启动冒烟测试：ESP32-P4 rev3.2、32 MiB PSRAM、USB HID、ATX GPIO、IP101GRI Ethernet、HTTP 页面和 UART CLI 均已实际启动；UVC 已在 KVM 页面实测输出 `1280x720 @ 30fps` MJPEG 画面。测试地址为 DHCP 动态分配，不应写入固件配置。
 
 Stable KVM 的默认板型和当前真机烧录目标是 **ExoAnchor PrototypeV0**。Waveshare、ESP32-P4x、PrototypeV2.1 和 PrototypeV2.3 必须通过各自的显式 `SDKCONFIG_DEFAULTS` overlay 构建，禁止将未核对板型的默认构建烧入当前 Prototype0。
 
-公开配置不包含默认口令。每个构建必须在生成的本地 `sdkconfig` 中设置唯一的 6..64 位 `CONFIG_SI_AUTH_PASSWORD`；源码会拒绝以空口令编译，生成的配置与构建目录不得提交。
+公开配置不包含默认口令：`CONFIG_SI_AUTH_PASSWORD` 默认为空，首次启动后在可信局域网内通过网页创建首个管理员账户（见 [`SECURITY_TRANSPORT_zh.md`](../../../../docs/guides/SECURITY_TRANSPORT_zh.md)）。受控的自定义构建可以在本地 `sdkconfig` 中设置唯一的 6..64 位口令；生成的配置与构建目录不得提交。
 
 本次没有对目标主机实际发送 HID、执行电源/复位动作，也没有完成长时间运行和完整 KVM 交互回归，因此仍不能视为最终硬件发布验收。
 
@@ -17,6 +17,8 @@ Stable KVM 的默认板型和当前真机烧录目标是 **ExoAnchor PrototypeV0
 | UVC HDMI 视频、截图与 MJPEG 流 | 嵌入式 Agent 及运行引擎 |
 | USB HID 键盘和鼠标 | Provider、Prompt、Skills、History、Memory、Sessions |
 | Ethernet、认证、Dashboard 和手动 KVM | SSH 客户端和 Web Terminal / xterm |
+| HTTPS / WSS 传输、浏览器首个账户创建 | |
+| 两步验证（TOTP）与通行密钥（WebAuthn）登录 | |
 | 状态、capabilities、日志与必要诊断 | TF 卡文件管理与存储 API |
 | 控制租约与批量 HID API | MCP 设置和 Agent 专用 API |
 | 已支持板型的电源与复位控制 | Agent 日志分区与相关依赖 |
@@ -46,13 +48,12 @@ cd device/ESP32P4/firmware/v0.86-stable-kvm
 
 ```bash
 cd device/ESP32P4/firmware/v0.86-stable-kvm
-. "$HOME/esp/esp-idf-v5.5.4/export.sh"
+. "$HOME/esp/esp-idf-v5.5.5/export.sh"
 idf.py \
   -B build-prototype0 \
   -D SDKCONFIG=build-prototype0/sdkconfig \
   -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;configs/boards/sdkconfig.defaults.exoanchor-prototype0;configs/silicon/sdkconfig.defaults.esp32p4-rev3" \
   set-target esp32p4
-idf.py -B build-prototype0 menuconfig # SI ESP32-P4 Host Configuration -> bootstrap password
 idf.py -B build-prototype0 build
 ```
 
@@ -66,7 +67,6 @@ idf.py \
   -D SDKCONFIG=build-waveshare/sdkconfig \
   -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;configs/boards/sdkconfig.defaults.waveshare-p4-nano;configs/silicon/sdkconfig.defaults.esp32p4-rev1" \
   set-target esp32p4
-idf.py -B build-waveshare menuconfig # SI ESP32-P4 Host Configuration -> bootstrap password
 idf.py -B build-waveshare build
 ```
 

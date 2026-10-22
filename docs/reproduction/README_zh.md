@@ -8,7 +8,8 @@
 | --- | --- | --- |
 | 使用现成开发板复刻 | Waveshare ESP32-P4-NANO DIY | 可使用 Dev 或纯 KVM Stable 固件，采用 ESP32-P4 rev1 配置 |
 | 使用验证较完整的自研板 | ExoAnchor PrototypeV0 | 可使用 Dev 或纯 KVM Stable 固件，采用 ESP32-P4 rev3 配置 |
-| 验证当前自研板与设备内 Agent | ExoAnchor PrototypeV2.3 | 使用 Dev 固件和 ESP32-P4 rev3 配置；当前仍处于 bring-up 阶段 |
+| 正式产品配置 | ExoAnchor PrototypeV2.4 / V2.4a6 | 使用 Dev 固件的 `exoanchor-prototype-v2.4` profile 与 ESP32-P4 rev3 配置；已在一块 V2.4 上完成烧录与启动冒烟，完整 HIL 待完成 |
+| 验证上一代自研板与设备内 Agent | ExoAnchor PrototypeV2.3 | 使用 Dev 固件和 ESP32-P4 rev3 配置；处于 bring-up 阶段 |
 | 只需要人工 KVM | Stable KVM | 不包含设备内 Agent |
 | 需要设备内 Agent | Dev | 包含 KVM、设备内 Agent 和相应设备 API |
 

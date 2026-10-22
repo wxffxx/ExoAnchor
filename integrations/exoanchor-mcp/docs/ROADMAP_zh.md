@@ -1,6 +1,6 @@
 # ExoAnchor MCP 完善路线图
 
-更新日期：2026-07-14
+更新日期：2026-10-22
 
 ## 定位
 
@@ -43,13 +43,13 @@ ExoAnchor MCP 是 Codex 与一台已配置 ESP32-P4 KVM 设备之间的薄协议
 当前证据：
 
 - MCP package 版本 `0.4.0`。
-- 36 项单元、契约和本地 HTTP 集成测试通过。
+- 单元、契约和本地 HTTP 集成测试由 `scripts/check-all.sh` 运行并通过（数量随测试增减，不在此固定）。
 - STDIO 子进程完成 initialize、initialized notification 和 tools/list 往返。
 - `--list-tools` 不再要求设备地址或凭据。
 
 ## MCP-1：可信观察面
 
-状态：工程实现完成；dev 固件真机的 capability、status、logs 已通过。当前目标没有可用 JPEG 帧，snapshot 真机项保持 blocked，不伪造通过。
+状态：工程实现完成；dev 固件真机的 capability、status、logs 已通过。2026-08-22 r28 在 Prototype V2.4 上取得 1280x720 JPEG snapshot（见固件 `AGENT_RUNTIME_V2.md` r28 记录）；更早目标上的 snapshot blocked 记录保留为历史。
 
 交付：
 
@@ -129,6 +129,7 @@ ExoAnchor MCP 是 Codex 与一台已配置 ESP32-P4 KVM 设备之间的薄协议
 ## 固件兼容边界
 
 - `v0.86.2-dev`（或具备同等 API 的 dev 固件）：支持 MCP Stage 1-4 契约。
+- UART、控制台登录、运维 Job、HTTPS 证书配对与两步验证登录以当前 `0.87.6-dev` 为基线；更早固件须先读取 capability contract 确认。
 - 纯 KVM 固件：不保证 `/api/settings/mcp`、`/api/capabilities` 或 SSH API；MCP 必须报告 firmware incompatible。
 - 不因设备 IP 可达就假定它运行 dev 固件；必须先读取 capability contract。
 

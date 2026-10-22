@@ -30,7 +30,7 @@ Hardware 仓库中的对应目录。
 | 2 | Waveshare NANO + 简易扩展板 | 当前共享 `waveshare-p4-nano + rev1` | 原型，扩展能力未完全建模 |
 | 3 | Prototype0 | `exoanchor-prototype0 + rev3` | 较完整真机验证参考 |
 | 4 | PrototypeV2.3 | `exoanchor-prototype-v2.3 + rev3` | b4 标识实物使用 b6 映射，bring-up 已验证 |
-| 4A | PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4 + rev3` | 正式产品配置入口；`a6` 只表示 PCB 层数且原理图映射相同；尚未烧录或完成 HIL |
+| 4A | PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4 + rev3` | 正式产品配置入口；`a6` 只表示 PCB 层数且原理图映射相同；0.87.6-dev 已在一块 V2.4 上完成烧录与启动冒烟，完整 HIL 待完成 |
 
 完整 GPIO、网表来源、能力和证据等级见
 [板型与固件 Profile](boards/IMPLEMENTATION_PROFILES_zh.md)。PrototypeV2.1 是仅编译
@@ -72,11 +72,11 @@ Dashboard 和 `GET /api/capabilities` 必须反映实际 profile，不能显示�
 ## 运行入口
 
 ```text
-http://<board-ip>/
-http://<board-ip>/kvm
-http://<board-ip>/agent
-http://<board-ip>/terminal
-http://<board-ip>/settings
+https://<board-ip>/
+https://<board-ip>/kvm
+https://<board-ip>/agent
+https://<board-ip>/terminal
+https://<board-ip>/settings
 ```
 
-首次启动必须替换本地 bootstrap 凭据。共享文档不发布凭据值。
+固件仅提供 HTTPS。官方构建不含 bootstrap 凭据：首次启动后通过网页创建管理员账户。

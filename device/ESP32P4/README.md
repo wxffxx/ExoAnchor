@@ -33,7 +33,7 @@ or physical inspection.
 | 2 | Waveshare NANO with simple expansion board | Currently shares `waveshare-p4-nano + rev1` | Prototype; expansion capabilities are not fully modeled |
 | 3 | Prototype0 | `exoanchor-prototype0 + rev3` | Broad hardware-verified reference |
 | 4 | PrototypeV2.3 | `exoanchor-prototype-v2.3 + rev3` | b4-labeled assembly using the b6 mapping; bring-up verified |
-| 4A | PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4 + rev3` | Product profile available; `a6` denotes only the PCB layer count; flashing and HIL remain pending |
+| 4A | PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4 + rev3` | Product profile available; `a6` denotes only the PCB layer count; 0.87.6-dev flashed and boot-smoke-tested on one V2.4 board; full HIL pending |
 
 See the
 [board and firmware profile matrix](boards/IMPLEMENTATION_PROFILES_zh.md) for
@@ -79,12 +79,12 @@ directory and generated configuration.
 ## Runtime entry points
 
 ```text
-http://<board-ip>/
-http://<board-ip>/kvm
-http://<board-ip>/agent
-http://<board-ip>/terminal
-http://<board-ip>/settings
+https://<board-ip>/
+https://<board-ip>/kvm
+https://<board-ip>/agent
+https://<board-ip>/terminal
+https://<board-ip>/settings
 ```
 
-Replace the local bootstrap credential on first boot. Shared documentation must
-not publish credential values.
+The firmware serves HTTPS only. Official builds ship no bootstrap credential:
+on first boot, create the administrator account in the web UI.

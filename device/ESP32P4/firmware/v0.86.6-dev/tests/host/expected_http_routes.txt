@@ -1,4 +1,4 @@
-# Stable firmware HTTP/WebSocket route contract. Format: METHOD URI
+# Dev firmware HTTP/WebSocket route contract. Format: METHOD URI
 HTTP_GET /
 HTTP_GET /agent
 HTTP_POST /api/agent/data/clear
