@@ -998,7 +998,6 @@
     flex-wrap: wrap;
     justify-content: flex-start;
     margin-left: 0;
-    overflow-x: auto;
   }
 
   .ea-shell > .shell-logout {
