@@ -57,7 +57,7 @@ static esp_err_t passkey_handler(httpd_req_t *req)
             ret = httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "sign in again before managing passkeys"); goto cleanup;
         }
         if (!password || !password[0] || strlen(password) > SI_AUTH_PASSWORD_MAX_LEN || (otp && strlen(otp) > SI_TWO_STEP_CODE_MAX)) goto invalid;
-        if (!si_auth_credentials_match(auth_status.username, password) || !si_two_step_verify(otp, generation)) {
+        if (!si_auth_credentials_match(auth_status.username, password) || !si_two_step_verify(otp, auth_client_time(body), generation)) {
             si_auth_record_login_failure();
             ret = httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "current password and second factor required"); goto cleanup;
         }

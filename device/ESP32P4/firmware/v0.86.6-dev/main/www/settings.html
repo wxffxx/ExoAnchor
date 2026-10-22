@@ -721,7 +721,7 @@ button,.button-link{min-height:38px}
     if (busy) return;
     if (!el("passkeyPassword").value) return message("请输入当前密码。", true);
     busy = true; controls(); message(action === "register" ? "正在验证；随后请在系统提示中创建通行密钥…" : "正在保存…");
-    const body = {current_password: el("passkeyPassword").value, otp: el("passkeyOtp").value.trim(), label: el("passkeyLabel").value.trim(), ...extra}; clear();
+    const body = {current_password: el("passkeyPassword").value, otp: el("passkeyOtp").value.trim(), client_time: Math.floor(Date.now() / 1000), label: el("passkeyLabel").value.trim(), ...extra}; clear();
     try {
       await ui.passkeys.perform(action, body);
       ui.api.setSession("", ui.api.username); loaded = false; state = null;
@@ -769,7 +769,7 @@ button,.button-link{min-height:38px}
       if (!busy && !enrollmentId) message("");
       el("twoStepStatus").textContent = !state.storage_ok ? "验证存储异常，认证已锁定。" :
         (state.enabled ? `已启用 · 剩余 ${state.recovery_remaining} 个恢复码` : "尚未启用") +
-        (state.time_ready ? " · 设备时间已就绪" : " · 等待网络校时；恢复码仍可使用");
+        (state.time_ready ? " · 设备时间已就绪" : " · 设备尚未校时；将按本机时间校验动态验证码，并在验证成功后校准设备时间");
       el("twoStepBegin").hidden = state.enabled;
       el("twoStepBegin").disabled = !state.storage_ok || !state.time_ready;
       el("twoStepDisable").hidden = !state.enabled;
@@ -781,7 +781,7 @@ button,.button-link{min-height:38px}
     if (!el("twoStepPassword").value) return message("请输入当前密码。", true);
     if (action === "confirm" && !el("twoStepSaved").checked) return message("请先保存恢复码。", true);
     busy = true;
-    const body = {action, current_password: el("twoStepPassword").value, otp: el("twoStepOtp").value.trim(), enrollment_id: enrollmentId || undefined};
+    const body = {action, current_password: el("twoStepPassword").value, otp: el("twoStepOtp").value.trim(), client_time: Math.floor(Date.now() / 1000), enrollment_id: enrollmentId || undefined};
     el("twoStepOtp").value = "";
     if (action === "begin") clearEnrollment();
     message("正在验证…");

@@ -255,7 +255,7 @@ class ExoAnchorClient:
             {
                 "username": self.config.username,
                 "password": self.config.password,
-                **({"otp": otp_code} if otp_code else {}),
+                **({"otp": otp_code, "client_time": int(time.time())} if otp_code else {}),
                 "request_id": secrets.token_hex(16),
             },
             retry_auth=False,

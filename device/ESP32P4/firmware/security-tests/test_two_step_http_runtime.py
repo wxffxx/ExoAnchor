@@ -29,6 +29,9 @@ typedef struct {const char *uri;const char *body;int method;} httpd_req_t;
 #define SI_AUTH_USERNAME_MAX_LEN 32
 #define SI_AUTH_PASSWORD_MAX_LEN 64
 #define SI_TWO_STEP_CODE_MAX 32
+#define SI_TWO_STEP_CLIENT_TIME_MAX 4102444800LL
+#define ESP_ERR_INVALID_STATE 0x103
+#define HTTPD_500_INTERNAL_SERVER_ERROR 500
 #define SCRATCH_BUFSIZE 2048
 #define pdTRUE 1
 #define pdPASS 1
@@ -40,6 +43,7 @@ static unsigned generations=1, verified, minted, clear_failures, failures;
 static bool password_ok=true, factor_ok, mcp;
 static int status;
 static char seen_code[33], query_id[33];
+static int64_t seen_time=-1;
 static uint32_t si_monotonic_ms(void) {return 1000;}
 static uint32_t si_auth_credential_generation(void) {return generations;}
 static bool si_auth_is_enabled(void) {return true;}
@@ -49,7 +53,7 @@ static int si_auth_validate_username(const char *s) {(void)s;return ESP_OK;}
 static int si_auth_validate_password(const char *s) {(void)s;return ESP_OK;}
 static int si_auth_setup_credentials(const char *u,const char *p,uint32_t g) {(void)u;(void)p;(void)g;return ESP_FAIL;}
 static bool si_auth_credentials_match(const char *u,const char *p) {(void)u;(void)p;return password_ok;}
-static bool si_two_step_verify(const char *code,uint32_t generation) {verified++;strcpy(seen_code,code);return factor_ok&&generation==generations;}
+static bool si_two_step_verify(const char *code,int64_t client_time,uint32_t generation) {verified++;strcpy(seen_code,code);seen_time=client_time;return factor_ok&&generation==generations;}
 static void si_secret_store_clear(void *p,size_t n) {memset(p,0,n);}
 static void si_auth_clear_login_failures(void) {clear_failures++;}
 static void si_auth_record_login_failure(void) {failures++;}
@@ -90,7 +94,15 @@ int main(void) {
         auth_login_worker(NULL);assert(s_auth_login_job.otp[0]==0&&s_auth_login_job.password[0]==0);
         auth_login_status_handler(&req);assert(status==200&&minted==i+1);
     }
-    assert(strcmp(seen_code,"012345")==0);
+    assert(strcmp(seen_code,"012345")==0&&seen_time==0);
+    const char *times[][2]={{"1900000000","1900000000"},{"\"1900000000\"","0"},{"-5","0"},{"5000000000","0"},{"null","0"}};
+    for(unsigned i=0;i<5;i++) {
+        static char body[160];
+        snprintf(body,sizeof(body),"{\"username\":\"owner\",\"password\":\"password\",\"otp\":\"012345\",\"client_time\":%s}",times[i][0]);
+        req.body=body;auth_login_handler(&req);assert(status==202);auth_login_worker(NULL);
+        assert(seen_time==atoll(times[i][1]));auth_login_status_handler(&req);
+    }
+    minted=2;req.body="{\"username\":\"owner\",\"password\":\"password\",\"otp\":\"012345\"}";
     auth_login_handler(&req);auth_login_worker(NULL);generations++;
     auth_login_status_handler(&req);assert(status==401&&minted==2); /* Factor changed before poll. */
     puts("password + second factor required for browser/MCP; typed input, secret clearing, generation fence: PASS");
@@ -108,6 +120,7 @@ typedef struct {char id[33],secret[33],recovery[8][33];} si_two_step_enrollment_
 typedef struct {bool using_default;char username[33];} si_auth_status_t;
 static bool browser_session, recent_session;
 static unsigned begun, confirmed, disabled, cookies_cleared;
+static bool storage_fail;
 static cJSON *response;
 static bool si_http_get_auth_token(httpd_req_t *r,char *out,size_t n) {(void)r;(void)n;strcpy(out,"test-token");return browser_session||mcp;}
 static bool si_auth_token_is_browser(const char *t) {(void)t;return browser_session&&!mcp;}
@@ -122,8 +135,8 @@ static esp_err_t si_two_step_begin(uint32_t g,si_two_step_enrollment_t *out) {
     for(unsigned i=0;i<8;i++)memset(out->recovery[i],'c',32);
     return ESP_OK;
 }
-static esp_err_t si_two_step_confirm(const char *id,const char *code,uint32_t g) {assert(g==generations);confirmed++;return factor_ok&&id&&code?ESP_OK:ESP_FAIL;}
-static esp_err_t si_two_step_disable(const char *code,uint32_t g) {assert(g==generations);disabled++;return factor_ok&&code?ESP_OK:ESP_FAIL;}
+static esp_err_t si_two_step_confirm(const char *id,const char *code,int64_t t,uint32_t g) {assert(g==generations);confirmed++;seen_time=t;return storage_fail?ESP_FAIL:factor_ok&&id&&code?ESP_OK:ESP_ERR_INVALID_STATE;}
+static esp_err_t si_two_step_disable(const char *code,int64_t t,uint32_t g) {assert(g==generations);disabled++;seen_time=t;return storage_fail?ESP_FAIL:factor_ok&&code?ESP_OK:ESP_ERR_INVALID_STATE;}
 '''
 MANAGEMENT_CASES = r'''
 int main(void) {
@@ -140,11 +153,14 @@ int main(void) {
     assert(strlen(cJSON_GetObjectItem(response,"secret")->valuestring)==32);
     recent_session=false;req.body="{\"action\":\"confirm\",\"current_password\":\"test-password\"}";
     two_step_handler(&req);assert(status==403&&cookies_cleared==0);
-    factor_ok=true;req.body="{\"action\":\"confirm\",\"current_password\":\"test-password\",\"otp\":\"123456\",\"enrollment_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}";
-    two_step_handler(&req);assert(status==200&&cookies_cleared==1);
+    req.body="{\"action\":\"confirm\",\"current_password\":\"test-password\",\"otp\":\"123456\",\"enrollment_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}";
+    two_step_handler(&req);assert(status==403&&cookies_cleared==0); /* Wrong code. */
+    storage_fail=true;two_step_handler(&req);assert(status==500&&cookies_cleared==1); /* Save failed after revoke. */
+    storage_fail=false;factor_ok=true;req.body="{\"action\":\"confirm\",\"current_password\":\"test-password\",\"otp\":\"123456\",\"client_time\":1900000000,\"enrollment_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}";
+    two_step_handler(&req);assert(status==200&&cookies_cleared==2&&seen_time==1900000000);
     req.body="{\"action\":\"disable\",\"current_password\":\"test-password\",\"otp\":\"123456\"}";
     two_step_handler(&req);assert(status==403&&disabled==0);
-    recent_session=true;two_step_handler(&req);assert(status==200&&disabled==1&&cookies_cleared==2);
+    recent_session=true;two_step_handler(&req);assert(status==200&&disabled==1&&cookies_cleared==3&&seen_time==0);
     cJSON_Delete(response);
     puts("management: browser-only, recent login, password, enrollment capability, status secrecy, cookie revocation: PASS");
 }
@@ -159,12 +175,12 @@ def main():
             contents=path.read_text()
             types=contents[contents.index('typedef enum {\n    AUTH_LOGIN_JOB_IDLE'):contents.index('static bool auth_request_is_mcp')]
             code=PRELUDE+types
-            for name in ('auth_login_job_reset_locked','auth_login_job_expired_locked','auth_login_worker','auth_login_handler','auth_login_status_handler'):
+            for name in ('auth_login_job_reset_locked','auth_login_job_expired_locked','auth_client_time','auth_login_worker','auth_login_handler','auth_login_status_handler'):
                 code+=extract(path,name)
             c=tmp/'test.c';c.write_text(code+CASES);binary=tmp/'test'
             subprocess.run(['cc','-std=c11','-I'+str(vendor),str(c),str(vendor/'cJSON.c'),'-o',str(binary)],check=True)
             print(profile,flush=True);subprocess.run([str(binary)],check=True)
-            code=PRELUDE+MANAGEMENT+extract(path,'json_string_any')
+            code=PRELUDE+MANAGEMENT+extract(path,'json_string_any')+extract(path,'auth_client_time')
             code+=extract(path.parent/'two_step_http_module.inc','two_step_handler')+MANAGEMENT_CASES
             c.write_text(code)
             subprocess.run(['cc','-std=c11','-I'+str(vendor),str(c),str(vendor/'cJSON.c'),'-o',str(binary)],check=True)

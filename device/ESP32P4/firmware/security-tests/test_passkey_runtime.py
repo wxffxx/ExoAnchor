@@ -24,8 +24,15 @@ void mbedtls_pk_free(mbedtls_pk_context *);
 int mbedtls_pk_parse_public_key(mbedtls_pk_context *,const unsigned char *,size_t);
 int mbedtls_pk_verify(mbedtls_pk_context *,int,const unsigned char *,size_t,const unsigned char *,size_t);
 '''
+MD_STUB = r'''
+typedef int mbedtls_md_info_t;
+#define MBEDTLS_MD_SHA256 1
+const mbedtls_md_info_t *mbedtls_md_info_from_type(int);
+int mbedtls_md_hmac(const mbedtls_md_info_t *,const unsigned char *,size_t,const unsigned char *,size_t,unsigned char *);
+'''
 MOCKS = r'''
 #include <assert.h>
+#include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <openssl/x509.h>
@@ -46,6 +53,10 @@ esp_err_t si_auth_security_commit(uint32_t g,esp_err_t (*commit)(void *),void *c
     generation++;return commit(context);
 }
 int mbedtls_sha256(const unsigned char *p,size_t n,unsigned char *out,int mode) {(void)mode;return SHA256(p,n,out)?0:-1;}
+const mbedtls_md_info_t *mbedtls_md_info_from_type(int type) {static const mbedtls_md_info_t info=1;return type==MBEDTLS_MD_SHA256?&info:NULL;}
+int mbedtls_md_hmac(const mbedtls_md_info_t *md,const unsigned char *key,size_t kn,const unsigned char *data,size_t n,unsigned char *out) {
+    (void)md;return HMAC(EVP_sha256(),key,(int)kn,data,n,out,NULL)?0:-1;
+}
 void mbedtls_pk_init(mbedtls_pk_context *k) {k->key=NULL;}
 void mbedtls_pk_free(mbedtls_pk_context *k) {EVP_PKEY_free(k->key);k->key=NULL;}
 int mbedtls_pk_parse_public_key(mbedtls_pk_context *k,const unsigned char *p,size_t n) {
@@ -66,7 +77,8 @@ esp_err_t si_settings_store_set_string(si_settings_store_t *s,const char *k,cons
 esp_err_t si_settings_store_commit(si_settings_store_t *s) {(void)s;if(fail_commit)return ESP_FAIL;strcpy(persisted,staged);exists=true;return ESP_OK;}
 static void reboot(void) {
     memset(&s_pk,0,sizeof(s_pk));memset(s_pk_pending,0,sizeof(s_pk_pending));
-    s_pk_loaded=s_pk_storage_ok=false;s_pk_last_login_options=0;generation=1;
+    memset(s_pk_spent,0,sizeof(s_pk_spent));
+    s_pk_loaded=s_pk_storage_ok=s_pk_login_key_ready=false;generation=1;
 }
 int main(void) {
     assert(si_passkey_initialize()==ESP_OK);
@@ -104,7 +116,7 @@ int main(void) {
 
 def build(profile, tmp):
     tmp=Path(tmp);tmp.mkdir(parents=True,exist_ok=True)
-    stubs={**STUBS,'mbedtls/pk.h':PK_STUB}
+    stubs={**STUBS,'mbedtls/pk.h':PK_STUB,'mbedtls/md.h':MD_STUB}
     for name, content in stubs.items():
         p=tmp/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content)
     base=FIRMWARE/profile/'main';vendor=FIRMWARE/'v0.86.6-dev/tests/host/vendor/cjson'
@@ -203,9 +215,21 @@ def cases(binary,tmp):
         h.call('fail_commit',value=True);finish(begin(),False,False,counter=3)
         assert not h.call('status')['result']['storage_ok'];assert not h.call('begin')['ok']
         h.call('fail_commit',value=False);assert h.call('reboot')['ok'];finish(begin(),counter=3)
-        # Bounded pending set refuses overflow without evicting existing login tickets.
-        options=[begin() for _ in range(3)];assert not h.call('begin')['ok']
+        # Anonymous login options are stateless: a flood cannot exhaust slots or
+        # evict a real user's challenge, and enrollment stays available.
+        options=[begin() for _ in range(20)]
         assert h.call('begin',registration=True)['ok'];finish(options[0],counter=4)
+        response=a.response(options[1],counter=5);assert h.call('finish',response=response)['ok']
+        assert not h.call('finish',response=response)['ok'] # verified challenge is single-use
+        forged=dict(options[2]);raw=bytearray(un64(forged['challenge']));raw[0]^=1;forged['challenge']=b64(bytes(raw))
+        finish(forged,False,False,counter=6) # MAC binds nonce/expiry/generation
+        raw=bytearray(un64(options[2]['challenge']));raw[16:24]=struct.pack('>q',2**62);forged['challenge']=b64(bytes(raw))
+        finish(forged,False,False,counter=6) # extended expiry is rejected
+        for i in range(5):finish(options[3+i],counter=6+i) # 8 accepted logins are now live
+        finish(options[8],False,False,counter=12) # spent set full: refuse rather than forget a replay
+        h.call('tick',us=120000000);finish(begin(),counter=12)
+        stale=begin();h.call('rotate');finish(stale,False,False,counter=13) # generation fenced
+        late=begin();assert h.call('reboot')['ok'];finish(late,False,False,counter=13) # boot key rotates
         h.call('tick',us=120000000)
         assert not h.call('remove',id=b64(a.id),generation=999)['ok']
         assert h.call('remove',id=b64(a.id))['ok'];assert not h.call('begin')['ok']

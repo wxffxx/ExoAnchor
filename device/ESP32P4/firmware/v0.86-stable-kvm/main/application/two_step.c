@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include "auth_service.h"
 #include "esp_netif_sntp.h"
@@ -100,6 +101,18 @@ static bool two_hotp(const uint8_t secret[20], uint64_t step, unsigned digits, u
 
 static bool two_time_ready(void) { return (int64_t)time(NULL) >= MIN_UNIX_TIME; }
 
+#ifndef SI_TWO_STEP_SET_CLOCK
+#define SI_TWO_STEP_SET_CLOCK(tv) settimeofday((tv), NULL)
+#endif
+/* Without an RTC or reachable NTP the clock restarts unset. A TOTP code that
+ * verified against the client's clock attests that time, so adopt it. */
+static void two_adopt_clock(int64_t unix_s)
+{
+    if (!unix_s || two_time_ready()) return;
+    struct timeval now = {.tv_sec = (time_t)unix_s};
+    (void)SI_TWO_STEP_SET_CLOCK(&now);
+}
+
 void si_two_step_clock_start(void)
 {
     static bool started;
@@ -162,7 +175,9 @@ static bool two_lock(void)
     return true;
 }
 
-static esp_err_t two_save_locked(const two_step_state_t *state)
+/* Factor transitions (enable/disable) reload the authoritative record when a
+ * commit fails; consumed-code updates fail closed to prevent replay. */
+static esp_err_t two_save_locked(const two_step_state_t *state, bool transition)
 {
     uint8_t raw[RECORD_BYTES] = {0};
     char text[RECORD_BYTES * 2 + 1];
@@ -180,12 +195,21 @@ static esp_err_t two_save_locked(const two_step_state_t *state)
     if (ret == ESP_OK) ret = si_secret_store_set_string(&store, "record", text);
     if (ret == ESP_OK) ret = si_settings_store_commit(&store);
     si_settings_store_close(&store);
-    if (ret == ESP_OK) s_two_state = *state;
-    else s_two_storage_ok = false; /* An ambiguous commit must never permit replay. */
     si_secret_store_clear(raw, sizeof(raw));
     si_secret_store_clear(text, sizeof(text));
+    if (ret == ESP_OK) {
+        s_two_state = *state;
+    } else if (transition) {
+        si_secret_store_clear(&s_two_state, sizeof(s_two_state));
+        s_two_loaded = false;
+        two_load_locked();
+    } else {
+        s_two_storage_ok = false; /* An ambiguous commit must never permit replay. */
+    }
     return ret;
 }
+
+static esp_err_t two_commit_transition(void *state) { return two_save_locked(state, true); }
 
 void si_two_step_get_status(si_two_step_status_t *out)
 {
@@ -201,8 +225,10 @@ void si_two_step_get_status(si_two_step_status_t *out)
 }
 
 /* Stage the consumed code in a copy; publish only after durable commit. */
-static bool two_check_code(two_step_state_t *candidate, const char *code, bool recovery)
+static bool two_check_code(two_step_state_t *candidate, const char *code, bool recovery,
+                           int64_t client_unix, int64_t *adopt_unix)
 {
+    *adopt_unix = 0;
     if (!code) return false;
     if (recovery && strlen(code) == 32) {
         uint8_t bytes[16], digest[32];
@@ -220,9 +246,15 @@ static bool two_check_code(two_step_state_t *candidate, const char *code, bool r
         candidate->used |= (uint8_t)(1U << match);
         return true;
     }
-    if (strlen(code) != 6 || !two_time_ready()) return false;
+    if (strlen(code) != 6) return false;
     for (unsigned i = 0; i < 6; ++i) if (code[i] < '0' || code[i] > '9') return false;
-    uint64_t current = (uint64_t)time(NULL) / 30U, matched = 0;
+    int64_t now = (int64_t)time(NULL);
+    bool claimed = now < MIN_UNIX_TIME;
+    if (claimed) {
+        if (client_unix < MIN_UNIX_TIME || client_unix > SI_TWO_STEP_CLIENT_TIME_MAX) return false;
+        now = client_unix;
+    }
+    uint64_t current = (uint64_t)now / 30U, matched = 0;
     for (int drift = -1; drift <= 1; ++drift) {
         uint64_t step = drift < 0 ? current - 1 : current + (unsigned)drift;
         uint32_t value;
@@ -233,6 +265,7 @@ static bool two_check_code(two_step_state_t *candidate, const char *code, bool r
     }
     if (!matched) return false;
     candidate->last_step = matched;
+    if (claimed) *adopt_unix = now;
     return true;
 }
 
@@ -246,14 +279,16 @@ static void two_attempt_result(bool ok)
     }
 }
 
-bool si_two_step_verify(const char *code, uint32_t generation)
+bool si_two_step_verify(const char *code, int64_t client_unix, uint32_t generation)
 {
     if (!two_lock()) return false;
     bool ok = s_two_storage_ok && generation == si_auth_credential_generation();
     two_step_state_t candidate = s_two_state;
     if (ok && candidate.enabled) {
-        ok = two_attempt_allowed() && two_check_code(&candidate, code, true);
-        if (ok) ok = two_save_locked(&candidate) == ESP_OK;
+        int64_t adopt = 0;
+        ok = two_attempt_allowed() && two_check_code(&candidate, code, true, client_unix, &adopt);
+        if (ok) ok = two_save_locked(&candidate, false) == ESP_OK;
+        if (ok) two_adopt_clock(adopt);
         two_attempt_result(ok);
     }
     si_secret_store_clear(&candidate, sizeof(candidate));
@@ -265,7 +300,7 @@ esp_err_t si_two_step_begin(uint32_t generation, si_two_step_enrollment_t *out)
 {
     if (!out || !two_lock()) return ESP_FAIL;
     esp_err_t ret = ESP_ERR_INVALID_STATE;
-    if (s_two_storage_ok && !s_two_state.enabled && two_time_ready() && generation == si_auth_credential_generation()) {
+    if (s_two_storage_ok && !s_two_state.enabled && generation == si_auth_credential_generation()) {
         si_secret_store_clear(&s_two_pending, sizeof(s_two_pending));
         s_two_pending.enabled = true;
         esp_fill_random(s_two_pending.secret, sizeof(s_two_pending.secret));
@@ -294,7 +329,7 @@ esp_err_t si_two_step_begin(uint32_t generation, si_two_step_enrollment_t *out)
     return ret;
 }
 
-esp_err_t si_two_step_confirm(const char *id, const char *code, uint32_t generation)
+esp_err_t si_two_step_confirm(const char *id, const char *code, int64_t client_unix, uint32_t generation)
 {
     if (!two_lock()) return ESP_FAIL;
     esp_err_t ret = ESP_ERR_INVALID_STATE;
@@ -303,11 +338,13 @@ esp_err_t si_two_step_confirm(const char *id, const char *code, uint32_t generat
         generation == s_two_pending_generation && generation == si_auth_credential_generation() &&
         esp_timer_get_time() < s_two_pending_until && two_attempt_allowed()) {
         two_step_state_t candidate = s_two_pending;
-        bool valid = two_check_code(&candidate, code, false);
+        int64_t adopt = 0;
+        bool valid = two_check_code(&candidate, code, false, client_unix, &adopt);
         two_attempt_result(valid);
         if (valid) {
-            ret = si_auth_security_changed(generation);
-            if (ret == ESP_OK) ret = two_save_locked(&candidate);
+            /* Persist inside the credential fence; sessions are revoked either way. */
+            ret = si_auth_security_commit(generation, two_commit_transition, &candidate);
+            if (ret == ESP_OK) two_adopt_clock(adopt);
             si_secret_store_clear(&s_two_pending, sizeof(s_two_pending));
             si_secret_store_clear(s_two_pending_id, sizeof(s_two_pending_id));
         }
@@ -317,18 +354,19 @@ esp_err_t si_two_step_confirm(const char *id, const char *code, uint32_t generat
     return ret;
 }
 
-esp_err_t si_two_step_disable(const char *code, uint32_t generation)
+esp_err_t si_two_step_disable(const char *code, int64_t client_unix, uint32_t generation)
 {
     if (!two_lock()) return ESP_FAIL;
     esp_err_t ret = ESP_ERR_INVALID_STATE;
     if (s_two_storage_ok && s_two_state.enabled && generation == si_auth_credential_generation() && two_attempt_allowed()) {
         two_step_state_t candidate = s_two_state;
-        bool valid = two_check_code(&candidate, code, true);
+        int64_t adopt = 0;
+        bool valid = two_check_code(&candidate, code, true, client_unix, &adopt);
         two_attempt_result(valid);
         if (valid) {
             si_secret_store_clear(&candidate, sizeof(candidate));
-            ret = si_auth_security_changed(generation);
-            if (ret == ESP_OK) ret = two_save_locked(&candidate);
+            ret = si_auth_security_commit(generation, two_commit_transition, &candidate);
+            if (ret == ESP_OK) two_adopt_clock(adopt);
         }
         si_secret_store_clear(&candidate, sizeof(candidate));
     }

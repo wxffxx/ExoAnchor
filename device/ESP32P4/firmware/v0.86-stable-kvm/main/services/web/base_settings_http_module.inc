@@ -92,6 +92,7 @@ typedef struct {
     char username[SI_AUTH_USERNAME_MAX_LEN + 1];
     char password[SI_AUTH_PASSWORD_MAX_LEN + 1];
     char otp[SI_TWO_STEP_CODE_MAX + 1];
+    int64_t client_time;
     bool mcp_client;
     bool setup;
     uint32_t credential_generation;
@@ -178,12 +179,19 @@ static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint
     return ret;
 }
 
+static int64_t auth_client_time(const cJSON *obj)
+{
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(obj, "client_time");
+    return cJSON_IsNumber(v) && v->valuedouble >= 0 && v->valuedouble <= (double)SI_TWO_STEP_CLIENT_TIME_MAX ? (int64_t)v->valuedouble : 0;
+}
+
 static void auth_login_worker(void *arg)
 {
     (void)arg;
     char username[SI_AUTH_USERNAME_MAX_LEN + 1] = {0};
     char password[SI_AUTH_PASSWORD_MAX_LEN + 1] = {0};
     char otp[SI_TWO_STEP_CODE_MAX + 1] = {0};
+    int64_t client_time = 0;
     bool have_job = false;
     bool setup = false;
     uint32_t expected_generation = 0;
@@ -194,6 +202,7 @@ static void auth_login_worker(void *arg)
             strlcpy(username, s_auth_login_job.username, sizeof(username));
             strlcpy(password, s_auth_login_job.password, sizeof(password));
             strlcpy(otp, s_auth_login_job.otp, sizeof(otp));
+            client_time = s_auth_login_job.client_time;
             si_secret_store_clear(s_auth_login_job.otp, sizeof(s_auth_login_job.otp));
             si_secret_store_clear(s_auth_login_job.username,
                                   sizeof(s_auth_login_job.username));
@@ -210,7 +219,7 @@ static void auth_login_worker(void *arg)
     bool accepted = have_job && (setup ?
         si_auth_setup_credentials(username, password, expected_generation) == ESP_OK :
         si_auth_credentials_match(username, password));
-    if (accepted && !setup) accepted = si_two_step_verify(otp, expected_generation);
+    if (accepted && !setup) accepted = si_two_step_verify(otp, client_time, expected_generation);
     si_secret_store_clear(otp, sizeof(otp));
     uint32_t accepted_generation = setup && accepted ? expected_generation + 1U : expected_generation;
     si_secret_store_clear(username, sizeof(username));
@@ -333,6 +342,7 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
     strlcpy(s_auth_login_job.password, password->valuestring,
             sizeof(s_auth_login_job.password));
     if (otp) strlcpy(s_auth_login_job.otp, otp->valuestring, sizeof(s_auth_login_job.otp));
+    s_auth_login_job.client_time = auth_client_time(root);
     s_auth_login_job.mcp_client = mcp_client;
     s_auth_login_job.setup = setup;
     s_auth_login_job.credential_generation = si_auth_credential_generation();

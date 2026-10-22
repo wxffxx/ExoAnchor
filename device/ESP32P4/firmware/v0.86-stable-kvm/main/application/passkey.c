@@ -1,6 +1,8 @@
 /* Bounded WebAuthn RP for one local administrator. ES256, UV required,
  * discoverable credentials, none attestation. Private keys stay in authenticators.
- * All challenges are single-use, monotonic-time limited, and generation fenced. */
+ * All challenges are single-use, monotonic-time limited, and generation fenced.
+ * Anonymous login challenges are stateless (boot-key MAC), so requests cannot
+ * exhaust server slots; only accepted logins occupy the bounded spent set. */
 #include "passkey.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,13 +12,15 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "mbedtls/md.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/sha256.h"
 #include "settings_store.h"
 
 #define PK_LABEL_MAX 48
 #define PK_RECORD_MAX 3900
-#define PK_CHALLENGES 4
+#define PK_CHALLENGES 1
+#define PK_SPENT 8
 #define PK_TIMEOUT_US 120000000LL
 #define PK_DATA_MAX 1024
 #define PK_B64_MAX(n) (((n) * 4 + 2) / 3 + 1)
@@ -40,11 +44,17 @@ typedef struct {
     uint32_t generation;
     int64_t expires;
 } pk_challenge_t;
+typedef struct {
+    uint8_t nonce[16];
+    int64_t expires;
+} pk_spent_t;
 static pk_state_t s_pk;
 static pk_challenge_t s_pk_pending[PK_CHALLENGES];
+static pk_spent_t s_pk_spent[PK_SPENT];
+static uint8_t s_pk_login_key[32];
+static bool s_pk_login_key_ready;
 static SemaphoreHandle_t s_pk_lock;
 static bool s_pk_loaded, s_pk_storage_ok;
-static int64_t s_pk_last_login_options;
 
 static const char *pk_string(const cJSON *j, const char *name)
 {
@@ -97,6 +107,46 @@ static bool pk_decode(const char *s, uint8_t *out, size_t cap, size_t *len)
     }
     if (bits && (value & ((1U << bits) - 1))) return false;
     *len = pos; return true;
+}
+/* Login challenge = nonce[16] | expires_us[8] | MAC[8], with
+ * MAC = HMAC-SHA256(boot key, nonce | expires | generation). */
+static bool pk_login_mac(const uint8_t raw[24], uint32_t generation, uint8_t mac[8])
+{
+    uint8_t message[28], digest[32];
+    memcpy(message, raw, 24);
+    for (unsigned i = 0; i < 4; ++i) message[24 + i] = (uint8_t)(generation >> (24 - 8 * i));
+    const mbedtls_md_info_t *md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    if (!md || mbedtls_md_hmac(md, s_pk_login_key, sizeof(s_pk_login_key), message, sizeof(message), digest)) return false;
+    memcpy(mac, digest, 8); return true;
+}
+static bool pk_login_challenge(uint32_t generation, int64_t expires, char out[44])
+{
+    uint8_t raw[32];
+    esp_fill_random(raw, 16);
+    for (unsigned i = 0; i < 8; ++i) raw[16 + i] = (uint8_t)((uint64_t)expires >> (56 - 8 * i));
+    if (!pk_login_mac(raw, generation, raw + 24)) return false;
+    pk_encode(raw, sizeof(raw), out); return true;
+}
+/* Returns the spent-set slot to record on success, or -1 for an invalid,
+ * expired, replayed, or (when 8 logins are live) unrecordable challenge. */
+static int pk_login_ticket(const char *challenge, uint32_t generation, int64_t now, pk_challenge_t *ticket)
+{
+    uint8_t raw[32], mac[8]; size_t n; int64_t expires = 0;
+    if (!pk_decode(challenge, raw, sizeof(raw), &n) || n != sizeof(raw) ||
+        !pk_login_mac(raw, generation, mac) || !pk_equal(mac, raw + 24, 8)) return -1;
+    for (unsigned i = 0; i < 8; ++i) expires = (int64_t)(((uint64_t)expires << 8) | raw[16 + i]);
+    if (expires <= now || expires > now + PK_TIMEOUT_US) return -1;
+    int slot = -1;
+    for (unsigned i = 0; i < PK_SPENT; ++i) {
+        if (s_pk_spent[i].expires > now) {
+            if (pk_equal(s_pk_spent[i].nonce, raw, 16)) return -1;
+        } else if (slot < 0) slot = (int)i;
+    }
+    if (slot >= 0) {
+        memcpy(s_pk_spent[slot].nonce, raw, 16);
+        *ticket = (pk_challenge_t){.generation = generation, .expires = expires};
+    }
+    return slot;
 }
 /* Canonical HTTPS origin, exact RP host (no parent-domain or IP RP IDs).
  * ASCII/punycode DNS only. Default port must be omitted as browsers do. */
@@ -232,6 +282,10 @@ esp_err_t si_passkey_initialize(void)
 {
     if (!s_pk_lock) s_pk_lock = xSemaphoreCreateMutex();
     if (!pk_lock()) return ESP_FAIL;
+    if (!s_pk_login_key_ready) {
+        esp_fill_random(s_pk_login_key, sizeof(s_pk_login_key));
+        s_pk_login_key_ready = true;
+    }
     if (!s_pk_loaded) {
         s_pk_loaded = true;
         si_settings_store_t store = SI_SETTINGS_STORE_INITIALIZER;
@@ -339,21 +393,24 @@ esp_err_t si_passkey_begin(bool registration, const char *origin, uint32_t gener
     esp_err_t ret = ESP_ERR_INVALID_STATE;
     if (!s_pk_storage_ok || !s_pk.origin[0] || strcmp(origin, s_pk.origin) || generation != si_auth_credential_generation() ||
         (registration ? (s_pk.count >= SI_PASSKEY_LIMIT || !session_id || !session_id[0] || strlen(session_id) > SI_AUTH_TOKEN_LEN || !label || !label[0] || strlen(label) > PK_LABEL_MAX) : !s_pk.count)) goto done;
-    if (!registration && s_pk_last_login_options && now - s_pk_last_login_options < 1000000LL) goto done;
-    /* Reserve one slot for authenticated enrollment, so anonymous requests
-     * cannot occupy every management challenge slot. */
-    unsigned first = registration ? 0 : 1, limit = registration ? 1 : PK_CHALLENGES;
-    for (unsigned i = first; i < limit; ++i) {
-        if (s_pk_pending[i].expires <= now || s_pk_pending[i].generation != generation ||
-            (registration && s_pk_pending[i].registration && !strcmp(s_pk_pending[i].session_id, session_id))) {
-            memset(&s_pk_pending[i], 0, sizeof(s_pk_pending[i]));
-            if (slot < 0) slot = (int)i;
+    pk_challenge_t login = {0}, *p = &login;
+    if (registration) {
+        /* Authenticated enrollment owns server state; never evict another
+         * session's live challenge. */
+        for (unsigned i = 0; i < PK_CHALLENGES; ++i) {
+            if (s_pk_pending[i].expires <= now || s_pk_pending[i].generation != generation ||
+                !strcmp(s_pk_pending[i].session_id, session_id)) {
+                memset(&s_pk_pending[i], 0, sizeof(s_pk_pending[i]));
+                if (slot < 0) slot = (int)i;
+            }
         }
+        if (slot < 0) goto done;
+        p = &s_pk_pending[slot]; uint8_t random[32]; esp_fill_random(random, sizeof(random));
+        pk_encode(random, sizeof(random), p->challenge);
+        p->generation = generation; p->registration = true; p->expires = now + PK_TIMEOUT_US;
+    } else if (!pk_login_challenge(generation, now + PK_TIMEOUT_US, login.challenge)) {
+        ret = ESP_FAIL; goto done;
     }
-    if (slot < 0) goto done; /* Never evict someone else's live challenge. */
-    pk_challenge_t *p = &s_pk_pending[slot]; uint8_t random[32]; esp_fill_random(random, sizeof(random));
-    pk_encode(random, sizeof(random), p->challenge);
-    p->generation = generation; p->registration = registration; p->expires = now + PK_TIMEOUT_US;
     cJSON *j = cJSON_CreateObject();
     if (!j) { memset(p, 0, sizeof(*p)); ret = ESP_ERR_NO_MEM; goto done; }
     cJSON_AddStringToObject(j, "challenge", p->challenge);
@@ -383,7 +440,6 @@ esp_err_t si_passkey_begin(bool registration, const char *origin, uint32_t gener
     } else {
         cJSON_AddStringToObject(j, "rpId", s_pk.rp);
         cJSON_AddStringToObject(j, "userVerification", "required");
-        s_pk_last_login_options = now;
     }
     *out = j; ret = ESP_OK;
 done:
@@ -512,13 +568,17 @@ esp_err_t si_passkey_finish(bool registration, const char *origin, const char *s
     if (!json) goto done;
     const char *challenge = pk_string(json, "challenge"); pk_challenge_t ticket = {0};
     if (!challenge || strlen(challenge) != 43) goto done;
-    for (unsigned i = 0; i < PK_CHALLENGES; ++i) {
-        pk_challenge_t *p = &s_pk_pending[i];
-        if (pk_equal(challenge, p->challenge, 43)) { ticket = *p; memset(p, 0, sizeof(*p)); break; }
-    }
-    /* Consume before validation: failed responses cannot retry a challenge. */
     uint32_t generation = si_auth_credential_generation();
-    if (!ticket.expires || ticket.expires <= esp_timer_get_time() || ticket.registration != registration || ticket.generation != generation ||
+    int64_t now = esp_timer_get_time();
+    int spent = -1;
+    if (registration) {
+        /* Consume before validation: failed responses cannot retry a challenge. */
+        for (unsigned i = 0; i < PK_CHALLENGES; ++i) {
+            pk_challenge_t *p = &s_pk_pending[i];
+            if (pk_equal(challenge, p->challenge, 43)) { ticket = *p; memset(p, 0, sizeof(*p)); break; }
+        }
+    } else if ((spent = pk_login_ticket(challenge, generation, now, &ticket)) < 0) goto done;
+    if (!ticket.expires || ticket.expires <= now || ticket.registration != registration || ticket.generation != generation ||
         (registration && (!session_id || strcmp(session_id, ticket.session_id)))) goto done;
     const char *client_type = pk_string(json, "type"), *client_origin = pk_string(json, "origin");
     const cJSON *cross = cJSON_GetObjectItemCaseSensitive(json, "crossOrigin");
@@ -557,6 +617,8 @@ esp_err_t si_passkey_finish(bool registration, const char *origin, const char *s
         if (ret != ESP_OK) goto done;
         if (registration) memset(s_pk_pending, 0, sizeof(s_pk_pending));
     }
+    /* A verified login challenge is single-use until it would have expired. */
+    if (spent >= 0) s_pk_spent[spent].expires = ticket.expires;
     *accepted_generation = generation; ret = ESP_OK;
 done:
     free(candidate); cJSON_Delete(json); free(client); free(bytes);

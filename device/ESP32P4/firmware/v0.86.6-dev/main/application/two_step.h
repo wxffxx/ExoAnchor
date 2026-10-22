@@ -19,10 +19,15 @@ typedef struct {
     char recovery[SI_TWO_STEP_RECOVERY_COUNT][33];
 } si_two_step_enrollment_t;
 
+/* client_unix is the caller's wall clock in seconds (0 if unknown). It is used
+ * only while the device clock is unset, and is adopted as the device time only
+ * after a TOTP code verifies against it; device time otherwise wins. */
+#define SI_TWO_STEP_CLIENT_TIME_MAX 4102444800LL
+
 esp_err_t si_two_step_initialize(void);
 void si_two_step_clock_start(void);
 void si_two_step_get_status(si_two_step_status_t *out);
-bool si_two_step_verify(const char *code, uint32_t credential_generation);
+bool si_two_step_verify(const char *code, int64_t client_unix, uint32_t credential_generation);
 esp_err_t si_two_step_begin(uint32_t generation, si_two_step_enrollment_t *out);
-esp_err_t si_two_step_confirm(const char *id, const char *code, uint32_t generation);
-esp_err_t si_two_step_disable(const char *code, uint32_t generation);
+esp_err_t si_two_step_confirm(const char *id, const char *code, int64_t client_unix, uint32_t generation);
+esp_err_t si_two_step_disable(const char *code, int64_t client_unix, uint32_t generation);

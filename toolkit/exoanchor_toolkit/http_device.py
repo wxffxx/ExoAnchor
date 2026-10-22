@@ -265,7 +265,7 @@ class DeviceHttpClient:
         otp_code, self.otp_code = self.otp_code, ""
         body = json.dumps(
             {
-                **({"otp": otp_code} if otp_code else {}),
+                **({"otp": otp_code, "client_time": int(time.time())} if otp_code else {}),
                 "username": self.username,
                 "password": self.password,
                 "request_id": secrets.token_hex(12),

@@ -82,18 +82,26 @@ static esp_err_t two_step_handler(httpd_req_t *req)
                 cJSON_Delete(response);
                 si_secret_store_clear(uri, sizeof(uri));
             }
-        } else ret = si_http_send_text_status(req, "409 Conflict", "cannot enroll: check clock, storage, and current two-step status");
+        } else ret = si_http_send_text_status(req, "409 Conflict", "cannot enroll: check storage and current two-step status");
         si_secret_store_clear(&enrollment, sizeof(enrollment));
     } else {
         cJSON *response = cJSON_CreateObject();
         if (!response) { ret = ESP_ERR_NO_MEM; goto cleanup; }
         cJSON_AddBoolToObject(response, "ok", true);
         cJSON_AddBoolToObject(response, "login_required", true);
-        ret = confirm ? si_two_step_confirm(id, otp, generation) : si_two_step_disable(otp, generation);
+        int64_t client_time = auth_client_time(body);
+        ret = confirm ? si_two_step_confirm(id, otp, client_time, generation) :
+            si_two_step_disable(otp, client_time, generation);
         if (ret == ESP_OK) {
             si_http_clear_session_cookie(req);
             ret = si_http_send_json(req, response);
-        } else ret = httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "invalid, expired, or used code; check clock and storage");
+        } else if (ret == ESP_ERR_INVALID_STATE) {
+            ret = httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "invalid, expired, or used code; check clock and storage");
+        } else {
+            /* The commit fence already revoked sessions; state was reloaded. */
+            si_http_clear_session_cookie(req);
+            ret = httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "could not save two-step settings; sign in again and check status");
+        }
         cJSON_Delete(response);
     }
 cleanup:

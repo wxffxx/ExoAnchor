@@ -86,7 +86,7 @@
       const request = () => fetch(setupNonce ? "/api/auth/setup" : "/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(setupNonce ? { "X-ExoAnchor-Setup": setupNonce } : {}) },
-        body: JSON.stringify({ username, password, ...(otp ? { otp } : {}), request_id: requestId }),
+        body: JSON.stringify({ username, password, ...(otp ? { otp, client_time: Math.floor(Date.now() / 1000) } : {}), request_id: requestId }),
         cache: "no-store",
         credentials: "same-origin",
         signal: controller.signal,
@@ -573,7 +573,7 @@
       if (mode === "login" && this.state.two_step_storage_ok === false) {
         byId("authHint").textContent = "两步验证存储异常，认证已锁定。请检查设备存储或使用本地恢复流程。";
       } else if (mode === "login" && this.state.two_step_enabled && this.state.two_step_time_ready === false) {
-        byId("authHint").textContent = "设备正在等待网络校时。请稍后使用动态验证码，或使用一次性恢复码登录。";
+        byId("authHint").textContent = "设备尚未校时，将按本机时间校验动态验证码（验证成功后自动校准设备时间）。请确认本机时间准确，或使用一次性恢复码。";
       }
       byId("authMsg").textContent = "";
       byId("authMsg").className = "msg";

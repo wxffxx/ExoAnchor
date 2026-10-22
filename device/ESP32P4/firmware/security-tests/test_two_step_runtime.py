@@ -28,7 +28,11 @@ SemaphoreHandle_t xSemaphoreCreateMutex(void) {return (void *)1;}
 int xSemaphoreTake(SemaphoreHandle_t p,unsigned ms) {(void)ms;return p!=NULL;}
 void xSemaphoreGive(SemaphoreHandle_t p) {(void)p;}
 uint32_t si_auth_credential_generation(void) {return generation;}
-esp_err_t si_auth_security_changed(uint32_t expected) {if(expected!=generation)return ESP_ERR_INVALID_STATE;generation++;revoked++;return ESP_OK;}
+esp_err_t si_auth_security_commit(uint32_t expected,esp_err_t (*commit)(void *),void *context) {
+    if(expected!=generation)return ESP_ERR_INVALID_STATE;generation++;revoked++;return commit?commit(context):ESP_OK;
+}
+static unsigned clock_sets;
+int mock_set_clock(const struct timeval *tv) {wall=tv->tv_sec;clock_sets++;return 0;}
 const mbedtls_md_info_t *mbedtls_md_info_from_type(int type) {(void)type;return (void *)1;}
 int mbedtls_md_hmac(const mbedtls_md_info_t *md,const unsigned char *key,size_t kn,const unsigned char *data,size_t n,unsigned char *out) {
     (void)md;return HMAC(EVP_sha1(),key,(int)kn,data,n,out,NULL)?0:-1;
@@ -60,46 +64,68 @@ int main(void) {
     for(unsigned i=0;i<6;i++){uint32_t n;assert(two_hotp(key,times[i]/30,8,&n)&&n==totp[i]);}
     char b32[33];two_base32(key,b32);assert(strcmp(b32,"GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ")==0);
     assert(si_two_step_initialize()==ESP_OK);
-    assert(si_two_step_verify(NULL,generation)); /* Legacy password-only device. */
+    assert(si_two_step_verify(NULL,0,generation)); /* Legacy password-only device. */
     si_two_step_enrollment_t enrollment;char code[7];
-    wall=0;assert(si_two_step_begin(generation,&enrollment)!=ESP_OK);wall=1800000000;
+    wall=0;assert(si_two_step_begin(generation,&enrollment)==ESP_OK);wall=1800000000; /* Enrollment needs no clock. */
     assert(si_two_step_begin(generation+1,&enrollment)!=ESP_OK);
     assert(si_two_step_begin(generation,&enrollment)==ESP_OK);
     code_for(&s_two_pending,0,code);
-    mono+=ENROLLMENT_US;assert(si_two_step_confirm(enrollment.id,code,generation)!=ESP_OK);
+    mono+=ENROLLMENT_US;assert(si_two_step_confirm(enrollment.id,code,0,generation)!=ESP_OK);
     assert(si_two_step_begin(generation,&enrollment)==ESP_OK);
     code_for(&s_two_pending,0,code);
-    assert(si_two_step_confirm("wrong",code,generation)!=ESP_OK);
-    assert(si_two_step_confirm(enrollment.id,code,generation+1)!=ESP_OK);
-    assert(si_two_step_confirm(enrollment.id,code,generation)==ESP_OK && revoked==1);
-    assert(!si_two_step_verify(code,generation)); /* Enrollment consumes its code. */
-    assert(!si_two_step_verify(NULL,generation));
-    assert(!si_two_step_verify("1234567",generation));
+    assert(si_two_step_confirm("wrong",code,0,generation)!=ESP_OK);
+    assert(si_two_step_confirm(enrollment.id,code,0,generation+1)!=ESP_OK);
+    assert(si_two_step_confirm(enrollment.id,code,0,generation)==ESP_OK && revoked==1);
+    assert(!si_two_step_verify(code,0,generation)); /* Enrollment consumes its code. */
+    assert(!si_two_step_verify(NULL,0,generation));
+    assert(!si_two_step_verify("1234567",0,generation));
     reboot();assert(si_two_step_initialize()==ESP_OK);
-    assert(!si_two_step_verify(code,generation)); /* Durable replay fence. */
+    assert(!si_two_step_verify(code,0,generation)); /* Durable replay fence. */
     wall+=30;code_for(&s_two_state,0,code);
-    assert(!si_two_step_verify(code,generation-1));
-    assert(si_two_step_verify(code,generation));
-    assert(!si_two_step_verify(code,generation));
-    wall+=30;code_for(&s_two_state,1,code);assert(si_two_step_verify(code,generation));
-    code_for(&s_two_state,0,code);assert(!si_two_step_verify(code,generation)); /* Clock rollback. */
-    wall+=90;code_for(&s_two_state,-1,code);assert(si_two_step_verify(code,generation));
-    wall=0;assert(!si_two_step_verify(code,generation));
-    assert(si_two_step_verify(enrollment.recovery[0],generation));
-    assert(!si_two_step_verify(enrollment.recovery[0],generation));
+    assert(!si_two_step_verify(code,0,generation-1));
+    assert(si_two_step_verify(code,0,generation));
+    assert(!si_two_step_verify(code,0,generation));
+    wall+=30;code_for(&s_two_state,1,code);assert(si_two_step_verify(code,0,generation));
+    code_for(&s_two_state,0,code);assert(!si_two_step_verify(code,0,generation)); /* Clock rollback. */
+    wall+=90;code_for(&s_two_state,-1,code);assert(si_two_step_verify(code,0,generation));
+    wall=0;assert(!si_two_step_verify(code,0,generation));
+    assert(si_two_step_verify(enrollment.recovery[0],0,generation));
+    assert(!si_two_step_verify(enrollment.recovery[0],0,generation));
     reboot();assert(si_two_step_initialize()==ESP_OK);
-    assert(!si_two_step_verify(enrollment.recovery[0],generation));
+    assert(!si_two_step_verify(enrollment.recovery[0],0,generation));
     si_two_step_status_t status;si_two_step_get_status(&status);
     assert(status.enabled && status.storage_ok && !status.time_ready && status.recovery_remaining==7);
-    for(unsigned i=0;i<5;i++)assert(!si_two_step_verify("not-a-code",generation));
-    assert(!si_two_step_verify(enrollment.recovery[1],generation));
-    mono+=31000000;assert(si_two_step_verify(enrollment.recovery[1],generation));
-    fail_commit=true;assert(!si_two_step_verify(enrollment.recovery[2],generation));
-    assert(!s_two_storage_ok && !si_two_step_verify(enrollment.recovery[3],generation));
+    for(unsigned i=0;i<5;i++)assert(!si_two_step_verify("not-a-code",0,generation));
+    assert(!si_two_step_verify(enrollment.recovery[1],0,generation));
+    mono+=31000000;assert(si_two_step_verify(enrollment.recovery[1],0,generation));
+    fail_commit=true;assert(!si_two_step_verify(enrollment.recovery[2],0,generation));
+    assert(!s_two_storage_ok && !si_two_step_verify(enrollment.recovery[3],0,generation));
     fail_commit=false;reboot();assert(si_two_step_initialize()==ESP_OK);
-    assert(si_two_step_disable(enrollment.recovery[3],generation)==ESP_OK && revoked==2);
-    reboot();assert(si_two_step_initialize()==ESP_OK && si_two_step_verify(NULL,generation));
-    fail_read=true;reboot();assert(si_two_step_initialize()!=ESP_OK);assert(!si_two_step_verify(NULL,generation));
+    assert(si_two_step_disable(enrollment.recovery[3],0,generation)==ESP_OK && revoked==2);
+    reboot();assert(si_two_step_initialize()==ESP_OK && si_two_step_verify(NULL,0,generation));
+    /* Transition commit failure reloads the authoritative record instead of failing closed. */
+    assert(si_two_step_begin(generation,&enrollment)==ESP_OK);code_for(&s_two_pending,0,code);
+    fail_commit=true;assert(si_two_step_confirm(enrollment.id,code,0,generation)!=ESP_OK);
+    assert(s_two_storage_ok && !s_two_state.enabled && si_two_step_verify(NULL,0,generation));
+    fail_commit=false;
+    /* Offline clock: a code that verifies against the client's clock attests it. */
+    wall=0;assert(si_two_step_begin(generation,&enrollment)==ESP_OK);
+    int64_t real=1900000000;uint32_t value;
+    assert(two_hotp(s_two_pending.secret,(uint64_t)real/30,6,&value));snprintf(code,7,"%06u",value);
+    assert(si_two_step_confirm(enrollment.id,code,0,generation)!=ESP_OK && wall==0);
+    assert(si_two_step_confirm(enrollment.id,code,real+3600,generation)!=ESP_OK && wall==0);
+    assert(si_two_step_confirm(enrollment.id,code,real,generation)==ESP_OK && wall==real && clock_sets==1);
+    wall=0;reboot();assert(si_two_step_initialize()==ESP_OK);
+    real+=60;assert(two_hotp(s_two_state.secret,(uint64_t)real/30,6,&value));snprintf(code,7,"%06u",value);
+    assert(!si_two_step_verify(code,0,generation) && !si_two_step_verify(code,SI_TWO_STEP_CLIENT_TIME_MAX+1,generation));
+    assert(si_two_step_verify(code,real,generation) && wall==real && clock_sets==2);
+    wall=0;assert(!si_two_step_verify(code,real,generation)); /* Replay fence survives clock loss. */
+    wall=real+30;code_for(&s_two_state,0,code);
+    assert(si_two_step_verify(code,1,generation) && clock_sets==2); /* Device time wins once set. */
+    fail_commit=true;assert(si_two_step_disable(enrollment.recovery[0],0,generation)!=ESP_OK);
+    assert(s_two_storage_ok && s_two_state.enabled);
+    fail_commit=false;assert(si_two_step_disable(enrollment.recovery[0],0,generation)==ESP_OK && !s_two_state.enabled);
+    fail_read=true;reboot();assert(si_two_step_initialize()!=ESP_OK);assert(!si_two_step_verify(NULL,0,generation));
     fail_read=false;strcpy(persisted,"corrupt");reboot();assert(si_two_step_initialize()!=ESP_OK);
     persisted[0]=0;reboot();assert(si_two_step_initialize()!=ESP_OK); /* Missing record in existing namespace. */
     si_two_step_get_status(&status);assert(status.enabled&&!status.storage_ok);
@@ -118,7 +144,7 @@ def main():
             p=tmp/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(contents)
         for version in ('v0.86.6-dev','v0.86-stable-kvm'):
             base=FIRMWARE/version/'main'
-            source=tmp/'test.c';source.write_text('#define time mock_time\n'+f'#include "{base}/application/two_step.c"\n'+MOCKS)
+            source=tmp/'test.c';source.write_text('#define time mock_time\n#define SI_TWO_STEP_SET_CLOCK(tv) mock_set_clock(tv)\nstruct timeval;\nint mock_set_clock(const struct timeval *);\n'+f'#include "{base}/application/two_step.c"\n'+MOCKS)
             binary=tmp/'test'
             subprocess.run([os.environ.get('CC','cc'),'-std=c11','-Wall','-Wextra','-Werror','-I'+str(tmp),'-I'+str(FIRMWARE/'v0.86.6-dev/tests/host/idf_stubs'),'-I'+str(base/'core'),'-I'+str(base/'infrastructure'),str(source),str(base/'infrastructure/secret_store.c'),*flags,'-o',str(binary)],check=True)
             print(version,flush=True);subprocess.run([str(binary)],check=True)

@@ -6,7 +6,7 @@ import shlex
 import subprocess
 import tempfile
 from test_auth_runtime import STUBS, FIRMWARE
-from test_passkey_runtime import PK_STUB, MOCKS
+from test_passkey_runtime import PK_STUB, MD_STUB, MOCKS
 from test_http_security_runtime import extract
 
 HTTP = r'''
@@ -17,6 +17,7 @@ typedef struct {int method;size_t content_len;const char *body,*origin,*host;} h
 #define HTTPD_401_UNAUTHORIZED 401
 #define HTTPD_403_FORBIDDEN 403
 #define SI_TWO_STEP_CODE_MAX 32
+#define SI_TWO_STEP_CLIENT_TIME_MAX 4102444800LL
 static int status;
 static bool browser, recent, password_ok=true, factor_ok=true, locked, mcp;
 static unsigned minted, failures, cleared, checks;
@@ -27,7 +28,7 @@ bool si_auth_token_is_recent(const char *token) {(void)token;return recent;}
 void si_secret_store_clear(void *p,size_t n) {memset(p,0,n);}
 uint32_t si_auth_login_retry_after_ms(void) {return locked?1000:0;}
 bool si_auth_credentials_match(const char *u,const char *p) {(void)u;(void)p;checks++;return password_ok;}
-bool si_two_step_verify(const char *otp,uint32_t g) {(void)otp;return factor_ok&&g==generation;}
+bool si_two_step_verify(const char *otp,int64_t t,uint32_t g) {(void)otp;(void)t;return factor_ok&&g==generation;}
 void si_auth_record_login_failure(void) {failures++;}
 void si_auth_clear_login_failures(void) {}
 static esp_err_t si_http_send_json(httpd_req_t *r,cJSON *j) {(void)r;cJSON_Delete(reply);reply=cJSON_Duplicate(j,true);status=200;return ESP_OK;}
@@ -86,7 +87,7 @@ int main(void) {
 def main():
     with tempfile.TemporaryDirectory(prefix='exo-passkey-http-') as temp:
         tmp=Path(temp);vendor=FIRMWARE/'v0.86.6-dev/tests/host/vendor/cjson'
-        for name,content in {**STUBS,'mbedtls/pk.h':PK_STUB}.items():
+        for name,content in {**STUBS,'mbedtls/pk.h':PK_STUB,'mbedtls/md.h':MD_STUB}.items():
             p=tmp/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content)
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','openssl'],text=True))
         for profile in ('v0.86.6-dev','v0.86-stable-kvm'):
@@ -94,6 +95,7 @@ def main():
             mock=MOCKS[:MOCKS.index('int main(void)')]
             source=f'#include "{b}/application/passkey.c"\n'+mock+HTTP
             source+=extract(b/'services/web/base_settings_http_module.inc','json_string_any')
+            source+=extract(b/'services/web/base_settings_http_module.inc','auth_client_time')
             source+=(b/'services/web/passkey_http_module.inc').read_text()+CASES
             c=tmp/'http.c';c.write_text(source);exe=tmp/'http'
             subprocess.run([os.environ.get('CC','cc'),'-std=c11','-Wno-deprecated-declarations','-fsanitize=undefined,bounds',
