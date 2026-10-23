@@ -29,7 +29,8 @@ int xSemaphoreTake(SemaphoreHandle_t p,unsigned ms) {(void)ms;return p!=NULL;}
 void xSemaphoreGive(SemaphoreHandle_t p) {(void)p;}
 uint32_t si_auth_credential_generation(void) {return generation;}
 esp_err_t si_auth_security_commit(uint32_t expected,esp_err_t (*commit)(void *),void *context) {
-    if(expected!=generation)return ESP_ERR_INVALID_STATE;generation++;revoked++;return commit?commit(context):ESP_OK;
+    if(expected!=generation)return ESP_ERR_INVALID_STATE;
+    generation++;revoked++;return commit?commit(context):ESP_OK;
 }
 static unsigned clock_sets;
 int mock_set_clock(const struct timeval *tv) {wall=tv->tv_sec;clock_sets++;return 0;}

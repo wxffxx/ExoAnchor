@@ -64,7 +64,7 @@ AGENT_EVENT_STORE_TEST_DIR="$TEST_DIR/agent-event-store"
 mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -91,7 +91,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -110,7 +110,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$STORE_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -123,7 +123,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$SSH_HOSTKEY_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -141,7 +141,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$NETWORK_SETTINGS_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -157,7 +157,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$PRODUCT_FEATURE_SETTINGS_TEST_BIN" read-failure-retry
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -169,7 +169,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$RELAY_PROTOCOL_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -181,7 +181,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$VIDEO_MJPEG_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -191,7 +191,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
     "$SCRIPT_DIR/test_video_frame_store.c" \
     -o "$VIDEO_FRAME_STORE_TEST_BIN"
 
-"${CC:-cc}" -std=c11 -Wall -Wextra -Werror \
+"${CC:-cc}" -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror \
     -I"$SCRIPT_DIR/idf_stubs" -I"$PROJECT_DIR/main/application" \
     "$PROJECT_DIR/main/application/video_stream_metrics.c" \
     "$SCRIPT_DIR/test_video_stream_metrics.c" \
@@ -201,7 +201,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$VIDEO_FRAME_STORE_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -216,7 +216,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$PAGE_CONTEXT_CHECKPOINT_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -233,7 +233,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$HID_JSON_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -246,7 +246,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$HID_ABORT_FENCE_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -258,7 +258,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$HID_OWNER_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -271,7 +271,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_TASK_RUNTIME_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -292,7 +292,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_TASK_SERVICE_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -313,7 +313,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_TASK_CANCEL_GATE_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -326,7 +326,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_EXECUTION_GUARD_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -338,7 +338,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_VERIFIER_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -350,7 +350,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_REQUEST_BROKER_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -369,7 +369,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_EVENT_STORE_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -384,7 +384,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_HISTORY_WRITER_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -398,7 +398,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_ENDPOINT_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \
@@ -412,7 +412,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$AGENT_RESULT_ERROR_TEST_BIN"
 
 "${CC:-cc}" \
-    -std=c11 \
+    -std=c11 -D_DEFAULT_SOURCE \
     -Wall \
     -Wextra \
     -Werror \

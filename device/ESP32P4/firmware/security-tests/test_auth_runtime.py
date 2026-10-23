@@ -224,7 +224,7 @@ def main():
             source = tmp / "test.c"
             source.write_text(f'#include "{main_dir / "application/auth_service.c"}"\n' + MOCKS + CASES)
             binary = tmp / ("auth-tests-" + version)
-            command = [os.environ.get("CC", "cc"), "-std=c11", "-Wall", "-Wextra", "-Werror",
+            command = [os.environ.get("CC", "cc"), "-std=c11", "-D_DEFAULT_SOURCE", "-Wall", "-Wextra", "-Werror",
                        "-include", "stdio.h", "-include", "string.h", "-include", "esp_log.h", "-I" + str(tmp), "-I" + str(idf),
                        "-I" + str(main_dir / "core"), "-I" + str(main_dir / "infrastructure"),
                        str(source), str(main_dir / "infrastructure/secret_store.c"), *flags, "-o", str(binary)]

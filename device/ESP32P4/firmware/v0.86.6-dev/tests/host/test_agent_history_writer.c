@@ -5,6 +5,13 @@
 #define SI_AGENT_HISTORY_WRITER_HOST_TEST 1
 #include "../../main/infrastructure/agent_history_writer.c"
 
+/* The writer task state is firmware-only. GCC (unlike Clang) reports unused
+ * statics from an #included .c file, so reference them once here. */
+static const void *const s_firmware_only_state[] __attribute__((unused)) = {
+    &TAG, &s_writer_lock, &s_writer_queue, &s_writer_task,
+    s_writer_slots, &s_writer_turns, &s_writer_stack_min_hwm,
+};
+
 #define TEST_RECORD_CAPACITY 12U
 
 typedef struct {
