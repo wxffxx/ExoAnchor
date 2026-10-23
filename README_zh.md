@@ -93,6 +93,12 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 正式 Dev profile 已建立，已在一块 V2.4 上完成烧录与启动冒烟，完整 HIL 待完成 | 集成化 PCIe 控制板 |
 | 4C | ExoAnchor PrototypeV2.4C | 🚧设计中 | HDMI2CSI可行性验证板 |
 
+<p align="center">
+  <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4 板卡" width="640">
+  <br>
+  <sub>装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4</sub>
+</p>
+
 设备平台概览见 [ESP32-P4 平台说明](device/ESP32P4/README_zh.md)，各板型对应的
 固件配置、ESP32-P4 芯片版本和验证状态见
 [ESP32-P4 板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)。

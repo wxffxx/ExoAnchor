@@ -83,6 +83,12 @@ schematic, or test from another board is not hardware evidence.
 | 4 | ExoAnchor PrototypeV2.3 | b4-labelled assembly using b6 mapping; bring-up verified, not production-final |
 | 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | Formal Dev product profile available; flashed and boot-smoke-tested on one V2.4 board; full HIL pending |
 
+<p align="center">
+  <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="ExoAnchor PrototypeV2.3b4 board in its PCIe bracket enclosure" width="640">
+  <br>
+  <sub>ExoAnchor PrototypeV2.3b4 in its PCIe bracket enclosure</sub>
+</p>
+
 See the [ESP32-P4 platform overview](device/ESP32P4/README.md). The detailed
 [implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
 records each board's firmware profile, ESP32-P4 revision, and validation status.
