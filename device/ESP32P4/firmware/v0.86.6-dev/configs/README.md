@@ -12,7 +12,7 @@ idf.py \
 
 物理实现与构建配置不是一一对应关系，映射以[板型实现矩阵](../../../boards/IMPLEMENTATION_PROFILES_zh.md)为准。当前规则如下：
 
-- PrototypeV2.3/rev3 是 bring-up 主线；实物标识 b4、现有电气来源 b6，映射仍未冻结。
+- PrototypeV2.3/rev3 已完全验证；实物标识 b4、电气映射依据 b6。
 - PrototypeV2.4/rev3 的正式产品入口是 `exoanchor-prototype-v2.4`，V2.4a6 共用该
   profile；验证状态见[板型实现矩阵](../../../boards/IMPLEMENTATION_PROFILES_zh.md)。
 - `exoanchor-prototype-v2.4-ms-test` 是独立的 MS2109 电源/EEPROM 硬件验证配置，

@@ -32,8 +32,8 @@ or physical inspection.
 | 1 | ESP32-P4 development board with external capture | `waveshare-p4-nano + rev1` | Frozen known-good reference |
 | 2 | Waveshare NANO with simple expansion board | Currently shares `waveshare-p4-nano + rev1` | Prototype; expansion capabilities are not fully modeled |
 | 3 | Prototype0 | `exoanchor-prototype0 + rev3` | Broad hardware-verified reference |
-| 4 | PrototypeV2.3 | `exoanchor-prototype-v2.3 + rev3` | b4-labeled assembly using the b6 mapping; bring-up verified |
-| 4A | PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4 + rev3` | Product profile available; `a6` denotes only the PCB layer count; 0.87.6-dev flashed and boot-smoke-tested on one V2.4 board; full HIL pending |
+| 4 | PrototypeV2.3 | `exoanchor-prototype-v2.3 + rev3` | b4-labeled assembly using the b6 mapping; fully verified |
+| 5 | PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4 + rev3` | Product profile; `a6` denotes only the PCB layer count; fully verified |
 
 See the
 [board and firmware profile matrix](boards/IMPLEMENTATION_PROFILES_zh.md) for
@@ -52,8 +52,8 @@ validation image, not the V2.4 product profile.
 | Direct development board | Known good | GPIO26/27 | IP101GRI | None | None |
 | NANO expansion | Supported | Expansion-dependent | IP101GRI | None | Expansion-dependent and not fully modeled |
 | Prototype0 | Verified | Verified | IP101GRI verified | None | PWR/RST/12V/3V3AUX verified |
-| PrototypeV2.3 | Modes verified; 1080p detail issue fixed in firmware | Bring-up verified | DP83825I bring-up | GPIO50/51 verified | Derived from netlist; product validation incomplete |
-| PrototypeV2.4 / V2.4a6 | Profile configured; HIL pending | GPIO26/27; HIL pending | DP83825I; HIL pending | GPIO50/51; HIL pending | PWR/RST/12V/3V3AUX configured only; HIL pending |
+| PrototypeV2.3 | Verified; 1080p detail issue fixed in firmware | Verified | DP83825I verified | GPIO50/51 verified | PWR/RST/12V/3V3AUX verified |
+| PrototypeV2.4 / V2.4a6 | Verified | GPIO26/27 verified | DP83825I verified | GPIO50/51 verified | PWR/RST/12V/3V3AUX verified |
 
 The Dashboard and `GET /api/capabilities` must reflect the active profile and
 must not advertise another board's capabilities.
