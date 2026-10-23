@@ -199,21 +199,28 @@ cd ExoAnchor
 
 ```text
 ExoAnchor/
-├── assets/brand/                    # 品牌和 Web 资产
+├── assets/
+│   ├── brand/                       # 品牌和 Web 资产
+│   └── photos/                      # 实物照片
 ├── device/ESP32P4/
 │   ├── boards/                      # 板型与固件 profile 权威映射
 │   └── firmware/                    # Stable 与 Dev 独立固件树
 ├── docs/
 │   ├── reproduction/                # 制造与复刻
-│   └── guides/                      # 实用指南
+│   ├── guides/                      # 实用指南与安全配置
+│   └── protocols/                   # 协议设计
 ├── integrations/exoanchor-mcp/      # 可选外部 MCP 控制器
 │   ├── exoanchor_mcp/               # canonical stdio 服务
 │   └── skills/exoanchor-mcp-control/ # Codex 与 DSH 共用操作技能
+├── toolkit/                         # 桌面与命令行 Toolkit（发现、网络配置、固件下载与 OTA）
+├── scripts/                         # 仓库检查入口（check-all.sh 等）
 └── LICENSE
 
 ExoAnchor-Hardware/                  # 独立硬件源工程仓库
 ├── ESP32P4/
-│   ├── exoanchor-p4-v2.4a6/         # 当前集成化 PCIe 自研板
+│   ├── exoanchor-p4-v2.4a6/         # 当前集成化 PCIe 自研板（嘉立创 + KiCad）
+│   ├── exoanchor-p4-v2.3b4/         # 四层 V2.3 历史工程
+│   ├── exoanchor-p4-v2.3b6/         # 六层 V2.3 历史工程
 │   ├── simple-diy/                  # 货架产品简易 DIY 方案
 │   └── archive/                     # 历史硬件资料
 ├── assets/brand/
