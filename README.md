@@ -323,3 +323,8 @@ use as soon as possible.
 
 More than anything, I hope people can learn from ExoAnchor how to turn an idea
 into a product. I believe that lesson is worth more than the project itself.
+
+## Acknowledgements
+
+Thanks to [JLCPCB](https://jlcpcb.com/) for supporting this project with
+funding, materials, and manufacturing.
