@@ -16,7 +16,8 @@ esp_err_t si_http_recv_json(httpd_req_t *req, char *buf, size_t buf_size,
                             cJSON **out_root);
 
 bool si_http_check_auth(httpd_req_t *req);
-bool si_http_check_recent_auth(httpd_req_t *req);
+/* Recent browser session that signed in with the password (not a passkey). */
+bool si_http_check_recent_password_auth(httpd_req_t *req);
 bool si_http_get_auth_token(httpd_req_t *req, char *out, size_t out_size);
 #define SI_HTTP_SESSION_COOKIE_MAX_LEN 160
 esp_err_t si_http_set_session_cookie(httpd_req_t *req, const char *token, char *cookie, size_t cookie_size);

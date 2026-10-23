@@ -24,7 +24,9 @@ class ProtocolResilienceTests(unittest.TestCase):
     def test_stdio_recovers_after_malformed_methods_and_parser_limits(self):
         bad_lines = [
             json.dumps({"jsonrpc": "2.0", "id": 1, "method": []}),
-            "[" * 100000 + "0" + "]" * 100000,
+            "[" * 2000 + "0" + "]" * 2000,
+            '{"jsonrpc":"2.0","id":2,"method":"ping","params":'
+            + "[" * 64 + "0" + "]" * 64 + "}",
             "9" * 10000,
             "{broken-json",
         ]
@@ -34,8 +36,9 @@ class ProtocolResilienceTests(unittest.TestCase):
              redirect_stdout(output):
             McpServer(Mock()).serve()
         responses = [json.loads(line) for line in output.getvalue().splitlines()]
-        self.assertEqual(len(responses), 5)
+        self.assertEqual(len(responses), 6)
         self.assertTrue(all("error" in response for response in responses[:-1]))
+        self.assertEqual(responses[2]["error"]["code"], -32700)
         self.assertEqual(responses[-1], {"jsonrpc": "2.0", "id": "alive", "result": {}})
 
     def test_stdio_can_encode_surrogate_and_unicode_ids_without_exiting(self):

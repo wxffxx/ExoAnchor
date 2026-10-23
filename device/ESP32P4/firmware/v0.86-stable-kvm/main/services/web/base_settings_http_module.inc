@@ -91,6 +91,8 @@ typedef struct {
     char request_id[AUTH_LOGIN_REQUEST_ID_MAX_LEN + 1];
     char username[SI_AUTH_USERNAME_MAX_LEN + 1];
     char password[SI_AUTH_PASSWORD_MAX_LEN + 1];
+    char otp[SI_TWO_STEP_CODE_MAX + 1];
+    int64_t client_time;
     bool mcp_client;
     bool setup;
     uint32_t credential_generation;
@@ -150,13 +152,13 @@ static esp_err_t auth_login_send_pending(httpd_req_t *req,
     cJSON_Delete(root);
     return ret;
 }
-static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint32_t generation)
+static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint32_t generation, si_auth_method_t method)
 {
     si_auth_status_t status;
     si_auth_get_status(&status);
     char token[SI_AUTH_TOKEN_LEN + 1] = {0};
     char cookie[SI_HTTP_SESSION_COOKIE_MAX_LEN];
-    if (si_auth_create_session_for_generation(mcp_client ? "exoanchor-mcp" : "web", generation, token) != ESP_OK)
+    if (si_auth_create_session_for_method(mcp_client ? "exoanchor-mcp" : "web", generation, method, token) != ESP_OK)
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "session creation failed");
     if (!mcp_client && si_http_set_session_cookie(req, token, cookie, sizeof(cookie)) != ESP_OK) {
         si_auth_revoke_session(token);
@@ -177,11 +179,19 @@ static esp_err_t auth_login_send_success(httpd_req_t *req, bool mcp_client, uint
     return ret;
 }
 
+static int64_t auth_client_time(const cJSON *obj)
+{
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(obj, "client_time");
+    return cJSON_IsNumber(v) && v->valuedouble >= 0 && v->valuedouble <= (double)SI_TWO_STEP_CLIENT_TIME_MAX ? (int64_t)v->valuedouble : 0;
+}
+
 static void auth_login_worker(void *arg)
 {
     (void)arg;
     char username[SI_AUTH_USERNAME_MAX_LEN + 1] = {0};
     char password[SI_AUTH_PASSWORD_MAX_LEN + 1] = {0};
+    char otp[SI_TWO_STEP_CODE_MAX + 1] = {0};
+    int64_t client_time = 0;
     bool have_job = false;
     bool setup = false;
     uint32_t expected_generation = 0;
@@ -191,6 +201,9 @@ static void auth_login_worker(void *arg)
         if (s_auth_login_job.state == AUTH_LOGIN_JOB_QUEUED) {
             strlcpy(username, s_auth_login_job.username, sizeof(username));
             strlcpy(password, s_auth_login_job.password, sizeof(password));
+            strlcpy(otp, s_auth_login_job.otp, sizeof(otp));
+            client_time = s_auth_login_job.client_time;
+            si_secret_store_clear(s_auth_login_job.otp, sizeof(s_auth_login_job.otp));
             si_secret_store_clear(s_auth_login_job.username,
                                   sizeof(s_auth_login_job.username));
             si_secret_store_clear(s_auth_login_job.password,
@@ -206,6 +219,8 @@ static void auth_login_worker(void *arg)
     bool accepted = have_job && (setup ?
         si_auth_setup_credentials(username, password, expected_generation) == ESP_OK :
         si_auth_credentials_match(username, password));
+    if (accepted && !setup) accepted = si_two_step_verify(otp, client_time, expected_generation);
+    si_secret_store_clear(otp, sizeof(otp));
     uint32_t accepted_generation = setup && accepted ? expected_generation + 1U : expected_generation;
     si_secret_store_clear(username, sizeof(username));
     si_secret_store_clear(password, sizeof(password));
@@ -234,7 +249,7 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
     bool mcp_client = auth_request_is_mcp(req);
     bool setup = strncmp(req->uri, "/api/auth/setup", 15) == 0;
     if (!si_auth_is_enabled()) {
-        return auth_login_send_success(req, mcp_client, 0);
+        return auth_login_send_success(req, mcp_client, 0, SI_AUTH_METHOD_PASSWORD);
     }
 
     char buf[SCRATCH_BUFSIZE] = {0};
@@ -247,6 +262,7 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
         cJSON_GetObjectItemCaseSensitive(root, "username");
     const cJSON *password =
         cJSON_GetObjectItemCaseSensitive(root, "password");
+    const cJSON *otp = cJSON_GetObjectItemCaseSensitive(root, "otp");
     const cJSON *request_id =
         cJSON_GetObjectItemCaseSensitive(root, "request_id");
     size_t username_len =
@@ -264,7 +280,8 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
         cJSON_IsString(request_id) ? strlen(request_id->valuestring) : 0;
     if (username_len == 0 || username_len > SI_AUTH_USERNAME_MAX_LEN ||
         password_len == 0 || password_len > SI_AUTH_PASSWORD_MAX_LEN ||
-        request_id_len > AUTH_LOGIN_REQUEST_ID_MAX_LEN) {
+        request_id_len > AUTH_LOGIN_REQUEST_ID_MAX_LEN ||
+        (otp && (!cJSON_IsString(otp) || strlen(otp->valuestring) > SI_TWO_STEP_CODE_MAX))) {
         cJSON_Delete(root);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
                                    "invalid login request");
@@ -324,6 +341,8 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
             sizeof(s_auth_login_job.username));
     strlcpy(s_auth_login_job.password, password->valuestring,
             sizeof(s_auth_login_job.password));
+    if (otp) strlcpy(s_auth_login_job.otp, otp->valuestring, sizeof(s_auth_login_job.otp));
+    s_auth_login_job.client_time = auth_client_time(root);
     s_auth_login_job.mcp_client = mcp_client;
     s_auth_login_job.setup = setup;
     s_auth_login_job.credential_generation = si_auth_credential_generation();
@@ -392,7 +411,7 @@ static esp_err_t auth_login_status_handler(httpd_req_t *req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED,
                                    "invalid credentials");
     }
-    return auth_login_send_success(req, mcp_client, generation);
+    return auth_login_send_success(req, mcp_client, generation, SI_AUTH_METHOD_PASSWORD);
 }
 
 static esp_err_t auth_logout_handler(httpd_req_t *req)
@@ -414,6 +433,12 @@ static esp_err_t auth_logout_handler(httpd_req_t *req)
 static esp_err_t auth_status_handler(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "passkey", si_passkey_status(false));
+    si_two_step_status_t two;
+    si_two_step_get_status(&two);
+    cJSON_AddBoolToObject(root, "two_step_enabled", two.enabled);
+    cJSON_AddBoolToObject(root, "two_step_time_ready", two.time_ready);
+    cJSON_AddBoolToObject(root, "two_step_storage_ok", two.storage_ok);
     si_auth_status_t auth_status;
     si_auth_get_status(&auth_status);
     cJSON_AddBoolToObject(root, "enabled", auth_status.enabled);
@@ -453,6 +478,7 @@ static const char *json_string_any(const cJSON *obj, const char *first, const ch
 
 static esp_err_t settings_password_handler(httpd_req_t *req)
 {
+    uint32_t generation = si_auth_credential_generation();
     char buf[SCRATCH_BUFSIZE] = {0};
     cJSON *root = NULL;
     esp_err_t ret = si_http_recv_json(req, buf, sizeof(buf), &root);
@@ -467,10 +493,11 @@ static esp_err_t settings_password_handler(httpd_req_t *req)
     if (!username) {
         username = auth_status.username;
     }
-    bool authorized = si_http_check_recent_auth(req);
+    /* Credential changes need a fresh password (+ second factor) login, not a passkey one. */
+    bool authorized = si_http_check_recent_password_auth(req);
     if (!authorized) {
         cJSON_Delete(root);
-        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "unauthorized");
+        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "sign in again with your password before changing credentials");
     }
 
     ret = si_auth_validate_username(username);
@@ -487,7 +514,7 @@ static esp_err_t settings_password_handler(httpd_req_t *req)
                                    "password must be 6..64 printable ASCII characters");
     }
 
-    ret = si_auth_set_credentials(username, password);
+    ret = si_auth_set_credentials_for_generation(username, password, generation);
     cJSON_Delete(root);
     if (ret != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(ret));
@@ -499,7 +526,7 @@ static esp_err_t settings_password_handler(httpd_req_t *req)
     cJSON_AddBoolToObject(resp, "ok", true);
     char token[SI_AUTH_TOKEN_LEN + 1] = {0};
     char cookie[SI_HTTP_SESSION_COOKIE_MAX_LEN];
-    if (si_auth_create_session(token) != ESP_OK ||
+    if (si_auth_create_session_for_generation(NULL, generation + 1U, token) != ESP_OK ||
         si_http_set_session_cookie(req, token, cookie, sizeof(cookie)) != ESP_OK) {
         si_auth_revoke_session(token);
         cJSON_Delete(resp);

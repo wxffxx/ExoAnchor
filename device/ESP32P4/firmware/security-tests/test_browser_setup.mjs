@@ -48,7 +48,7 @@ function browser(profile, { loggedOut = false, ticket = { nonce: "test-ticket" }
         if (delayLogout) await new Promise(resolve => { finishLogout = resolve; });
         return response(200, { ok: true });
       }
-      if (path === "/api/auth/setup") return response(202, { job_id: "test-job", poll_after_ms: 1 });
+      if (path === "/api/auth/setup" || path === "/api/auth/login") return response(202, { job_id: "test-job", poll_after_ms: 1 });
       if (path.startsWith("/api/auth/login/status")) return response(200, { token: "test-session", username: "owner" });
       throw new Error("unexpected request: " + path);
     },
@@ -126,4 +126,30 @@ for (const profile of ["v0.86.6-dev", "v0.86-stable-kvm"]) {
     "the anonymous exception must cover only the setup-ticket GET");
   ui.lifecycle.destroy("test-finished");
   console.log("v0.86.6-dev failed setup preserves protected request lock: PASS");
+}
+
+for (const profile of ["v0.86.6-dev", "v0.86-stable-kvm"]) {
+  const {ui, calls, context} = browser(profile);
+  await ui.api.login("owner", "test-password", "", "012345");
+  await ui.api.login("owner", "test-password");
+  const logins = calls.filter(c => c.path === "/api/auth/login");
+  assert.equal(JSON.parse(logins[0].options.body).otp, "012345");
+  assert.equal(JSON.parse(logins[1].options.body).otp, undefined);
+  for (const storage of [context.localStorage, context.sessionStorage]) {
+    assert(![...storage.values.values()].some(value => value.includes("012345")));
+  }
+  ui.lifecycle?.destroy("test");
+  console.log(profile + " one-use login code, no code storage: PASS");
+}
+
+for (const profile of ["v0.86.6-dev", "v0.86-stable-kvm"]) {
+  const {ui, element} = browser(profile);
+  ui.auth.show("login", {two_step_enabled: true, two_step_time_ready: false});
+  assert(element("authHint").textContent.includes("校时"));
+  element("authSubmit").disabled = true;
+  ui.auth.hide(true);
+  ui.auth.show("login", {});
+  assert.equal(element("authSubmit").disabled, false, "reopened login must be usable");
+  ui.auth.hide(false);
+  ui.status?.stop?.();ui.info?.stop?.();ui.lifecycle?.destroy("test");
 }

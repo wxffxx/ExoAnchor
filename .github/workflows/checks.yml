@@ -28,7 +28,7 @@ jobs:
       - name: Install host dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ripgrep libssl-dev clang
+          sudo apt-get install -y --no-install-recommends ripgrep libssl-dev clang libclang-rt-18-dev
           python3 -m pip install --user --break-system-packages \
             -r device/ESP32P4/firmware/v0.86.6-dev/tests/host/requirements.txt
       - name: scripts/check-all.sh

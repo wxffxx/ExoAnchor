@@ -182,6 +182,7 @@ partition-upgrade requirements and the direct `idf.py` alternative.
 | `https://<board-ip>/settings` | Device settings |
 
 TLS certificate and first-login setup: [pairing guide](docs/guides/SECURITY_TRANSPORT_zh.md).
+Optional browser passkey login (including Apple passkeys) requires a trusted HTTPS hostname; see the [passkey guide](docs/guides/PASSKEY_zh.md).
 
 Verify that the Dashboard opens, Ethernet has an address, KVM video is present,
 and HID works. First boot requires replacing the local bootstrap credential;

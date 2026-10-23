@@ -40,7 +40,7 @@
 #define AUTH_SESSION_ABSOLUTE_MS (24ULL * 60ULL * 60ULL * 1000ULL)
 #define AUTH_SESSION_LOCK_WAIT_MS 1000U
 #define AUTH_RETAINED_MAGIC 0x45415353U
-#define AUTH_RETAINED_VERSION 2U
+#define AUTH_RETAINED_VERSION 3U /* v3 adds auth_session_t.method */
 #define AUTH_FAILURE_WINDOW_MS 60000ULL
 #define AUTH_FAILURE_LIMIT 5U
 #define AUTH_LOCKOUT_MS 30000ULL
@@ -49,6 +49,7 @@ typedef struct {
     bool used;
     si_principal_kind_t principal;
     si_capability_set_t capabilities;
+    si_auth_method_t method;
     uint32_t generation;
     char session_id[SI_AUTH_SESSION_ID_MAX_LEN + 1];
     uint8_t token_digest[AUTH_VERIFIER_BYTES];
@@ -146,7 +147,7 @@ static uint32_t next_session_generation_locked(void)
 
 static esp_err_t set_credentials_internal(const char *username,
                                           const char *password,
-                                          bool bootstrap_required, bool rotate, bool locked, bool allow_setup);
+                                          bool bootstrap_required, bool rotate, bool locked, bool allow_setup, uint32_t expected_generation);
 
 static esp_err_t ensure_lock(void)
 {
@@ -494,7 +495,7 @@ static void load_credentials(void)
 
     esp_err_t bootstrap_ret = set_credentials_internal(
         s_username, bootstrap_password, true, true, false,
-        si_auth_validate_password(SI_CFG_AUTH_PASSWORD) != ESP_OK);
+        si_auth_validate_password(SI_CFG_AUTH_PASSWORD) != ESP_OK, 0);
     if (bootstrap_ret != ESP_OK) {
         si_secret_store_clear(s_verifier, sizeof(s_verifier));
         s_loaded = true;
@@ -537,7 +538,7 @@ bool si_auth_credentials_match(const char *username, const char *password)
     /* Migration holds the credential lock and preserves the login generation. */
     if (matches && s_legacy_password && si_auth_validate_password(password) == ESP_OK) {
         matches = set_credentials_internal(s_username, password, s_using_default,
-                                           false, true, s_setup_pending) == ESP_OK;
+                                           false, true, s_setup_pending, 0) == ESP_OK;
     }
     xSemaphoreGive(s_credentials_lock);
     return matches;
@@ -565,7 +566,14 @@ static bool session_expired(const auth_session_t *session, int64_t now_us,
 esp_err_t si_auth_create_session_for_generation(
     const char *client, uint32_t expected_generation, char out_token[SI_AUTH_TOKEN_LEN + 1])
 {
-    if (!out_token || !si_auth_is_enabled() || !s_verifier[0] || si_auth_setup_required()) {
+    return si_auth_create_session_for_method(client, expected_generation, SI_AUTH_METHOD_PASSWORD, out_token);
+}
+
+esp_err_t si_auth_create_session_for_method(const char *client, uint32_t expected_generation,
+                                            si_auth_method_t method, char out_token[SI_AUTH_TOKEN_LEN + 1])
+{
+    if (!out_token || !si_auth_is_enabled() || !s_verifier[0] || si_auth_setup_required() ||
+        (method != SI_AUTH_METHOD_PASSWORD && method != SI_AUTH_METHOD_PASSKEY)) {
         return ESP_ERR_INVALID_ARG;
     }
     ESP_RETURN_ON_ERROR(ensure_lock(), TAG, "create auth lock");
@@ -635,6 +643,7 @@ esp_err_t si_auth_create_session_for_generation(
         is_mcp ? SI_PRINCIPAL_MCP : SI_PRINCIPAL_BROWSER;
     s_sessions[slot].capabilities =
         is_mcp ? SI_CAPABILITIES_MCP_DEFAULT : SI_CAPABILITIES_WEB_DEFAULT;
+    s_sessions[slot].method = method;
     s_sessions[slot].generation = next_session_generation_locked();
     snprintf(s_sessions[slot].session_id,
              sizeof(s_sessions[slot].session_id), "s%08lx%08lx",
@@ -699,6 +708,7 @@ bool si_auth_token_get_context(const char *token, bool touch,
             context->authenticated = true;
             context->principal = s_sessions[i].principal;
             context->capabilities = s_sessions[i].capabilities;
+            context->method = s_sessions[i].method;
             context->generation = s_sessions[i].generation;
             context->authenticated_at_us = s_sessions[i].created_us;
             strlcpy(context->session_id, s_sessions[i].session_id,
@@ -737,6 +747,7 @@ bool si_auth_session_get_live_context(
         context->authenticated = true;
         context->principal = SI_PRINCIPAL_BROWSER;
         context->capabilities = SI_CAPABILITIES_WEB_DEFAULT;
+        context->method = SI_AUTH_METHOD_PASSWORD; /* No credentials to protect. */
         context->generation = SI_AUTH_DISABLED_SESSION_GENERATION;
         strlcpy(context->session_id, "auth-disabled",
                 sizeof(context->session_id));
@@ -774,6 +785,7 @@ bool si_auth_session_get_live_context(
         context->authenticated = true;
         context->principal = s_sessions[i].principal;
         context->capabilities = s_sessions[i].capabilities;
+        context->method = s_sessions[i].method;
         context->generation = s_sessions[i].generation;
         context->authenticated_at_us = s_sessions[i].created_us;
         strlcpy(context->session_id, s_sessions[i].session_id,
@@ -932,7 +944,7 @@ void si_auth_record_login(void)
 
 static esp_err_t set_credentials_internal(const char *username,
                                           const char *password,
-                                          bool bootstrap_required, bool rotate, bool locked, bool allow_setup)
+                                          bool bootstrap_required, bool rotate, bool locked, bool allow_setup, uint32_t expected_generation)
 {
     char next_username[SI_AUTH_USERNAME_MAX_LEN + 1];
     uint8_t salt[AUTH_SALT_BYTES] = {0};
@@ -957,6 +969,12 @@ static esp_err_t set_credentials_internal(const char *username,
         si_secret_store_clear(verifier, sizeof(verifier));
         si_secret_store_clear(salt_hex, sizeof(salt_hex));
         return ESP_ERR_TIMEOUT;
+    }
+    if (expected_generation && expected_generation != si_auth_credential_generation()) {
+        if (!locked) xSemaphoreGive(s_credentials_lock);
+        si_secret_store_clear(verifier, sizeof(verifier));
+        si_secret_store_clear(salt_hex, sizeof(salt_hex));
+        return ESP_ERR_INVALID_STATE;
     }
     si_settings_store_t store = SI_SETTINGS_STORE_INITIALIZER;
     esp_err_t ret = si_settings_store_open_write(&store, AUTH_NAMESPACE);
@@ -1008,7 +1026,7 @@ static esp_err_t set_credentials_internal(const char *username,
 
 esp_err_t si_auth_set_credentials(const char *username, const char *password)
 {
-    return set_credentials_internal(username, password, false, true, false, false);
+    return set_credentials_internal(username, password, false, true, false, false, 0);
 }
 
 esp_err_t si_auth_reset_bootstrap(char *bootstrap_password_out,
@@ -1021,7 +1039,7 @@ esp_err_t si_auth_reset_bootstrap(char *bootstrap_password_out,
     char password[SI_AUTH_BOOTSTRAP_PASSWORD_LEN + 1] = {0};
     generate_bootstrap_password(password);
     esp_err_t ret = set_credentials_internal(
-        si_auth_default_username(), password, true, true, false, true);
+        si_auth_default_username(), password, true, true, false, true, 0);
     if (ret == ESP_OK) {
         strlcpy(bootstrap_password_out, password, out_size);
     } else {
@@ -1113,8 +1131,69 @@ esp_err_t si_auth_setup_credentials(const char *username, const char *password,
             pdMS_TO_TICKS(AUTH_SESSION_LOCK_WAIT_MS)) != pdTRUE) return ESP_ERR_TIMEOUT;
     esp_err_t ret = ESP_ERR_INVALID_STATE;
     if (si_auth_setup_required() && expected_generation == si_auth_credential_generation()) {
-        ret = set_credentials_internal(username, password, false, true, true, false);
+        ret = set_credentials_internal(username, password, false, true, true, false, 0);
     }
     xSemaphoreGive(s_credentials_lock);
     return ret;
+}
+
+esp_err_t si_auth_security_commit(uint32_t expected_generation, esp_err_t (*commit)(void *), void *context)
+{
+    if (!s_credentials_lock || xSemaphoreTake(s_credentials_lock,
+            pdMS_TO_TICKS(AUTH_SESSION_LOCK_WAIT_MS)) != pdTRUE) return ESP_ERR_TIMEOUT;
+    if (expected_generation != si_auth_credential_generation()) {
+        xSemaphoreGive(s_credentials_lock);
+        return ESP_ERR_INVALID_STATE;
+    }
+    auth_revoked_sessions_t revoked = {0};
+    if (ensure_lock() != ESP_OK ||
+        xSemaphoreTake(s_lock, portMAX_DELAY) != pdTRUE) {
+        xSemaphoreGive(s_credentials_lock);
+        return ESP_FAIL;
+    }
+    __atomic_add_fetch(&s_credential_generation, 1U, __ATOMIC_RELEASE);
+    retained_init_locked();
+    for (size_t i = 0; i < AUTH_SESSION_SLOTS; i++) {
+        if (s_sessions[i].used) {
+            session_clear_locked(&s_sessions[i], &revoked);
+        }
+    }
+    retained_commit_locked(esp_timer_get_time());
+    xSemaphoreGive(s_lock);
+    esp_err_t result = commit ? commit(context) : ESP_OK;
+    xSemaphoreGive(s_credentials_lock);
+    revoked_sessions_apply(&revoked);
+    return result;
+}
+
+esp_err_t si_auth_security_changed(uint32_t expected_generation)
+{
+    return si_auth_security_commit(expected_generation, NULL, NULL);
+}
+
+bool si_auth_token_is_browser(const char *token)
+{
+    si_auth_session_context_t session;
+    return si_auth_token_get_context(token, false, &session) &&
+        session.principal == SI_PRINCIPAL_BROWSER && (session.capabilities & SI_CAPABILITY_SETTINGS);
+}
+static bool token_recent_browser(const char *token, bool password_only)
+{
+    si_auth_session_context_t session;
+    int64_t now = esp_timer_get_time();
+    return si_auth_token_get_context(token, false, &session) &&
+        session.principal == SI_PRINCIPAL_BROWSER && (session.capabilities & SI_CAPABILITY_SETTINGS) &&
+        (!password_only || session.method == SI_AUTH_METHOD_PASSWORD) &&
+        session.authenticated_at_us > 0 && now >= session.authenticated_at_us &&
+        now - session.authenticated_at_us <= 60000000LL;
+}
+bool si_auth_token_is_recent(const char *token) { return token_recent_browser(token, false); }
+bool si_auth_token_is_recent_password(const char *token) { return token_recent_browser(token, true); }
+
+esp_err_t si_auth_set_credentials_for_generation(const char *username, const char *password,
+                                                  uint32_t expected_generation)
+{
+    if (!expected_generation) return ESP_ERR_INVALID_STATE;
+    /* Derive outside the lock; compare again under the persistence lock. */
+    return set_credentials_internal(username, password, false, true, false, false, expected_generation);
 }

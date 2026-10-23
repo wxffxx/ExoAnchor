@@ -15,9 +15,17 @@
 #define SI_AUTH_SESSION_ID_MAX_LEN 20
 #define SI_AUTH_DISABLED_SESSION_GENERATION 1U
 
+/* How a session's owner proved identity. Credential changes require a
+ * password session (password plus any enabled second factor). */
+typedef enum {
+    SI_AUTH_METHOD_PASSWORD = 1,
+    SI_AUTH_METHOD_PASSKEY = 2,
+} si_auth_method_t;
+
 typedef struct {
     bool authenticated;
     si_principal_kind_t principal;
+    si_auth_method_t method;
     si_capability_set_t capabilities;
     uint32_t generation;
     int64_t authenticated_at_us;
@@ -75,7 +83,22 @@ void si_auth_get_status(si_auth_status_t *status);
 void si_auth_get_runtime_status(si_auth_runtime_status_t *status);
 
 uint32_t si_auth_credential_generation(void);
+/* Password-authenticated session; see si_auth_create_session_for_method. */
 esp_err_t si_auth_create_session_for_generation(const char *client, uint32_t expected_generation, char out_token[SI_AUTH_TOKEN_LEN + 1]);
+esp_err_t si_auth_create_session_for_method(const char *client, uint32_t expected_generation,
+                                            si_auth_method_t method, char out_token[SI_AUTH_TOKEN_LEN + 1]);
 
 bool si_auth_setup_required(void);
 esp_err_t si_auth_setup_credentials(const char *username, const char *password, uint32_t expected_generation);
+
+/* Fence pending logins and revoke every live session after a factor change. */
+esp_err_t si_auth_security_changed(uint32_t expected_generation);
+bool si_auth_token_is_browser(const char *token);
+bool si_auth_token_is_recent(const char *token);
+bool si_auth_token_is_recent_password(const char *token);
+
+esp_err_t si_auth_set_credentials_for_generation(const char *username, const char *password, uint32_t expected_generation);
+
+/* Commit a factor change while fencing concurrent credential replacement.
+ * Callback must not call auth APIs; failure still revokes previous sessions. */
+esp_err_t si_auth_security_commit(uint32_t expected_generation, esp_err_t (*commit)(void *), void *context);

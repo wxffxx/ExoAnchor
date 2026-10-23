@@ -187,6 +187,7 @@ cd ExoAnchor
 | `https://<board-ip>/settings` | 设备设置 |
 
 设备证书与初次登录见[HTTPS 配对指南](docs/guides/SECURITY_TRANSPORT_zh.md)。
+浏览器可选用 Apple 等兼容验证器的通行密钥登录，需要受信任的 HTTPS 主机名，详见[通行密钥指南](docs/guides/PASSKEY_zh.md)。
 
 确认 Dashboard 可访问、Ethernet 已获取地址、KVM 有画面且 HID 可用。首次启动
 必须替换本地 bootstrap 凭据；共享文档不发布凭据值。

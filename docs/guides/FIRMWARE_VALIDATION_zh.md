@@ -31,6 +31,10 @@ Dev 测试所需的 cJSON 源码固定在 `tests/host/vendor/cjson/`，与 ESP-I
 使用的版本一致；安装 Python 依赖后，该入口可离线运行，无需安装 ESP-IDF。
 第三方来源和许可证以该目录的说明文件为准。
 
+Toolkit 的 Release 下载、manifest 校验、网络 OTA 断点续传及 Python 兼容性回归，
+见 [Toolkit 下载与 OTA 客户端验证](TOOLKIT_OTA_VALIDATION_zh.md)。其中的本地 HTTP
+模拟测试由整仓入口自动发现执行，不代替设备启动、回滚或 Flash 验证。
+
 首次配置本机环境时，应在未激活 ESP-IDF 的新终端中执行完整入口，保存退出码
 和全部测试输出。单独运行一个测试通过，不等于完整入口通过。
 

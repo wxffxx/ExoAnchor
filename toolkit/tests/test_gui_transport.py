@@ -59,7 +59,7 @@ class GuiTransportTests(unittest.TestCase):
         self.assertEqual(self.handler_errors, [])
 
     def test_json_parse_failures_never_dispatch_or_crash_the_handler(self):
-        payloads = [b"{broken", b"\xff", b'{"nested":' + b"[" * 16000 + b"0" + b"]" * 16000 + b"}"]
+        payloads = [b"{broken", b"\xff", b'{"nested":' + b"[" * 2000 + b"0" + b"]" * 2000 + b"}"]
         digit_limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
         if digit_limit:
             payloads.append(b'{"number":' + b"9" * (digit_limit + 1) + b"}")

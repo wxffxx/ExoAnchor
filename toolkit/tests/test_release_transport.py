@@ -47,7 +47,7 @@ class ReleaseTransportTests(unittest.TestCase):
                     self.assertTrue(response.closed)
 
     def test_malformed_metadata_and_parser_depth_use_toolkit_errors(self):
-        payloads = [b"{broken", b"\xff", b"[" * 100000 + b"0" + b"]" * 100000]
+        payloads = [b"{broken", b"\xff", b"[" * 2000 + b"0" + b"]" * 2000]
         for payload in payloads:
             with self.subTest(bytes=len(payload)):
                 response = io.BytesIO(payload)
@@ -151,13 +151,15 @@ class ReleaseTransportTests(unittest.TestCase):
 
     def test_same_origin_redirect_retains_credentials(self):
         for kind in ("metadata", "archive"):
-            with self.subTest(kind=kind):
-                self.exercise_redirect(kind, None, 302)
+            for code in (302, 308):
+                with self.subTest(kind=kind, code=code):
+                    self.exercise_redirect(kind, None, code)
 
     def test_https_redirect_cannot_downgrade_to_http(self):
         for kind in ("metadata", "archive"):
-            with self.subTest(kind=kind):
-                self.exercise_redirect(kind, "http://cdn.example.test/content", 302)
+            for code in (302, 308):
+                with self.subTest(kind=kind, code=code):
+                    self.exercise_redirect(kind, "http://cdn.example.test/content", code)
 
     def test_origin_comparison_includes_the_effective_port(self):
         for kind, host in (("metadata", "api.github.com"), ("archive", "github.com")):
