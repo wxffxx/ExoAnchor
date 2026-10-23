@@ -46,8 +46,8 @@ def print_found_ip(ip: str, output: Path | None) -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(f"{ip}\n", encoding="utf-8")
     print(f"\n[serial-ip] Board IP: {ip}", flush=True)
-    print(f"[serial-ip] Dashboard: http://{ip}/", flush=True)
-    print(f"[serial-ip] KVM:       http://{ip}/kvm", flush=True)
+    print(f"[serial-ip] Dashboard: https://{ip}/", flush=True)
+    print(f"[serial-ip] KVM:       https://{ip}/kvm", flush=True)
     if output:
         print(f"[serial-ip] Saved to:   {output}", flush=True)
 

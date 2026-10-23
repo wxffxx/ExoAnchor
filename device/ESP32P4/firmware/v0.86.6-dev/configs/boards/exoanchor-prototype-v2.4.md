@@ -1,10 +1,9 @@
 # ExoAnchor PrototypeV2.4 产品板型配置
 
-这是 PrototypeV2.4 的正式产品构建入口。项目方确认 `V2.4a6` 的 `a6` 只表示
-PCB 层数，原理图与 ESP32-P4 GPIO 映射和 V2.4 相同，因此不建立单独的 `a6`
-Board ID 或固件 profile。
+这是 PrototypeV2.4 的正式产品构建入口，V2.4a6 共用此 Board ID 与固件 profile
+（原因见[板型实现矩阵](../../../../boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线))。
 
-> 当前状态：配置契约已建立，尚未据此烧录实物，也未完成 V2.4/V2.4a6 HIL。
+> 当前状态：配置契约已建立；已在一块 V2.4（rev3.2）实物上烧录 0.87.6-dev 并通过启动与 TF/Ethernet/HID/UART/HTTP/MCP 冒烟（见 [`AGENT_RUNTIME_V2.md`](../../AGENT_RUNTIME_V2.md) r11/r28）；V2.4a6 实物与完整 HIL 待完成。
 > 可构建不代表硬件已验证或可以量产。
 
 ## 依据与身份
@@ -60,4 +59,4 @@ UART 写入命令、HTTP 写入接口或 EEPROM 模拟器。物理 AT24C16 的�
 
 任何烧录前仍须由操作人员确认实物型号，并让精确 CH343 serial、eFuse MAC、
 silicon revision、目标 profile 和显式空闲端口与板卡身份记录全部匹配。当前
-文档不构成烧录授权；首次 V2.4/V2.4a6 烧录和完整能力声明必须等待独立 HIL 证据。
+文档不构成烧录授权；V2.4a6 首次烧录和完整能力声明必须等待独立 HIL 证据。

@@ -6,9 +6,10 @@
 
 - 密码和 bearer token 只能通过 `--password-file` 或 `--token-file` 输入，不能作为命令行参数输入，也不会写入输出。
 - 凭据文件必须是普通文件、不能是符号链接，并且权限不能开放给 group/others；推荐 `chmod 600`。
+- `--password-file` 不支持两步验证码；已启用两步验证的账户须在浏览器登录后改用 `--token-file`。
 - `--password-file` 会执行 `/api/auth/login` 及异步 login-status 轮询，得到 browser principal；返回 token 只保留在当前进程内。
 - 完整访问必须使用 browser principal。`--token-file` 必须只有一行有效的 browser-session bearer token；MCP token 默认会被 Agent HTTP capability/principal 门以 `403` 拒绝，尤其不能作出请求审批或清空 history。这个客户端不会把 MCP principal 提升成 browser principal。
-- HTTPS 默认验证证书，可用 `--ca-file` 指定设备 CA。当前固件只有 HTTP 时，必须显式添加 `--allow-http`，且只能在可信隔离局域网中使用。
+- HTTPS 默认验证证书，可用 `--ca-file` 指定设备 CA。当前固件仅提供 HTTPS；`--allow-http` 只用于仍是明文 HTTP 的旧固件，且只能在可信隔离局域网中使用。
 - `submit` 默认 dry-run；只有显式 `--execute` 才请求 policy-authorized execution。服务端仍按会话 capability 和 Agent 工具策略做最终裁决。
 - `status/pause/resume/abort/cancel/steer/events/watch` 都要求精确 `--run-id`。`status` 与 `watch` 实际调用 `GET /api/agent/run/status?run_id=<exact>`，设备不会返回其他 retained run；客户端仍会二次拒绝 ID 不一致的响应。
 - session ID 必须由 1–48 个 ASCII 字母、数字、`_` 或 `-` 组成。`history append --record-file` 中若携带 `session_id`，它必须与命令行精确一致；发送前始终以命令行 session 强绑定。
@@ -23,30 +24,31 @@ ${EDITOR:-vi} ~/.config/exoanchor/admin.password
 
 ## 最小闭环
 
-下面示例假定当前设备只提供 HTTP。不要把密码、token 或目标机密写进 shell 参数或 Agent prompt。
+下面示例使用设备 HTTPS 主机名，并以 `--ca-file` 信任已配对的设备证书（见 [HTTPS 与首次配对](../../../../../docs/guides/SECURITY_TRANSPORT_zh.md)）。不要把密码、token 或目标机密写进 shell 参数或 Agent prompt。
 
 ```sh
 CLI=tools/agent-runtime-http.py
-DEVICE=http://192.0.2.88
+DEVICE=https://exoanchor.example.test
+CA=/path/to/device-certificate.pem
 PASSWORD_FILE=$HOME/.config/exoanchor/admin.password
 
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" --pretty capabilities
 
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" --pretty \
   sessions create --title "HIL debug"
 
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" --pretty \
   submit --session-id s01234567 --message-file /tmp/exoanchor-agent-prompt.txt \
   --idempotency-key hil-s01234567-turn-001 --execute --screenshot
 
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" \
   watch --run-id r01234567 --watch-timeout 300
 
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" --pretty \
   history list --session-id s01234567
 ```
@@ -97,19 +99,19 @@ python3 tools/agent-runtime-http.py --base-url https://device.example \
 典型控制：
 
 ```sh
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" \
   steer --run-id r01234567 --message-file /tmp/exoanchor-agent-steer.txt
 
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" --pretty \
   requests list --run-id r01234567
 
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" --pretty \
   requests approve --request-id q01234567 --response-file /tmp/exoanchor-answer.txt
 
-python3 "$CLI" --base-url "$DEVICE" --allow-http \
+python3 "$CLI" --base-url "$DEVICE" --ca-file "$CA" \
   --password-file "$PASSWORD_FILE" \
   abort --run-id r01234567
 ```

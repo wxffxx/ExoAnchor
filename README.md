@@ -38,7 +38,7 @@ can inspect, modify, reproduce, manufacture, and sell their own hardware.
 | --- | --- | --- |
 | Application and control plane | Dashboard, device API, embedded Agent, and optional MCP adapter | ✅ Published and under active development |
 | MCU firmware | Video, HID, networking, UART, power control, configuration, and build scripts | ✅ Stable and Dev source published |
-| Schematics and PCB | Complete schematic and design notes PDF plus editable PADS and Altium Designer projects | ✅ Latest published |
+| Schematics and PCB | Complete schematic and design notes PDF plus editable PADS and Altium Designer projects | 🚧 Double checking, release soon |
 | BOM, netlist, and reproduction guide | Versioned BOM, Protel 2.0 netlist, and build, flashing, assembly, and acceptance instructions | 🚧 BOM and netlist published; the reproduction guide is being expanded |
 | EasyEDA cloud source project | [Online V2.4a6 schematic and PCB source project](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ⏳ Pending |
 | Mechanical design | Editable mechanical CAD source projects | ⏳ Pending |
@@ -48,13 +48,15 @@ can inspect, modify, reproduce, manufacture, and sell their own hardware.
 > Please report any problems through
 > [GitHub Issues](https://github.com/wxffxx/ExoAnchor/issues).
 
-This is an artifact-release commitment, not a manufacturing-readiness claim.
-The
-[ExoAnchor-Hardware hardware release directory](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.4a6)
-is authoritative for the actual publication and validation state of each
-hardware revision. Publishing schematics, PCB projects, and manufacturing
-materials does not itself establish production readiness; reproduction and
-acceptance must follow the guide and validation state for that revision.
+This is an open-materials commitment, not a statement that everything is
+already open source: no material is released until it has been verified and
+checked. The
+[ExoAnchor-Hardware repository](https://github.com/wxffxx/ExoAnchor-Hardware)
+is authoritative for what each hardware revision has actually published and how
+far it has been validated. Publishing schematics, PCB projects, and
+manufacturing materials does not by itself mean production validation is
+complete; reproduction and acceptance must follow the guide and validation state
+for that revision.
 
 ## Core capabilities
 
@@ -79,7 +81,13 @@ schematic, or test from another board is not hardware evidence.
 | 2 | Waveshare ESP32-P4-NANO with a simple expansion board | Prototype |
 | 3 | ExoAnchor PrototypeV0 | Broad hardware-verified reference |
 | 4 | ExoAnchor PrototypeV2.3 | b4-labelled assembly using b6 mapping; bring-up verified, not production-final |
-| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | Formal Dev product profile available; flashing and HIL not yet completed |
+| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | Formal Dev product profile available; flashed and boot-smoke-tested on one V2.4 board; full HIL pending |
+
+<p align="center">
+  <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="ExoAnchor PrototypeV2.3b4 board in its PCIe bracket enclosure" width="640">
+  <br>
+  <sub>ExoAnchor PrototypeV2.3b4 in its PCIe bracket enclosure</sub>
+</p>
 
 See the [ESP32-P4 platform overview](device/ESP32P4/README.md). The detailed
 [implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
@@ -98,7 +106,7 @@ controls and is not a product image.
 | Hardware | Firmware | Build combination | ESP-IDF | Entry |
 | --- | --- | --- | --- | --- |
 | Waveshare ESP32-P4-NANO DIY | Dev; pure-KVM Stable is also available | `waveshare-p4-nano + esp32p4-rev1` | 5.4.x | [Assembly and flashing guide](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-diy) |
-| ExoAnchor PrototypeV0 | Dev or Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev 5.5.5; Stable 5.5.4 | [Dev build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable build](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
+| ExoAnchor PrototypeV0 | Dev or Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev and Stable 5.5.5 | [Dev build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable build](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3bring-up-主线) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 build and capability boundary](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
@@ -185,8 +193,8 @@ TLS certificate and first-login setup: [pairing guide](docs/guides/SECURITY_TRAN
 Optional browser passkey login (including Apple passkeys) requires a trusted HTTPS hostname; see the [passkey guide](docs/guides/PASSKEY_zh.md).
 
 Verify that the Dashboard opens, Ethernet has an address, KVM video is present,
-and HID works. First boot requires replacing the local bootstrap credential;
-shared documentation does not publish its value.
+and HID works. Official builds ship no bootstrap credential: on first boot,
+create the administrator account in the web UI on a trusted local network.
 
 ## Repository layout
 

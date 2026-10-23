@@ -12,8 +12,8 @@ EXAR/1 是 ExoAnchor 自有的设备反向连接协议，不兼容 FRP，也不�
 
 | 服务 ID | 设备端目标 | 用途 |
 | ---: | --- | --- |
-| 1 | 本机 HTTP 服务（80） | UI、API、HID/UART WebSocket |
-| 2 | 本机视频 HTTP 服务（81） | MJPEG |
+| 1 | 本机 HTTPS 主服务（443） | UI、API、HID/UART WebSocket |
+| 2 | 本机 HTTPS 视频服务（444） | MJPEG / H.264 WebSocket |
 
 因此，即使 relay 凭据泄漏，协议本身也不能被用于扫描或访问设备所在局域网的其他主机。
 
@@ -117,6 +117,6 @@ TLS 层负责加密、完整性和服务端身份验证；EXAR/1 负责设备身
 2. mbedTLS HMAC 适配及逐设备 secret 配置/轮换。
 3. 固定服务 socket adapter、每流窗口和公平调度。
 4. 独立 relay 服务及浏览器入口。
-5. 将 KVM 页面的视频 URL 改为 relay 可路由的同源地址，避免现有 `:81` 绝对端口绕过 relay。
+5. 将 KVM 页面的视频 URL 改为 relay 可路由的同源地址，避免现有 `:444` 绝对端口绕过 relay。
 
 正式发布前应做协议模糊测试、断线/慢连接压力测试、secret 生命周期审计和第三方法务复核。

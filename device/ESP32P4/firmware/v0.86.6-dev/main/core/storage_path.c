@@ -3,22 +3,13 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 #define SI_STORAGE_PATH_SEGMENT_MAX 192U
 
 static bool equals_ci(const char *a, const char *b)
 {
-    if (!a || !b) {
-        return false;
-    }
-    while (*a && *b) {
-        if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) {
-            return false;
-        }
-        a++;
-        b++;
-    }
-    return *a == '\0' && *b == '\0';
+    return a && b && strcasecmp(a, b) == 0;
 }
 
 static const char *canonical_top_dir(const char *segment)

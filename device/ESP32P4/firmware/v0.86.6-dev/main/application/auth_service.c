@@ -1166,11 +1166,6 @@ esp_err_t si_auth_security_commit(uint32_t expected_generation, esp_err_t (*comm
     return result;
 }
 
-esp_err_t si_auth_security_changed(uint32_t expected_generation)
-{
-    return si_auth_security_commit(expected_generation, NULL, NULL);
-}
-
 bool si_auth_token_is_browser(const char *token)
 {
     si_auth_session_context_t session;

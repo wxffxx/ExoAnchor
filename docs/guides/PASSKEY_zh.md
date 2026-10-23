@@ -46,12 +46,12 @@ Dev 和 Stable KVM 支持在浏览器中添加、登录和删除通行密钥。A
 
 | action | 输入 | 结果 |
 | --- | --- | --- |
-| `configure` | `current_password`, 可选 `otp` | 绑定当前 HTTPS Origin；必须没有已注册凭据 |
-| `register_options` | `current_password`, 可选 `otp`, `label` | WebAuthn creation options；二进制字段以无填充 base64url 返回 |
+| `configure` | `current_password`, 可选 `otp`, 可选 `client_time` | 绑定当前 HTTPS Origin；必须没有已注册凭据 |
+| `register_options` | `current_password`, 可选 `otp`, 可选 `client_time`, `label` | WebAuthn creation options；二进制字段以无填充 base64url 返回 |
 | `register_finish` | `type`, `rawId`, `clientDataJSON`, `attestationObject` | 校验并保存，随后要求重新登录 |
 | `login_options` | 无 | WebAuthn request options；使用可发现凭据 |
 | `login_finish` | `type`, `rawId`, `clientDataJSON`, `authenticatorData`, `signature`, `userHandle` | 验证后创建浏览器会话与 Secure / HttpOnly Cookie |
-| `remove` | `current_password`, 可选 `otp`, `id` | 删除指定凭据，随后要求重新登录 |
+| `remove` | `current_password`, 可选 `otp`, 可选 `client_time`, `id` | 删除指定凭据，随后要求重新登录 |
 
 `type` 必须为 `public-key`；所有二进制响应字段使用无填充 base64url。登录选项与登录完成允许匿名访问，其余操作仅限已登录浏览器，MCP 会话不能管理密钥。
 

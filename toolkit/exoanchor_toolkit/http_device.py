@@ -93,11 +93,6 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-DIRECT_HTTP_OPENER = urllib.request.build_opener(
-    urllib.request.ProxyHandler({}), _NoRedirect()
-).open
-
-
 @dataclass(frozen=True)
 class DeviceTarget:
     address: str

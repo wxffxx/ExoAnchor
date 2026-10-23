@@ -60,6 +60,10 @@ text, ordinary logs, UART commands or reports.
 - SSH uses credentials already stored on the device. Never pass a password or
   private key to `exoanchor_ssh_exec`.
 - Require redaction/non-export flags in the device and MCP results.
+- With two-step verification enabled, a used one-time code is never resent.
+  After the device session expires the bridge refuses a password-only login;
+  the operator must write a fresh code to `EXOANCHOR_OTP_CODE_FILE`. Never ask
+  for the authenticator secret.
 
 ## DSH-specific boundary
 

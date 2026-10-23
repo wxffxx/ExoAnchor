@@ -55,7 +55,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | --- | --- | --- |
 | 应用与控制面 | Dashboard、设备 API、设备内 Agent 和可选 MCP 适配器 | ✅ 已公开，持续开发 |
 | MCU 固件 | 视频、HID、网络、UART、电源控制、配置和构建脚本 | ✅ Stable 与 Dev 源码已公开 |
-| 原理图、PCB | 全套原理图与设计说明 PDF、PADS 与 Altium Designer 可编辑工程 | 🚧 Double checking, Release soon |
+| 原理图、PCB | 全套原理图与设计说明 PDF、PADS 与 Altium Designer 可编辑工程 | 🚧 核对中，即将发布 |
 | BOM、网表、复刻指南 | 版本化 BOM、Protel 2.0 网表以及构建、烧录、装配与验收说明 | 🚧 BOM 与网表已公开；复刻指南持续补齐 |
 | EasyEDA 云端源工程 | [V2.4a6 原理图与 PCB 在线源工程](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ⏳ 待发布 |
 | 结构设计 | 可编辑的结构 CAD 源工程 | ⏳ 待发布 |
@@ -64,7 +64,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 > 如发现任何问题，欢迎通过 [GitHub Issues](https://github.com/wxffxx/ExoAnchor/issues) 反馈。
 
 这是一项资料开放承诺，并非代表已经开源，在所有产物验证完毕之前，我们不会释放任何未经过验证和检验的资料。每个硬件修订版实际公开了什么、验证到什么程度，以
-[ExoAnchor-Hardware 硬件发布目录](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.4a6)
+[ExoAnchor-Hardware 硬件仓库](https://github.com/wxffxx/ExoAnchor-Hardware)
 为准。公开原理图、PCB 工程和生产资料，不等于已经完成量产验证；复刻与验收仍应遵循对应修订版的指南和验证状态。
 
 ## 核心能力
@@ -90,8 +90,14 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 2 | Waveshare ESP32-P4-NANO + 简易扩展板 | ✅早期原型，资料已全部开源 | 货架产品 |
 | 3 | ExoAnchor PrototypeV0 | ✅已完全验证| 核心KVM可行性验证板  |
 | 4 | ExoAnchor PrototypeV2.3 | 🚧 bring-up 已验证，量产/HIL 未闭环 | 集成化 PCIe 控制板 |
-| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 正式 Dev profile 已建立，HIL 待完成 | 集成化 PCIe 控制板 |
+| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 正式 Dev profile 已建立，已在一块 V2.4 上完成烧录与启动冒烟，完整 HIL 待完成 | 集成化 PCIe 控制板 |
 | 4C | ExoAnchor PrototypeV2.4C | 🚧设计中 | HDMI2CSI可行性验证板 |
+
+<p align="center">
+  <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4 板卡" width="640">
+  <br>
+  <sub>装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4</sub>
+</p>
 
 设备平台概览见 [ESP32-P4 平台说明](device/ESP32P4/README_zh.md)，各板型对应的
 固件配置、ESP32-P4 芯片版本和验证状态见
@@ -108,7 +114,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 硬件 | 固件 | 构建组合 | ESP-IDF | 入口 |
 | --- | --- | --- | --- | --- |
 | Waveshare ESP32-P4-NANO DIY | Dev；也可选纯 KVM Stable | `waveshare-p4-nano + esp32p4-rev1` | 5.4.x | [装配与烧录指南](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-diy) |
-| ExoAnchor PrototypeV0 | Dev 或 Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev 5.5.5；Stable 5.5.4 | [Dev 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable 构建](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
+| ExoAnchor PrototypeV0 | Dev 或 Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev 与 Stable 均为 5.5.5 | [Dev 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable 构建](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3bring-up-主线) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 构建与能力边界](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
@@ -189,8 +195,8 @@ cd ExoAnchor
 设备证书与初次登录见[HTTPS 配对指南](docs/guides/SECURITY_TRANSPORT_zh.md)。
 浏览器可选用 Apple 等兼容验证器的通行密钥登录，需要受信任的 HTTPS 主机名，详见[通行密钥指南](docs/guides/PASSKEY_zh.md)。
 
-确认 Dashboard 可访问、Ethernet 已获取地址、KVM 有画面且 HID 可用。首次启动
-必须替换本地 bootstrap 凭据；共享文档不发布凭据值。
+确认 Dashboard 可访问、Ethernet 已获取地址、KVM 有画面且 HID 可用。官方构建
+不含 bootstrap 凭据：首次启动后在可信局域网内通过网页创建管理员账户。
 
 ## 项目目录
 
