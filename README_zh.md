@@ -93,9 +93,9 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 1 | ESP32-P4 开发板 + 外接 USB HDMI 采集卡 | ✅ 早期原型，资料已全部开源 | 货架产品 |
 | 2 | Waveshare ESP32-P4-NANO + 简易扩展板 | ✅ 早期原型，资料已全部开源 | 货架产品 |
 | 3 | ExoAnchor PrototypeV0 | ✅ 已完全验证 | 核心 KVM 可行性验证板 |
-| 4 | ExoAnchor PrototypeV2.3 | 🚧 bring-up 已验证，量产/HIL 未闭环 | 集成化 PCIe 控制板 |
-| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 正式 Dev profile 已建立，已在一块 V2.4 上完成烧录与启动冒烟，完整 HIL 待完成 | 集成化 PCIe 控制板 |
-| 4C | ExoAnchor PrototypeV2.4C | 🚧 设计中 | HDMI2CSI 可行性验证板 |
+| 4 | ExoAnchor PrototypeV2.3 | ✅ 已完全验证 | 集成化 PCIe 控制板 |
+| 5 | ExoAnchor PrototypeV2.4 / V2.4a6 | ✅ 已完全验证 | 集成化 PCIe 控制板 |
+| 5A | ExoAnchor PrototypeV2.4C | 🚧 正在验证中 | HDMI2CSI 可行性验证板 |
 
 <p align="center">
   <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4 板卡" width="640">
@@ -119,7 +119,7 @@ V2.4 与 V2.4a6 共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合，
 | --- | --- | --- | --- | --- |
 | Waveshare ESP32-P4-NANO DIY | Dev；也可选纯 KVM Stable | `waveshare-p4-nano + esp32p4-rev1` | 5.4.x | [装配与烧录指南](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-diy) |
 | ExoAnchor PrototypeV0 | Dev 或 Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev 与 Stable 均为 5.5.5 | [Dev 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable 构建](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
-| ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3bring-up-主线) |
+| ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3已完全验证) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 构建与能力边界](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
 Dev 是当前 KVM + 设备内 Agent 开发线，运行版本为 `0.87.6-dev`；Stable 是不含

@@ -117,9 +117,9 @@ no unusual tools.
 | 1 | ESP32-P4 development board + external USB HDMI capture card | ✅ Early prototype, all materials open-sourced | Off-the-shelf parts |
 | 2 | Waveshare ESP32-P4-NANO + simple expansion board | ✅ Early prototype, all materials open-sourced | Off-the-shelf parts |
 | 3 | ExoAnchor PrototypeV0 | ✅ Fully verified | Core KVM feasibility board |
-| 4 | ExoAnchor PrototypeV2.3 | 🚧 Bring-up verified; production/HIL not closed | Integrated PCIe control board |
-| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 Formal Dev profile in place; flashed and boot-smoke-tested on one V2.4 board; full HIL pending | Integrated PCIe control board |
-| 4C | ExoAnchor PrototypeV2.4C | 🚧 In design | HDMI2CSI feasibility board |
+| 4 | ExoAnchor PrototypeV2.3 | ✅ Fully verified | Integrated PCIe control board |
+| 5 | ExoAnchor PrototypeV2.4 / V2.4a6 | ✅ Fully verified | Integrated PCIe control board |
+| 5A | ExoAnchor PrototypeV2.4C | 🚧 Verification in progress | HDMI2CSI feasibility board |
 
 <p align="center">
   <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="ExoAnchor PrototypeV2.3b4 board in its PCIe bracket enclosure" width="640">
@@ -144,7 +144,7 @@ destructive EEPROM test controls and is not a product image.
 | --- | --- | --- | --- | --- |
 | Waveshare ESP32-P4-NANO DIY | Dev; pure-KVM Stable is also available | `waveshare-p4-nano + esp32p4-rev1` | 5.4.x | [Assembly and flashing guide](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-diy) |
 | ExoAnchor PrototypeV0 | Dev or Stable | `exoanchor-prototype0 + esp32p4-rev3` | 5.5.5 for both Dev and Stable | [Dev build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable build](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
-| ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3bring-up-主线) |
+| ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3已完全验证) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 build and capability boundary](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
 Dev is the current KVM + embedded Agent development line and runs `0.87.6-dev`;

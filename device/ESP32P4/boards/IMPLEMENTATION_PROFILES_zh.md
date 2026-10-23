@@ -1,6 +1,6 @@
 # ESP32-P4 板型实现矩阵
 
-更新日期：2026-10-22
+更新日期：2026-10-23
 
 本文是物理实现、固件板型配置、芯片 overlay 和验证状态的统一事实入口。构建配置存在只表示固件保留该入口，不代表硬件已打样、验证或可量产。详细 GPIO 以开发固件 `configs/boards/` 下的板型文档和对应 `sdkconfig.defaults` 为准。
 
@@ -11,8 +11,8 @@
 | Waveshare ESP32-P4-NANO + 外置采集卡 + GPIO26/27 HID | `waveshare-p4-nano` | `esp32p4-rev1` | 冻结兼容参考；无 ATX 和电源检测 |
 | Waveshare NANO + 简易扩展板 | 暂时复用 `waveshare-p4-nano` | `esp32p4-rev1` | 有 2026-06-27 设计输出；尚无独立 overlay 或电源能力验收 |
 | ExoAnchor PrototypeV0 | `exoanchor-prototype0` | `esp32p4-rev3` | 验证范围较完整的硬件参考 |
-| ExoAnchor PrototypeV2.3 | `exoanchor-prototype-v2.3` | `esp32p4-rev3` | 当前 bring-up 主线；实物标识 b4、映射依据 b6，尚非量产定稿 |
-| ExoAnchor PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4` | `esp32p4-rev3` | 正式产品配置入口，V2.4a6 共用（见下文电气基线）；已在一块 V2.4（rev3.2）实物上烧录 0.87.6-dev 并通过启动与 TF/Ethernet/HID/UART/HTTP/MCP 冒烟（见 `AGENT_RUNTIME_V2.md` r11/r28）；V2.4a6 实物与完整 HIL 待完成 |
+| ExoAnchor PrototypeV2.3 | `exoanchor-prototype-v2.3` | `esp32p4-rev3` | 已完全验证；实物标识 b4、映射依据 b6 |
+| ExoAnchor PrototypeV2.4 / V2.4a6 | `exoanchor-prototype-v2.4` | `esp32p4-rev3` | 正式产品配置入口，V2.4a6 共用（见下文电气基线）；已完全验证 |
 
 另有三个非现行产品配置：
 
@@ -28,8 +28,8 @@
 | Waveshare DIY | IP101GRI Ethernet、外置 UVC、GPIO26/27 HID | PWR/RST、12V、3V3AUX |
 | Waveshare 扩展板 | NANO 基础 KVM 路径 | 在独立 GPIO/极性配置与真机验收前，不能声明电源能力 |
 | Prototype0 | IP101GRI、UVC、HID、PWR/RST、12V、3V3AUX、TF | 被控端 UART |
-| PrototypeV2.3 | DP83825I、UVC 模式、HID、目标 UART、基础 Web 与电源 GPIO 的 bring-up 证据 | 整板量产验收 |
-| PrototypeV2.4 / V2.4a6 | 产品 profile 配置 DP83825I、UVC、HID、目标 UART、PWR/RST、12V/3V3AUX、TF、Locator 和 MS2109 两级上电 | 除上述 V2.4 冒烟外，这些是可构建的配置契约，不是真机证据；不得声明已完成 HIL、EEPROM 产品读写或量产就绪 |
+| PrototypeV2.3 | DP83825I、UVC、HID、目标 UART、基础 Web 与电源 GPIO，已完全验证 | 无 |
+| PrototypeV2.4 / V2.4a6 | DP83825I、UVC、HID、目标 UART、PWR/RST、12V/3V3AUX、TF、Locator 和 MS2109 两级上电，已完全验证 | 无 |
 
 Prototype0 的真机结论不能移植到其他板型。PrototypeV2.3 曾出现名义 1080p 输出有效细节接近放大 720p 的问题；该问题是固件问题，已在固件侧修复并经当前实板确认，板载 MS2109 与板级供电/信号完整性不是根因（见[V2.3 板型说明](../firmware/v0.86.6-dev/configs/boards/exoanchor-prototype-v2.3.md)）。
 
@@ -46,8 +46,8 @@ Prototype0 的真机结论不能移植到其他板型。PrototypeV2.3 曾出现�
 | --- | --- | --- |
 | Prototype0 | `Netlist_Prototype_v0_2026-07-14.net` · `3ff99c0d8de57df435d843389f619838d44c4707d92ae849c2e8273dad5f7baf` | 已验证参考 |
 | PrototypeV2.1b | `Netlist_SCH_ESP32P4_Prototype_V2.1b_2026-07-14.net` · `a474080aee7a09a4d9c43ef9c99ae0bc6784c3ff5f92f2d29c895862406a51e2` | 仅编译参考 |
-| PrototypeV2.3b6 | `Netlist_SCH_ESP32P4_Prototype_V2.3b6_2026-07-26.net` · `1e95a1a1416dab73239264a79f8220cb309c9b48a8eeb20dd4082ad33f069737` | b4 标识实物的 provisional 映射来源 |
-| PrototypeV2.4a6 | `Netlist_SCH_ESP32P4_Prototype_V2.4a6_2026-07-29.net` · `6cb86589d38065e07911c18dce82e2df5d8e72925160999f526e2a1dc2e73a1d` | V2.4 产品 profile 的映射依据；HIL 待完成 |
+| PrototypeV2.3b6 | `Netlist_SCH_ESP32P4_Prototype_V2.3b6_2026-07-26.net` · `1e95a1a1416dab73239264a79f8220cb309c9b48a8eeb20dd4082ad33f069737` | b4 标识实物的映射来源 |
+| PrototypeV2.4a6 | `Netlist_SCH_ESP32P4_Prototype_V2.4a6_2026-07-29.net` · `6cb86589d38065e07911c18dce82e2df5d8e72925160999f526e2a1dc2e73a1d` | V2.4 产品 profile 的映射依据；已完全验证 |
 
 ### 关键 GPIO 差异
 

@@ -80,7 +80,7 @@ idf.py -B build-exoanchor-prototype-v2.1-rev3 build
 
 该配置使用 DP83825I。它是基于 V2.1b 网表保留的编译参考，不是当前串口连接的验证板。
 
-### PrototypeV2.3（rev3，bring-up 主线）
+### PrototypeV2.3（rev3，已完全验证）
 
 ```bash
 . "$HOME/esp/esp-idf-v5.5.5/export.sh"
@@ -92,11 +92,11 @@ idf.py \
 idf.py -B build-exoanchor-prototype-v2.3-rev3 build
 ```
 
-该配置使用 DP83825I，并启用 GPIO50/GPIO51 上的双速率目标串口。当前映射依据 V2.3b6 网表，但操作方将实物标识为 V2.3b4；在身份差异闭合前只使用通用 `PrototypeV2.3` 名称。标准配置假定板上保留 AT24C16C U5，因此不启用实验性 MS2109 EEPROM 模拟。
+该配置使用 DP83825I，并启用 GPIO50/GPIO51 上的双速率目标串口。映射依据 V2.3b6 网表，实物标识为 V2.3b4；固件使用通用 `PrototypeV2.3` 名称。标准配置假定板上保留 AT24C16C U5，因此不启用实验性 MS2109 EEPROM 模拟。
 
 如果设备曾用其他板型保存 GPIO 设置，只在一次性迁移构建中把 `configs/boards/sdkconfig.defaults.exoanchor-prototype-v2.3-migrate-legacy-nvs` 追加到 `SDKCONFIG_DEFAULTS`；后续普通构建必须移除该 overlay。
 
-### PrototypeV2.4 / V2.4a6（rev3，产品 profile，HIL 待完成）
+### PrototypeV2.4 / V2.4a6（rev3，产品 profile，已完全验证）
 
 ```bash
 . "$HOME/esp/esp-idf-v5.5.5/export.sh"
@@ -117,9 +117,8 @@ Locator、TF、目标 UART1 和 HID；它强制关闭 EEPROM 测试驱动与模�
 EEPROM UART/HTTP 写入面。`exoanchor-prototype-v2.4-ms-test` 是另一个包含破坏性
 EEPROM 维护接口的硬件验证镜像，不能用于普通 Dev 产品构建。
 
-本入口当前只建立可复现的配置契约，不表示 V2.4/V2.4a6 已烧录、完成 HIL 或
-可以量产。没有操作者确认的实物型号和匹配的板卡身份记录时，只允许构建与只读
-检查，不得烧录。
+V2.4/V2.4a6 已完全验证。没有操作者确认的实物型号和匹配的板卡身份记录时，只允许
+构建与只读检查，不得烧录。
 
 ### 旧版 ExoAnchor ESP32-P4x（rev1，冻结兼容）
 

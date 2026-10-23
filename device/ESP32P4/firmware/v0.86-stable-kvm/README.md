@@ -70,7 +70,7 @@ idf.py \
 idf.py -B build-waveshare build
 ```
 
-PrototypeV2.3 已进入开发固件 bring-up，但不属于当前 Stable KVM 的发布和真机验收目标。板型和能力依据见 [`../../boards/IMPLEMENTATION_PROFILES_zh.md`](../../boards/IMPLEMENTATION_PROFILES_zh.md)。
+PrototypeV2.3 已在开发固件上完全验证，但不属于当前 Stable KVM 的发布和真机验收目标。板型和能力依据见 [`../../boards/IMPLEMENTATION_PROFILES_zh.md`](../../boards/IMPLEMENTATION_PROFILES_zh.md)。
 
 ## 烧录
 

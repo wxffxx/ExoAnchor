@@ -1,13 +1,13 @@
 # ExoAnchor PrototypeV2.3 板型配置
 
-这是 ESP32-P4 第 4 种物理实现的 bring-up 配置。操作方将已连接实物标识为 PrototypeV2.3b4，现有电气来源则名为 PrototypeV2.3b6；差异闭合前，固件只使用通用 `PrototypeV2.3` 身份，GPIO 映射不视为量产冻结契约。
+这是 ESP32-P4 第 4 种物理实现的板型配置。实物标识为 PrototypeV2.3b4，电气映射依据 PrototypeV2.3b6；固件使用通用 `PrototypeV2.3` 身份。
 
 ## 依据与身份
 
 - 网表：`Netlist_SCH_ESP32P4_Prototype_V2.3b6_2026-07-26.net`
 - SHA-256：`1e95a1a1416dab73239264a79f8220cb309c9b48a8eeb20dd4082ad33f069737`
 - 实测芯片：ESP32-P4 rev3.2、40 MHz 晶振、16 MB Flash、32 MB PSRAM
-- 状态：首板 bring-up，整板验收尚未完成
+- 状态：已完全验证（2026-10-23）
 
 映射依据为[硬件仓库](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.3b6)公开的 2026-07-26 V2.3b6 网表。下表每个 GPIO 的连接均已与该网表逐一核对；它取代此前的 2026-07-25 网表，现有固件 GPIO 配置无需修改。
 
@@ -47,7 +47,7 @@ U1 经 DTR/RTS 和 U2 提供自动复位/下载，是开发、烧录和调试串
 
 ## 已验证能力与边界
 
-- Ethernet、USB HID、UVC 模式协商、被控端串口和基础 Web 操作已有首板证据。
+- Ethernet、USB HID、UVC、被控端串口和基础 Web 操作已完全验证。
 - U17 是数据串口，没有 DTR/RTS，不能自动复位或进入下载模式。
 - 被控端串口默认 `115200 8N1`，可手动切换到 `9600 8N1`；切换不写 NVS，重启恢复 115200。
 - 固件为 HTTP、诊断 CLI 和 WebSocket 提供独立接收路径，并拒绝第二个 WebSocket 客户端静默替换第一个客户端。
