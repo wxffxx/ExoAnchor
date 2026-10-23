@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
 import shutil
@@ -19,6 +18,7 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Iterator
 
 from .errors import ToolkitError
+from .json_limits import loads_bounded_json
 from .firmware import MANIFEST_NAME, FirmwarePackage, load_firmware_package
 
 
@@ -37,6 +37,11 @@ DIGEST_RE = re.compile(r"^sha256:([0-9a-fA-F]{64})$")
 
 class _ReleaseRedirect(urllib.request.HTTPRedirectHandler):
     """Allow signed asset redirects without forwarding GitHub credentials."""
+
+    def http_error_308(self, req, fp, code, msg, headers):
+        # Python 3.10 has no 308 handler. Use 307's method-preserving redirect
+        # rules while retaining our HTTPS and origin/credential checks.
+        return self.http_error_302(req, fp, 307, msg, headers)
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         try:
@@ -177,7 +182,7 @@ def _read_json_response(
     if len(content) > MAX_RELEASE_RESPONSE_BYTES:
         raise ToolkitError("GitHub release response is unexpectedly large")
     try:
-        return json.loads(content.decode("utf-8"))
+        return loads_bounded_json(content.decode("utf-8"))
     except (ValueError, RecursionError) as exc:
         raise ToolkitError("GitHub returned invalid release metadata") from exc
 

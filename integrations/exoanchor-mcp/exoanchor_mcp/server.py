@@ -25,6 +25,7 @@ from .contracts import (
     _validate_tool_arguments,
 )
 from .jobs import JobConflictError, JobManager, JobNotFoundError, OpsJobManager
+from .json_limits import loads_bounded_json
 from .observations import (
     STATUS_CONDITIONS,
     ObservationStore,
@@ -1517,7 +1518,7 @@ class McpServer:
             if not line:
                 continue
             try:
-                message = json.loads(line)
+                message = loads_bounded_json(line)
             except (ValueError, RecursionError) as exc:
                 response = self._error(None, -32700, f"parse error: {exc}")
             else:

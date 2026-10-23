@@ -44,7 +44,10 @@ def expected_routes() -> set[tuple[str, str]]:
 def main() -> int:
     failures: list[str] = []
     web_text = WEB_SERVER.read_text(encoding="utf-8")
-    actual = {(uri, method) for uri, method in ROUTE_PATTERN.findall(web_text)}
+    route_text = web_text
+    if '#include "web/auth_routes_module.inc"' in web_text:
+        route_text += (MAIN / "services/web/auth_routes_module.inc").read_text(encoding="utf-8")
+    actual = {(uri, method) for uri, method in ROUTE_PATTERN.findall(route_text)}
     expected = expected_routes()
     if actual != expected:
         failures.append(

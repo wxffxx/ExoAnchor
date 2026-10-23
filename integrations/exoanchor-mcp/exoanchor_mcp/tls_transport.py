@@ -46,6 +46,6 @@ def verified_https_handler(certificate_file: str | None = None) -> HTTPSHandler:
     class PairedHTTPSHandler(HTTPSHandler):
         def https_open(self, request):
             return self.do_open(functools.partial(_PairedConnection, paired_digest=digest),
-                                request, context=context, check_hostname=False)
+                                request, context=context)
 
     return PairedHTTPSHandler(context=context)

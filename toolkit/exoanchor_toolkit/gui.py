@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 from . import __version__
 from .discovery import discover_devices, identify_uart_device
 from .errors import ToolkitError
+from .json_limits import loads_bounded_json
 from .firmware import flash_firmware, load_firmware_package
 from .http_device import (
     DeviceHttpClient,
@@ -193,6 +194,7 @@ class ToolkitController:
                 target,
                 username=username,
                 password=password,
+                otp_code=_string(payload, "otp", limit=32),
                 token=self._device_tokens.get(key, ""),
                 timeout=timeout,
             ),
@@ -252,6 +254,7 @@ class ToolkitController:
             target,
             username=username,
             password=password,
+            otp_code=_string(payload, "otp", limit=32),
             token=token,
             timeout=2,
         )
@@ -702,7 +705,7 @@ class ToolkitRequestHandler(BaseHTTPRequestHandler):
                     {"ok": False, "error": "request body is incomplete"},
                 )
                 return
-            payload = json.loads(body or b"{}")
+            payload = loads_bounded_json(body or b"{}")
         except (ValueError, RecursionError):
             self._json(
                 HTTPStatus.BAD_REQUEST,

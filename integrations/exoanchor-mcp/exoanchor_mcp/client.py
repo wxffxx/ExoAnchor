@@ -17,6 +17,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 from .tls_transport import verified_https_handler
+from .json_limits import loads_bounded_json
 
 JSON = dict[str, Any]
 JSON_RESPONSE_LIMIT = 2 * 1024 * 1024
@@ -79,7 +80,10 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def _read_secret_file(name: str) -> str | None:
-    path = os.environ.get(name)
+    return _read_secret_path(os.environ.get(name))
+
+
+def _read_secret_path(path: str | None) -> str | None:
     if not path:
         return None
     try:
@@ -106,6 +110,10 @@ class ExoAnchorConfig:
     allow_arbitrary_ssh: bool
     tls_certificate_file: str | None = None
     allow_insecure_http: bool = False
+    otp_code: str | None = None
+    # Re-read before each password login so long-running bridges can be given
+    # a fresh one-time code after a session expires.
+    otp_code_file: str | None = None
 
     @classmethod
     def from_env(cls) -> "ExoAnchorConfig":
@@ -128,6 +136,8 @@ class ExoAnchorConfig:
             base_url=base_url,
             username=os.environ.get("EXOANCHOR_USERNAME", "").strip(),
             password=os.environ.get("EXOANCHOR_PASSWORD") or _read_secret_file("EXOANCHOR_PASSWORD_FILE"),
+            otp_code=os.environ.get("EXOANCHOR_OTP_CODE") or None,
+            otp_code_file=os.environ.get("EXOANCHOR_OTP_CODE_FILE") or None,
             token=os.environ.get("EXOANCHOR_TOKEN") or _read_secret_file("EXOANCHOR_TOKEN_FILE"),
             timeout=timeout,
             allow_write=_env_bool("EXOANCHOR_ALLOW_WRITE", False),
@@ -158,6 +168,8 @@ class ExoAnchorClient:
         self.config = config
         self.token = config.token
         self._auth_lock = threading.RLock()
+        self._otp_required = False
+        self._last_file_otp_code: str | None = None
         try:
             self._opener = build_opener(_NoRedirect(), verified_https_handler(config.tls_certificate_file))
         except (OSError, ValueError) as exc:
@@ -202,14 +214,14 @@ class ExoAnchorClient:
                     # Current firmware sanitizes at the source; replacement
                     # here keeps the bridge usable during mixed-version repair.
                     try:
-                        return json.loads(
+                        return loads_bounded_json(
                             payload.decode("utf-8", errors="replace") or "{}"
                         )
                     except (ValueError, RecursionError) as exc:
                         raise ExoAnchorError(f"invalid JSON from {path}") from exc
                 text = payload.decode("utf-8", errors="replace")
                 try:
-                    return json.loads(text)
+                    return loads_bounded_json(text)
                 except (ValueError, RecursionError):
                     return {"ok": True, "text": text}
         except HTTPError as exc:
@@ -237,6 +249,17 @@ class ExoAnchorClient:
         with self._auth_lock:
             return self._login()
 
+    def _next_otp_code(self) -> str | None:
+        """Return an unused one-time code, consuming it before any request."""
+        otp_code, self.config.otp_code = self.config.otp_code, None
+        if otp_code:
+            return otp_code
+        otp_code = _read_secret_path(self.config.otp_code_file)
+        if not otp_code or otp_code == self._last_file_otp_code:
+            return None
+        self._last_file_otp_code = otp_code
+        return otp_code
+
     def _login(self) -> JSON:
         if not self.config.password:
             raise ExoAnchorError(
@@ -244,6 +267,15 @@ class ExoAnchorClient:
             )
         if not self.config.username:
             raise ExoAnchorError("password login requires EXOANCHOR_USERNAME")
+        otp_code = self._next_otp_code()
+        if self._otp_required and not otp_code:
+            # Never submit a password-only login once two-step is in use: it
+            # cannot succeed and would feed the device's global login lockout.
+            raise ExoAnchorError(
+                "session expired and two-step verification needs a new code; "
+                "write it to EXOANCHOR_OTP_CODE_FILE or restart with EXOANCHOR_OTP_CODE"
+            )
+        self._otp_required = self._otp_required or bool(otp_code)
         deadline = time.monotonic() + self.config.timeout
         resp = self._request(
             "POST",
@@ -251,6 +283,7 @@ class ExoAnchorClient:
             {
                 "username": self.config.username,
                 "password": self.config.password,
+                **({"otp": otp_code, "client_time": int(time.time())} if otp_code else {}),
                 "request_id": secrets.token_hex(16),
             },
             retry_auth=False,

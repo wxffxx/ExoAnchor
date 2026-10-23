@@ -44,13 +44,13 @@
       return this.login(username, password, ticket.nonce);
     }
 
-    async login(username, password, setupNonce = "") {
+    async login(username, password, setupNonce = "", otp = "") {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 75000);
       try {
         let response = await fetch(setupNonce ? "/api/auth/setup" : "/api/auth/login", {
           method: "POST", headers: { "Content-Type": "application/json", ...(setupNonce ? { "X-ExoAnchor-Setup": setupNonce } : {}) },
-          body: JSON.stringify({ username, password, request_id: crypto.randomUUID() }),
+          body: JSON.stringify({ username, password, ...(otp ? { otp, client_time: Math.floor(Date.now() / 1000) } : {}), request_id: crypto.randomUUID() }),
           credentials: "same-origin", signal: controller.signal,
         });
         while (response.status === 202) {
@@ -71,6 +71,7 @@
     async logout() {
       const headers = this.authHeader();
       this.setSession("", this.username);
+      document.dispatchEvent(new CustomEvent("exoanchor:logout"));
       await fetch("/api/auth/logout", { method: "POST", headers, credentials: "same-origin" });
     }
 
@@ -145,6 +146,81 @@
 
   const api = new ApiClient();
 
+  const passkeys = {
+    controller: null,
+    problem() {
+      if (!window.isSecureContext || location.protocol !== "https:") return "请使用浏览器信任的 HTTPS 网址。";
+      const host = location.hostname;
+      if (host.includes(":") || /^[\d.]+$/.test(host)) return "请通过设备主机名访问，通行密钥不能绑定 IP 地址。";
+      if (!window.PublicKeyCredential || !navigator.credentials?.create || !navigator.credentials?.get) return "当前浏览器不支持通行密钥，请使用密码登录。";
+      return "";
+    },
+    cancel() { this.controller?.abort(); },
+    decode(text) {
+      return Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    },
+    encode(bytes) {
+      return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    },
+    async post(action, body, signal) {
+      const response = await fetch("/api/auth/passkeys", {
+        method: "POST", headers: api.headers(), credentials: "same-origin", cache: "no-store",
+        body: JSON.stringify({action, ...body}), signal,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    },
+    async perform(action, body = {}) {
+      const problem = this.problem(); if (problem) throw new Error(problem);
+      if (this.controller) throw new Error("请先完成或取消当前通行密钥操作。");
+      if (action === "login" && session.loggedOut?.()) await session.logout();
+      const logoutGeneration = localStorage.getItem("ea_auth_logout_generation");
+      const controller = new AbortController(); this.controller = controller;
+      const cancel = () => controller.abort();
+      document.addEventListener("exoanchor:logout", cancel);
+      document.addEventListener("exoanchor:session-expired", cancel);
+      window.addEventListener("pagehide", cancel);
+      const timer = setTimeout(() => controller.abort(), 210000);
+      try {
+        let result;
+        if (action === "register" || action === "login") {
+          const create = action === "register";
+          const options = await this.post(create ? "register_options" : "login_options", body, controller.signal);
+          options.challenge = this.decode(options.challenge);
+          if (create) {
+            options.user.id = this.decode(options.user.id);
+            options.excludeCredentials = (options.excludeCredentials || []).map(k => ({...k, id: this.decode(k.id)}));
+          }
+          const credential = await navigator.credentials[create ? "create" : "get"]({publicKey: options, signal: controller.signal});
+          if (!credential) throw new Error("未返回通行密钥。");
+          const data = {type: credential.type, rawId: this.encode(credential.rawId), clientDataJSON: this.encode(credential.response.clientDataJSON)};
+          if (create) data.attestationObject = this.encode(credential.response.attestationObject);
+          else {
+            data.authenticatorData = this.encode(credential.response.authenticatorData);
+            data.signature = this.encode(credential.response.signature);
+            data.userHandle = credential.response.userHandle ? this.encode(credential.response.userHandle) : "";
+          }
+          if (controller.signal.aborted) throw new DOMException("已取消", "AbortError");
+          result = await this.post(create ? "register_finish" : "login_finish", data, controller.signal);
+        } else result = await this.post(action, body, controller.signal);
+        if (controller.signal.aborted || logoutGeneration !== localStorage.getItem("ea_auth_logout_generation"))
+          throw new DOMException("登录已取消", "AbortError");
+        if (action === "login") api.setSession(result.token, result.username);
+        return result;
+      } catch (error) {
+        if (error.name === "NotAllowedError" || error.name === "AbortError") throw new Error("操作已取消或超时；可以重新尝试或使用密码登录。");
+        if (error.name === "InvalidStateError") throw new Error("此验证器已添加过通行密钥。");
+        throw error;
+      } finally {
+        clearTimeout(timer); this.controller = null;
+        document.removeEventListener("exoanchor:logout", cancel);
+        document.removeEventListener("exoanchor:session-expired", cancel);
+        window.removeEventListener("pagehide", cancel);
+        body.current_password = body.otp = "";
+      }
+    },
+  };
+
   const auth = {
     mounted: false,
     mode: "login",
@@ -159,11 +235,12 @@
         '<form id="authForm" class="ui-dialog dialog">' +
           '<h2 id="authTitle">登录本地账户</h2><p id="authHint">需要登录后才能继续。</p>' +
           '<div id="authCurrentFields"><div class="field"><label for="authCurrentUsername">当前用户名</label><input id="authCurrentUsername" type="text" autocomplete="username" maxlength="32"></div>' +
-          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div></div>' +
+          '<div class="field"><label for="authCurrentPassword">当前密码</label><input id="authCurrentPassword" type="password" autocomplete="current-password"></div>' +
+          '<div class="field"><label for="authOtp">验证码 / 恢复码（已启用两步验证时填写）</label><input id="authOtp" type="text" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div></div>' +
           '<div id="authNewFields"><div class="field"><label for="authNewUsername">新用户名</label><input id="authNewUsername" type="text" autocomplete="username" maxlength="32"></div>' +
           '<div class="field"><label for="authNewPassword">新密码</label><input id="authNewPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>' +
           '<div class="field"><label for="authConfirmPassword">确认新密码</label><input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div></div>' +
-          '<div class="actions"><button id="authSubmit" class="primary" type="submit">登录</button></div><div id="authMsg" class="msg"></div>' +
+          '<div class="actions"><button id="authSubmit" class="primary" type="submit">登录</button></div><button id="authPasskey" type="button">使用通行密钥登录</button><p id="authPasskeyHint" role="status"></p><div id="authMsg" class="msg"></div>' +
         '</form></div>');
       this.mounted = true;
     },
@@ -177,18 +254,31 @@
       byId("authCurrentFields").style.display = mode === "setup" ? "none" : "block";
       byId("authTitle").textContent = mode === "setup" ? "创建管理员账号" : mode === "login" ? "登录本地账户" : "请修改默认账户";
       byId("authHint").textContent = mode === "setup" ? "在可信的本地网络完成首次配置。" : mode === "login" ? "需要登录后才能继续。" : "当前账户仍使用默认凭据，请先更新。";
+      byId("authPasskey").hidden = mode !== "login" || this.state.passkey?.enabled === false;
+      const passkeyProblem = passkeys.problem();
+      byId("authPasskey").disabled = !!passkeyProblem;
+      byId("authPasskeyHint").textContent = mode === "login" && !byId("authPasskey").hidden ? passkeyProblem : "";
+      byId("authSubmit").disabled = false;
       byId("authSubmit").textContent = mode === "setup" ? "创建并继续" : mode === "login" ? "登录" : "保存并继续";
+      if (mode === "login" && this.state.two_step_storage_ok === false) {
+        byId("authHint").textContent = "两步验证存储异常，认证已锁定。请检查设备存储或使用本地恢复流程。";
+      } else if (mode === "login" && this.state.two_step_enabled && this.state.two_step_time_ready === false) {
+        byId("authHint").textContent = "设备尚未校时，将按本机时间校验动态验证码（验证成功后自动校准设备时间）。请确认本机时间准确，或使用一次性恢复码。";
+      }
       byId("authMsg").textContent = "";
       byId("authMsg").className = "msg";
       byId("authCurrentUsername").value = this.state.username || this.state.default_username || api.username || "admin";
       byId("authNewUsername").value = this.state.username || api.username || "admin";
       byId("authCurrentPassword").value = "";
+      byId("authOtp").value = "";
       byId("authNewPassword").value = "";
       byId("authConfirmPassword").value = "";
       setTimeout(() => byId(mode === "setup" ? "authNewUsername" : "authCurrentPassword").focus(), 0);
     },
 
     hide(ok) {
+      passkeys.cancel();
+      if (byId("authOtp")) byId("authOtp").value = "";
       byId("authModal")?.classList.remove("show");
       if (this.pending) {
         this.pending(ok);
@@ -197,9 +287,9 @@
       this.waiting = null;
     },
 
-    requireLogin() {
+    requireLogin(state = {}) {
       if (byId("authModal")?.classList.contains("show") && this.mode === "login" && this.waiting) return this.waiting;
-      this.show("login", {});
+      this.show("login", state);
       this.waiting = new Promise(resolve => { this.pending = resolve; });
       return this.waiting;
     },
@@ -223,7 +313,7 @@
         const state = await api.getSilent("/api/auth/status");
         if (state.setup_required) return await this.requireSetup(state);
         if (state.enabled && !state.token_valid) {
-          return await this.requireLogin();
+          return await this.requireLogin(state);
         }
         if (state.must_change_credentials) {
           return await this.requireChange(state);
@@ -237,16 +327,32 @@
     bindForm(onAuthenticated) {
       this.mount();
       this.onAuthenticated = onAuthenticated || null;
+      byId("authPasskey").onclick = async () => {
+        const button = byId("authPasskey"), message = byId("authMsg");
+        button.disabled = byId("authSubmit").disabled = true;
+        byId("authCurrentPassword").value = byId("authOtp").value = "";
+        message.textContent = "请在系统提示中确认通行密钥…"; message.className = "msg";
+        try {
+          const result = await passkeys.perform("login");
+          this.hide(true);
+          if (this.onAuthenticated) await this.onAuthenticated(result);
+        } catch (error) { message.textContent = error.message; message.className = "msg bad"; }
+        finally { button.disabled = !!passkeys.problem(); byId("authSubmit").disabled = false; }
+      };
+
       byId("authForm").onsubmit = async event => {
         event.preventDefault();
+        passkeys.cancel();
         const message = byId("authMsg");
         message.textContent = "";
         message.className = "msg";
         const currentUsername = byId("authCurrentUsername").value.trim();
         const currentPassword = byId("authCurrentPassword").value;
+        const otp = byId("authOtp").value.trim();
+        byId("authOtp").value = "";
         try {
           if (this.mode === "login") {
-            const result = await api.login(currentUsername, currentPassword);
+            const result = await api.login(currentUsername, currentPassword, "", otp);
             if (result.must_change_credentials) {
               this.show("change", result);
               return;
@@ -266,7 +372,7 @@
             if (this.onAuthenticated) await this.onAuthenticated(result);
             return;
           }
-          await api.login(currentUsername, currentPassword);
+          await api.login(currentUsername, currentPassword, "", otp);
           const result = await api.post("/api/settings/account", {
             current_username: currentUsername,
             current_password: currentPassword,
@@ -429,6 +535,7 @@
   }
 
   window.ExoAnchorUI = {
+    passkeys,
     VERSION,
     api,
     auth,

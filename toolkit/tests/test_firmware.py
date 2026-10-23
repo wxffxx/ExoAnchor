@@ -1,5 +1,6 @@
 import hashlib
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +9,7 @@ from unittest import mock
 from exoanchor_toolkit.errors import ToolkitError
 from exoanchor_toolkit.firmware import (
     MANIFEST_NAME,
+    MAX_MANIFEST_BYTES,
     THIRD_PARTY_NOTICES_NAME,
     build_esptool_command,
     create_firmware_archive,
@@ -130,6 +132,19 @@ flash_authorization = "allowed only after exact identity recheck"
         package.segments[-1].path.write_bytes(b"corrupt")
         with self.assertRaisesRegex(ToolkitError, "size mismatch|SHA-256 mismatch"):
             load_firmware_package(output)
+
+    def test_manifest_parser_limits_are_toolkit_errors(self):
+        manifest = self.root / MANIFEST_NAME
+        payloads = [b'{"nested":' + b"[" * 2000 + b"0" + b"]" * 2000 + b"}",
+                    b" " * MAX_MANIFEST_BYTES + b"{}", b"\xff", b"{broken"]
+        limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+        if limit:
+            payloads.append(b'{"number":' + b"9" * (limit + 1) + b"}")
+        for payload in payloads:
+            with self.subTest(length=len(payload)):
+                manifest.write_bytes(payload)
+                with self.assertRaisesRegex(ToolkitError, "cannot read firmware manifest"):
+                    load_firmware_package(manifest)
 
     def test_path_escape_is_rejected(self):
         output = self.root / "package"

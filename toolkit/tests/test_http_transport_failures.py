@@ -8,6 +8,7 @@ from urllib.error import HTTPError
 
 from exoanchor_toolkit.errors import ToolkitError
 from exoanchor_toolkit.http_device import DeviceHttpClient
+from exoanchor_toolkit.json_limits import MAX_JSON_DEPTH
 
 
 class Response:
@@ -85,7 +86,8 @@ class HttpTransportFailureTests(unittest.TestCase):
         opener.assert_called_once()
 
     def test_json_parser_limits_become_toolkit_errors(self):
-        payloads = [b"[" * 2000 + b"0" + b"]" * 2000]
+        payloads = [b'{"nested":' + b"[" * depth + b"0" + b"]" * depth + b"}"
+                    for depth in (MAX_JSON_DEPTH, 2000)]
         limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
         if limit:
             payloads.append(b'{"number":' + b"9" * (limit + 1) + b"}")

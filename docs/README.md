@@ -22,3 +22,6 @@ synchronize this English mirror.
 - Chinese documents are authoritative.
 - If Chinese and English differ, follow Chinese.
 - Update Chinese first, then synchronize the required English mirror.
+
+- [两步验证与动态验证码](guides/TWO_STEP_zh.md)
+- [通行密钥与 Apple Passkey](guides/PASSKEY_zh.md)

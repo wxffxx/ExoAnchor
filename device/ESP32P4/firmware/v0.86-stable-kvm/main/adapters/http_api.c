@@ -108,10 +108,10 @@ bool si_http_check_auth(httpd_req_t *req)
     return si_http_get_auth_token(req, token, sizeof(token)) && si_auth_token_matches(token);
 }
 
-bool si_http_check_recent_auth(httpd_req_t *req)
+bool si_http_check_recent_password_auth(httpd_req_t *req)
 {
     char token[SI_AUTH_TOKEN_LEN + 1];
-    return si_http_get_auth_token(req, token, sizeof(token)) && si_auth_token_is_recent(token);
+    return si_http_get_auth_token(req, token, sizeof(token)) && si_auth_token_is_recent_password(token);
 }
 
 esp_err_t si_http_set_session_cookie(httpd_req_t *req, const char *token, char *cookie, size_t cookie_size)

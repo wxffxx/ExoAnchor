@@ -9,6 +9,8 @@
 
 #include "app_config.h"
 #include "auth_service.h"
+#include "two_step.h"
+#include "passkey.h"
 #include "cJSON.h"
 #include "control_lease.h"
 #include "device_http.h"
@@ -78,6 +80,8 @@ void si_web_log(const char *level, const char *message)
 }
 
 #include "web/base_settings_http_module.inc"
+#include "web/two_step_http_module.inc"
+#include "web/passkey_http_module.inc"
 #include "web/power_http_module.inc"
 #include "web/video_http_module.inc"
 
@@ -138,9 +142,7 @@ static esp_err_t start_stream_server(void)
 esp_err_t si_web_server_start(void)
 {
     ESP_RETURN_ON_ERROR(si_auth_initialize(), TAG, "initialize authentication");
-    if (!s_auth_login_lock) s_auth_login_lock = xSemaphoreCreateMutex();
-    ESP_RETURN_ON_FALSE(s_auth_login_lock, ESP_ERR_NO_MEM, TAG, "login lock");
-    (void)si_auth_is_enabled();
+    ESP_RETURN_ON_ERROR(auth_http_initialize(), TAG, "initialize login service");
     ESP_RETURN_ON_ERROR(si_video_control_start(), TAG, "start video control");
     ESP_RETURN_ON_ERROR(si_control_lease_start(), TAG, "start control lease");
 
@@ -164,13 +166,7 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/assets/ui-shell.css", HTTP_GET, ui_shell_css_handler, false);
     register_uri(s_server, "/assets/ui-shell.js", HTTP_GET, ui_shell_js_handler, false);
 
-    register_uri(s_server, "/api/auth/setup", HTTP_GET, auth_setup_handler, false);
-    register_uri(s_server, "/api/auth/setup", HTTP_POST, auth_setup_handler, false);
-    register_uri(s_server, "/api/auth/certificate", HTTP_GET, auth_certificate_handler, false);
-    register_uri(s_server, "/api/auth/login", HTTP_POST, auth_login_handler, false);
-    register_uri(s_server, "/api/auth/login/status", HTTP_GET, auth_login_status_handler, false);
-    register_uri(s_server, "/api/auth/logout", HTTP_POST, auth_logout_handler, false);
-    register_uri(s_server, "/api/auth/status", HTTP_GET, auth_status_handler, false);
+#include "web/auth_routes_module.inc"
     register_uri(s_server, "/api/settings/account", HTTP_POST, settings_password_handler, false);
     register_uri(s_server, "/api/settings/password", HTTP_POST, settings_password_handler, false);
     register_uri(s_server, "/api/settings/device", HTTP_GET, settings_device_handler, false);

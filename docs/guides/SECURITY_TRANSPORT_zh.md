@@ -34,6 +34,10 @@ export EXOANCHOR_BASE_URL='https://<设备地址>'
 - Stable 登录在一分钟内失败五次后锁定 30 秒。Dev 保留其现有限流并移除账号入口的匿名密码校验路径。密码计算在登录 worker 执行。
 - Dev 中旧的共享 bootstrap `admin/admin` 会在启动时失效并进入网页初始化状态；不会输出初始密码。读取损坏或无法保存凭据时，设备拒绝认证服务。定制构建可预置独立密码，并在首次登录后更改。
 
+## 两步验证
+
+可在账户与安全中启用 TOTP 动态验证码，并保存一次性恢复码。浏览器、Toolkit 与 MCP 的新登录均经过相同的第二因子校验；配置方法、客户端参数与恢复流程见[两步验证指南](TWO_STEP_zh.md)。
+
 ## 依赖补丁与验证
 
 UVC 的解析与打印安全补丁见[补丁说明](../../device/ESP32P4/firmware/security-patches/usb_host_uvc-2.5.1/README.md)。Dev 的 libssh2 保留原有大包长度补丁，并加入 ETM 首块解密前的长度检查。构建验证固定输入的 SHA-256，并编译受审查的补丁源码。
