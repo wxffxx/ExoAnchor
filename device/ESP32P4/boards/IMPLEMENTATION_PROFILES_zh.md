@@ -37,7 +37,8 @@ Prototype0 的真机结论不能移植到其他板型。PrototypeV2.3 曾出现�
 
 - [Waveshare DIY](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-diy)
 - [Waveshare 简易扩展板](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-expansion)
-- ExoAnchor P4 V2.4a6：核对中，即将在[硬件仓库](https://github.com/wxffxx/ExoAnchor-Hardware)发布
+- [ExoAnchor P4 V2.4a6](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.4a6)：当前自研板主线；转换已核对，制造签核待完成
+- [ExoAnchor P4 V2.3B4](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.3b4) · [V2.3B6](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.3b6)：历史工程
 
 ## 自研板电气基线
 
