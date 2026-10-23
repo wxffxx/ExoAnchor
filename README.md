@@ -245,7 +245,7 @@ regulatory approval, safety certification, or fitness for a particular hardware
 application. Covered materials and hardware made from them are provided **as
 is**, without warranty, to the fullest extent permitted by law.
 
-### Why MIT?
+### Why MIT All?
 
 I do not depend on this project for income. I have my own research agenda, and
 ExoAnchor is, in a sense, a semi-hobby project. That gives me the freedom to
