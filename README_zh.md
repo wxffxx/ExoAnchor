@@ -74,6 +74,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 视频 | 通过 MS2109 类 UVC 采集路径接收目标机 HDMI 输出 |
 | 键盘和鼠标 | 模拟 USB HID，可覆盖 BIOS、启动和操作系统阶段 |
 | 独立网络 | ESP32-P4 自身通过以太网提供 Dashboard 和设备 API |
+| 安全接入 | 仅提供 HTTPS；首次启动在网页创建管理员账户；可选两步验证与通行密钥登录 |
 | UART | 只在真实接线并验证的板型上提供目标机串口 |
 | 电源和状态 | 只在实现对应线路的板型上提供 PWR、RST、12V 和 3V3AUX |
 | 设备内 Agent | 在固件策略、请求批准和控制租约约束下编排观察与动作 |
@@ -84,7 +85,10 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 
 ## 硬件基线
 
-| # | 实现 | 状态 | Feature |
+我们同时提供集成化的 PCIe 形态自研板，以及完全使用货架产品、无需焊接或任何非常见
+工具的简易 DIY 方案。
+
+| # | 实现 | 状态 | 定位 |
 | ---: | --- | --- | --- |
 | 1 | ESP32-P4 开发板 + 外接 USB HDMI 采集卡 | ✅ 早期原型，资料已全部开源 | 货架产品 |
 | 2 | Waveshare ESP32-P4-NANO + 简易扩展板 | ✅ 早期原型，资料已全部开源 | 货架产品 |
@@ -92,8 +96,6 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 4 | ExoAnchor PrototypeV2.3 | 🚧 bring-up 已验证，量产/HIL 未闭环 | 集成化 PCIe 控制板 |
 | 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 正式 Dev profile 已建立，已在一块 V2.4 上完成烧录与启动冒烟，完整 HIL 待完成 | 集成化 PCIe 控制板 |
 | 4C | ExoAnchor PrototypeV2.4C | 🚧 设计中 | HDMI2CSI 可行性验证板 |
-
-除了集成化的 PCIe 形态自研板，我们也将提供高度简易的 DIY 方案，完全使用货架产品，无需焊接或任何非常见工具。
 
 <p align="center">
   <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4 板卡" width="640">
