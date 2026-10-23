@@ -278,5 +278,5 @@ BOM、网表、结构模型和生产资料，并允许依据覆盖范围内的�
 
 ## 致谢
 
-感谢 [JLCPCB](https://jlcpcb.com/) 对本项目的支持，他们为 ExoAnchor 提供了资金、物料和
+感谢[嘉立创](https://www.jlc.com/)对本项目的支持，他们为 ExoAnchor 提供了资金、物料和
 制造方面的支持。
