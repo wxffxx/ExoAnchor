@@ -187,11 +187,13 @@ cd ExoAnchor
 | `https://<board-ip>/terminal` | 目标机 UART，仅 Dev 且取决于板型 |
 | `https://<board-ip>/settings` | 设备设置 |
 
-设备证书与初次登录见[HTTPS 配对指南](docs/guides/SECURITY_TRANSPORT_zh.md)。
-浏览器可选用 Apple 等兼容验证器的通行密钥登录，需要受信任的 HTTPS 主机名，详见[通行密钥指南](docs/guides/PASSKEY_zh.md)。
+首次访问依次完成：
 
-确认 Dashboard 可访问、Ethernet 已获取地址、KVM 有画面且 HID 可用。官方构建
-不含 bootstrap 凭据：首次启动后在可信局域网内通过网页创建管理员账户。
+1. 按 [HTTPS 配对指南](docs/guides/SECURITY_TRANSPORT_zh.md)信任设备证书；
+2. 在可信局域网内通过网页创建管理员账户（官方构建不含 bootstrap 凭据）；
+3. 确认 Dashboard 可访问、Ethernet 已获取地址、KVM 有画面且 HID 可用；
+4. 可选：开启[两步验证](docs/guides/TWO_STEP_zh.md)，或使用 Apple 等兼容验证器的
+   [通行密钥](docs/guides/PASSKEY_zh.md)登录（需要受信任的 HTTPS 主机名）。
 
 ## 项目目录
 
