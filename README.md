@@ -7,89 +7,134 @@
 **[中文](README_zh.md)**
 
 ExoAnchor is a fully featured KVM released under the [MIT License](LICENSE),
-with the goal of opening the complete path from firmware to fabrication. It is
-an MCU- and RTOS-based embedded hardware project with an optional AI Agent
-layer.
+with the goal of opening everything from firmware to fabrication. It is an MCU-
+and RTOS-based embedded hardware project with an optional AI Agent layer.
 
 > Current development firmware: `0.87.6-dev IndigoShore`.
 
-The project currently centers on the ESP32-P4, with additional hardware
-platforms under consideration as long as they preserve the same control plane
-and safety model. It keeps a physical machine reachable when its operating
-system, SSH access, network stack, or services are unavailable. Operators can
-view the screen and send keyboard and mouse input through an independent
-network path, with UART, reset and power control available only on boards that
-implement them.
+**We commit to releasing everything, from R&D to manufacturing, under the MIT
+License.**
 
-The target machine does not need ExoAnchor software. Manual KVM remains
-independently usable; the device API, embedded Agent and external MCP controller
-are optional layers above the deterministic control plane.
+ExoAnchor keeps a physical machine reachable when its operating system, SSH
+access, network stack, or services are unavailable. Through an independent
+network path you can still see the screen and send keyboard and mouse input,
+with UART, reset, and power control on boards that actually implement them.
+
+The target machine does not need ExoAnchor software. Manual KVM always remains
+independently usable; the device API, embedded Agent, and external MCP
+controller are optional layers above that deterministic control plane.
+
+ExoAnchor started in the RCOS community at Rensselaer Polytechnic Institute. At
+first we only wanted an affordable KVM for remote maintenance and recovery of lab
+and personal machines. The mature products that fit were over our budget, and
+their closed hardware and software made customization, repair, and further
+development hard. So we decided to build our own from scratch.
+
+The first goal was simple: reliable video capture, keyboard and mouse control,
+power management, and remote recovery at the lowest possible cost. As
+development went on, ExoAnchor stopped being just a cheaper alternative and
+became a long-running experiment in open hardware, embedded systems, and
+intelligent control of real devices.
+
+ExoAnchor currently centers on the ESP32-P4, with an MCU and RTOS carrying the
+core KVM functions. More hardware platforms may follow, as long as they preserve
+the same control plane and safety model. The AI Agent is an optional control
+layer built on top of the device's capabilities, never a prerequisite for the
+device to work; every action on a real device must have explicit permission
+boundaries and stay under human authorization and supervision.
+
+For ExoAnchor, "open source" is not a marketing label. It means opening the
+complete set of materials from R&D to manufacturing: software, firmware,
+schematics, PCB source projects, BOMs, netlists, mechanical CAD source projects,
+reproduction guides, and the related design documents.
+
+We do not intend to put artificial knowledge barriers in front of manufacturing,
+modification, or commercial use. If a design truly belongs to the open
+community, anyone should be able to reproduce it and understand why it was
+designed this way and how it works.
+
+As AI Agents become common, we want this low-cost, fully open KVM to reach more
+people, and to show that Agents do not live only in browsers and software APIs:
+with explicit authorization and supervision, they can also perceive, operate,
+and take over real devices.
 
 ## Open from firmware to fabrication
 
 **Not just open firmware. Open from firmware to fabrication.**
 
-For ExoAnchor, "open source" is not a marketing label. It means comprehensively
-open-sourcing the software, hardware, and editable 3D model source projects.
-All original ExoAnchor files are distributed under the MIT License so anyone
-can inspect, modify, reproduce, manufacture, and sell their own hardware.
+The table lists, layer by layer, what is actually published and its current
+status. All original ExoAnchor files are distributed under the MIT License, so
+anyone can inspect, modify, reproduce, manufacture, and sell their own hardware.
 
 | Layer | Published material | Current status |
 | --- | --- | --- |
 | Application and control plane | Dashboard, device API, embedded Agent, and optional MCP adapter | ✅ Published and under active development |
 | MCU firmware | Video, HID, networking, UART, power control, configuration, and build scripts | ✅ Stable and Dev source published |
-| Schematics and PCB | Complete schematic and design notes PDF plus editable PADS and Altium Designer projects | ✅ Latest published |
-| BOM, netlist, and reproduction guide | Versioned BOM, Protel 2.0 netlist, and build, flashing, assembly, and acceptance instructions | 🚧 BOM and netlist published; the reproduction guide is being expanded |
-| EasyEDA cloud source project | [Online V2.4a6 schematic and PCB source project](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ⏳ Pending |
+| Schematics and PCB | Schematic PDF, native JLCEDA Pro project, KiCad project, and PADS / Altium reference exports | ✅ V2.4a6 published (V2.3B4/B6 kept as historical projects); manufacturing sign-off pending |
+| BOM, netlist, and reproduction guide | Versioned BOM, Protel 2.0 netlist, and build, flashing, assembly, and acceptance instructions | ✅ BOM and netlist published; 🚧 the reproduction guide is being expanded |
+| EasyEDA cloud source project | [Online V2.4a6 schematic and PCB source project](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ✅ Public (MIT); 🚧 online design preview not generated yet |
 | Mechanical design | Editable mechanical CAD source projects | ⏳ Pending |
 
 > ⚠️ This project is still under active development and hardware validation.
-> Carefully review all materials before use, reproduction, or manufacturing.
-> Please report any problems through
+> Review everything carefully before use, reproduction, or manufacturing, and
+> please report problems through
 > [GitHub Issues](https://github.com/wxffxx/ExoAnchor/issues).
 
-This is an artifact-release commitment, not a manufacturing-readiness claim.
-The
-[ExoAnchor-Hardware hardware release directory](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.4a6)
-is authoritative for the actual publication and validation state of each
-hardware revision. Publishing schematics, PCB projects, and manufacturing
-materials does not itself establish production readiness; reproduction and
-acceptance must follow the guide and validation state for that revision.
+This is an open-materials commitment, not a statement that everything is already
+open source: nothing is released until it has been verified and checked. The
+[ExoAnchor-Hardware repository](https://github.com/wxffxx/ExoAnchor-Hardware)
+is authoritative for what each hardware revision has actually published and how
+far it has been validated. Publishing schematics, PCB projects, and
+manufacturing materials does not mean production validation is complete;
+reproduction and acceptance must follow the guide and validation state for that
+revision.
 
 ## Core capabilities
 
 | Capability | Description |
 | --- | --- |
-| Video | Captures target HDMI output through an MS2109-class UVC path |
-| Keyboard and mouse | Emulates USB HID across BIOS, boot and OS stages |
-| Independent network | Serves the Dashboard and device API over ESP32-P4 Ethernet |
-| UART | Exposes target serial only on wired and verified board profiles |
-| Power and status | Exposes PWR, RST, 12V and 3V3AUX only where implemented |
-| Embedded Agent | Orchestrates observations and actions under firmware policy, requests and leases |
-| External control | Optional MCP adapter uses device APIs without owning embedded Agent state |
+| Video | Captures the target's HDMI output through an MS2109-class UVC path |
+| Keyboard and mouse | Emulates USB HID across BIOS, boot, and OS stages |
+| Independent network | The ESP32-P4 serves the Dashboard and device API over its own Ethernet |
+| Secure access | HTTPS only; the administrator account is created in the web UI on first boot; optional two-step verification and passkey login |
+| UART | Target serial only on boards where it is actually wired and verified |
+| Power and status | PWR, RST, 12V, and 3V3AUX only on boards that implement those circuits |
+| Embedded Agent | Orchestrates observations and actions under firmware policy, request approval, and control leases |
+| External control | The optional MCP adapter uses the device API directly and never takes over embedded Agent state |
 
-Each board reports only its own real capabilities. A buildable profile, draft
-schematic, or test from another board is not hardware evidence.
+Each board reports only its own real capabilities. A buildable profile, a draft
+schematic, or test results from another board are not evidence for the current
+hardware.
 
-## Current hardware baseline
+## Hardware baseline
 
-| # | Implementation | Status |
-| ---: | --- | --- |
-| 1 | ESP32-P4 development board with external USB HDMI capture | Frozen known-good reference |
-| 2 | Waveshare ESP32-P4-NANO with a simple expansion board | Prototype |
-| 3 | ExoAnchor PrototypeV0 | Broad hardware-verified reference |
-| 4 | ExoAnchor PrototypeV2.3 | b4-labelled assembly using b6 mapping; bring-up verified, not production-final |
-| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | Formal Dev product profile available; flashing and HIL not yet completed |
+We offer both an integrated PCIe-form-factor board of our own design and a
+simple DIY build made entirely from off-the-shelf parts, with no soldering and
+no unusual tools.
 
-See the [ESP32-P4 platform overview](device/ESP32P4/README.md). The detailed
-[implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
+| # | Implementation | Status | Role |
+| ---: | --- | --- | --- |
+| 1 | ESP32-P4 development board + external USB HDMI capture card | ✅ Early prototype, all materials open-sourced | Off-the-shelf parts |
+| 2 | Waveshare ESP32-P4-NANO + simple expansion board | ✅ Early prototype, all materials open-sourced | Off-the-shelf parts |
+| 3 | ExoAnchor PrototypeV0 | ✅ Fully verified | Core KVM feasibility board |
+| 4 | ExoAnchor PrototypeV2.3 | 🚧 Bring-up verified; production/HIL not closed | Integrated PCIe control board |
+| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 Formal Dev profile in place; flashed and boot-smoke-tested on one V2.4 board; full HIL pending | Integrated PCIe control board |
+| 4C | ExoAnchor PrototypeV2.4C | 🚧 In design | HDMI2CSI feasibility board |
+
+<p align="center">
+  <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="ExoAnchor PrototypeV2.3b4 board in its PCIe bracket enclosure" width="640">
+  <br>
+  <sub>ExoAnchor PrototypeV2.3b4 in its PCIe bracket enclosure</sub>
+</p>
+
+See the [ESP32-P4 platform overview](device/ESP32P4/README.md). The
+[ESP32-P4 implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
 records each board's firmware profile, ESP32-P4 revision, and validation status.
 
-The project confirms that `a6` identifies the V2.4 PCB layer count only; V2.4
-and V2.4a6 have the same schematic/GPIO mapping and use
-`exoanchor-prototype-v2.4 + esp32p4-rev3`. The separate
-`exoanchor-prototype-v2.4-ms-test` profile exposes destructive EEPROM test
-controls and is not a product image.
+V2.4 and V2.4a6 share `exoanchor-prototype-v2.4 + esp32p4-rev3`; the
+[implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线)
+explains why. The separate `exoanchor-prototype-v2.4-ms-test` profile exposes
+destructive EEPROM test controls and is not a product image.
 
 ## From hardware selection to flashing
 
@@ -98,17 +143,18 @@ controls and is not a product image.
 | Hardware | Firmware | Build combination | ESP-IDF | Entry |
 | --- | --- | --- | --- | --- |
 | Waveshare ESP32-P4-NANO DIY | Dev; pure-KVM Stable is also available | `waveshare-p4-nano + esp32p4-rev1` | 5.4.x | [Assembly and flashing guide](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-diy) |
-| ExoAnchor PrototypeV0 | Dev or Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev 5.5.5; Stable 5.5.4 | [Dev build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable build](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
+| ExoAnchor PrototypeV0 | Dev or Stable | `exoanchor-prototype0 + esp32p4-rev3` | 5.5.5 for both Dev and Stable | [Dev build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable build](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3bring-up-主线) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 build and capability boundary](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
-Dev is the current KVM + embedded Agent development tree and runs
-`0.87.6-dev`. Stable is an independent pure-KVM tree without the embedded
-Agent. See the [firmware version index](device/ESP32P4/firmware/README.md) for
-all versions, upgrade requirements, and detailed entries.
+Dev is the current KVM + embedded Agent development line and runs `0.87.6-dev`;
+Stable is an independent pure-KVM source line without the embedded Agent. See
+the [firmware version index](device/ESP32P4/firmware/README.md) for all
+versions, upgrade requirements, and entry points.
 
-Different board and chip-revision profiles must not share generated `sdkconfig` or
-build directories. Confirm the physical board before flashing.
+Different boards and chip revisions must not share `sdkconfig` or build
+directories. Confirm the physical board before flashing, and never flash a
+default configuration onto unverified hardware.
 
 ### 2. Ask an AI Agent to get the source, build, and flash
 
@@ -153,23 +199,14 @@ git clone https://github.com/wxffxx/ExoAnchor.git
 cd ExoAnchor
 ```
 
-Install the ESP-IDF version from the selection table, then follow the commands
-in the [Dev build guide](device/ESP32P4/firmware/v0.86.6-dev/README.md) or
-[Stable build guide](device/ESP32P4/firmware/v0.86-stable-kvm/README.md) for
-the selected board. After the build, run this from the selected firmware
-directory:
-
-```bash
-./tools/flash-monitor.sh <PORT> \
-  --build-dir <build-dir> \
-  --wait-ip \
-  --exit-on-ip
-```
-
-`<PORT>` is the serial port reported by the operating system, and `<build-dir>`
-must exactly match the `idf.py -B` argument used during the build. See the
-[firmware flashing entry](device/ESP32P4/firmware/README.md#烧录规则) for
-partition-upgrade requirements and the direct `idf.py` alternative.
+Install the ESP-IDF version from the selection table, then follow the
+[Dev build guide](device/ESP32P4/firmware/v0.86.6-dev/README.md) or the
+[Stable build guide](device/ESP32P4/firmware/v0.86-stable-kvm/README.md) for the
+selected firmware and board. After the build, flash from the selected firmware
+directory as described in the
+[firmware flashing rules](device/ESP32P4/firmware/README.md#烧录规则):
+`--build-dir` must exactly match the `idf.py -B` argument used during the build,
+and the port must be the one the operating system actually reports.
 
 ### 4. Open and verify
 
@@ -181,32 +218,44 @@ partition-upgrade requirements and the direct `idf.py` alternative.
 | `https://<board-ip>/terminal` | Target UART, Dev only and board-dependent |
 | `https://<board-ip>/settings` | Device settings |
 
-TLS certificate and first-login setup: [pairing guide](docs/guides/SECURITY_TRANSPORT_zh.md).
-Optional browser passkey login (including Apple passkeys) requires a trusted HTTPS hostname; see the [passkey guide](docs/guides/PASSKEY_zh.md).
+On first access, in order:
 
-Verify that the Dashboard opens, Ethernet has an address, KVM video is present,
-and HID works. First boot requires replacing the local bootstrap credential;
-shared documentation does not publish its value.
+1. Trust the device certificate as described in the
+   [HTTPS pairing guide](docs/guides/SECURITY_TRANSPORT_zh.md);
+2. Create the administrator account in the web UI on a trusted local network
+   (official builds ship no bootstrap credential);
+3. Confirm that the Dashboard opens, Ethernet has an address, KVM shows video,
+   and HID works;
+4. Optional: enable [two-step verification](docs/guides/TWO_STEP_zh.md), or sign
+   in with a [passkey](docs/guides/PASSKEY_zh.md) from Apple or another
+   compatible authenticator (requires a trusted HTTPS hostname).
 
 ## Repository layout
 
 ```text
 ExoAnchor/
-├── assets/brand/                    # Brand and Web assets
+├── assets/
+│   ├── brand/                       # Brand and Web assets
+│   └── photos/                      # Hardware photos
 ├── device/ESP32P4/
 │   ├── boards/                      # Authoritative board/profile mapping
 │   └── firmware/                    # Independent Stable and Dev trees
 ├── docs/
 │   ├── reproduction/                # Manufacturing and reproduction
-│   └── guides/                      # Practical guides
+│   ├── guides/                      # Practical and security guides
+│   └── protocols/                   # Protocol designs
 ├── integrations/exoanchor-mcp/      # Optional external MCP controller
 │   ├── exoanchor_mcp/               # Canonical stdio server
 │   └── skills/exoanchor-mcp-control/ # Shared Codex and DSH operating skill
+├── toolkit/                         # Desktop and CLI Toolkit (discovery, network setup, firmware download and OTA)
+├── scripts/                         # Repository checks (check-all.sh and friends)
 └── LICENSE
 
 ExoAnchor-Hardware/                  # Independent hardware source repository
 ├── ESP32P4/
-│   ├── exoanchor-p4-v2.4a6/         # Current integrated PCIe design
+│   ├── exoanchor-p4-v2.4a6/         # Current integrated PCIe board (JLCEDA + KiCad)
+│   ├── exoanchor-p4-v2.3b4/         # Four-layer V2.3, historical
+│   ├── exoanchor-p4-v2.3b6/         # Six-layer V2.3, historical
 │   ├── simple-diy/                  # Off-the-shelf simple DIY designs
 │   └── archive/                     # Historical hardware material
 ├── assets/brand/
@@ -215,40 +264,54 @@ ExoAnchor-Hardware/                  # Independent hardware source repository
 
 `ExoAnchor-Hardware` is an
 [independent hardware repository](https://github.com/wxffxx/ExoAnchor-Hardware)
-alongside the main repository, not a subdirectory of `ExoAnchor/`. Browse the
+alongside this one, not a subdirectory of `ExoAnchor/`. Browse the
 [documentation map](docs/README.md).
 
 ## Development verification
 
-Run the complete host-only repository gate from the repository root:
+Run the complete host-only gate from the repository root:
 
 ```bash
 ./scripts/check-all.sh
 ```
 
-It covers both firmware trees, MCP, Toolkit, documentation hygiene, and Git
-whitespace checks. Toolkit requires Python 3.10+; when available, `uv` resolves
-the locked environment automatically. This gate does not replace board HIL.
+It covers host tests and security runtime tests for both firmware trees, MCP,
+Toolkit, copy-parity checks, documentation and repository hygiene, and Git
+whitespace checks. The whole gate needs Python 3.10+; when `uv` is available,
+the Toolkit uses its locked environment automatically. It does not replace board
+HIL.
+
+## AI use disclosure
+
+ExoAnchor makes extensive use of AI Agents in development. AI took part in
+writing code and documentation, testing, organizing hardware material, reviewing
+schematics, research, and creating visual assets.
+
+Using AI does not change the licensing or responsibility boundaries of any
+contribution.
 
 ## License
 
-Original ExoAnchor software, firmware and documentation are licensed under the
+Original ExoAnchor software, firmware, and documentation are licensed under the
 [MIT License](LICENSE). Unless a file says otherwise, this license covers all
 original materials that the ExoAnchor contributors have the right to license,
 including software, firmware, scripts, tests, configuration, documentation,
 specifications, diagrams, original media assets, schematics, PCB and CAD source
-projects, BOMs, netlists, mechanical models, and manufacturing materials. It
-includes permission to manufacture and sell hardware from covered design files.
+projects, BOMs, netlists, mechanical models, and manufacturing materials, and it
+permits manufacturing and selling hardware from the covered design files.
 
 Copies or substantial portions must retain the copyright and permission notice
-from `LICENSE`. Third-party products and materials retain their own terms, and
+from `LICENSE`. Third-party products and materials keep their own terms, and
 file-specific notices take precedence. The MIT License does not grant rights to
 ExoAnchor names, logos, trademarks, or third-party material, and does not imply
 regulatory approval, safety certification, or fitness for a particular hardware
 application. Covered materials and hardware made from them are provided **as
 is**, without warranty, to the fullest extent permitted by law.
 
-### Why MIT?
+This project does not provide any material on the MS2109 or LT6911UXC: it is not
+public, and its distribution is restricted by the chip vendors.
+
+### Why MIT All?
 
 I do not depend on this project for income. I have my own research agenda, and
 ExoAnchor is, in a sense, a semi-hobby project. That gives me the freedom to

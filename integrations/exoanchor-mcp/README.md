@@ -40,6 +40,12 @@
 | `exoanchor_video_lease` | 写入 | 切换预览或 KVM 视频所有权 |
 | `exoanchor_ssh_job_start/status/cancel/result` | 混合 | 管理结构化、有界、可分页的 SSH 作业 |
 | `exoanchor_ssh_exec` | 写入 | 任意 SSH 命令兼容入口，默认额外禁用 |
+| `exoanchor_ops_job_create` | 写入 | 创建由 MCP 主机持有的只读设备健康 Job，可设有界的周期调度 |
+| `exoanchor_ops_job_list/status` | 只读 | 列出 Job，或读取单个 Job 及其最近一次 Run 与 Attempt 证据 |
+| `exoanchor_ops_job_set_paused` | 写入 | 暂停或恢复后续触发，不取消正在运行的 Run |
+| `exoanchor_ops_job_run` | 写入 | 立即启动一次只读 Run；已有活动 Run 时返回该 Run，不重复启动 |
+| `exoanchor_ops_run_status` | 只读 | 读取一次 Run 的状态、阶段、结果、Attempt 与证据 |
+| `exoanchor_ops_run_cancel` | 写入 | 取消排队中的 Run，或请求协作式取消运行中的 Run |
 
 实际工具与输入 schema 以程序输出为准：
 
@@ -97,7 +103,7 @@ python3 -m exoanchor_mcp.server --list-tools
 | `EXOANCHOR_ALLOW_UNVERIFIED_SSH_HOST` | `0` | 允许未验证主机的受监督例外 |
 | `EXOANCHOR_ALLOW_ARBITRARY_SSH` | `0` | 启用任意 SSH 命令入口 |
 
-设备侧还需在 `Settings → Agent、Provider 与 Skills → MCP Controller` 中允许外部 MCP 访问。
+设备侧还需在 `Settings → 集成与权限 → 外部 MCP 控制器` 中开启“允许外部 MCP 访问”。
 
 ## 安装与运行
 

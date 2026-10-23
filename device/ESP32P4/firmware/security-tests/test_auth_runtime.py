@@ -58,7 +58,7 @@ bool si_control_lease_revoke_auth_session(const char *s,uint32_t g) {(void)s;(vo
 int mbedtls_sha256(const unsigned char *p,size_t n,unsigned char *out,int mode) {(void)mode;return SHA256(p,n,out)?0:-1;}
 int mbedtls_pkcs5_pbkdf2_hmac_ext(int md,const uint8_t *p,size_t pn,const uint8_t *salt,size_t sn,unsigned iterations,unsigned n,uint8_t *out) {
     (void)md;kdf_calls++;
-    if (rotate_during_kdf) {rotate_during_kdf=false;assert(si_auth_security_changed(si_auth_credential_generation())==ESP_OK);}
+    if (rotate_during_kdf) {rotate_during_kdf=false;assert(si_auth_security_commit(si_auth_credential_generation(),NULL,NULL)==ESP_OK);}
     return PKCS5_PBKDF2_HMAC((const char *)p,(int)pn,salt,(int)sn,(int)iterations,EVP_sha256(),(int)n,out)==1?0:-1;
 }
 const char *esp_err_to_name(esp_err_t e) {(void)e;return "mock";}
@@ -173,9 +173,9 @@ int main(int argc,char **argv) {
     assert(si_auth_create_session_for_generation("exoanchor-mcp",si_auth_credential_generation(),b)==ESP_OK);
     assert(!si_auth_token_is_browser(b) && !si_auth_token_is_recent(b));
     old_generation=si_auth_credential_generation();
-    assert(si_auth_security_changed(old_generation+1)!=ESP_OK);
+    assert(si_auth_security_commit(old_generation+1,NULL,NULL)!=ESP_OK);
     assert(si_auth_token_matches(a));
-    assert(si_auth_security_changed(old_generation)==ESP_OK);
+    assert(si_auth_security_commit(old_generation,NULL,NULL)==ESP_OK);
     assert(si_auth_credential_generation()!=old_generation);
     assert(!si_auth_token_matches(a) && !si_auth_token_matches(b));
     assert(si_auth_create_session_for_generation("web",old_generation,b)!=ESP_OK);

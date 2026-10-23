@@ -10,7 +10,11 @@ ExoAnchor 是一个采用 [MIT License](LICENSE) 开源、以从固件到生产�
 
 > 当前开发固件：`0.87.6-dev IndigoShore`。
 
-**我们承诺将使用MIT许可开放从研发到制造的一切资料。**
+**我们承诺将使用 MIT 许可开放从研发到制造的一切资料。**
+
+即使目标机器的操作系统、SSH、系统网络或服务失效，仍可通过独立网络入口查看画面、发送键盘和鼠标输入，并在板型实际支持时使用 UART、复位和电源控制。
+
+目标机器不需要安装 ExoAnchor 软件。手动 KVM 始终保持独立可用；设备 API、设备内 Agent 和外部 MCP 控制器是在这条确定性控制面之上的可选能力。
 
 ExoAnchor 起源于 Rensselaer Polytechnic Institute 的 RCOS 社团。最初，我们
 只是想为实验室和个人设备寻找一套负担得起、能够进行远程维护与故障恢复的 KVM
@@ -22,13 +26,13 @@ ExoAnchor 起源于 Rensselaer Polytechnic Institute 的 RCOS 社团。最初，
 而成为一项关于开放硬件、嵌入式系统与现实设备智能控制的长期实验。
 
 ExoAnchor 目前以 ESP32-P4 为核心，使用 MCU 和 RTOS 承载 KVM 的基础能力，
-未来也会探索和支持更多硬件平台。AI Agent 是建立在设备能力之上的可选控制层，
-而不是设备正常工作的前提；所有涉及现实设备的操作都应当具有明确的权限边界，
-并接受人的授权与监督。
+未来也会在保持同一控制面与安全模型的前提下，探索和支持更多硬件平台。AI Agent
+是建立在设备能力之上的可选控制层，而不是设备正常工作的前提；所有涉及现实设备
+的操作都应当具有明确的权限边界，并接受人的授权与监督。
 
-对 ExoAnchor 来说，“开源”不只是一个营销符号。我们承诺使用 MIT License
-开放从研发到制造的完整资料，包括软件、固件、原理图、PCB 源工程、BOM、网表、
-结构 CAD 源工程、复刻指南以及相关设计文档。
+对 ExoAnchor 来说，“开源”不只是一个营销符号，而是开放从研发到制造的完整资料：
+软件、固件、原理图、PCB 源工程、BOM、网表、结构 CAD 源工程、复刻指南以及相关
+设计文档。
 
 我们不打算为制造、修改或商业使用设置人为的知识壁垒——如果一套设计真正属于
 开放社区，那么任何人都应该能够将它复刻出来，并深入理解它为何如此设计、又是
@@ -37,12 +41,6 @@ ExoAnchor 目前以 ESP32-P4 为核心，使用 MCU 和 RTOS 承载 KVM 的基�
 如今，随着 AI Agent 的普及，我们希望让这套低成本、完全开放的 KVM 方案走向
 更多人，也让更多人看到：Agent 不只存在于浏览器和软件接口中，它同样可以在明确
 授权与监督下感知、操作并接管现实设备。
-
-除了集成化的 PCIe 形态自研板，我们也将提供高度简易的 DIY 方案，完全使用货架产品，无需焊接或任何非常见工具。
-
-即使目标机器的操作系统、SSH、系统网络或服务失效，仍可通过独立网络入口查看画面、发送键盘和鼠标输入，并在板型实际支持时使用 UART、复位和电源控制。
-
-目标机器不需要安装 ExoAnchor 软件。手动 KVM 始终保持独立可用；设备 API、设备内 Agent 和外部 MCP 控制器是在这条确定性控制面之上的可选能力。
 
 ## 从固件到生产资料的开放
 
@@ -55,17 +53,19 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | --- | --- | --- |
 | 应用与控制面 | Dashboard、设备 API、设备内 Agent 和可选 MCP 适配器 | ✅ 已公开，持续开发 |
 | MCU 固件 | 视频、HID、网络、UART、电源控制、配置和构建脚本 | ✅ Stable 与 Dev 源码已公开 |
-| 原理图、PCB | 全套原理图与设计说明 PDF、PADS 与 Altium Designer 可编辑工程 | 🚧 Double checking, Release soon |
-| BOM、网表、复刻指南 | 版本化 BOM、Protel 2.0 网表以及构建、烧录、装配与验收说明 | 🚧 BOM 与网表已公开；复刻指南持续补齐 |
-| EasyEDA 云端源工程 | [V2.4a6 原理图与 PCB 在线源工程](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ⏳ 待发布 |
+| 原理图、PCB | 原理图 PDF、嘉立创专业版原生工程、KiCad 工程，以及 PADS / Altium 参考导出 | ✅ V2.4a6 已发布（V2.3B4/B6 为历史工程）；制造签核待完成 |
+| BOM、网表、复刻指南 | 版本化 BOM、Protel 2.0 网表以及构建、烧录、装配与验收说明 | ✅ BOM 与网表已公开；🚧 复刻指南持续补齐 |
+| EasyEDA 云端源工程 | [V2.4a6 原理图与 PCB 在线源工程](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ✅ 已公开（MIT）；🚧 在线设计图预览待生成 |
 | 结构设计 | 可编辑的结构 CAD 源工程 | ⏳ 待发布 |
 
 > ⚠️ 项目仍处于开发和硬件验证阶段，请在使用、复刻或制造前谨慎检查。
 > 如发现任何问题，欢迎通过 [GitHub Issues](https://github.com/wxffxx/ExoAnchor/issues) 反馈。
 
-这是一项资料开放承诺，并非代表已经开源，在所有产物验证完毕之前，我们不会释放任何未经过验证和检验的资料。每个硬件修订版实际公开了什么、验证到什么程度，以
-[ExoAnchor-Hardware 硬件发布目录](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.4a6)
-为准。公开原理图、PCB 工程和生产资料，不等于已经完成量产验证；复刻与验收仍应遵循对应修订版的指南和验证状态。
+这是一项资料开放承诺，并非代表已经开源，在所有产物验证完毕之前，我们不会释放
+任何未经过验证和检验的资料。每个硬件修订版实际公开了什么、验证到什么程度，以
+[ExoAnchor-Hardware 硬件仓库](https://github.com/wxffxx/ExoAnchor-Hardware)
+为准。公开原理图、PCB 工程和生产资料，不等于已经完成量产验证；复刻与验收仍应
+遵循对应修订版的指南和验证状态。
 
 ## 核心能力
 
@@ -74,6 +74,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 视频 | 通过 MS2109 类 UVC 采集路径接收目标机 HDMI 输出 |
 | 键盘和鼠标 | 模拟 USB HID，可覆盖 BIOS、启动和操作系统阶段 |
 | 独立网络 | ESP32-P4 自身通过以太网提供 Dashboard 和设备 API |
+| 安全接入 | 仅提供 HTTPS；首次启动在网页创建管理员账户；可选两步验证与通行密钥登录 |
 | UART | 只在真实接线并验证的板型上提供目标机串口 |
 | 电源和状态 | 只在实现对应线路的板型上提供 PWR、RST、12V 和 3V3AUX |
 | 设备内 Agent | 在固件策略、请求批准和控制租约约束下编排观察与动作 |
@@ -84,22 +85,31 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 
 ## 硬件基线
 
-| # | 实现 | 状态 | Feature |
+我们同时提供集成化的 PCIe 形态自研板，以及完全使用货架产品、无需焊接或任何非常见
+工具的简易 DIY 方案。
+
+| # | 实现 | 状态 | 定位 |
 | ---: | --- | --- | --- |
-| 1 | ESP32-P4 开发板 + 外接 USB HDMI 采集卡 | ✅早期原型，资料已全部开源  | 货架产品 |
-| 2 | Waveshare ESP32-P4-NANO + 简易扩展板 | ✅早期原型，资料已全部开源 | 货架产品 |
-| 3 | ExoAnchor PrototypeV0 | ✅已完全验证| 核心KVM可行性验证板  |
+| 1 | ESP32-P4 开发板 + 外接 USB HDMI 采集卡 | ✅ 早期原型，资料已全部开源 | 货架产品 |
+| 2 | Waveshare ESP32-P4-NANO + 简易扩展板 | ✅ 早期原型，资料已全部开源 | 货架产品 |
+| 3 | ExoAnchor PrototypeV0 | ✅ 已完全验证 | 核心 KVM 可行性验证板 |
 | 4 | ExoAnchor PrototypeV2.3 | 🚧 bring-up 已验证，量产/HIL 未闭环 | 集成化 PCIe 控制板 |
-| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 正式 Dev profile 已建立，HIL 待完成 | 集成化 PCIe 控制板 |
-| 4C | ExoAnchor PrototypeV2.4C | 🚧设计中 | HDMI2CSI可行性验证板 |
+| 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 正式 Dev profile 已建立，已在一块 V2.4 上完成烧录与启动冒烟，完整 HIL 待完成 | 集成化 PCIe 控制板 |
+| 4C | ExoAnchor PrototypeV2.4C | 🚧 设计中 | HDMI2CSI 可行性验证板 |
+
+<p align="center">
+  <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4 板卡" width="640">
+  <br>
+  <sub>装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4</sub>
+</p>
 
 设备平台概览见 [ESP32-P4 平台说明](device/ESP32P4/README_zh.md)，各板型对应的
 固件配置、ESP32-P4 芯片版本和验证状态见
 [ESP32-P4 板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)。
 
-项目方确认 V2.4a6 的 `a6` 只表示 PCB 层数，原理图与 ESP32-P4 映射和 V2.4
-相同；两者共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合。独立的
-`exoanchor-prototype-v2.4-ms-test` 含破坏性 EEPROM 测试能力，不是产品固件。
+V2.4 与 V2.4a6 共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合，原因见
+[板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线)。
+独立的 `exoanchor-prototype-v2.4-ms-test` 含破坏性 EEPROM 测试能力，不是产品固件。
 
 ## 从选型到烧录
 
@@ -108,7 +118,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 硬件 | 固件 | 构建组合 | ESP-IDF | 入口 |
 | --- | --- | --- | --- | --- |
 | Waveshare ESP32-P4-NANO DIY | Dev；也可选纯 KVM Stable | `waveshare-p4-nano + esp32p4-rev1` | 5.4.x | [装配与烧录指南](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/simple-diy/waveshare-nano-diy) |
-| ExoAnchor PrototypeV0 | Dev 或 Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev 5.5.5；Stable 5.5.4 | [Dev 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable 构建](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
+| ExoAnchor PrototypeV0 | Dev 或 Stable | `exoanchor-prototype0 + esp32p4-rev3` | Dev 与 Stable 均为 5.5.5 | [Dev 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototype0rev3已验证参考) · [Stable 构建](device/ESP32P4/firmware/v0.86-stable-kvm/README.md#构建-prototype0) |
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3bring-up-主线) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 构建与能力边界](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
@@ -163,18 +173,9 @@ cd ExoAnchor
 安装选型表中对应的 ESP-IDF，然后按所选固件和板型执行
 [Dev 构建说明](device/ESP32P4/firmware/v0.86.6-dev/README.md)或
 [Stable 构建说明](device/ESP32P4/firmware/v0.86-stable-kvm/README.md)中的命令。
-构建完成后，在所选固件目录中执行：
-
-```bash
-./tools/flash-monitor.sh <PORT> \
-  --build-dir <build-dir> \
-  --wait-ip \
-  --exit-on-ip
-```
-
-`<PORT>` 是系统识别到的实际串口，`<build-dir>` 必须与构建命令的 `idf.py -B`
-参数完全一致。分区升级要求和直接使用 `idf.py` 的方式见
-[固件烧录入口](device/ESP32P4/firmware/README.md#烧录规则)。
+构建完成后，按[固件烧录规则](device/ESP32P4/firmware/README.md#烧录规则)在所选固件
+目录中烧录：`--build-dir` 必须与构建命令的 `idf.py -B` 参数完全一致，串口须为系统
+识别到的实际端口。
 
 ### 4. 访问与验收
 
@@ -186,31 +187,40 @@ cd ExoAnchor
 | `https://<board-ip>/terminal` | 目标机 UART，仅 Dev 且取决于板型 |
 | `https://<board-ip>/settings` | 设备设置 |
 
-设备证书与初次登录见[HTTPS 配对指南](docs/guides/SECURITY_TRANSPORT_zh.md)。
-浏览器可选用 Apple 等兼容验证器的通行密钥登录，需要受信任的 HTTPS 主机名，详见[通行密钥指南](docs/guides/PASSKEY_zh.md)。
+首次访问依次完成：
 
-确认 Dashboard 可访问、Ethernet 已获取地址、KVM 有画面且 HID 可用。首次启动
-必须替换本地 bootstrap 凭据；共享文档不发布凭据值。
+1. 按 [HTTPS 配对指南](docs/guides/SECURITY_TRANSPORT_zh.md)信任设备证书；
+2. 在可信局域网内通过网页创建管理员账户（官方构建不含 bootstrap 凭据）；
+3. 确认 Dashboard 可访问、Ethernet 已获取地址、KVM 有画面且 HID 可用；
+4. 可选：开启[两步验证](docs/guides/TWO_STEP_zh.md)，或使用 Apple 等兼容验证器的
+   [通行密钥](docs/guides/PASSKEY_zh.md)登录（需要受信任的 HTTPS 主机名）。
 
 ## 项目目录
 
 ```text
 ExoAnchor/
-├── assets/brand/                    # 品牌和 Web 资产
+├── assets/
+│   ├── brand/                       # 品牌和 Web 资产
+│   └── photos/                      # 实物照片
 ├── device/ESP32P4/
 │   ├── boards/                      # 板型与固件 profile 权威映射
 │   └── firmware/                    # Stable 与 Dev 独立固件树
 ├── docs/
 │   ├── reproduction/                # 制造与复刻
-│   └── guides/                      # 实用指南
+│   ├── guides/                      # 实用指南与安全配置
+│   └── protocols/                   # 协议设计
 ├── integrations/exoanchor-mcp/      # 可选外部 MCP 控制器
 │   ├── exoanchor_mcp/               # canonical stdio 服务
 │   └── skills/exoanchor-mcp-control/ # Codex 与 DSH 共用操作技能
+├── toolkit/                         # 桌面与命令行 Toolkit（发现、网络配置、固件下载与 OTA）
+├── scripts/                         # 仓库检查入口（check-all.sh 等）
 └── LICENSE
 
 ExoAnchor-Hardware/                  # 独立硬件源工程仓库
 ├── ESP32P4/
-│   ├── exoanchor-p4-v2.4a6/         # 当前集成化 PCIe 自研板
+│   ├── exoanchor-p4-v2.4a6/         # 当前集成化 PCIe 自研板（嘉立创 + KiCad）
+│   ├── exoanchor-p4-v2.3b4/         # 四层 V2.3 历史工程
+│   ├── exoanchor-p4-v2.3b6/         # 六层 V2.3 历史工程
 │   ├── simple-diy/                  # 货架产品简易 DIY 方案
 │   └── archive/                     # 历史硬件资料
 ├── assets/brand/
@@ -229,12 +239,14 @@ ExoAnchor-Hardware/                  # 独立硬件源工程仓库
 ./scripts/check-all.sh
 ```
 
-该入口依次覆盖两套固件、MCP、Toolkit、文档卫生和 Git 空白检查。Toolkit
-要求 Python 3.10+；本机有 `uv` 时会自动使用锁定环境。该门禁不能替代真机 HIL。
+该入口依次覆盖两套固件的主机测试与安全运行时测试、MCP、Toolkit、副本一致性、
+文档与仓库卫生和 Git 空白检查。整个门禁需要 Python 3.10+；本机有 `uv` 时 Toolkit
+会自动使用锁定环境。该门禁不能替代真机 HIL。
 
 ## AI 使用披露
 
-ExoAnchor 在研发过程中广泛使用Ai Agent。AI 参与了代码与文档编写、测试、硬件资料整理、原理图审查、研究和视觉资产制作。
+ExoAnchor 在研发过程中广泛使用 AI Agent。AI 参与了代码与文档编写、测试、硬件
+资料整理、原理图审查、研究和视觉资产制作。
 
 使用 AI 不改变贡献内容的许可与责任边界。
 
@@ -250,7 +262,8 @@ BOM、网表、结构模型和生产资料，并允许依据覆盖范围内的�
 第三方资料的权利，也不代表监管批准、安全认证或特定硬件用途适用性。覆盖资料及
 据此制造的硬件在法律允许的最大范围内按“原样”提供，不附带任何保证。
 
-本项目不会提供有关MS2109或者LT6911UXC的资料，因为他们并非公开资料，其传播受到芯片厂商的限制。
+本项目不会提供有关 MS2109 或者 LT6911UXC 的资料，因为它们并非公开资料，其传播
+受到芯片厂商的限制。
 
 ### Why MIT All?
 

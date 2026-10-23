@@ -52,6 +52,7 @@ node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_passkey_browser.mjs"
 node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_browser_setup.mjs"
 node "$REPO_DIR/device/ESP32P4/firmware/security-tests/test_stream_endpoint.mjs"
 
+"${PYTHON:-python3}" "$REPO_DIR/scripts/check-copied-modules.py"
 (
     cd "$REPO_DIR/integrations/exoanchor-mcp"
     PYTHONDONTWRITEBYTECODE=1 "$MCP_PYTHON" -m unittest discover -s tests -v

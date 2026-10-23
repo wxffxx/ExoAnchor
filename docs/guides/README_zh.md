@@ -25,3 +25,9 @@
 
 修改固件后的主机测试、完整构建和人工验收步骤见
 [固件修改验证规程](FIRMWARE_VALIDATION_zh.md)。
+
+账户安全与工具：
+
+- [两步验证与动态验证码](TWO_STEP_zh.md)
+- [通行密钥与 Apple Passkey](PASSKEY_zh.md)
+- [Toolkit 网络 OTA 验证](TOOLKIT_OTA_VALIDATION_zh.md)

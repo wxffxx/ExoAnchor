@@ -4,10 +4,12 @@
 
 | 模块 | 单一职责 |
 | --- | --- |
-| `exoanchor_mcp/client.py` | 环境配置、secret file、登录、HTTP(S) 传输与设备错误。 |
-| `exoanchor_mcp/contracts.py` | 20 个 MCP tool schema、风险标注与严格参数校验。 |
+| `exoanchor_mcp/client.py` | 环境配置、secret file、登录（含两步验证码）、HTTP(S) 传输与设备错误。 |
+| `exoanchor_mcp/tls_transport.py` | 设备证书配对与 HTTPS 校验；与 Toolkit 各持一份。 |
+| `exoanchor_mcp/json_limits.py` | 有界 JSON 嵌套深度解码；与 Toolkit 各持一份。 |
+| `exoanchor_mcp/contracts.py` | 全部 MCP tool schema（数量以 `--list-tools` 为准）、风险标注与严格参数校验。 |
 | `exoanchor_mcp/observations.py` | observation provenance、内容哈希、JPEG 尺寸、条件派生与有界内存重放。 |
-| `exoanchor_mcp/jobs.py` | 有界 SSH job 状态机、幂等键、分页结果和私有审计 journal。 |
+| `exoanchor_mcp/jobs.py` | 有界 SSH job 与只读运维 Job/Run 状态机、幂等键、分页结果和私有审计 journal。 |
 | `exoanchor_mcp/server.py` | 工具编排、设备动作清理、MCP result 与 JSON-RPC STDIO。 |
 | `scripts/stage4_acceptance.py` | 强制只读的真实设备 Stage 4 验收。 |
 | `tests/test_http_integration.py` | 可重放本地 HTTP 设备，覆盖真实传输层。 |

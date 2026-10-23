@@ -91,8 +91,6 @@ esp_err_t si_auth_create_session_for_method(const char *client, uint32_t expecte
 bool si_auth_setup_required(void);
 esp_err_t si_auth_setup_credentials(const char *username, const char *password, uint32_t expected_generation);
 
-/* Fence pending logins and revoke every live session after a factor change. */
-esp_err_t si_auth_security_changed(uint32_t expected_generation);
 bool si_auth_token_is_browser(const char *token);
 bool si_auth_token_is_recent(const char *token);
 bool si_auth_token_is_recent_password(const char *token);
@@ -100,5 +98,6 @@ bool si_auth_token_is_recent_password(const char *token);
 esp_err_t si_auth_set_credentials_for_generation(const char *username, const char *password, uint32_t expected_generation);
 
 /* Commit a factor change while fencing concurrent credential replacement.
+ * Fences pending logins and revokes every live session; `commit` may be NULL.
  * Callback must not call auth APIs; failure still revokes previous sessions. */
 esp_err_t si_auth_security_commit(uint32_t expected_generation, esp_err_t (*commit)(void *), void *context);

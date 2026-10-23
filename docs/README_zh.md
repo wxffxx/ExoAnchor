@@ -13,6 +13,11 @@
 ## 项目文档
 
 - [固件修改验证规程](guides/FIRMWARE_VALIDATION_zh.md)
+- [HTTPS 与首次配对](guides/SECURITY_TRANSPORT_zh.md)
+- [两步验证与动态验证码](guides/TWO_STEP_zh.md)
+- [通行密钥与 Apple Passkey](guides/PASSKEY_zh.md)
+- [Toolkit 网络 OTA 验证](guides/TOOLKIT_OTA_VALIDATION_zh.md)
+- [ExoAnchor Relay 协议 V1（设计）](protocols/EXOANCHOR_RELAY_PROTOCOL_V1_zh.md)
 - [固件版本历史](../device/ESP32P4/firmware/docs/FIRMWARE_VERSION_HISTORY_zh.md)
 - [双系统启动目标编排方案](../device/ESP32P4/firmware/docs/DUAL_BOOT_ORCHESTRATION_zh.md)
 - [硬件设计与生产资料](https://github.com/wxffxx/ExoAnchor-Hardware)

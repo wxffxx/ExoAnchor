@@ -1,6 +1,6 @@
 # ExoAnchor Agent Runtime V2
 
-> 状态：2026-08-22 r23。Runtime V2 安全内核、持久 shadow binding 与兼容投影
+> 状态：2026-08-22 r28（最新实机记录见文末 r28 一节）。Runtime V2 安全内核、持久 shadow binding 与兼容投影
 > 已启用；UART0 Agent 调试闭环已在实机通过，HTTP 固件/CLI host 合同已通过，
 > 但认证 HTTP 与 Agent/KVM HIL 仍未完成。当前 provider/model/tool execution
 > owner 仍是 legacy Agent loop；Runtime V2 尚未从 shadow 切为唯一 canonical
@@ -258,6 +258,7 @@ typed observation、Execution Gateway 与 cutover HIL 完成后，Runtime V2 才
   provider 请求前 fail closed：设备没有配置 Agent API key。
 - 版本继续保持 `0.87.5-dev`。只有配置 key 后的只读正向/拒写/cancel/replay 与
   认证 Agent/KVM HIL 全过，才允许推进 `0.87.6-dev`；不得据此跳到 0.88。
+  （该门已被 r28 取代：操作者明确要求将补丁检查点递增为 `0.87.6-dev`，见下文 r28。）
 
 ## 2026-08-22 r23 远程调试实机结果
 
