@@ -72,7 +72,7 @@ anyone can inspect, modify, reproduce, manufacture, and sell their own hardware.
 | MCU firmware | Video, HID, networking, UART, power control, configuration, and build scripts | ✅ Stable and Dev source published |
 | Schematics and PCB | Schematic PDF, native JLCEDA Pro project, KiCad project, and PADS / Altium reference exports | ✅ V2.4a6 published (V2.3B4/B6 kept as historical projects); manufacturing sign-off pending |
 | BOM, netlist, and reproduction guide | Versioned BOM, Protel 2.0 netlist, and build, flashing, assembly, and acceptance instructions | ✅ BOM and netlist published; 🚧 the reproduction guide is being expanded |
-| EasyEDA cloud source project | [Online V2.4a6 schematic and PCB source project](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ⏳ Pending |
+| EasyEDA cloud source project | [Online V2.4a6 schematic and PCB source project](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ✅ Public (MIT); 🚧 online design preview not generated yet |
 | Mechanical design | Editable mechanical CAD source projects | ⏳ Pending |
 
 > ⚠️ This project is still under active development and hardware validation.

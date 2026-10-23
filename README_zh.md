@@ -55,7 +55,7 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | MCU 固件 | 视频、HID、网络、UART、电源控制、配置和构建脚本 | ✅ Stable 与 Dev 源码已公开 |
 | 原理图、PCB | 原理图 PDF、嘉立创专业版原生工程、KiCad 工程，以及 PADS / Altium 参考导出 | ✅ V2.4a6 已发布（V2.3B4/B6 为历史工程）；制造签核待完成 |
 | BOM、网表、复刻指南 | 版本化 BOM、Protel 2.0 网表以及构建、烧录、装配与验收说明 | ✅ BOM 与网表已公开；🚧 复刻指南持续补齐 |
-| EasyEDA 云端源工程 | [V2.4a6 原理图与 PCB 在线源工程](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ⏳ 待发布 |
+| EasyEDA 云端源工程 | [V2.4a6 原理图与 PCB 在线源工程](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ✅ 已公开（MIT）；🚧 在线设计图预览待生成 |
 | 结构设计 | 可编辑的结构 CAD 源工程 | ⏳ 待发布 |
 
 > ⚠️ 项目仍处于开发和硬件验证阶段，请在使用、复刻或制造前谨慎检查。

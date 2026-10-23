@@ -135,8 +135,8 @@ def main() -> int:
 
     prototype_v23_text = PROTOTYPE_V23_DEFAULTS.read_text(encoding="utf-8")
     for marker in (
-        "Netlist_SCH_ESP32P4_Prototype_V2.3b6_1_2026-07-25.tel",
-        "0ce2340e77fa5e267ef1eb04ab4fb7ea71ba6c3f9917ba7715f6579ec71b85fa",
+        "Netlist_SCH_ESP32P4_Prototype_V2.3b6_2026-07-26.net",
+        "1e95a1a1416dab73239264a79f8220cb309c9b48a8eeb20dd4082ad33f069737",
         "CONFIG_SI_MS2109_EEPROM_WP_GPIO=16",
         "# CONFIG_SI_MS2109_EEPROM_EMULATOR_ENABLE is not set",
         "CONFIG_SI_POWER_BUTTON_GPIO=4",

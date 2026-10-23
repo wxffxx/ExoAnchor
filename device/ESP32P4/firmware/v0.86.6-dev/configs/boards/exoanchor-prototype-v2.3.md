@@ -4,12 +4,12 @@
 
 ## 依据与身份
 
-- 网表：`Netlist_SCH_ESP32P4_Prototype_V2.3b6_1_2026-07-25.tel`
-- SHA-256：`0ce2340e77fa5e267ef1eb04ab4fb7ea71ba6c3f9917ba7715f6579ec71b85fa`
+- 网表：`Netlist_SCH_ESP32P4_Prototype_V2.3b6_2026-07-26.net`
+- SHA-256：`1e95a1a1416dab73239264a79f8220cb309c9b48a8eeb20dd4082ad33f069737`
 - 实测芯片：ESP32-P4 rev3.2、40 MHz 晶振、16 MB Flash、32 MB PSRAM
 - 状态：首板 bring-up，整板验收尚未完成
 
-2026-07-25 网表与 2026-07-16 的 V2.3b6 导出连接关系一致；差异只涉及电源电容值与四个 PCIe 网名大小写，不改变 ESP32-P4 GPIO。
+映射依据为[硬件仓库](https://github.com/wxffxx/ExoAnchor-Hardware/tree/main/ESP32P4/exoanchor-p4-v2.3b6)公开的 2026-07-26 V2.3b6 网表。下表每个 GPIO 的连接均已与该网表逐一核对；它取代此前的 2026-07-25 网表，现有固件 GPIO 配置无需修改。
 
 | 字段 | 值 |
 | --- | --- |

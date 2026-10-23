@@ -46,7 +46,7 @@ Prototype0 的真机结论不能移植到其他板型。PrototypeV2.3 曾出现�
 | --- | --- | --- |
 | Prototype0 | `Netlist_Prototype_v0_2026-07-14.net` · `3ff99c0d8de57df435d843389f619838d44c4707d92ae849c2e8273dad5f7baf` | 已验证参考 |
 | PrototypeV2.1b | `Netlist_SCH_ESP32P4_Prototype_V2.1b_2026-07-14.net` · `a474080aee7a09a4d9c43ef9c99ae0bc6784c3ff5f92f2d29c895862406a51e2` | 仅编译参考 |
-| PrototypeV2.3b6 | `Netlist_SCH_ESP32P4_Prototype_V2.3b6_1_2026-07-25.tel` · `0ce2340e77fa5e267ef1eb04ab4fb7ea71ba6c3f9917ba7715f6579ec71b85fa` | b4 标识实物的 provisional 映射来源 |
+| PrototypeV2.3b6 | `Netlist_SCH_ESP32P4_Prototype_V2.3b6_2026-07-26.net` · `1e95a1a1416dab73239264a79f8220cb309c9b48a8eeb20dd4082ad33f069737` | b4 标识实物的 provisional 映射来源 |
 | PrototypeV2.4a6 | `Netlist_SCH_ESP32P4_Prototype_V2.4a6_2026-07-29.net` · `6cb86589d38065e07911c18dce82e2df5d8e72925160999f526e2a1dc2e73a1d` | V2.4 产品 profile 的映射依据；HIL 待完成 |
 
 ### 关键 GPIO 差异
