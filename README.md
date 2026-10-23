@@ -326,5 +326,11 @@ into a product. I believe that lesson is worth more than the project itself.
 
 ## Acknowledgements
 
-Thanks to [JLCPCB](https://jlcpcb.com/) for supporting this project with
+Many thanks to [JLCPCB](https://jlcpcb.com/) for supporting this project with
 funding, materials, and manufacturing.
+
+ExoAnchor's schematics and PCBs are designed in EasyEDA Pro, and the boards are
+fabricated and assembled by JLCPCB. JLCPCB offers one-stop hardware
+manufacturing, from PCB prototyping and SMT assembly to component sourcing, 3D
+printing, and CNC machining. If you want to build your own ExoAnchor, you can
+order it directly from JLCPCB.
