@@ -93,9 +93,8 @@ See the [ESP32-P4 platform overview](device/ESP32P4/README.md). The detailed
 [implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)
 records each board's firmware profile, ESP32-P4 revision, and validation status.
 
-The project confirms that `a6` identifies the V2.4 PCB layer count only; V2.4
-and V2.4a6 have the same schematic/GPIO mapping and use
-`exoanchor-prototype-v2.4 + esp32p4-rev3`. The separate
+V2.4 and V2.4a6 share `exoanchor-prototype-v2.4 + esp32p4-rev3`; the
+[implementation matrix](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线) explains why. The separate
 `exoanchor-prototype-v2.4-ms-test` profile exposes destructive EEPROM test
 controls and is not a product image.
 
@@ -164,20 +163,10 @@ cd ExoAnchor
 Install the ESP-IDF version from the selection table, then follow the commands
 in the [Dev build guide](device/ESP32P4/firmware/v0.86.6-dev/README.md) or
 [Stable build guide](device/ESP32P4/firmware/v0.86-stable-kvm/README.md) for
-the selected board. After the build, run this from the selected firmware
-directory:
-
-```bash
-./tools/flash-monitor.sh <PORT> \
-  --build-dir <build-dir> \
-  --wait-ip \
-  --exit-on-ip
-```
-
-`<PORT>` is the serial port reported by the operating system, and `<build-dir>`
-must exactly match the `idf.py -B` argument used during the build. See the
-[firmware flashing entry](device/ESP32P4/firmware/README.md#烧录规则) for
-partition-upgrade requirements and the direct `idf.py` alternative.
+the selected board. Then flash from the selected firmware directory as described
+in the [firmware flashing rules](device/ESP32P4/firmware/README.md#烧录规则):
+`--build-dir` must exactly match the `idf.py -B` argument used during the build,
+and the port must be the one the operating system actually reports.
 
 ### 4. Open and verify
 

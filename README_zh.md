@@ -10,7 +10,7 @@ ExoAnchor 是一个采用 [MIT License](LICENSE) 开源、以从固件到生产�
 
 > 当前开发固件：`0.87.6-dev IndigoShore`。
 
-**我们承诺将使用MIT许可开放从研发到制造的一切资料。**
+**我们承诺将使用 MIT 许可开放从研发到制造的一切资料。**
 
 ExoAnchor 起源于 Rensselaer Polytechnic Institute 的 RCOS 社团。最初，我们
 只是想为实验室和个人设备寻找一套负担得起、能够进行远程维护与故障恢复的 KVM
@@ -86,12 +86,12 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 
 | # | 实现 | 状态 | Feature |
 | ---: | --- | --- | --- |
-| 1 | ESP32-P4 开发板 + 外接 USB HDMI 采集卡 | ✅早期原型，资料已全部开源  | 货架产品 |
-| 2 | Waveshare ESP32-P4-NANO + 简易扩展板 | ✅早期原型，资料已全部开源 | 货架产品 |
-| 3 | ExoAnchor PrototypeV0 | ✅已完全验证| 核心KVM可行性验证板  |
+| 1 | ESP32-P4 开发板 + 外接 USB HDMI 采集卡 | ✅ 早期原型，资料已全部开源 | 货架产品 |
+| 2 | Waveshare ESP32-P4-NANO + 简易扩展板 | ✅ 早期原型，资料已全部开源 | 货架产品 |
+| 3 | ExoAnchor PrototypeV0 | ✅ 已完全验证 | 核心 KVM 可行性验证板 |
 | 4 | ExoAnchor PrototypeV2.3 | 🚧 bring-up 已验证，量产/HIL 未闭环 | 集成化 PCIe 控制板 |
 | 4A | ExoAnchor PrototypeV2.4 / V2.4a6 | 🚧 正式 Dev profile 已建立，已在一块 V2.4 上完成烧录与启动冒烟，完整 HIL 待完成 | 集成化 PCIe 控制板 |
-| 4C | ExoAnchor PrototypeV2.4C | 🚧设计中 | HDMI2CSI可行性验证板 |
+| 4C | ExoAnchor PrototypeV2.4C | 🚧 设计中 | HDMI2CSI 可行性验证板 |
 
 <p align="center">
   <img src="assets/photos/exoanchor-prototype-v2.3b4.jpg" alt="装入 PCIe 挡板外壳的 ExoAnchor PrototypeV2.3b4 板卡" width="640">
@@ -103,9 +103,9 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 固件配置、ESP32-P4 芯片版本和验证状态见
 [ESP32-P4 板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)。
 
-项目方确认 V2.4a6 的 `a6` 只表示 PCB 层数，原理图与 ESP32-P4 映射和 V2.4
-相同；两者共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合。独立的
-`exoanchor-prototype-v2.4-ms-test` 含破坏性 EEPROM 测试能力，不是产品固件。
+V2.4 与 V2.4a6 共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合，原因见
+[板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线)。独立的 `exoanchor-prototype-v2.4-ms-test` 含破坏性
+EEPROM 测试能力，不是产品固件。
 
 ## 从选型到烧录
 
@@ -169,18 +169,9 @@ cd ExoAnchor
 安装选型表中对应的 ESP-IDF，然后按所选固件和板型执行
 [Dev 构建说明](device/ESP32P4/firmware/v0.86.6-dev/README.md)或
 [Stable 构建说明](device/ESP32P4/firmware/v0.86-stable-kvm/README.md)中的命令。
-构建完成后，在所选固件目录中执行：
-
-```bash
-./tools/flash-monitor.sh <PORT> \
-  --build-dir <build-dir> \
-  --wait-ip \
-  --exit-on-ip
-```
-
-`<PORT>` 是系统识别到的实际串口，`<build-dir>` 必须与构建命令的 `idf.py -B`
-参数完全一致。分区升级要求和直接使用 `idf.py` 的方式见
-[固件烧录入口](device/ESP32P4/firmware/README.md#烧录规则)。
+构建完成后，按[固件烧录规则](device/ESP32P4/firmware/README.md#烧录规则)在所选固件
+目录中烧录：`--build-dir` 必须与构建命令的 `idf.py -B` 参数完全一致，串口须为系统
+识别到的实际端口。
 
 ### 4. 访问与验收
 
@@ -240,7 +231,7 @@ ExoAnchor-Hardware/                  # 独立硬件源工程仓库
 
 ## AI 使用披露
 
-ExoAnchor 在研发过程中广泛使用Ai Agent。AI 参与了代码与文档编写、测试、硬件资料整理、原理图审查、研究和视觉资产制作。
+ExoAnchor 在研发过程中广泛使用 AI Agent。AI 参与了代码与文档编写、测试、硬件资料整理、原理图审查、研究和视觉资产制作。
 
 使用 AI 不改变贡献内容的许可与责任边界。
 
@@ -256,7 +247,7 @@ BOM、网表、结构模型和生产资料，并允许依据覆盖范围内的�
 第三方资料的权利，也不代表监管批准、安全认证或特定硬件用途适用性。覆盖资料及
 据此制造的硬件在法律允许的最大范围内按“原样”提供，不附带任何保证。
 
-本项目不会提供有关MS2109或者LT6911UXC的资料，因为他们并非公开资料，其传播受到芯片厂商的限制。
+本项目不会提供有关 MS2109 或者 LT6911UXC 的资料，因为它们并非公开资料，其传播受到芯片厂商的限制。
 
 ### Why MIT All?
 
