@@ -106,8 +106,8 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 [ESP32-P4 板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md)。
 
 V2.4 与 V2.4a6 共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合，原因见
-[板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线)。独立的 `exoanchor-prototype-v2.4-ms-test` 含破坏性
-EEPROM 测试能力，不是产品固件。
+[板型实现矩阵](device/ESP32P4/boards/IMPLEMENTATION_PROFILES_zh.md#自研板电气基线)。
+独立的 `exoanchor-prototype-v2.4-ms-test` 含破坏性 EEPROM 测试能力，不是产品固件。
 
 ## 从选型到烧录
 
