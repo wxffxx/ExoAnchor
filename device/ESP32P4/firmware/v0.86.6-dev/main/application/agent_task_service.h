@@ -189,6 +189,11 @@ esp_err_t si_agent_task_service_submit(const si_agent_task_submit_t *input,
 esp_err_t si_agent_task_service_snapshot(
     si_agent_task_service_snapshot_t *snapshot);
 
+/* Same projection with a caller-chosen lock wait. Web polling uses a short
+ * wait: workers hold the task lock across fsync'd TASKS.LOG appends. */
+esp_err_t si_agent_task_service_snapshot_wait(
+    si_agent_task_service_snapshot_t *snapshot, uint32_t wait_ms);
+
 esp_err_t si_agent_task_service_get_execution(
     const char *run_id, si_agent_task_execution_t *execution);
 

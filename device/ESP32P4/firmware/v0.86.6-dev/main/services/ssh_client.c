@@ -22,6 +22,7 @@
 #include "lwip/inet.h"
 #include "lwip/sockets.h"
 #include "mbedtls/sha256.h"
+#include "psram_stream_buffer.h"
 #include "secret_store.h"
 #include "ssh_hostkey_store.h"
 #include "time_utils.h"
@@ -35,7 +36,9 @@ static const char *TAG = "si-ssh";
 #define SI_SSH_DEFAULT_TIMEOUT_MS 30000
 #define SI_SSH_MAX_TIMEOUT_MS 600000
 #define SI_SSH_SHELL_INPUT_BUFFER_SIZE 4096
-#define SI_SSH_SHELL_IO_CHUNK 512
+/* Larger reads mean fewer WebSocket jobs through httpd's small control
+ * queue; the shell task stack is 64 KiB in PSRAM. */
+#define SI_SSH_SHELL_IO_CHUNK 4096
 #define SI_SSH_IO_WAIT_SLICE_MS 250U
 
 static void ssh_secure_clear(void *data, size_t len);
@@ -111,13 +114,17 @@ struct si_ssh_shell {
     esp_err_t ret;
 };
 
+/* Binary semaphore, not a mutex: an interactive shell takes it on the
+ * WebSocket task and ssh_shell_task gives it back when the session ends.
+ * A mutex given by a non-owner trips CHECK_MUTEX_GIVEN_BY_OWNER and aborts. */
 static SemaphoreHandle_t s_ssh_lock;
 
 static esp_err_t ensure_ssh_lock(void)
 {
     if (!s_ssh_lock) {
-        s_ssh_lock = xSemaphoreCreateMutex();
+        s_ssh_lock = xSemaphoreCreateBinary();
         ESP_RETURN_ON_FALSE(s_ssh_lock != NULL, ESP_ERR_NO_MEM, TAG, "create ssh lock");
+        xSemaphoreGive(s_ssh_lock);
     }
     return ESP_OK;
 }
@@ -209,10 +216,55 @@ static int wait_fd(int sock, LIBSSH2_SESSION *session, uint32_t deadline_ms)
         writefd = &fd;
     }
     if (!readfd && !writefd) {
+        /* No reported direction: waiting on writability returns at once on
+         * an idle socket and turns every EAGAIN retry loop into a busy spin
+         * until its deadline. Wait for input for at most one slice instead. */
         readfd = &fd;
-        writefd = &fd;
     }
     return select(sock + 1, readfd, writefd, NULL, &timeout);
+}
+
+/* Non-blocking libssh2 teardown calls return EAGAIN while they still need
+ * to exchange packets; a single call then leaves the channel/session (~80 KiB
+ * after a busy terminal) allocated forever. Retry within a short window, and
+ * if the peer stops cooperating, shut the socket so the remaining calls fail
+ * fast and release their memory instead of returning EAGAIN. */
+#define SI_SSH_TEARDOWN_WINDOW_MS 2000U
+#define SI_SSH_TEARDOWN_FORCED_RETRIES 50
+
+static void ssh_teardown(int *sock, LIBSSH2_SESSION *session,
+                         LIBSSH2_CHANNEL *channel, const char *reason,
+                         bool close_channel)
+{
+    const uint32_t deadline = si_monotonic_ms() + SI_SSH_TEARDOWN_WINDOW_MS;
+    if (channel && close_channel) {
+        while (libssh2_channel_close(channel) == LIBSSH2_ERROR_EAGAIN &&
+               deadline_valid(deadline)) {
+            wait_fd(*sock, session, deadline);
+        }
+    }
+    if (session) {
+        while (libssh2_session_disconnect(session, reason) ==
+                   LIBSSH2_ERROR_EAGAIN &&
+               deadline_valid(deadline)) {
+            wait_fd(*sock, session, deadline);
+        }
+    }
+    if (*sock >= 0) {
+        shutdown(*sock, SHUT_RDWR);
+    }
+    for (int i = 0; channel && i < SI_SSH_TEARDOWN_FORCED_RETRIES &&
+                    libssh2_channel_free(channel) == LIBSSH2_ERROR_EAGAIN; ++i) {
+        vTaskDelay(1);
+    }
+    for (int i = 0; session && i < SI_SSH_TEARDOWN_FORCED_RETRIES &&
+                    libssh2_session_free(session) == LIBSSH2_ERROR_EAGAIN; ++i) {
+        vTaskDelay(1);
+    }
+    if (*sock >= 0) {
+        close(*sock);
+        *sock = -1;
+    }
 }
 
 static int connect_with_timeout(int sock, const struct sockaddr *addr,
@@ -573,17 +625,7 @@ static esp_err_t ssh_exec_worker(const si_ssh_exec_config_t *config,
     ret = ESP_OK;
 
 done:
-    if (channel) {
-        libssh2_channel_free(channel);
-    }
-    if (session) {
-        (void)libssh2_session_disconnect(session, "ExoAnchor shutdown");
-        libssh2_session_free(session);
-    }
-    if (sock >= 0) {
-        shutdown(sock, SHUT_RDWR);
-        close(sock);
-    }
+    ssh_teardown(&sock, session, channel, "ExoAnchor shutdown", false);
     libssh2_exit();
     return ret;
 }
@@ -935,18 +977,7 @@ static esp_err_t ssh_shell_worker(si_ssh_shell_t *shell)
 
 done:
     shell->running = false;
-    if (channel) {
-        (void)libssh2_channel_close(channel);
-        libssh2_channel_free(channel);
-    }
-    if (session) {
-        (void)libssh2_session_disconnect(session, "ExoAnchor shell shutdown");
-        libssh2_session_free(session);
-    }
-    if (sock >= 0) {
-        shutdown(sock, SHUT_RDWR);
-        close(sock);
-    }
+    ssh_teardown(&sock, session, channel, "ExoAnchor shell shutdown", true);
     libssh2_exit();
     if (!shell->stop_requested) {
         shell_emit_str(shell, "\r\n[ssh: session closed]\r\n");
@@ -987,11 +1018,11 @@ esp_err_t si_ssh_shell_start(const si_ssh_shell_config_t *config,
     shell->config = *config;
     shell->output_cb = output_cb;
     shell->user_ctx = user_ctx;
-    shell->input = xStreamBufferCreate(SI_SSH_SHELL_INPUT_BUFFER_SIZE, 1);
+    shell->input = si_psram_stream_buffer_create(SI_SSH_SHELL_INPUT_BUFFER_SIZE, 1);
     shell->done = xSemaphoreCreateBinary();
     if (!shell->input || !shell->done) {
         if (shell->input) {
-            vStreamBufferDelete(shell->input);
+            si_psram_stream_buffer_delete(shell->input);
         }
         if (shell->done) {
             vSemaphoreDelete(shell->done);
@@ -1007,7 +1038,7 @@ esp_err_t si_ssh_shell_start(const si_ssh_shell_config_t *config,
         tskIDLE_PRIORITY + 2, &shell->task, tskNO_AFFINITY,
         MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (task_ok != pdPASS) {
-        vStreamBufferDelete(shell->input);
+        si_psram_stream_buffer_delete(shell->input);
         vSemaphoreDelete(shell->done);
         ssh_secure_clear(&shell->config, sizeof(shell->config));
         free(shell);
@@ -1047,7 +1078,7 @@ void si_ssh_shell_stop(si_ssh_shell_t *shell)
         shell->task = NULL;
     }
     if (shell->input) {
-        vStreamBufferDelete(shell->input);
+        si_psram_stream_buffer_delete(shell->input);
     }
     if (shell->done) {
         vSemaphoreDelete(shell->done);

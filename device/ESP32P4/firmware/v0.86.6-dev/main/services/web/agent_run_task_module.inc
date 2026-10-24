@@ -14,7 +14,27 @@ static void agent_task_service_recovery_task(void *arg)
     (void)arg;
     /* Runtime V2 remains a fail-closed shadow. Recovery/storage faults must
      * not take down the legacy Agent manager, KVM, or Web server. */
+    int64_t recovery_started_us = esp_timer_get_time();
     esp_err_t ret = si_agent_task_service_recover_reserved();
+    {
+        /* Recovery replays all of TASKS.LOG before the Agent is usable;
+         * record how long that took so slow journals are visible. */
+        char line[160];
+        si_agent_event_scan_stats_t scan = {0};
+        si_agent_event_store_last_scan_stats(&scan);
+        snprintf(line, sizeof(line),
+                 "Agent recovery %s %lldms; scan %llu rec %lluB read %llums "
+                 "verify %llums total %llums",
+                 ret == ESP_OK ? "finished" : "failed",
+                 (long long)((esp_timer_get_time() - recovery_started_us) / 1000),
+                 (unsigned long long)scan.records,
+                 (unsigned long long)scan.bytes,
+                 (unsigned long long)(scan.read_us / 1000U),
+                 (unsigned long long)(scan.verify_us / 1000U),
+                 (unsigned long long)(scan.total_us / 1000U));
+        si_web_log(ret == ESP_OK ? "INFO" : "ERROR", line);
+        ESP_LOGI(TAG, "%s", line);
+    }
     if (ret != ESP_OK) {
         ESP_LOGE(TAG,
                  "Agent Task Service degraded; legacy Agent remains available "

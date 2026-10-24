@@ -11,6 +11,7 @@
 #include "esp_random.h"
 #include "freertos/stream_buffer.h"
 #include "freertos/task.h"
+#include "psram_stream_buffer.h"
 
 #define TARGET_UART_DRIVER_RX_BYTES 4096
 #define TARGET_UART_BACKLOG_BYTES 8192
@@ -114,14 +115,16 @@ esp_err_t si_target_uart_init(void)
                             SI_CFG_TARGET_UART_TX_GPIO >= 0,
                         ESP_ERR_INVALID_ARG, TAG, "invalid UART pins");
 
-    s_http_backlog = xStreamBufferCreate(TARGET_UART_BACKLOG_BYTES, 1);
-    s_cli_backlog = xStreamBufferCreate(TARGET_UART_BACKLOG_BYTES, 1);
+    /* Backlogs are read and written from tasks only (never from an ISR), so
+     * they can live in PSRAM instead of 16 KiB of scarce internal RAM. */
+    s_http_backlog = si_psram_stream_buffer_create(TARGET_UART_BACKLOG_BYTES, 1);
+    s_cli_backlog = si_psram_stream_buffer_create(TARGET_UART_BACKLOG_BYTES, 1);
     if (!s_http_backlog || !s_cli_backlog) {
         if (s_http_backlog) {
-            vStreamBufferDelete(s_http_backlog);
+            si_psram_stream_buffer_delete(s_http_backlog);
         }
         if (s_cli_backlog) {
-            vStreamBufferDelete(s_cli_backlog);
+            si_psram_stream_buffer_delete(s_cli_backlog);
         }
         s_http_backlog = NULL;
         s_cli_backlog = NULL;
@@ -147,8 +150,8 @@ esp_err_t si_target_uart_init(void)
                                         TARGET_UART_DRIVER_RX_BYTES, 0,
                                         0, NULL, 0);
     if (ret != ESP_OK) {
-        vStreamBufferDelete(s_http_backlog);
-        vStreamBufferDelete(s_cli_backlog);
+        si_psram_stream_buffer_delete(s_http_backlog);
+        si_psram_stream_buffer_delete(s_cli_backlog);
         s_http_backlog = NULL;
         s_cli_backlog = NULL;
         set_last_error("install driver", ret);
@@ -167,8 +170,8 @@ esp_err_t si_target_uart_init(void)
     }
     if (ret != ESP_OK) {
         (void)uart_driver_delete(target_uart_port());
-        vStreamBufferDelete(s_http_backlog);
-        vStreamBufferDelete(s_cli_backlog);
+        si_psram_stream_buffer_delete(s_http_backlog);
+        si_psram_stream_buffer_delete(s_cli_backlog);
         s_http_backlog = NULL;
         s_cli_backlog = NULL;
         set_last_error("configure driver", ret);
@@ -180,8 +183,8 @@ esp_err_t si_target_uart_init(void)
                                       TARGET_UART_TASK_PRIORITY, &s_rx_task);
     if (task_ret != pdPASS) {
         (void)uart_driver_delete(target_uart_port());
-        vStreamBufferDelete(s_http_backlog);
-        vStreamBufferDelete(s_cli_backlog);
+        si_psram_stream_buffer_delete(s_http_backlog);
+        si_psram_stream_buffer_delete(s_cli_backlog);
         s_http_backlog = NULL;
         s_cli_backlog = NULL;
         s_rx_task = NULL;

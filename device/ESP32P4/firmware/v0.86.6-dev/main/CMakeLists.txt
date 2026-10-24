@@ -48,6 +48,7 @@ set(SI_MAIN_SRCS
         "services/tls_server.c"
         "infrastructure/secret_store.c"
         "infrastructure/settings_schema.c"
+        "infrastructure/flash_access.c"
         "infrastructure/settings_store.c"
         "services/diag_cli.c"
         "services/boot_key_http.c"

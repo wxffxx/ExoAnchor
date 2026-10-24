@@ -32,6 +32,7 @@
 #include "net_manager.h"
 #include "network_discovery.h"
 #include "nvs_flash.h"
+#include "flash_access.h"
 #include "power_control.h"
 #include "settings_schema.h"
 #include "settings_store.h"
@@ -95,6 +96,8 @@ static void init_nvs(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+    /* PSRAM-stack tasks (Agent run, TF workers) reach NVS through this proxy. */
+    ESP_ERROR_CHECK(si_flash_access_init());
 }
 
 #if CONFIG_SI_RESET_SETTINGS_ON_NEW_IMAGE

@@ -19,6 +19,7 @@
 #include "esp_app_desc.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hid_json.h"
@@ -200,6 +201,45 @@ static void add_storage_expansion_slot(cJSON *slots, const char *id,
     cJSON_AddStringToObject(slot, "role", role);
     cJSON_AddBoolToObject(slot, "supported", false);
     cJSON_AddBoolToObject(slot, "implemented", false);
+}
+
+/* Per-task run-time counters for diagnosing starvation and busy loops. Take
+ * two samples and subtract; counters are esp_timer microseconds and wrap at
+ * 32 bits (~71 minutes). */
+esp_err_t system_tasks_handler(httpd_req_t *req)
+{
+    esp_err_t auth_ret =
+        si_http_require_capability(req, SI_CAPABILITY_OBSERVE, NULL);
+    if (auth_ret != ESP_OK) {
+        return auth_ret;
+    }
+    UBaseType_t capacity = uxTaskGetNumberOfTasks() + 8U;
+    TaskStatus_t *tasks = heap_caps_calloc(capacity, sizeof(*tasks),
+                                           MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!tasks) {
+        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                   "task snapshot alloc failed");
+    }
+    configRUN_TIME_COUNTER_TYPE total = 0;
+    UBaseType_t count = uxTaskGetSystemState(tasks, capacity, &total);
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "uptime_us", (double)esp_timer_get_time());
+    cJSON *list = cJSON_AddArrayToObject(root, "tasks");
+    for (UBaseType_t i = 0; list && i < count; ++i) {
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "name", tasks[i].pcTaskName);
+        cJSON_AddNumberToObject(item, "priority", tasks[i].uxCurrentPriority);
+        cJSON_AddNumberToObject(item, "core",
+                                tasks[i].xCoreID == tskNO_AFFINITY ? -1 : (double)tasks[i].xCoreID);
+        cJSON_AddNumberToObject(item, "state", tasks[i].eCurrentState);
+        cJSON_AddNumberToObject(item, "runtime_us", tasks[i].ulRunTimeCounter);
+        cJSON_AddNumberToObject(item, "stack_free_min", tasks[i].usStackHighWaterMark);
+        cJSON_AddItemToArray(list, item);
+    }
+    free(tasks);
+    esp_err_t ret = si_http_send_json(req, root);
+    cJSON_Delete(root);
+    return ret;
 }
 
 esp_err_t system_info_handler(httpd_req_t *req)
@@ -1282,7 +1322,12 @@ void si_device_http_add_performance_json(
     cJSON_AddNumberToObject(cpu, "cores", performance->cpu.core_count);
     cJSON_AddNumberToObject(cpu, "usage_percent", performance->cpu.overall_percent);
     cJSON_AddNumberToObject(cpu, "sample_window_ms", performance->cpu.sample_window_ms);
-    (void)cJSON_AddArrayToObject(cpu, "core_usage_percent");
+    cJSON *cores = cJSON_AddArrayToObject(cpu, "core_usage_percent");
+    for (uint32_t core = 0; cores && performance->cpu.valid &&
+                            core < performance->cpu.core_count; ++core) {
+        cJSON_AddItemToArray(cores,
+                             cJSON_CreateNumber(performance->cpu.core_percent[core]));
+    }
 
     cJSON *memory = cJSON_AddObjectToObject(root, "memory");
     add_heap_json(memory, "heap", &performance->heap);

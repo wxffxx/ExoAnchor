@@ -102,6 +102,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
     -I"$PROJECT_DIR/main/infrastructure" \
     "$PROJECT_DIR/main/application/console_credentials.c" \
     "$PROJECT_DIR/main/core/hid_ascii.c" \
+    "$PROJECT_DIR/main/infrastructure/flash_access.c" \
     "$PROJECT_DIR/main/infrastructure/settings_store.c" \
     "$PROJECT_DIR/main/infrastructure/settings_schema.c" \
     "$PROJECT_DIR/main/infrastructure/secret_store.c" \
@@ -135,6 +136,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
     "$PROJECT_DIR/main/application/network_settings.c" \
     "$PROJECT_DIR/main/core/network_config.c" \
     "$PROJECT_DIR/main/core/product_identity.c" \
+    "$PROJECT_DIR/main/infrastructure/flash_access.c" \
     "$PROJECT_DIR/main/infrastructure/settings_store.c" \
     "$SCRIPT_DIR/test_network_settings.c" \
     -o "$NETWORK_SETTINGS_TEST_BIN"

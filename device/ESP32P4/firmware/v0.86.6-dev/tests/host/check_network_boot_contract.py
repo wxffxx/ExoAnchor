@@ -112,13 +112,19 @@ def main() -> int:
     if settings.count("REQUIRE_FLASH_SAFE_STACK();") < 6:
         failures.append("network settings persistence is not guarded on every path")
 
+    flash_access = (ROOT / "main/infrastructure/flash_access.c").read_text(
+        encoding="utf-8"
+    )
+    if "current_task_can_access_flash" not in settings_store or \
+            "si_flash_access_call(" not in settings_store:
+        failures.append("settings store does not route PSRAM-stack callers through the flash proxy")
     for marker in (
-        "current_task_can_access_flash",
         "esp_ptr_in_dram((const void *)&stack_probe)",
         "esp_ptr_in_rtc_dram_fast((const void *)&stack_probe)",
+        "xTaskCreateStatic(flash_proxy_task",
     ):
-        if marker not in settings_store:
-            failures.append(f"shared settings-store stack guard missing: {marker}")
+        if marker not in flash_access:
+            failures.append(f"flash access stack guard missing: {marker}")
     if settings_store.count("!current_task_can_access_flash()") < 2:
         failures.append("settings store does not guard both open and active handles")
 

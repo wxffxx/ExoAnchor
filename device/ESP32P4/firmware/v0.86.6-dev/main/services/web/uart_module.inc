@@ -866,7 +866,7 @@ static esp_err_t uart_ws_bridge_start(void)
     }
     if (!s_uart_ws_output_buffer) {
         s_uart_ws_output_buffer =
-            xStreamBufferCreate(UART_WS_OUTPUT_BUFFER_BYTES, 1);
+            si_psram_stream_buffer_create(UART_WS_OUTPUT_BUFFER_BYTES, 1);
         ESP_RETURN_ON_FALSE(s_uart_ws_output_buffer, ESP_ERR_NO_MEM, TAG,
                             "create UART WebSocket output buffer");
     }
@@ -877,7 +877,7 @@ static esp_err_t uart_ws_bridge_start(void)
                         UART_WS_OUTPUT_TASK_PRIORITY,
                         &s_uart_ws_output_task_handle);
         if (task_ret != pdPASS) {
-            vStreamBufferDelete(s_uart_ws_output_buffer);
+            si_psram_stream_buffer_delete(s_uart_ws_output_buffer);
             s_uart_ws_output_buffer = NULL;
             return ESP_ERR_NO_MEM;
         }

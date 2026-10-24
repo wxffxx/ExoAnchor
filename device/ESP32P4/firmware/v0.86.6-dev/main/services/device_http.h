@@ -8,6 +8,7 @@
 #include "esp_http_server.h"
 
 esp_err_t system_info_handler(httpd_req_t *req);
+esp_err_t system_tasks_handler(httpd_req_t *req);
 esp_err_t logs_handler(httpd_req_t *req);
 esp_err_t logs_download_handler(httpd_req_t *req);
 esp_err_t video_status_handler(httpd_req_t *req);

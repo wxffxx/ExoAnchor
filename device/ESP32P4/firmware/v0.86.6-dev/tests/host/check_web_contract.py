@@ -1572,7 +1572,7 @@ def main() -> int:
         'const char *password = json_string_any(root, "password", "pass", NULL);',
         'ssh_ws_delete_connect_json(root);',
         'ssh_secure_clear(buf, frame.len + 1);',
-        'ssh_secure_clear(&config, sizeof(config));',
+        'ssh_secure_clear(config, sizeof(*config));',
     ):
         if marker not in ssh_module_text:
             failures.append(f"SSH WebSocket one-time secret lifecycle missing {marker}")

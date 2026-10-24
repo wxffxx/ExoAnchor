@@ -141,6 +141,17 @@ esp_err_t si_agent_event_store_latest(uint64_t *seq_out,
 
 const char *si_agent_event_store_path(void);
 const char *si_agent_event_store_last_error(void);
+
+/* Timing of the most recent full journal scan, for boot-recovery logs. */
+typedef struct {
+    uint64_t bytes;
+    uint64_t records;
+    uint64_t read_us;
+    uint64_t verify_us;
+    uint64_t total_us;
+} si_agent_event_scan_stats_t;
+
+void si_agent_event_store_last_scan_stats(si_agent_event_scan_stats_t *out);
 const char *si_agent_event_recovery_status_name(si_agent_event_recovery_status_t status);
 
 #ifdef SI_AGENT_EVENT_STORE_HOST_TEST

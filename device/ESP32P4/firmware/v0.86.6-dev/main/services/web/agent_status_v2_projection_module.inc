@@ -50,6 +50,39 @@ static const char *agent_task_verification_status_name(
     }
 }
 
+#if !AGENT_RUNTIME_RECOVERY_RAM_ONLY
+/* Status polls must not queue behind a TF fsync on the single httpd task.
+ * Wait briefly, and while a worker holds the task lock serve the last
+ * projection taken within AGENT_TASK_SNAPSHOT_STALE_MS instead. */
+#define AGENT_TASK_SNAPSHOT_WAIT_MS 30U
+#define AGENT_TASK_SNAPSHOT_STALE_MS 5000U
+static EXT_RAM_BSS_ATTR si_agent_task_service_snapshot_t s_agent_task_snapshot_cache;
+static uint32_t s_agent_task_snapshot_cache_ms;
+static bool s_agent_task_snapshot_cache_valid;
+static portMUX_TYPE s_agent_task_snapshot_cache_mux = portMUX_INITIALIZER_UNLOCKED;
+
+static esp_err_t agent_task_snapshot_for_status(
+    si_agent_task_service_snapshot_t *snapshot)
+{
+    esp_err_t ret = si_agent_task_service_snapshot_wait(
+        snapshot, AGENT_TASK_SNAPSHOT_WAIT_MS);
+    uint32_t now_ms = si_monotonic_ms();
+    taskENTER_CRITICAL(&s_agent_task_snapshot_cache_mux);
+    if (ret == ESP_OK) {
+        s_agent_task_snapshot_cache = *snapshot;
+        s_agent_task_snapshot_cache_ms = now_ms;
+        s_agent_task_snapshot_cache_valid = true;
+    } else if (ret == ESP_ERR_TIMEOUT && s_agent_task_snapshot_cache_valid &&
+               now_ms - s_agent_task_snapshot_cache_ms <
+                   AGENT_TASK_SNAPSHOT_STALE_MS) {
+        *snapshot = s_agent_task_snapshot_cache;
+        ret = ESP_OK;
+    }
+    taskEXIT_CRITICAL(&s_agent_task_snapshot_cache_mux);
+    return ret;
+}
+#endif
+
 static void agent_run_add_status_json(cJSON *root, bool include_result,
                                       const char *expected_run_id,
                                       bool *mismatch_out)
@@ -70,7 +103,7 @@ static void agent_run_add_status_json(cJSON *root, bool include_result,
     task_snapshot = agent_alloc(sizeof(*task_snapshot));
     if (task_snapshot) {
         memset(task_snapshot, 0, sizeof(*task_snapshot));
-        task_snapshot_result = si_agent_task_service_snapshot(task_snapshot);
+        task_snapshot_result = agent_task_snapshot_for_status(task_snapshot);
     } else {
         task_snapshot_result = ESP_ERR_NO_MEM;
     }
@@ -402,7 +435,10 @@ static void agent_run_add_status_json(cJSON *root, bool include_result,
         }
     }
     if (include_result && snapshot->result_json) {
-        cJSON *result = cJSON_Parse(snapshot->result_json);
+        /* result_json is produced by cJSON_PrintUnformatted in the run
+         * worker; embed it raw instead of re-parsing and re-printing it on
+         * every poll. */
+        cJSON *result = cJSON_CreateRaw(snapshot->result_json);
         cJSON_AddItemToObject(root, "result", result ? result : cJSON_CreateNull());
     }
     free(task_snapshot);

@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include "action_event.h"
 #include "app_config.h"
+#include "psram_stream_buffer.h"
 #include "agent_api_settings.h"
 #include "agent_cloud_retry_policy.h"
 #if SI_CFG_EMBEDDED_AGENT_ENABLED
@@ -711,12 +712,13 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/api/uart/read", HTTP_GET, uart_read_handler, false);
     register_uri(s_server, "/api/uart/write", HTTP_POST, uart_write_handler, false);
     register_uri(s_server, "/api/uart/authenticate", HTTP_POST,
-                 uart_authenticate_handler, false);
+                 uart_authenticate_async_handler, false);
     register_uri(s_server, "/api/settings/gpio-map", HTTP_GET, power_gpio_map_handler, false);
     register_uri(s_server, "/api/settings/gpio-map", HTTP_POST, power_gpio_map_handler, false);
     register_uri(s_server, "/api/capabilities", HTTP_GET, capabilities_handler, false);
     register_uri(s_server, "/api/status", HTTP_GET, overall_status_handler, false);
     register_uri(s_server, "/api/system/info", HTTP_GET, system_info_handler, false);
+    register_uri(s_server, "/api/system/tasks", HTTP_GET, system_tasks_handler, false);
     register_uri(s_server, "/api/v1/network/status", HTTP_GET,
                  si_network_status_http_handler, false);
     register_uri(s_server, "/api/v1/network/config", HTTP_GET,
@@ -740,7 +742,7 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/api/ms2109/status", HTTP_GET,
                  ms2109_status_handler, false);
     register_uri(s_server, "/api/ms2109/power", HTTP_POST,
-                 ms2109_power_handler, false);
+                 ms2109_power_async_handler, false);
 #endif
 #if SI_CFG_MS2109_TEST_ENABLED
     register_uri(s_server, "/api/ms2109/eeprom/probe", HTTP_POST,

@@ -10,13 +10,19 @@ static esp_err_t start_stream_server(void)
     config.ctrl_port = (uint16_t)(config.ctrl_port + 1);
     config.uri_match_fn = httpd_uri_match_wildcard;
     config.stack_size = 6144;
+    /* Its handlers reach NVS only through settings_store, which proxies
+     * flash access for PSRAM stacks; keep the 8 KiB TLS stack out of the
+     * scarce internal heap. */
+    config.task_caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
     config.max_uri_handlers = 8;
     config.max_open_sockets = SI_STREAM_HTTP_MAX_OPEN_SOCKETS;
     config.lru_purge_enable = true;
     config.send_wait_timeout = 1;
     ESP_RETURN_ON_ERROR(si_tls_server_start(&s_stream_server, &config), TAG,
                         "httpd_start stream");
-    register_uri(s_stream_server, "/api/stream", HTTP_GET, stream_handler,
+    /* The MJPEG loop runs until the viewer leaves; hand it to a video worker
+     * so one viewer cannot occupy this listener's only HTTPD task. */
+    register_uri(s_stream_server, "/api/stream", HTTP_GET, stream_async_handler,
                  false);
 #if SI_CFG_VIDEO_H264_ENABLED && defined(CONFIG_HTTPD_WS_SUPPORT)
     register_uri(s_stream_server, "/api/ws/video/h264", HTTP_GET,

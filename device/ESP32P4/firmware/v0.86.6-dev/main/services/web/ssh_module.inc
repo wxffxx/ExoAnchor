@@ -900,7 +900,8 @@ static esp_err_t ssh_status_handler(httpd_req_t *req)
     return ret;
 }
 
-static esp_err_t ssh_exec_handler(httpd_req_t *req)
+static esp_err_t ssh_exec_handler_with_config(httpd_req_t *req,
+                                              si_ssh_exec_config_t *config)
 {
     int64_t started_us = esp_timer_get_time();
     si_auth_session_context_t session = {0};
@@ -962,13 +963,12 @@ static esp_err_t ssh_exec_handler(httpd_req_t *req)
                                    "ssh target not configured; host, username and command required");
     }
 
-    si_ssh_exec_config_t config = {0};
-    strlcpy(config.host, host, sizeof(config.host));
-    config.port = port_item && port_item->valueint > 0 ? (uint16_t)port_item->valueint :
+    strlcpy(config->host, host, sizeof(config->host));
+    config->port = port_item && port_item->valueint > 0 ? (uint16_t)port_item->valueint :
                   (target.port ? target.port : SSH_TARGET_DEFAULT_PORT);
-    strlcpy(config.username, username, sizeof(config.username));
+    strlcpy(config->username, username, sizeof(config->username));
     bool using_stored_password = false;
-    bool has_password = ssh_target_apply_password(config.password, sizeof(config.password),
+    bool has_password = ssh_target_apply_password(config->password, sizeof(config->password),
                                                   password, &using_stored_password);
     char sudo_password_buf[SI_SSH_PASSWORD_MAX_LEN] = {0};
     bool sudo_password_available = ssh_target_apply_sudo_password(sudo_password_buf,
@@ -976,9 +976,9 @@ static esp_err_t ssh_exec_handler(httpd_req_t *req)
     bool sudo_applied = false;
     if (!ssh_prepare_sudo_command(command,
                                   sudo_password_available ? sudo_password_buf : NULL,
-                                  &config, &sudo_applied)) {
+                                  config, &sudo_applied)) {
         cJSON_Delete(root);
-        memset(&config, 0, sizeof(config));
+        memset(config, 0, sizeof(*config));
         memset(sudo_password_buf, 0, sizeof(sudo_password_buf));
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
                                    "ssh command too long after sudo wrapping");
@@ -990,22 +990,22 @@ static esp_err_t ssh_exec_handler(httpd_req_t *req)
     bool auto_key = (!auth_method || strcasecmp(auth_method, "auto") == 0) &&
                     !has_password;
     if (use_key || auto_key) {
-        ret = ssh_key_apply_to_exec(&config, key_passphrase);
+        ret = ssh_key_apply_to_exec(config, key_passphrase);
         if (ret != ESP_OK && use_key) {
             cJSON_Delete(root);
-            memset(&config, 0, sizeof(config));
+            memset(config, 0, sizeof(*config));
             return si_http_send_text_status(req, "409 Conflict", "ssh private key not configured");
         }
         if (ret != ESP_OK && auto_key) {
             cJSON_Delete(root);
-            memset(&config, 0, sizeof(config));
+            memset(config, 0, sizeof(*config));
             return si_http_send_text_status(req, "409 Conflict",
                                     "ssh credential not configured in Settings");
         }
     } else if (!has_password && auth_method &&
                strcasecmp(auth_method, "password") == 0) {
         cJSON_Delete(root);
-        memset(&config, 0, sizeof(config));
+        memset(config, 0, sizeof(*config));
         return si_http_send_text_status(req, "409 Conflict",
                                 "ssh password not configured in Settings");
     }
@@ -1017,14 +1017,14 @@ static esp_err_t ssh_exec_handler(httpd_req_t *req)
     } else if (timeout_value > (int)SSH_TARGET_MAX_TIMEOUT_MS) {
         timeout_value = (int)SSH_TARGET_MAX_TIMEOUT_MS;
     }
-    config.timeout_ms = (uint32_t)timeout_value;
+    config->timeout_ms = (uint32_t)timeout_value;
     si_terminal_control_token_t control = {0};
     bool automated = session.principal == SI_PRINCIPAL_MCP;
     if (automated && !terminal_control_begin(
             SI_TERMINAL_CHANNEL_SSH, SI_TERMINAL_ACTOR_MCP, "ssh_exec",
             NULL, "执行 SSH 命令", &control)) {
         cJSON_Delete(root);
-        ssh_secure_clear(&config, sizeof(config));
+        ssh_secure_clear(config, sizeof(*config));
         return si_http_send_text_status(req, "409 Conflict",
                                         "SSH automation already active");
     }
@@ -1047,33 +1047,33 @@ static esp_err_t ssh_exec_handler(httpd_req_t *req)
         .exit_status = -1,
     };
     if (automated) {
-        config.output_cb = terminal_ssh_exec_output_cb;
-        config.output_user_ctx = &control;
-        config.cancel_cb = terminal_ssh_exec_cancel_cb;
-        config.cancel_user_ctx = &control;
+        config->output_cb = terminal_ssh_exec_output_cb;
+        config->output_user_ctx = &control;
+        config->cancel_cb = terminal_ssh_exec_cancel_cb;
+        config->cancel_user_ctx = &control;
     }
-    ret = si_ssh_exec(&config, &result);
+    ret = si_ssh_exec(config, &result);
     if (automated) (void)terminal_control_finish(&control);
     int64_t elapsed_ms = (esp_timer_get_time() - started_us) / 1000;
     if (elapsed_ms > 1000) {
         ESP_LOGI(TAG, "SSH exec %s@%s:%u took %" PRId64 " ms status=%d ret=%s",
-                 config.username, config.host, config.port, elapsed_ms,
+                 config->username, config->host, config->port, elapsed_ms,
                  result.exit_status, esp_err_to_name(ret));
     }
 
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddBoolToObject(resp, "ok", ret == ESP_OK && result.ok);
     cJSON_AddStringToObject(resp, "backend", "libssh2_esp");
-    cJSON_AddStringToObject(resp, "auth_method", config.use_private_key ? "key" : "password");
+    cJSON_AddStringToObject(resp, "auth_method", config->use_private_key ? "key" : "password");
     cJSON_AddStringToObject(resp, "credential_source",
-                            config.use_private_key ? "stored_key" :
+                            config->use_private_key ? "stored_key" :
                             (using_stored_password ? "settings_password" : "request_password"));
     cJSON_AddBoolToObject(resp, "sudo_password_configured", target.sudo_password_configured);
     cJSON_AddBoolToObject(resp, "sudo_applied", sudo_applied);
     cJSON_AddStringToObject(resp, "target_source", using_stored_target ? "settings" : "request");
-    cJSON_AddStringToObject(resp, "host", config.host);
-    cJSON_AddNumberToObject(resp, "port", config.port);
-    cJSON_AddStringToObject(resp, "username", config.username);
+    cJSON_AddStringToObject(resp, "host", config->host);
+    cJSON_AddNumberToObject(resp, "port", config->port);
+    cJSON_AddStringToObject(resp, "username", config->username);
     cJSON_AddNumberToObject(resp, "exit_status", result.exit_status);
     cJSON_AddNumberToObject(resp, "ssh_rc", result.ssh_rc);
     cJSON_AddNumberToObject(resp, "elapsed_ms", result.elapsed_ms ? result.elapsed_ms : elapsed_ms);
@@ -1084,13 +1084,30 @@ static esp_err_t ssh_exec_handler(httpd_req_t *req)
     }
     esp_err_t send_ret = si_http_send_json(req, resp);
     cJSON_Delete(resp);
-    memset(config.password, 0, sizeof(config.password));
-    memset(config.stdin_data, 0, sizeof(config.stdin_data));
-    memset(config.public_key, 0, sizeof(config.public_key));
-    memset(config.private_key, 0, sizeof(config.private_key));
-    memset(config.key_passphrase, 0, sizeof(config.key_passphrase));
+    memset(config->password, 0, sizeof(config->password));
+    memset(config->stdin_data, 0, sizeof(config->stdin_data));
+    memset(config->public_key, 0, sizeof(config->public_key));
+    memset(config->private_key, 0, sizeof(config->private_key));
+    memset(config->key_passphrase, 0, sizeof(config->key_passphrase));
     free(output);
     return send_ret;
+}
+
+/* si_ssh_exec_config_t is ~10 KiB (command, keys); on the 12 KiB worker
+ * stack it overflowed into the stack guard. Keep it on the heap and wipe it
+ * on every path. */
+static esp_err_t ssh_exec_handler(httpd_req_t *req)
+{
+    si_ssh_exec_config_t *config = heap_caps_calloc(
+        1, sizeof(*config), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!config) {
+        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                   "ssh config alloc failed");
+    }
+    esp_err_t ret = ssh_exec_handler_with_config(req, config);
+    ssh_secure_clear(config, sizeof(*config));
+    heap_caps_free(config);
+    return ret;
 }
 
 #ifdef CONFIG_HTTPD_WS_SUPPORT
@@ -1104,49 +1121,12 @@ static SemaphoreHandle_t s_ssh_ws_lock;
 static httpd_handle_t s_ssh_ws_handle;
 static int s_ssh_ws_fd = -1;
 
-typedef struct {
-    httpd_handle_t handle;
-    int fd;
-    size_t len;
-    uint8_t payload[];
-} ssh_ws_send_job_t;
-
 #define SSH_WS_CLEANUP_TASK_STACK 4096
+#define SSH_WS_REAPER_QUEUE_LEN 4U
 
-static void ssh_ws_send_work(void *arg)
-{
-    ssh_ws_send_job_t *job = (ssh_ws_send_job_t *)arg;
-    if (!job) {
-        return;
-    }
-    httpd_ws_frame_t frame = {
-        .type = HTTPD_WS_TYPE_TEXT,
-        .payload = job->payload,
-        .len = job->len,
-    };
-    (void)httpd_ws_send_frame_async(job->handle, job->fd, &frame);
-    free(job);
-}
+static QueueHandle_t s_ssh_ws_reaper_queue;
 
-static esp_err_t ssh_ws_send_async(httpd_handle_t handle, int fd, const void *data, size_t len)
-{
-    if (!handle || fd < 0 || !data || len == 0) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    ssh_ws_send_job_t *job = malloc(sizeof(*job) + len);
-    if (!job) {
-        return ESP_ERR_NO_MEM;
-    }
-    job->handle = handle;
-    job->fd = fd;
-    job->len = len;
-    memcpy(job->payload, data, len);
-    esp_err_t ret = httpd_queue_work(handle, ssh_ws_send_work, job);
-    if (ret != ESP_OK) {
-        free(job);
-    }
-    return ret;
-}
+#include "ssh_ws_transport_module.inc"
 
 static esp_err_t ssh_ws_send_terminal_json(const char *json, size_t len)
 {
@@ -1178,12 +1158,12 @@ static esp_err_t ssh_ws_output_cb(const uint8_t *data, size_t len, void *user_ct
     if (!ctx || !data || len == 0) {
         return ESP_ERR_INVALID_ARG;
     }
-    return ssh_ws_send_async(ctx->handle, ctx->fd, data, len);
+    /* Runs on the SSH shell task: waiting here stops reading the channel. */
+    return ssh_ws_send_output_blocking(ctx->handle, ctx->fd, data, len);
 }
 
-static void ssh_ws_ctx_cleanup_task(void *arg)
+static void ssh_ws_ctx_release(ssh_ws_ctx_t *ctx)
 {
-    ssh_ws_ctx_t *ctx = (ssh_ws_ctx_t *)arg;
     if (ctx) {
         if (ctx->shell) {
             si_ssh_shell_stop(ctx->shell);
@@ -1191,7 +1171,25 @@ static void ssh_ws_ctx_cleanup_task(void *arg)
         }
         free(ctx);
     }
+}
+
+static void ssh_ws_ctx_cleanup_task(void *arg)
+{
+    ssh_ws_ctx_release((ssh_ws_ctx_t *)arg);
     vTaskDeleteWithCaps(NULL);
+}
+
+/* Long-lived reaper so closing a terminal never depends on creating a task
+ * while memory is tight; shell stop can wait for a network select. */
+static void ssh_ws_reaper_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        ssh_ws_ctx_t *ctx = NULL;
+        if (xQueueReceive(s_ssh_ws_reaper_queue, &ctx, portMAX_DELAY) == pdTRUE) {
+            ssh_ws_ctx_release(ctx);
+        }
+    }
 }
 
 static void ssh_ws_ctx_free(void *ptr)
@@ -1214,6 +1212,10 @@ static void ssh_ws_ctx_free(void *ptr)
          * make the single main HTTP task wait here, otherwise closing Terminal
          * can stall page navigation and every API on the device.
          */
+        if (s_ssh_ws_reaper_queue &&
+            xQueueSend(s_ssh_ws_reaper_queue, &ctx, 0) == pdTRUE) {
+            return;
+        }
         BaseType_t task_ok = xTaskCreateWithCaps(
             ssh_ws_ctx_cleanup_task, "si_ssh_cleanup",
             SSH_WS_CLEANUP_TASK_STACK, ctx, tskIDLE_PRIORITY + 2, NULL,
@@ -1228,7 +1230,8 @@ static void ssh_ws_ctx_free(void *ptr)
     free(ctx);
 }
 
-static esp_err_t ssh_ws_start_shell(ssh_ws_ctx_t *ctx, const char *json)
+static esp_err_t ssh_ws_start_shell_with_config(ssh_ws_ctx_t *ctx, const char *json,
+                                               si_ssh_shell_config_t *config)
 {
     cJSON *root = cJSON_Parse(json);
     if (!root) {
@@ -1269,13 +1272,12 @@ static esp_err_t ssh_ws_start_shell(ssh_ws_ctx_t *ctx, const char *json)
         return ssh_ws_send_str(ctx, "\r\n[ssh: target not configured]\r\n");
     }
 
-    si_ssh_shell_config_t config = {0};
-    strlcpy(config.host, host, sizeof(config.host));
-    config.port = port_item && port_item->valueint > 0 ? (uint16_t)port_item->valueint :
+    strlcpy(config->host, host, sizeof(config->host));
+    config->port = port_item && port_item->valueint > 0 ? (uint16_t)port_item->valueint :
                   (target.port ? target.port : SSH_TARGET_DEFAULT_PORT);
-    strlcpy(config.username, username, sizeof(config.username));
+    strlcpy(config->username, username, sizeof(config->username));
     bool using_stored_password = false;
-    bool has_password = ssh_target_apply_password(config.password, sizeof(config.password),
+    bool has_password = ssh_target_apply_password(config->password, sizeof(config->password),
                                                   password, &using_stored_password);
     (void)using_stored_password;
     bool use_key = auth_method && (strcasecmp(auth_method, "key") == 0 ||
@@ -1284,21 +1286,21 @@ static esp_err_t ssh_ws_start_shell(ssh_ws_ctx_t *ctx, const char *json)
     bool auto_key = (!auth_method || strcasecmp(auth_method, "auto") == 0) &&
                     !has_password;
     if (use_key || auto_key) {
-        esp_err_t key_ret = ssh_key_apply_to_shell(&config, key_passphrase);
+        esp_err_t key_ret = ssh_key_apply_to_shell(config, key_passphrase);
         if (key_ret != ESP_OK && use_key) {
             ssh_ws_delete_connect_json(root);
-            ssh_secure_clear(&config, sizeof(config));
+            ssh_secure_clear(config, sizeof(*config));
             return ssh_ws_send_str(ctx, "\r\n[ssh: private key not configured]\r\n");
         }
         if (key_ret != ESP_OK && auto_key) {
             ssh_ws_delete_connect_json(root);
-            ssh_secure_clear(&config, sizeof(config));
+            ssh_secure_clear(config, sizeof(*config));
             return ssh_ws_send_str(ctx, "\r\n[ssh: credential not configured in Settings]\r\n");
         }
     } else if (!has_password && auth_method &&
                strcasecmp(auth_method, "password") == 0) {
         ssh_ws_delete_connect_json(root);
-        ssh_secure_clear(&config, sizeof(config));
+        ssh_secure_clear(config, sizeof(*config));
         return ssh_ws_send_str(ctx, "\r\n[ssh: password not configured in Settings]\r\n");
     }
     int timeout_value = timeout_item && timeout_item->valueint > 0 ? timeout_item->valueint :
@@ -1309,19 +1311,34 @@ static esp_err_t ssh_ws_start_shell(ssh_ws_ctx_t *ctx, const char *json)
     } else if (timeout_value > (int)SSH_TARGET_MAX_TIMEOUT_MS) {
         timeout_value = (int)SSH_TARGET_MAX_TIMEOUT_MS;
     }
-    config.timeout_ms = (uint32_t)timeout_value;
-    config.cols = cols_item && cols_item->valueint > 0 ? (uint16_t)cols_item->valueint : 120;
-    config.rows = rows_item && rows_item->valueint > 0 ? (uint16_t)rows_item->valueint : 32;
+    config->timeout_ms = (uint32_t)timeout_value;
+    config->cols = cols_item && cols_item->valueint > 0 ? (uint16_t)cols_item->valueint : 120;
+    config->rows = rows_item && rows_item->valueint > 0 ? (uint16_t)rows_item->valueint : 32;
     ssh_ws_delete_connect_json(root);
 
-    ret = si_ssh_shell_start(&config, ssh_ws_output_cb, ctx, &ctx->shell);
-    ssh_secure_clear(&config, sizeof(config));
+    ret = si_ssh_shell_start(config, ssh_ws_output_cb, ctx, &ctx->shell);
+    ssh_secure_clear(config, sizeof(*config));
     if (ret != ESP_OK) {
         char msg[80];
         snprintf(msg, sizeof(msg), "\r\n[ssh: start failed: %s]\r\n", esp_err_to_name(ret));
         return ssh_ws_send_str(ctx, msg);
     }
     return ssh_ws_send_str(ctx, "\r\n[ssh: connecting]\r\n");
+}
+
+/* The shell config carries a 4 KiB private key; keep it off the main HTTPD
+ * stack, which this WebSocket handler runs on. */
+static esp_err_t ssh_ws_start_shell(ssh_ws_ctx_t *ctx, const char *json)
+{
+    si_ssh_shell_config_t *config = heap_caps_calloc(
+        1, sizeof(*config), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!config) {
+        return ssh_ws_send_str(ctx, "\r\n[ssh: out of memory]\r\n");
+    }
+    esp_err_t ret = ssh_ws_start_shell_with_config(ctx, json, config);
+    ssh_secure_clear(config, sizeof(*config));
+    heap_caps_free(config);
+    return ret;
 }
 
 static esp_err_t ssh_ws_handler(httpd_req_t *req)
@@ -1385,7 +1402,21 @@ static esp_err_t ssh_ws_handler(httpd_req_t *req)
 static esp_err_t ssh_ws_bridge_start(void)
 {
     if (!s_ssh_ws_lock) s_ssh_ws_lock = xSemaphoreCreateMutex();
-    return s_ssh_ws_lock ? ESP_OK : ESP_ERR_NO_MEM;
+    if (!s_ssh_ws_lock) return ESP_ERR_NO_MEM;
+    if (!s_ssh_ws_reaper_queue) {
+        s_ssh_ws_reaper_queue =
+            xQueueCreate(SSH_WS_REAPER_QUEUE_LEN, sizeof(ssh_ws_ctx_t *));
+        if (!s_ssh_ws_reaper_queue) return ESP_ERR_NO_MEM;
+        /* Never fatal: ssh_ws_ctx_free falls back to a one-shot task. */
+        if (xTaskCreateWithCaps(ssh_ws_reaper_task, "si_ssh_reaper",
+                                SSH_WS_CLEANUP_TASK_STACK, NULL,
+                                tskIDLE_PRIORITY + 2, NULL,
+                                MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
+            vQueueDelete(s_ssh_ws_reaper_queue);
+            s_ssh_ws_reaper_queue = NULL;
+        }
+    }
+    return ESP_OK;
 }
 
 static esp_err_t ssh_ws_pre_handshake(httpd_req_t *req)
