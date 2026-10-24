@@ -1,0 +1,3 @@
+# Bench-only: disables web/API login so board tests can run unattended on a
+# trusted LAN. Never use for a build that leaves the bench.
+CONFIG_SI_AUTH_DISABLED_FOR_LAN_TESTING=y

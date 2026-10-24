@@ -195,6 +195,12 @@ typedef struct {
 
 static SemaphoreHandle_t s_auth_login_lock;
 static auth_login_job_t s_auth_login_job;
+/* Password checks run on one worker created at boot with a static internal
+ * stack (NVS writes during credential migration disable the PSRAM cache).
+ * Creating it per login failed whenever internal RAM was fragmented. */
+static StackType_t s_auth_login_stack[AUTH_LOGIN_JOB_TASK_STACK_SIZE / sizeof(StackType_t)];
+static StaticTask_t s_auth_login_task_buffer;
+static TaskHandle_t s_auth_login_task;
 
 static bool auth_request_is_mcp(httpd_req_t *req)
 {
@@ -311,9 +317,8 @@ static int64_t auth_client_time(const cJSON *obj)
     return cJSON_IsNumber(v) && v->valuedouble >= 0 && v->valuedouble <= (double)SI_TWO_STEP_CLIENT_TIME_MAX ? (int64_t)v->valuedouble : 0;
 }
 
-static void auth_login_worker(void *arg)
+static void auth_login_process_job(void)
 {
-    (void)arg;
     char username[SI_AUTH_USERNAME_MAX_LEN + 1] = {0};
     char password[SI_AUTH_PASSWORD_MAX_LEN + 1] = {0};
     char otp[SI_TWO_STEP_CODE_MAX + 1] = {0};
@@ -367,7 +372,26 @@ static void auth_login_worker(void *arg)
             xSemaphoreGive(s_auth_login_lock);
         }
     }
-    vTaskDeleteWithCaps(NULL);
+}
+
+static void auth_login_worker(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        auth_login_process_job();
+    }
+}
+
+static esp_err_t auth_login_worker_start(void)
+{
+    if (!s_auth_login_task) {
+        s_auth_login_task = xTaskCreateStatic(
+            auth_login_worker, "si_auth_login",
+            sizeof(s_auth_login_stack) / sizeof(s_auth_login_stack[0]), NULL,
+            tskIDLE_PRIORITY + 2, s_auth_login_stack, &s_auth_login_task_buffer);
+    }
+    return s_auth_login_task ? ESP_OK : ESP_FAIL;
 }
 
 static esp_err_t auth_login_handler(httpd_req_t *req)
@@ -481,18 +505,14 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
     char job_id[AUTH_LOGIN_JOB_ID_LEN + 1] = {0};
     strlcpy(job_id, s_auth_login_job.job_id, sizeof(job_id));
 
-    BaseType_t task_ok =
-        xTaskCreateWithCaps(auth_login_worker, "si_auth_login",
-                            AUTH_LOGIN_JOB_TASK_STACK_SIZE, NULL,
-                            tskIDLE_PRIORITY + 2, NULL,
-                            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (task_ok != pdPASS) {
+    if (!s_auth_login_task) {
         auth_login_job_reset_locked();
         xSemaphoreGive(s_auth_login_lock);
         cJSON_Delete(root);
         return si_http_send_text_status(req, "503 Service Unavailable",
                                         "login worker unavailable");
     }
+    xTaskNotifyGive(s_auth_login_task);
     xSemaphoreGive(s_auth_login_lock);
     cJSON_Delete(root);
     return auth_login_send_pending(req, job_id);

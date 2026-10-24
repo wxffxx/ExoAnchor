@@ -158,6 +158,12 @@ if [[ "$PROFILE" == "dev" && "$SILICON" == "esp32p4-rev3" ]] ||
   H264_BUILD=1
   DEFAULTS="${DEFAULTS};configs/profiles/sdkconfig.defaults.dev-h264"
 fi
+# Optional extra defaults for local bench builds, e.g.
+#   SI_EXTRA_SDKCONFIG_DEFAULTS=configs/features/sdkconfig.defaults.lan-test-noauth
+if [[ -n "${SI_EXTRA_SDKCONFIG_DEFAULTS:-}" ]]; then
+  DEFAULTS="${DEFAULTS};${SI_EXTRA_SDKCONFIG_DEFAULTS}"
+  echo "[build-firmware] extra defaults: ${SI_EXTRA_SDKCONFIG_DEFAULTS}"
+fi
 
 if [[ "$REUSE_SDKCONFIG" -eq 0 ]]; then
   # sdkconfig is generated state, not an input to an official product build.

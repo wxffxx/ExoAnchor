@@ -12,7 +12,9 @@ import tempfile
 
 FIRMWARE = Path(__file__).resolve().parents[1]
 STUBS = {
-    "app_config.h": '#define SI_CFG_AUTH_USERNAME "admin"\n#define SI_CFG_AUTH_PASSWORD ""\n',
+    "app_config.h": '#define SI_CFG_AUTH_USERNAME "admin"\n#define SI_CFG_AUTH_PASSWORD ""\n'
+                    '#ifndef SI_CFG_AUTH_PASSWORD_PBKDF2\n#define SI_CFG_AUTH_PASSWORD_PBKDF2 0\n#endif\n'
+                    '#define SI_CFG_AUTH_DISABLED_FOR_LAN_TESTING 0\n',
     "esp_attr.h": "#define RTC_NOINIT_ATTR\n",
     "esp_random.h": "#include <stddef.h>\nvoid esp_fill_random(void *, size_t);\n#include <stdint.h>\nuint32_t esp_random(void);\n",
     "esp_timer.h": "#include <stdint.h>\nint64_t esp_timer_get_time(void);\n",
@@ -23,7 +25,12 @@ STUBS = {
     "freertos/FreeRTOS.h": "#pragma once\ntypedef void *SemaphoreHandle_t;\n#define pdTRUE 1\n#define portMAX_DELAY 0xffffffffU\n#define pdMS_TO_TICKS(x) (x)\n",
     "freertos/semphr.h": "#include \"FreeRTOS.h\"\nSemaphoreHandle_t xSemaphoreCreateMutex(void);\nint xSemaphoreTake(SemaphoreHandle_t, unsigned);\nvoid xSemaphoreGive(SemaphoreHandle_t);\n",
     "mbedtls/md.h": "#define MBEDTLS_MD_SHA256 1\n",
-    "mbedtls/sha256.h": "#include <stddef.h>\nint mbedtls_sha256(const unsigned char *, size_t, unsigned char *, int);\n",
+    "mbedtls/sha256.h": "#include <stddef.h>\n#include <openssl/evp.h>\ntypedef struct {EVP_MD_CTX *md;} mbedtls_sha256_context;\n"
+                        "int mbedtls_sha256(const unsigned char *, size_t, unsigned char *, int);\n"
+                        "void mbedtls_sha256_init(mbedtls_sha256_context *);\nvoid mbedtls_sha256_free(mbedtls_sha256_context *);\n"
+                        "int mbedtls_sha256_starts(mbedtls_sha256_context *, int);\n"
+                        "int mbedtls_sha256_update(mbedtls_sha256_context *, const unsigned char *, size_t);\n"
+                        "int mbedtls_sha256_finish(mbedtls_sha256_context *, unsigned char *);\n",
     "mbedtls/pkcs5.h": "#include <stddef.h>\n#include <stdint.h>\nint mbedtls_pkcs5_pbkdf2_hmac_ext(int, const uint8_t *, size_t, const uint8_t *, size_t, unsigned, unsigned, uint8_t *);\n",
 }
 MOCKS = r'''
@@ -56,6 +63,16 @@ void xSemaphoreGive(SemaphoreHandle_t p) {if(p)*(unsigned char *)p=0;}
 void si_session_settings_get(si_session_settings_t *s) {s->auto_logout_enabled=true;s->auto_logout_minutes=1;}
 bool si_control_lease_revoke_auth_session(const char *s,uint32_t g) {(void)s;(void)g;return 0;}
 int mbedtls_sha256(const unsigned char *p,size_t n,unsigned char *out,int mode) {(void)mode;return SHA256(p,n,out)?0:-1;}
+void mbedtls_sha256_init(mbedtls_sha256_context *c) {c->md=EVP_MD_CTX_new();}
+void mbedtls_sha256_free(mbedtls_sha256_context *c) {EVP_MD_CTX_free(c->md);c->md=NULL;}
+/* Only password derivation streams SHA-256, so it shares the KDF hooks. */
+int mbedtls_sha256_starts(mbedtls_sha256_context *c,int is224) {
+    (void)is224;kdf_calls++;
+    if (rotate_during_kdf) {rotate_during_kdf=false;assert(si_auth_security_commit(si_auth_credential_generation(),NULL,NULL)==ESP_OK);}
+    return c->md&&EVP_DigestInit_ex(c->md,EVP_sha256(),NULL)==1?0:-1;
+}
+int mbedtls_sha256_update(mbedtls_sha256_context *c,const unsigned char *p,size_t n) {return EVP_DigestUpdate(c->md,p,n)==1?0:-1;}
+int mbedtls_sha256_finish(mbedtls_sha256_context *c,unsigned char *out) {return EVP_DigestFinal_ex(c->md,out,NULL)==1?0:-1;}
 int mbedtls_pkcs5_pbkdf2_hmac_ext(int md,const uint8_t *p,size_t pn,const uint8_t *salt,size_t sn,unsigned iterations,unsigned n,uint8_t *out) {
     (void)md;kdf_calls++;
     if (rotate_during_kdf) {rotate_during_kdf=false;assert(si_auth_security_commit(si_auth_credential_generation(),NULL,NULL)==ESP_OK);}
@@ -103,6 +120,32 @@ int main(int argc,char **argv) {
     if(strcmp(argv[1],"read-failure")==0)storage_mode=1;
     if(strcmp(argv[1],"corrupt")==0)storage_mode=2;
     if(strcmp(argv[1],"save-failure")==0)storage_mode=3;
+#ifdef DEV_PROFILE
+    if(strcmp(argv[1],"stored-format")==0) {
+        /* A 60000-round PBKDF2 password from an earlier build still logs in
+         * and is re-stored in this build's configured format, without
+         * revoking sessions. */
+        strlcpy(stored_username,"owner",sizeof(stored_username));
+        strlcpy(stored_salt,"0102030405060708090a0b0c0d0e0f10",sizeof(stored_salt));
+        uint8_t salt[16],digest[32];assert(hex_to_bytes(stored_salt,16,salt));
+        mbedtls_pkcs5_pbkdf2_hmac_ext(1,(const uint8_t *)"persisted-password",18,salt,16,60000,32,digest);
+        bytes_to_hex(digest,32,stored_verifier,sizeof(stored_verifier));
+        stored_iterations=60000;stored_bootstrap=0;
+        assert(si_auth_initialize()==ESP_OK && !si_auth_setup_required());
+        uint32_t generation=si_auth_credential_generation();
+        assert(si_auth_credentials_match("owner","persisted-password"));
+        assert(stored_iterations==EXPECTED_ITERATIONS && si_auth_credential_generation()==generation);
+        assert(si_auth_credentials_match("owner","persisted-password"));
+        assert(!si_auth_credentials_match("owner","wrong-password"));
+        if(EXPECTED_ITERATIONS==1U){
+            /* Default format: SHA-256(salt || password) with a fresh salt. */
+            uint8_t raw[16+18],expect[32];char hex[65];assert(hex_to_bytes(stored_salt,16,raw));
+            memcpy(raw+16,"persisted-password",18);SHA256(raw,sizeof(raw),expect);
+            bytes_to_hex(expect,32,hex,sizeof(hex));assert(strcmp(hex,stored_verifier)==0);
+        }
+        return 0;
+    }
+#endif
     if(strcmp(argv[1],"persisted-bootstrap")==0 || strcmp(argv[1],"legacy")==0) {
         strlcpy(stored_username,"admin",sizeof(stored_username));
         if(strcmp(argv[1],"legacy")==0) {
@@ -139,6 +182,9 @@ int main(int argc,char **argv) {
     assert(si_auth_setup_required());
     assert(si_auth_setup_credentials("owner","browser-created-password",setup_generation)==ESP_OK);
     assert(!si_auth_setup_required() && !stored_bootstrap && !stored_setup);
+#ifdef DEV_PROFILE
+    assert(stored_iterations==EXPECTED_ITERATIONS);
+#endif
     s_loaded=false;
 #ifndef DEV_PROFILE
     s_initialized=false;
@@ -219,22 +265,31 @@ def main():
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content)
         idf = FIRMWARE / "v0.86.6-dev/tests/host/idf_stubs"
-        for version in ("v0.86-stable-kvm", "v0.86.6-dev"):
+        # The dev tree is built twice: default salted SHA-256 storage and the
+        # optional PBKDF2 hardening (CONFIG_SI_AUTH_PASSWORD_PBKDF2).
+        for variant in ("v0.86-stable-kvm", "v0.86.6-dev", "v0.86.6-dev+pbkdf2"):
+            version = variant.split("+")[0]
             main_dir = FIRMWARE / version / "main"
             source = tmp / "test.c"
             source.write_text(f'#include "{main_dir / "application/auth_service.c"}"\n' + MOCKS + CASES)
-            binary = tmp / ("auth-tests-" + version)
+            binary = tmp / ("auth-tests-" + variant)
             command = [os.environ.get("CC", "cc"), "-std=c11", "-D_DEFAULT_SOURCE", "-Wall", "-Wextra", "-Werror",
                        "-include", "stdio.h", "-include", "string.h", "-include", "esp_log.h", "-I" + str(tmp), "-I" + str(idf),
                        "-I" + str(main_dir / "core"), "-I" + str(main_dir / "infrastructure"),
                        str(source), str(main_dir / "infrastructure/secret_store.c"), *flags, "-o", str(binary)]
             if "dev" in version:
                 command.insert(1, "-DDEV_PROFILE")
+                hardened = variant.endswith("+pbkdf2")
+                command[2:2] = ["-DSI_CFG_AUTH_PASSWORD_PBKDF2=" + ("1" if hardened else "0"),
+                                "-DEXPECTED_ITERATIONS=" + ("60000U" if hardened else "1U")]
             subprocess.run(command, check=True)
-            for case in ("sessions", "read-failure", "corrupt", "save-failure", "persisted-bootstrap", "legacy"):
+            cases = ["sessions", "read-failure", "corrupt", "save-failure", "persisted-bootstrap", "legacy"]
+            if "dev" in version:
+                cases.append("stored-format")
+            for case in cases:
                 result = subprocess.run([str(binary), case], check=True, stdout=subprocess.PIPE)
                 assert result.stdout == b"", "auth service must not print initial credentials"
-            print(version + " auth state/security tests: PASS")
+            print(variant + " auth state/security tests: PASS")
 
 if __name__ == "__main__":
     main()

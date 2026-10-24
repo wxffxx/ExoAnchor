@@ -328,6 +328,30 @@ menu "SI ESP32-P4 Host Configuration"
             for controlled custom builds. Device control remains locked until the
             bootstrap password is replaced.
 
+    menu "Advanced security"
+
+        config SI_AUTH_PASSWORD_PBKDF2
+            bool "Harden stored passwords with PBKDF2-HMAC-SHA256 (60000 rounds)"
+            default n
+            help
+                Off (default): new passwords are stored as salted single-round
+                SHA-256, so login and first-run setup finish in about a second.
+                On: new passwords use PBKDF2-HMAC-SHA256 with 60000 rounds, which
+                makes offline guessing from a copied NVS far slower but makes every
+                login take tens of seconds on the ESP32-P4.
+                Either way an existing password is re-stored in the configured
+                format after its next successful login.
+
+        config SI_AUTH_DISABLED_FOR_LAN_TESTING
+            bool "Disable web/API login (bench testing on a trusted LAN only)"
+            default n
+            help
+                Every request is treated as an authenticated local browser, so
+                automated board tests can drive pages and APIs without a
+                password. Never enable this for a build that leaves the bench.
+
+    endmenu
+
     menu "ATX power control"
 
         config SI_POWER_ENABLE

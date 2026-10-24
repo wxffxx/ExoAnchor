@@ -225,8 +225,8 @@ def main() -> int:
         ),
         (
             "main/services/web/base_settings_http_module.inc",
-            "xTaskCreateWithCaps(auth_login_worker",
-            "password verification must use a PSRAM-backed worker",
+            "xTaskCreateStatic(\n            auth_login_worker",
+            "password verification must run on the boot-time static worker",
         ),
         (
             "main/services/ssh_client.c",
