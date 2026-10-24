@@ -62,6 +62,14 @@ static unsigned si_auth_login_retry_after_ms(void) {return 0;}
 static int xSemaphoreTake(void *p,unsigned n) {(void)p;(void)n;return pdTRUE;}
 static void xSemaphoreGive(void *p) {(void)p;}
 static void vTaskDeleteWithCaps(void *p) {(void)p;}
+/* Dev runs logins on a boot-time static worker; stub the task primitives. */
+typedef unsigned StackType_t;
+typedef struct {int unused;} StaticTask_t;
+typedef void *TaskHandle_t;
+#define portMAX_DELAY 0xffffffffu
+static unsigned ulTaskNotifyTake(int clear,unsigned wait) {(void)clear;(void)wait;return 1;}
+static void xTaskNotifyGive(TaskHandle_t t) {(void)t;}
+static TaskHandle_t xTaskCreateStatic(void (*fn)(void *),const char *name,unsigned n,void *arg,unsigned pri,StackType_t *stack,StaticTask_t *tcb) {(void)fn;(void)name;(void)n;(void)arg;(void)pri;(void)stack;(void)tcb;return (TaskHandle_t)1;}
 static int xTaskCreateWithCaps(void (*fn)(void *),const char *name,unsigned n,void *arg,unsigned pri,void *out,unsigned caps) {(void)fn;(void)name;(void)n;(void)arg;(void)pri;(void)out;(void)caps;return pdPASS;}
 static bool auth_request_is_mcp(httpd_req_t *r) {(void)r;return mcp;}
 static void auth_login_job_make_id(char *id) {memset(id,'a',32);id[32]=0;}
@@ -176,8 +184,16 @@ def main():
             contents=path.read_text()
             types=contents[contents.index('typedef enum {\n    AUTH_LOGIN_JOB_IDLE'):contents.index('static bool auth_request_is_mcp')]
             code=PRELUDE+types
-            for name in ('auth_login_job_reset_locked','auth_login_job_expired_locked','auth_client_time','auth_login_worker','auth_login_handler','auth_login_status_handler'):
+            # Dev processes one job per auth_login_process_job() call inside a
+            # permanent worker loop; drive that step directly.
+            static_worker='static void auth_login_process_job(void)' in contents
+            worker=('auth_login_process_job',) if static_worker else ('auth_login_worker',)
+            for name in ('auth_login_job_reset_locked','auth_login_job_expired_locked','auth_client_time')+worker+('auth_login_handler','auth_login_status_handler'):
                 code+=extract(path,name)
+            if static_worker:
+                code+='#define auth_login_worker(arg) auth_login_process_job()\n'
+                # The handler refuses jobs until the boot-time worker exists.
+                code+='__attribute__((constructor)) static void start_login_worker(void) {s_auth_login_task=(TaskHandle_t)1;}\n'
             c=tmp/'test.c';c.write_text(code+CASES);binary=tmp/'test'
             subprocess.run(['cc','-std=c11','-I'+str(vendor),str(c),str(vendor/'cJSON.c'),'-o',str(binary)],check=True)
             print(profile,flush=True);subprocess.run([str(binary)],check=True)

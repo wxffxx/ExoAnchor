@@ -598,6 +598,7 @@ esp_err_t si_web_server_start(void)
         ((uint64_t)esp_random() << 32U) | (uint64_t)esp_random();
     register_diagnostics_backend();
     ESP_RETURN_ON_ERROR(auth_http_initialize(), TAG, "initialize login service");
+    ESP_RETURN_ON_ERROR(auth_login_worker_start(), TAG, "start login worker"); /* Dev-only */
     ESP_RETURN_ON_ERROR(init_http_worker_slots(), TAG,
                         "create HTTP worker slots");
     ota_settings_load();
