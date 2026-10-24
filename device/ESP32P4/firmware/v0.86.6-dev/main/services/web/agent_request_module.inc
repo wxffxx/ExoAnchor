@@ -1247,8 +1247,17 @@ static char *agent_build_continue_request(const char *provider,
         image_b64 && image_b64[0] ? "fresh frame attached" :
         screenshot_error && screenshot_error[0] ?
         screenshot_error : "not attached";
+    /* A steer is otherwise buried inside the accumulated run JSON, and the
+     * model tended to ignore it; surface it next to the original task. */
+    const cJSON *steer_item = cJSON_GetObjectItemCaseSensitive(run_resp, "steer");
+    const cJSON *steer_message =
+        cJSON_GetObjectItemCaseSensitive(steer_item, "message");
+    const char *steer_text = cJSON_IsString(steer_message) &&
+                             steer_message->valuestring[0] ?
+                             steer_message->valuestring : NULL;
     size_t prompt_size = strlen(message ? message : "") + strlen(state_json) +
-                         strlen(screenshot_status) + 1320;
+                         strlen(screenshot_status) +
+                         (steer_text ? strlen(steer_text) : 0U) + 1400;
     char *prompt = agent_alloc(prompt_size);
     if (!prompt) {
         free(state_json);
@@ -1256,11 +1265,13 @@ static char *agent_build_continue_request(const char *provider,
         return NULL;
     }
     snprintf(prompt, prompt_size,
-             "原始用户任务: %s\nRouter: route=%s intent=%s prompt_profile=%s confidence=%d max_tool_loops=%d\n"
+             "原始用户任务: %s\n%s%s%sRouter: route=%s intent=%s prompt_profile=%s confidence=%d max_tool_loops=%d\n"
              "当前控制模式: %s\n执行策略: %s\nSSH target: %s\nConsole credential: %s\nWeb search: %s\nKVM screenshot: %s\n"
              "当前是第 %d 轮工具规划。下面是目前累计的 Agent run JSON，包含已执行的 tool_results/results。"
              "请判断任务是否完成；如果未完成，继续输出下一批具体 tool_calls。\n%s",
              message ? message : "",
+             steer_text ? "用户补充要求（必须在本轮及最终回复中遵守）: " : "",
+             steer_text ? steer_text : "", steer_text ? "\n" : "",
              route && route->name ? route->name : "chat",
              route && route->intent ? route->intent : "",
              route && route->prompt_profile ? route->prompt_profile : "",

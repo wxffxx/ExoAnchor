@@ -256,8 +256,10 @@ _Static_assert(CONFIG_LWIP_MAX_SOCKETS >= SI_HTTP_SOCKET_BUDGET_REQUIRED,
 #define AGENT_PAGE_CONTEXT_ITEM_MAX 8
 #define AGENT_PAGE_CONTEXT_LABEL_MAX_LEN 64
 #define AGENT_PAGE_CONTEXT_VALUE_MAX_LEN 384
-#define AGENT_RUN_TASK_STACK 24576
-#define AGENT_RUN_TASK_MEMORY_CAPS (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+#define AGENT_RUN_TASK_STACK 40960 /* 24 KiB left 2 KiB after one tool + report */
+/* PSRAM stack: a 24 KiB internal block is rarely free on Dev H.264. Its NVS and
+ * otadata reads go through the internal-stack flash_access proxy. */
+#define AGENT_RUN_TASK_MEMORY_CAPS (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
 #define HID_WS_MAX_FRAME 1024
 #define HID_ACTIONS_MAX_BODY 4096
 #define HID_ACTIONS_MAX_ITEMS 64

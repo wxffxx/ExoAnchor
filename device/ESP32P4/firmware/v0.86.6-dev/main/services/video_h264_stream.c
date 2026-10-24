@@ -68,8 +68,11 @@
 #define SI_H264_RESOURCE_CLAIM_WAIT_MS 250U
 #define SI_H264_ENCODER_INTERNAL_MIN_FREE (24U * 1024U)
 #define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (18U * 1024U)
-#define SI_AGENT_EXECUTOR_INTERNAL_MIN_FREE (48U * 1024U)
-#define SI_AGENT_EXECUTOR_INTERNAL_MIN_LARGEST (26U * 1024U)
+/* The Agent run stack lives in PSRAM; internal RAM only has to cover its
+ * TCB, short-lived small allocations (HTTP client, semaphores) and headroom
+ * for the HTTPS servers while it runs. */
+#define SI_AGENT_EXECUTOR_INTERNAL_MIN_FREE (20U * 1024U)
+#define SI_AGENT_EXECUTOR_INTERNAL_MIN_LARGEST (6U * 1024U)
 #define SI_H264_MAX_JPEG_INPUT_SIZE                                      \
     ((size_t)SI_CFG_VIDEO_WIDTH * (size_t)SI_CFG_VIDEO_HEIGHT * 2U)
 

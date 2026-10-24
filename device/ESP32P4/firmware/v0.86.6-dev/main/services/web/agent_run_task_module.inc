@@ -503,6 +503,12 @@ static void agent_run_task(void *arg)
     xSemaphoreGive(s_agent_run_lock);
     ESP_LOGI(TAG, "Agent run task internal stack high-water=%u",
              (unsigned)uxTaskGetStackHighWaterMark(NULL));
+    {
+        char line[80];
+        snprintf(line, sizeof(line), "Agent run stack free minimum=%u bytes",
+                 (unsigned)uxTaskGetStackHighWaterMark(NULL));
+        si_web_log("INFO", line);
+    }
     agent_run_task_arg_free(run);
     vTaskDeleteWithCaps(NULL);
 }
@@ -718,8 +724,20 @@ static esp_err_t agent_run_launch_execution(
     esp_err_t resource_ret =
         si_h264_stream_claim_agent_resources(&resource_token);
     if (resource_ret != ESP_OK) {
-        const char *failure =
-            "H.264 codec is active or releasing resources; retry Agent run";
+        char failure[128];
+        if (resource_ret == ESP_ERR_NO_MEM) {
+            snprintf(failure, sizeof(failure),
+                     "internal RAM too low for Agent run (free=%u largest=%u)",
+                     (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL |
+                                                       MALLOC_CAP_8BIT),
+                     (unsigned)heap_caps_get_largest_free_block(
+                         MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+        } else {
+            strlcpy(failure,
+                    "H.264 codec is active or releasing resources; retry Agent run",
+                    sizeof(failure));
+        }
+        si_web_log("WARN", failure);
         if (err && err_size > 0) {
             strlcpy(err, failure, err_size);
         }
@@ -814,7 +832,7 @@ static esp_err_t agent_run_launch_execution(
             AGENT_RUN_TASK_MEMORY_CAPS);
         if (ok != pdPASS) {
             const char *failure =
-                "create agent run task failed (internal stack unavailable)";
+                "create agent run task failed (stack unavailable)";
             s_agent_run_job.task = NULL;
             (void)agent_run_terminalize_launch_failure_locked(
                 launch_job_id, failure);
@@ -831,6 +849,13 @@ static esp_err_t agent_run_launch_execution(
             return ESP_ERR_NO_MEM;
         }
         xSemaphoreGive(s_agent_run_lock);
+        {
+            char line[112];
+            snprintf(line, sizeof(line),
+                     "Agent executor started internal_free=%u largest=%u",
+                     (unsigned)internal_free, (unsigned)internal_largest);
+            si_web_log("INFO", line);
+        }
         ESP_LOGI(TAG,
                  "Agent executor started run=%s stack=%u internal_free=%u "
                  "internal_largest=%u psram_free=%u",

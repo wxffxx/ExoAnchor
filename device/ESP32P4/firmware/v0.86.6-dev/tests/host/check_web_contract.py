@@ -1113,22 +1113,25 @@ def main() -> int:
             failures.append(f"Agent execution Guard contract missing {marker}")
     web_server_text = WEB_SERVER.read_text(encoding="utf-8")
     agent_run_engine_text = AGENT_RUN_ENGINE.read_text(encoding="utf-8")
-    if (
-        "#define AGENT_RUN_TASK_MEMORY_CAPS "
-        "(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)"
-        not in web_server_text
-    ):
-        failures.append("Agent run task cache-safe internal capability contract is missing")
+    # The run stack may live in PSRAM only because every flash access from it
+    # is routed through the internal-stack flash_access proxy.
     if (
         "#define AGENT_RUN_TASK_MEMORY_CAPS "
         "(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)"
-        in web_server_text
+        not in web_server_text
     ):
-        failures.append("Agent run task stack must not use cache-disabled PSRAM")
-    if "#define AGENT_RUN_TASK_STACK 24576" not in web_server_text:
-        failures.append(
-            "Agent run task internal stack must fit the V2.4 live largest-block gate"
-        )
+        failures.append("Agent run task PSRAM stack capability contract is missing")
+    settings_store_text = (
+        PROJECT_DIR / "main/infrastructure/settings_store.c"
+    ).read_text(encoding="utf-8")
+    observation_text = (
+        PROJECT_DIR / "main/application/device_observation_service.c"
+    ).read_text(encoding="utf-8")
+    if "si_flash_access_call(" not in settings_store_text or \
+            "si_flash_access_call(" not in observation_text:
+        failures.append("PSRAM-stack Agent runs need flash access routed through the proxy")
+    if "#define AGENT_RUN_TASK_STACK 40960" not in web_server_text:
+        failures.append("Agent run task stack size changed without review")
     for forbidden in (
         "char latest_message[AGENT_HISTORY_CONTENT_STORE_MAX + 1]",
         "char report_message[AGENT_HISTORY_CONTENT_STORE_MAX + 1]",
