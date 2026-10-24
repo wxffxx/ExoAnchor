@@ -24,6 +24,8 @@ static void add_session_settings_json(cJSON *root)
     cJSON_AddBoolToObject(root, "stored_in_nvs", true);
 }
 
+#define EMBEDDED_ASSET_CHUNK_BYTES 16384U
+
 static esp_err_t send_embedded_asset(httpd_req_t *req, const char *type,
                                      const uint8_t *start, const uint8_t *end)
 {
@@ -55,7 +57,23 @@ static esp_err_t send_embedded_asset(httpd_req_t *req, const char *type,
             return httpd_resp_send(req, NULL, 0);
         }
     }
-    return httpd_resp_send(req, (const char *)start, len);
+    if (len <= EMBEDDED_ASSET_CHUNK_BYTES) {
+        return httpd_resp_send(req, (const char *)start, len);
+    }
+    /* Every page and API shares one httpd task, and TLS encryption is CPU
+     * bound. Send large pages in chunks and yield in between so the idle
+     * task (and the task watchdog) keep running. */
+    for (size_t sent = 0; sent < len; sent += EMBEDDED_ASSET_CHUNK_BYTES) {
+        size_t chunk = len - sent < EMBEDDED_ASSET_CHUNK_BYTES ?
+                       len - sent : EMBEDDED_ASSET_CHUNK_BYTES;
+        esp_err_t ret = httpd_resp_send_chunk(
+            req, (const char *)start + sent, (ssize_t)chunk);
+        if (ret != ESP_OK) {
+            return ret;
+        }
+        vTaskDelay(1);
+    }
+    return httpd_resp_send_chunk(req, NULL, 0);
 }
 
 static esp_err_t send_embedded_html(httpd_req_t *req, const uint8_t *start, const uint8_t *end)

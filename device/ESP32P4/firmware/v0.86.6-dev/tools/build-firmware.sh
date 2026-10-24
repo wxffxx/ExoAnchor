@@ -233,7 +233,7 @@ if [[ "$PROFILE" == "dev" ]] &&
 fi
 if [[ "$PROFILE" == "dev" ]]; then
   for expected_agent_tls_config in \
-    'CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC=y' \
+    'CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y' \
     'CONFIG_MBEDTLS_DYNAMIC_BUFFER=y' \
     'CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=16384' \
     'CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048' \

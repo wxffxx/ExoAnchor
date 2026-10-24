@@ -698,6 +698,10 @@ static esp_err_t stream_handler(httpd_req_t *req)
         }
         last_frame_id = frame_id;
         last_frame_tick = xTaskGetTickCount();
+        /* Software AES-GCM makes one HTTPS frame slower than the frame
+         * interval, so the pacing delay above never runs and IDLE0 starved
+         * past the task watchdog. Always give up the CPU once per frame. */
+        vTaskDelay(1);
         if (!agent_stream) {
             si_video_stream_metrics_record(
                 stream_id, (size_t)header_len + jpeg_len + 2U,

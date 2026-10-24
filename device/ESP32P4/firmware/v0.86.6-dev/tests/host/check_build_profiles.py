@@ -166,14 +166,14 @@ stable_defaults = (ROOT / "configs/profiles/sdkconfig.defaults.stable").read_tex
 require(dev_defaults, "CONFIG_SI_UART_TERMINAL=y", "Dev UART Terminal default")
 for fragment in (
     "# CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC is not set",
-    "CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC=y",
+    "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y",
     "CONFIG_MBEDTLS_DYNAMIC_BUFFER=y",
     "CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048",
     "# CONFIG_MBEDTLS_HARDWARE_AES is not set",
 ):
     require(dev_defaults, fragment, "Dev embedded Agent TLS memory contract")
 for fragment in (
-    "CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC=y",
+    "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y",
     "CONFIG_MBEDTLS_DYNAMIC_BUFFER=y",
     "CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=16384",
     "CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048",

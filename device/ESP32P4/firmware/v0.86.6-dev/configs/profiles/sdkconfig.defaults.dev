@@ -11,7 +11,13 @@ CONFIG_SI_UART_TERMINAL=y
 # Dynamic records are allocated only while needed. A 2 KiB TX record is safe
 # because esp-tls fragments larger writes before passing them to mbedTLS.
 # CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC is not set
-CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC=y
+# CONFIG_MBEDTLS_DEFAULT_MEM_ALLOC is not set
+# On a V2.4 board the Dev H.264 image idles with ~2.5 KB of internal heap
+# left. Default mode still put every sub-4 KiB TLS allocation (contexts,
+# handshake state, bignums) there, so a browser opening several HTTPS
+# connections exhausted it and newlib lock creation aborted. Keep all mbedTLS
+# allocations in PSRAM; it has >16 MB free.
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
 CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
 CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048
 
@@ -21,3 +27,11 @@ CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048
 # ordinary internal metrics look healthy. Keep Dev on software AES/GCM;
 # Stable/production profiles retain independent crypto configuration.
 # CONFIG_MBEDTLS_HARDWARE_AES is not set
+
+# Without AES hardware, software GHASH made AES-GCM so slow that encrypting a
+# page burst kept the single httpd task busy past the 5 s task watchdog.
+# mbedTLS prefers ChaCha20-Poly1305 by default, which needs no DMA memory and
+# is several times faster in software, so browsers negotiate it automatically.
+CONFIG_MBEDTLS_POLY1305_C=y
+CONFIG_MBEDTLS_CHACHA20_C=y
+CONFIG_MBEDTLS_CHACHAPOLY_C=y
