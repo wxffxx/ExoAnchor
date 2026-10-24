@@ -41,9 +41,9 @@ UART 写入命令、HTTP 写入接口或 EEPROM 模拟器。物理 AT24C16 的�
 
 ## Settings 能力显隐
 
-- 使用 0.87.5 产品 Settings 的业务分组和独立“高级设置”入口；不恢复旧的
-  “产品功能”总开关或卡片标题状态徽标。
-- MS2109 正常电源控制按 `ms2109_power` capability 显示在高级设置；EEPROM
+- 使用 Settings 的三组八页结构（被控端 / 本设备 / 维护），只读诊断集中在
+  「状态与诊断」；不恢复旧的“产品功能”总开关或卡片标题状态徽标。
+- MS2109 正常电源控制按 `ms2109_power` capability 显示在「设备与视频 → 视频运行」；EEPROM
   名称、读取、编程、上传和 API 均不得出现在产品 Settings。
 - Locator 亮灭只在 Overview。方向反转仅在设备报告双 GPIO Locator capability
   时显示；本 profile 的 `return_gpio=-1`，因此该设置在 V2.4 上完全隐藏。

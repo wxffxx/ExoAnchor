@@ -635,21 +635,21 @@ def main() -> int:
             failures.append(f"Settings dual tool access UI missing {marker}")
     if 'addEventListener("scroll",updateSettingsMenu' in settings_text:
         failures.append("settings page still resets navigation state on every scroll")
-    for section in ("target-info", "target", "kvm", "remote", "device", "agent", "storage", "diagnostics", "security", "system", "advanced", "gpio"):
+    for section in ("target-info", "target", "kvm", "remote", "device", "agent", "storage", "diagnostics", "security", "system", "status", "advanced", "gpio"):
         if f'id="{section}"' not in settings_text:
             failures.append(f"settings information architecture missing section {section}")
     for marker in (
-        'href="#target-info" data-scope="target"><b>被控端信息</b><small>身份、配置、用途与备注',
-        'href="#target" data-scope="target"><b>被控端访问</b><small>Console 与 SSH',
-        'href="#device" data-scope="device"><b>设备与网络</b><small>设备、KVM、HID 与诊断',
-        'href="#security"><b>账户与安全</b><small>本地账户和会话策略',
-        'href="#agent"><b id="automationMenuTitle">集成与权限</b>',
-        'href="#system"><b>系统与支持</b><small>远程更新与版本维护',
-        'href="#advanced"><b>高级设置</b><small>硬件、存储、诊断与恢复',
-        'id="remote" class="settings-subsection-title anchor-target" data-settings-section="target"><span>SSH 维护接入',
-        'const SETTINGS_IDS=["target-info","target","device","security","agent","system","advanced"]',
-        'id="advancedSettings" data-settings-section="advanced"',
-        '.account-grid,.hardware-grid,.storage-grid,.kvm-grid,.control-grid,.agent-grid,.firmware-grid,.diagnostic-grid{grid-template-columns:minmax(0,1fr)}',
+        'href="#target-info" data-scope="target"><b>被控端信息</b>',
+        'href="#target" data-scope="target"><b>被控端访问</b>',
+        'href="#device" data-scope="device"><b>设备与视频</b>',
+        'href="#security" data-scope="device"><b>账户与安全</b>',
+        'href="#agent" data-scope="device"><b id="automationMenuTitle">AI 与集成</b>',
+        'href="#system" data-scope="maintenance"><b>系统维护</b>',
+        'href="#status" data-scope="maintenance"><b>状态与诊断</b>',
+        'href="#advanced" data-scope="maintenance"><b>高级</b>',
+        '<h3 id="remote" class="settings-subhead anchor-target">SSH 维护接入</h3>',
+        'const SETTINGS_IDS=["target-info","target","device","security","agent","system","status","advanced"]',
+        'id="advancedSettings" class="settings-page" data-settings-section="advanced"',
     ):
         if marker not in settings_text:
             failures.append(f"settings target/device boundary missing {marker}")
@@ -671,17 +671,19 @@ def main() -> int:
         if marker not in settings_text:
             failures.append(f"target profile / Agent identity UI missing {marker}")
     for marker in (
-        "<h2>GPIO 映射</h2>",
-        '<span>只读 GPIO 矩阵</span>',
+        '<h3 id="gpio" class="settings-subhead anchor-target">GPIO 映射</h3>',
+        '<h3 id="gpioMatrix" class="settings-subhead anchor-target">GPIO 占用</h3>',
         "function fixedGpioSet()",
         "<b>Locator LED 方向反转</b>",
-        "<h3>Control and sensing</h3>",
         "gpioMatrixSummary.textContent=",
     ):
         if marker not in settings_text:
             failures.append(f"GPIO mapping/reservation UI missing {marker}")
-    if 'id="gpioMatrix" class="section-title anchor-target" data-settings-section="device" data-settings-priority="90"' not in settings_text:
-        failures.append("read-only GPIO matrix must be the final Device Settings group")
+    status_page = settings_text.find('data-settings-section="status"')
+    advanced_page = settings_text.find('data-settings-section="advanced"', status_page)
+    gpio_matrix = settings_text.find('id="gpioMatrix"')
+    if not (0 <= status_page < gpio_matrix < advanced_page):
+        failures.append("read-only GPIO matrix must live on the Status page")
     for removed in (
         "Reserved GPIO",
         "Reserve GPIO 1",
@@ -741,12 +743,11 @@ def main() -> int:
         if marker not in settings_text:
             failures.append(f"settings diagnostics section missing {marker}")
     device_summary_start = settings_text.find('id="deviceDiagnosticsSummary"')
-    target_start = settings_text.find('id="target-info"')
     detailed_logs = settings_text.find('id="diagnosticLogs"')
-    if not (0 <= device_summary_start < target_start):
-        failures.append("device diagnostic summary is not owned by Device Settings")
-    if not (detailed_logs >= 0 and settings_text.rfind('data-settings-section="advanced"', 0, detailed_logs) >= 0):
-        failures.append("detailed logs are not retained in Advanced Settings")
+    for name, position in (("diagnostic summary", device_summary_start), ("detailed logs", detailed_logs)):
+        owner = settings_text.rfind('data-settings-section="', 0, position)
+        if position < 0 or not settings_text.startswith('data-settings-section="status"', owner):
+            failures.append(f"{name} is not owned by the read-only Status page")
 
     overview_text = (WWW_DIR / "index.html").read_text(encoding="utf-8")
     for marker in ('>System DashBoard<', 'class="identity-action"', 'class="power-circle"', 'class="reset-circle"', 'id="holdPowerBtn"', 'class="hold-power-circle"', 'id="locatorToggle"', 'setLocatorEnabled(', 'powerAction("force_off")'):
@@ -1329,7 +1330,7 @@ def main() -> int:
         'function renderGpioMatrix(power)',
         'capabilities.gpio_matrix||lastGpioMatrix',
         '当前固件未分配',
-        '<h2>GPIO 映射</h2>',
+        'GPIO 映射</h3>',
     ):
         if marker not in settings_text:
             failures.append(f"settings GPIO matrix component missing {marker}")
@@ -2208,12 +2209,15 @@ def main() -> int:
         'SettingsDirty.register("device",deviceForm)',
         'SettingsDirty.register("agent_tools"',
         'window.addEventListener("beforeunload"',
-        'SettingsDirty.captureAll();',
         'field.type==="checkbox"||field.type==="radio"',
-        '!["password","file"].includes(field.type)',
+        'baseValue(field){return field.type==="password"?"":this.value(field)}',
+        'field.type!=="file"',
+        "const SettingsSave={",
+        "const SETTINGS_SAVERS={",
+        'id="settingsSaveBar"',
     ):
         if marker not in settings_text:
-            failures.append(f"Settings non-secret dirty-state model missing {marker}")
+            failures.append(f"Settings save-bar dirty-state model missing {marker}")
     page_context_markers = {
         "index.html": 'UI.pageContext.register("overview"',
         "kvm.html": 'UI.pageContext.register("kvm"',

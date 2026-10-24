@@ -53,23 +53,26 @@ vm.runInNewContext(`
 const router = routingContext.contract;
 assert.deepEqual(
   Array.from(router.SETTINGS_IDS),
-  ["target-info", "target", "device", "security", "agent", "system", "advanced"],
-  "Settings must expose exactly the seven product sections",
+  ["target-info", "target", "device", "security", "agent", "system", "status", "advanced"],
+  "Settings must expose exactly the eight product pages",
 );
 for (const section of router.SETTINGS_IDS) {
   assert.equal(router.settingsId(section), section, `route ${section} must be stable`);
 }
-for (const legacy of ["storage", "storage-management", "diagnostics",
-                      "gpio", "hardware",
-                      "firmware-maintenance", "advanced-settings", "developer",
-                      "developer-settings"]) {
-  assert.equal(router.settingsId(legacy), "advanced",
-    `legacy route ${legacy} must land in top-level Advanced Settings`);
-}
-for (const deviceRoute of ["diagnostic", "device-diagnostics", "gpio-matrix",
-                           "kvm", "kvm-video", "ms", "ms2109"]) {
-  assert.equal(router.settingsId(deviceRoute), "device",
-    `audited device route ${deviceRoute} must land in Device Settings`);
+const legacyRoutes = {
+  system: ["storage", "storage-management", "firmware", "firmware-maintenance", "ota", "reset"],
+  status: ["diagnostic", "diagnostics", "device-diagnostics", "deviceDiagnostics",
+           "logs", "gpio-matrix", "gpioMatrix"],
+  advanced: ["gpio", "advanced-settings", "developer", "developer-settings"],
+  device: ["hardware", "kvm", "kvm-video", "ms", "ms2109", "network", "networkSettings",
+           "general", "overview"],
+  target: ["console", "remote", "target-host", "control-access"],
+  agent: ["mcp", "skills", "embeddedAgent"],
+};
+for (const [page, routes] of Object.entries(legacyRoutes)) {
+  for (const route of routes) {
+    assert.equal(router.settingsId(route), page, `deep link #${route} must land on ${page}`);
+  }
 }
 assert.equal(router.settingsId("target-profile"), "target-info");
 assert.equal(router.settingsId("unknown-route"), "device");
@@ -245,3 +248,59 @@ assert.equal(deviceHardwareContext.powerResetSwapRow.hidden, true,
   "boards without two valid button mappings must fail closed");
 
 console.log("Settings review runtime contract: PASS");
+
+// Page save model: secrets never enter the baseline, restore puts the last
+// saved values back, and sync only adopts server values while unedited.
+{
+  const start = source.indexOf("const SettingsDirty={");
+  const end = source.indexOf("\nSettingsDirty.register(", start);
+  assert.ok(start >= 0 && end > start, "missing SettingsDirty");
+  const context = {};
+  vm.runInNewContext(`${source.slice(start, end)}\nglobalThis.dirty = SettingsDirty;`, context);
+  const dirty = context.dirty;
+  const field = (type, value) => ({
+    type, value, checked: false, disabled: false, dataset: {},
+    classList: { set: new Set(), toggle(name, on) { on ? this.set.add(name) : this.set.delete(name); },
+      remove(name) { this.set.delete(name); }, contains(name) { return this.set.has(name); } },
+  });
+  const name = field("text", "ExoAnchor");
+  const secret = field("password", "");
+  const toggle = field("checkbox", "");
+  const root = {
+    classList: { set: new Set(), toggle(c, on) { on ? this.set.add(c) : this.set.delete(c); },
+      remove(c) { this.set.delete(c); }, contains(c) { return this.set.has(c); } },
+    querySelectorAll: () => [name, secret, toggle],
+    contains: candidate => [name, secret, toggle].includes(candidate),
+  };
+  let changes = 0;
+  dirty.onChange = () => { changes += 1; };
+  dirty.register("ssh_target", root);
+  dirty.capture("ssh_target");
+  assert.equal(dirty.isDirty("ssh_target"), false);
+
+  secret.value = "hunter22";
+  dirty.updateField(secret);
+  assert.equal(dirty.isDirty("ssh_target"), true, "typing a secret is an unsaved edit");
+  assert.ok(![...dirty.baselines.get("ssh_target").values()].includes("hunter22"),
+    "secrets must never be stored in the dirty baseline");
+
+  name.value = "renamed";
+  toggle.checked = true;
+  dirty.updateField(name);
+  assert.deepEqual(Array.from(dirty.dirtyNames()), ["ssh_target"]);
+  dirty.restore("ssh_target");
+  assert.equal(name.value, "ExoAnchor", "discard restores the saved text");
+  assert.equal(secret.value, "", "discard clears typed secrets");
+  assert.equal(toggle.checked, false, "discard restores switches");
+  assert.equal(dirty.isDirty("ssh_target"), false);
+  assert.ok(changes > 0, "dirty changes notify the save bar");
+
+  name.value = "server value";
+  dirty.sync("ssh_target");
+  assert.equal(dirty.isDirty("ssh_target"), false, "sync adopts server values while clean");
+  name.value = "user edit";
+  dirty.updateField(name);
+  dirty.sync("ssh_target");
+  assert.equal(dirty.isDirty("ssh_target"), true, "sync must not swallow a pending edit");
+}
+console.log("Settings save model runtime: PASS");
