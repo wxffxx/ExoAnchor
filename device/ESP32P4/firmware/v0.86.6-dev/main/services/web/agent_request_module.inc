@@ -1,22 +1,83 @@
 // Transitional Agent module: request building, cloud transport and model parsing. Shares the run context until its service API is finalized.
 #define AGENT_RUNTIME_V2_SHADOW_BINDING_ENABLED 1
 #define AGENT_RUNTIME_RECOVERY_RAM_ONLY 0
-#define AGENT_RUNTIME_MUTATION_ENABLED 0
 #define AGENT_SCREENSHOT_FIRST_FRAME_TIMEOUT_MS 6000U
 #define AGENT_SCREENSHOT_POLL_MS 100U
 
+static const char AGENT_RUNTIME_ADVICE_ONLY_PROMPT[] =
+    "ExoAnchor autonomy L0 (advice only): return JSON only with keys message, tool_calls, actions. "
+    "No device or target tool may run at this level. Answer from the conversation and the provided context, "
+    "explain what the user could do themselves, and always return tool_calls and actions as empty arrays.";
+
 static const char AGENT_RUNTIME_READONLY_TOOL_PROMPT[] =
-    "ExoAnchor Runtime V2 read-only cutover contract: return JSON only with keys message, tool_calls, actions. "
-    "The only callable tools are observe_status, observe_video_status, observe_hid_status, "
-    "console_login with stage=status, uart_status, uart_read, uart_auth for exact password prompts, web_search when effective=yes, and bounded wait. "
-    "SSH, screenshot capture, HID actions, power, manager plans, storage/history/memory, raw writes, approval, and all other tools are unavailable. "
-    "uart_auth is the only exact target-bound mutation in this compatibility surface; it submits a device-local credential without exposing it. "
-    "Never propose a hidden or unavailable tool, even in dry-run mode. Always return actions as an empty array.";
+    "ExoAnchor autonomy L1 (read-only assist): return JSON only with keys message, tool_calls, actions. "
+    "Callable tools: observe_status, observe_video_status, observe_hid_status, console_login with stage=status, "
+    "uart_status, uart_read, check_service {name}, verify_port {port}, web_search {query} when effective=yes, wait {ms}, ask_user {question}, "
+    "host_display and boot_key_sequence with operation observe|status|plan only, "
+    "and ssh_exec {command} restricted to plain read-only commands on the configured SSH target "
+    "(for example uname -a, uptime, df -h, free -m, cat /etc/os-release, systemctl status <unit>, journalctl -u <unit> -n 50 --no-pager, ps aux | grep <name>, ss -tlnp). "
+    "The device classifies every exact call; anything that writes, uses sudo, uses ; && > $( or reads credential files is rejected at this level, "
+    "so do not attempt it and never try to work around the classification. Always return actions as an empty array.";
 
 static const char *agent_runtime_tool_prompt(void)
 {
-    return AGENT_RUNTIME_MUTATION_ENABLED ?
-           AGENT_RUNTIME_TOOL_PROMPT : AGENT_RUNTIME_READONLY_TOOL_PROMPT;
+    switch (si_agent_autonomy_get()) {
+    case SI_AGENT_AUTONOMY_L0: return AGENT_RUNTIME_ADVICE_ONLY_PROMPT;
+    case SI_AGENT_AUTONOMY_L1: return AGENT_RUNTIME_READONLY_TOOL_PROMPT;
+    default: return AGENT_RUNTIME_TOOL_PROMPT;
+    }
+}
+
+/* Lowest action class a tool can have; the exact class of a call is decided
+ * at dispatch from its arguments. */
+static si_agent_action_class_t agent_tool_min_class(const char *name)
+{
+    static const char *const operate[] = {
+        "uart_write", "ensure_directory", "download_file", "write_file",
+        "power_action", NULL,
+    };
+    static const char *const system[] = {
+        "uart_auth", "uart_baud", "ensure_package", "ensure_user",
+        "ensure_systemd_service", NULL,
+    };
+    for (size_t i = 0; operate[i]; i++) {
+        if (strcmp(name, operate[i]) == 0) return SI_AGENT_ACTION_OPERATE;
+    }
+    for (size_t i = 0; system[i]; i++) {
+        if (strcmp(name, system[i]) == 0) return SI_AGENT_ACTION_SYSTEM;
+    }
+    return SI_AGENT_ACTION_READ;
+}
+
+static void agent_add_chat_text(cJSON *messages, const char *role,
+                                const char *text, size_t max_bytes);
+
+static void agent_add_autonomy_prompt(cJSON *messages)
+{
+    const si_agent_autonomy_level_t level = si_agent_autonomy_get();
+    static const char *const class_labels[] = {
+        "read", "operate (non-privileged changes)",
+        "system (sudo, services, packages, users, network, power/reset, serial auth)",
+        "irreversible (recursive delete, disk/partition/format, power-off)",
+    };
+    char text[640];
+    int used = snprintf(
+        text, sizeof(text),
+        "Agent autonomy level: %s. The device classifies each exact call into an action class and enforces this level; "
+        "a rejected call is final for this level, so adapt the plan instead of retrying variants.",
+        si_agent_autonomy_level_label(level));
+    for (int c = SI_AGENT_ACTION_READ;
+         c <= SI_AGENT_ACTION_IRREVERSIBLE && used > 0 &&
+         (size_t)used < sizeof(text); c++) {
+        const si_agent_action_class_t action_class = (si_agent_action_class_t)c;
+        used += snprintf(
+            text + used, sizeof(text) - (size_t)used, " %s: %s.",
+            class_labels[c],
+            !si_agent_autonomy_allows(level, action_class) ? "not allowed" :
+            si_agent_autonomy_auto_approves(level, action_class) ?
+            "runs automatically" : "each call waits for the user's approval");
+    }
+    agent_add_chat_text(messages, "system", text, 0);
 }
 
 static bool agent_run_control_point(const char *job_id);
@@ -707,32 +768,29 @@ static void agent_add_runtime_capability_snapshot(
         "memory_search", "history_search", "memory_write", "power_action",
         "wait", "ask_user",
     };
+    const si_agent_autonomy_level_t autonomy = si_agent_autonomy_get();
     cJSON *route_tools = cJSON_AddArrayToObject(snapshot, "route_tools");
     for (size_t i = 0;
          i < sizeof(tool_names) / sizeof(tool_names[0]); i++) {
-        bool recovery_available_tool =
-            strcmp(tool_names[i], "observe_status") == 0 ||
-            strcmp(tool_names[i], "observe_video_status") == 0 ||
-            strcmp(tool_names[i], "observe_hid_status") == 0 ||
-            strcmp(tool_names[i], "console_login") == 0 ||
-            strcmp(tool_names[i], "uart_status") == 0 ||
-            strcmp(tool_names[i], "uart_read") == 0 ||
-            strcmp(tool_names[i], "uart_auth") == 0 ||
-            strcmp(tool_names[i], "web_search") == 0 ||
-            strcmp(tool_names[i], "wait") == 0;
+        /* Storage-backed memory tools stay unadvertised until a bounded
+         * TF worker exists. */
+        bool level_available_tool =
+            strncmp(tool_names[i], "memory_", 7) != 0 &&
+            strcmp(tool_names[i], "history_search") != 0 &&
+            si_agent_autonomy_allows(autonomy,
+                                     agent_tool_min_class(tool_names[i]));
         si_capability_t required =
             agent_tool_required_runtime_capability(tool_names[i]);
-        if ((AGENT_RUNTIME_MUTATION_ENABLED ||
-             recovery_available_tool) &&
+        if (level_available_tool &&
             si_capability_set_has(source_capabilities, required) &&
             si_agent_route_allows_tool(route, tool_names[i])) {
             cJSON_AddItemToArray(route_tools,
                                  cJSON_CreateString(tool_names[i]));
         }
     }
-    cJSON_AddBoolToObject(snapshot, "hid_actions_route_allowed",
-                          AGENT_RUNTIME_MUTATION_ENABLED &&
-                          si_agent_route_allows_hid(route));
+    /* HID actions are not open to the embedded Agent at any level yet. */
+    cJSON_AddBoolToObject(snapshot, "hid_actions_route_allowed", false);
+    cJSON_AddNumberToObject(snapshot, "autonomy_level", autonomy);
 
     cJSON *video_json = cJSON_AddObjectToObject(snapshot, "video");
     cJSON_AddBoolToObject(video_json, "capture_capable",
@@ -837,6 +895,7 @@ static char *agent_build_chat_request(const char *provider, const char *model,
     cJSON_AddStringToObject(sys, "content", prompt_settings.system_prompt);
     cJSON_AddItemToArray(messages, sys);
     agent_add_chat_text(messages, "system", agent_runtime_tool_prompt(), 0);
+    agent_add_autonomy_prompt(messages);
     char tool_access_status[768];
     agent_build_tool_access_status(tool_access_status,
                                    sizeof(tool_access_status));
@@ -1049,6 +1108,7 @@ static char *agent_build_json_repair_request(const char *provider,
                         "如果要执行 SSH 或联网搜索，必须放在 tool_calls；不要只说正在执行。",
                         0);
     agent_add_chat_text(messages, "system", agent_runtime_tool_prompt(), 0);
+    agent_add_autonomy_prompt(messages);
     char tool_access_status[768];
     agent_build_tool_access_status(tool_access_status,
                                    sizeof(tool_access_status));
@@ -1150,6 +1210,7 @@ static char *agent_build_continue_request(const char *provider,
                         "\"actions\":[],\"done\":false}.",
                         0);
     agent_add_chat_text(messages, "system", agent_runtime_tool_prompt(), 0);
+    agent_add_autonomy_prompt(messages);
     char tool_access_status[768];
     agent_build_tool_access_status(tool_access_status,
                                    sizeof(tool_access_status));
@@ -1186,8 +1247,17 @@ static char *agent_build_continue_request(const char *provider,
         image_b64 && image_b64[0] ? "fresh frame attached" :
         screenshot_error && screenshot_error[0] ?
         screenshot_error : "not attached";
+    /* A steer is otherwise buried inside the accumulated run JSON, and the
+     * model tended to ignore it; surface it next to the original task. */
+    const cJSON *steer_item = cJSON_GetObjectItemCaseSensitive(run_resp, "steer");
+    const cJSON *steer_message =
+        cJSON_GetObjectItemCaseSensitive(steer_item, "message");
+    const char *steer_text = cJSON_IsString(steer_message) &&
+                             steer_message->valuestring[0] ?
+                             steer_message->valuestring : NULL;
     size_t prompt_size = strlen(message ? message : "") + strlen(state_json) +
-                         strlen(screenshot_status) + 1320;
+                         strlen(screenshot_status) +
+                         (steer_text ? strlen(steer_text) : 0U) + 1400;
     char *prompt = agent_alloc(prompt_size);
     if (!prompt) {
         free(state_json);
@@ -1195,11 +1265,13 @@ static char *agent_build_continue_request(const char *provider,
         return NULL;
     }
     snprintf(prompt, prompt_size,
-             "原始用户任务: %s\nRouter: route=%s intent=%s prompt_profile=%s confidence=%d max_tool_loops=%d\n"
+             "原始用户任务: %s\n%s%s%sRouter: route=%s intent=%s prompt_profile=%s confidence=%d max_tool_loops=%d\n"
              "当前控制模式: %s\n执行策略: %s\nSSH target: %s\nConsole credential: %s\nWeb search: %s\nKVM screenshot: %s\n"
              "当前是第 %d 轮工具规划。下面是目前累计的 Agent run JSON，包含已执行的 tool_results/results。"
              "请判断任务是否完成；如果未完成，继续输出下一批具体 tool_calls。\n%s",
              message ? message : "",
+             steer_text ? "用户补充要求（必须在本轮及最终回复中遵守）: " : "",
+             steer_text ? steer_text : "", steer_text ? "\n" : "",
              route && route->name ? route->name : "chat",
              route && route->intent ? route->intent : "",
              route && route->prompt_profile ? route->prompt_profile : "",

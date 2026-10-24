@@ -48,6 +48,17 @@ esp_err_t si_video_control_apply(void);
 esp_err_t si_video_control_set_suspended(bool suspended);
 esp_err_t si_video_control_set_h264_transport(bool active);
 
+/* Why the most recent KVM lease acquire was refused (diagnostics only). */
+typedef struct {
+    uint32_t requested;
+    uint32_t previous;
+    uint32_t current;
+    bool claim;
+    bool current_active;
+} si_video_control_kvm_reject_t;
+
+si_video_control_kvm_reject_t si_video_control_last_kvm_reject(void);
+
 bool si_video_control_acquire_kvm_stream_for_session(
     uint32_t stream_id, bool force, bool claim,
     uint32_t expected_previous_stream_id, const char *session_id,

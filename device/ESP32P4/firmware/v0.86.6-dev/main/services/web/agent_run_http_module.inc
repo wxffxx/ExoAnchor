@@ -330,19 +330,12 @@ static esp_err_t agent_run_steer_handler(httpd_req_t *req)
     }
     si_agent_task_service_snapshot_t *task_snapshot = NULL;
     if (active && run_id[0]) {
-        /* Task/Event journal I/O never runs under the Web Run lock. */
-        steer_ret = shadow_bound ?
-            si_agent_task_service_steer(run_id, message) : ESP_OK;
-        if (steer_ret == ESP_OK && shadow_bound) {
-            task_snapshot = agent_alloc(sizeof(*task_snapshot));
-            if (task_snapshot) {
-                memset(task_snapshot, 0, sizeof(*task_snapshot));
-                if (si_agent_task_service_snapshot(task_snapshot) != ESP_OK) {
-                    free(task_snapshot);
-                    task_snapshot = NULL;
-                }
-            }
-        }
+        /* The durable turn.steered transition clears the Task Plan, so it
+         * is applied by the executor at its next safe checkpoint, where it
+         * re-plans immediately. Applying it here invalidated the plan under
+         * a tool batch already in flight: every remaining call failed with
+         * "not bound to the active Task Plan step" and the run failed. */
+        steer_ret = ESP_OK;
         if (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(300)) == pdTRUE) {
             bool same_active =
                 strcmp(s_agent_run_job.job_id, run_id) == 0 &&
@@ -377,7 +370,7 @@ static esp_err_t agent_run_steer_handler(httpd_req_t *req)
                 strlcpy(
                     s_agent_run_job.detail,
                     shadow_bound ?
-                    "已持久记录补充要求；将在下一个安全检查点更新计划" :
+                    "已记录补充要求；将在下一个安全检查点持久化并更新计划" :
                     "Runtime V2 degraded；补充要求将在本地安全检查点生效",
                     sizeof(s_agent_run_job.detail));
                 accepted = true;
@@ -1301,20 +1294,9 @@ static void web_debug_agent_run_steer(const char *expected_run_id,
 
     si_agent_task_service_snapshot_t *task_snapshot = NULL;
     if (steer_ret == ESP_OK) {
-        /* Match the HTTP steer durability boundary without granting the
-         * diagnostics SYSTEM principal any approval authority. */
-        steer_ret = shadow_bound ?
-            si_agent_task_service_steer(expected_run_id, message) : ESP_OK;
-        if (steer_ret == ESP_OK && shadow_bound) {
-            task_snapshot = agent_alloc(sizeof(*task_snapshot));
-            if (task_snapshot) {
-                memset(task_snapshot, 0, sizeof(*task_snapshot));
-                if (si_agent_task_service_snapshot(task_snapshot) != ESP_OK) {
-                    free(task_snapshot);
-                    task_snapshot = NULL;
-                }
-            }
-        }
+        /* Same boundary as the HTTP steer: the executor applies the durable
+         * transition at its next safe checkpoint. */
+        steer_ret = ESP_OK;
         if (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(300)) == pdTRUE) {
             bool same_active =
                 strcmp(s_agent_run_job.job_id, expected_run_id) == 0 &&

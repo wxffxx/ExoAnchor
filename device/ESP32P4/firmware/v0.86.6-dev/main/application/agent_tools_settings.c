@@ -35,6 +35,7 @@ static bool s_tools_cache_ready;
 static uint32_t s_tools_policy_revision = 1U;
 static char s_tools_mode_cache[17] = "observe";
 static char s_agent_access_mode_cache[17] = "manual";
+static uint8_t s_agent_autonomy_cache = SI_AGENT_AUTONOMY_DEFAULT;
 static char s_tools_policy_cache[SI_AGENT_TOOLS_POLICY_MAX_LEN + 1U] =
     "{\"version\":2,\"tools\":{}}";
 static char s_tools_skills_cache[SI_AGENT_TOOLS_SKILLS_MAX_LEN + 1U] =
@@ -99,6 +100,23 @@ esp_err_t si_agent_tools_cache_init(void)
         ret = agent_tools_load_string_from_nvs(
             SI_AGENT_TOOLS_SKILLS_KEY, "{\"version\":1,\"skills\":{}}",
             s_tools_skills_cache, sizeof(s_tools_skills_cache));
+    }
+    if (ret == ESP_OK) {
+        si_settings_store_t store = SI_SETTINGS_STORE_INITIALIZER;
+        esp_err_t open_ret = si_settings_store_open_read(&store, NAMESPACE);
+        if (open_ret == ESP_OK) {
+            uint8_t level = SI_AGENT_AUTONOMY_DEFAULT;
+            esp_err_t get_ret = si_settings_store_get_u8(
+                &store, SI_AGENT_AUTONOMY_KEY, &level);
+            si_settings_store_close(&store);
+            if (get_ret == ESP_OK && si_agent_autonomy_level_valid(level)) {
+                s_agent_autonomy_cache = level;
+            } else if (get_ret != ESP_OK && get_ret != ESP_ERR_NOT_FOUND) {
+                ret = get_ret;
+            }
+        } else if (open_ret != ESP_ERR_NOT_FOUND) {
+            ret = open_ret;
+        }
     }
     if (ret == ESP_OK) s_tools_cache_ready = true;
     return ret;
@@ -165,6 +183,32 @@ esp_err_t si_agent_access_mode_set(si_agent_access_mode_t mode)
         xSemaphoreGive(s_tools_cache_lock);
     }
     if (ret == ESP_OK) agent_tools_policy_revision_bump();
+    return ret;
+}
+
+si_agent_autonomy_level_t si_agent_autonomy_get(void)
+{
+    uint8_t level = __atomic_load_n(&s_agent_autonomy_cache, __ATOMIC_ACQUIRE);
+    return si_agent_autonomy_level_valid(level) ?
+           (si_agent_autonomy_level_t)level : SI_AGENT_AUTONOMY_DEFAULT;
+}
+
+esp_err_t si_agent_autonomy_set(si_agent_autonomy_level_t level)
+{
+    if (!si_agent_autonomy_level_valid((int)level)) return ESP_ERR_INVALID_ARG;
+    si_settings_store_t store = SI_SETTINGS_STORE_INITIALIZER;
+    ESP_RETURN_ON_ERROR(
+        si_settings_store_open_write(&store, NAMESPACE), TAG,
+        "open settings store");
+    esp_err_t ret = si_settings_store_set_u8(
+        &store, SI_AGENT_AUTONOMY_KEY, (uint8_t)level);
+    if (ret == ESP_OK) ret = si_settings_store_commit(&store);
+    si_settings_store_close(&store);
+    if (ret == ESP_OK) {
+        __atomic_store_n(&s_agent_autonomy_cache, (uint8_t)level,
+                         __ATOMIC_RELEASE);
+        agent_tools_policy_revision_bump();
+    }
     return ret;
 }
 
@@ -432,6 +476,7 @@ esp_err_t si_agent_tools_update(const si_agent_tools_update_t *u)
 esp_err_t si_agent_tools_reset(void)
 {
     static const char *keys[] = {SI_AGENT_TOOLS_MODE_KEY, SI_AGENT_ACCESS_MODE_KEY,
+        SI_AGENT_AUTONOMY_KEY,
         SI_AGENT_TOOLS_POLICY_KEY,
         SI_AGENT_TOOLS_SKILLS_KEY, WEB_ENABLED_KEY, WEB_PROFILE_KEY, WEB_ENDPOINT_KEY,
         WEB_MODEL_KEY, WEB_SECRET_KEY, WEB_STRATEGY_KEY};
@@ -455,6 +500,8 @@ esp_err_t si_agent_tools_reset(void)
         strlcpy(s_tools_mode_cache, "observe", sizeof(s_tools_mode_cache));
         strlcpy(s_agent_access_mode_cache, "manual",
                 sizeof(s_agent_access_mode_cache));
+        __atomic_store_n(&s_agent_autonomy_cache,
+                         (uint8_t)SI_AGENT_AUTONOMY_DEFAULT, __ATOMIC_RELEASE);
         strlcpy(s_tools_policy_cache, "{\"version\":2,\"tools\":{}}",
                 sizeof(s_tools_policy_cache));
         strlcpy(s_tools_skills_cache, "{\"version\":1,\"skills\":{}}",

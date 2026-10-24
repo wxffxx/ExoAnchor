@@ -54,6 +54,7 @@ AGENT_TASK_SERVICE_TEST_BIN="$TEST_DIR/agent_task_service_test_bin"
 AGENT_TASK_CANCEL_GATE_TEST_BIN="$TEST_DIR/agent_task_cancel_gate_test_bin"
 AGENT_EXECUTION_GUARD_TEST_BIN="$TEST_DIR/agent_execution_guard_test_bin"
 AGENT_VERIFIER_TEST_BIN="$TEST_DIR/agent_verifier_test_bin"
+AGENT_AUTONOMY_TEST_BIN="$TEST_DIR/agent_autonomy_test_bin"
 AGENT_REQUEST_BROKER_TEST_BIN="$TEST_DIR/agent_request_broker_test_bin"
 AGENT_EVENT_STORE_TEST_BIN="$TEST_DIR/agent_event_store_test_bin"
 AGENT_HISTORY_WRITER_TEST_BIN="$TEST_DIR/agent_history_writer_test_bin"
@@ -101,6 +102,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
     -I"$PROJECT_DIR/main/infrastructure" \
     "$PROJECT_DIR/main/application/console_credentials.c" \
     "$PROJECT_DIR/main/core/hid_ascii.c" \
+    "$PROJECT_DIR/main/infrastructure/flash_access.c" \
     "$PROJECT_DIR/main/infrastructure/settings_store.c" \
     "$PROJECT_DIR/main/infrastructure/settings_schema.c" \
     "$PROJECT_DIR/main/infrastructure/secret_store.c" \
@@ -134,6 +136,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
     "$PROJECT_DIR/main/application/network_settings.c" \
     "$PROJECT_DIR/main/core/network_config.c" \
     "$PROJECT_DIR/main/core/product_identity.c" \
+    "$PROJECT_DIR/main/infrastructure/flash_access.c" \
     "$PROJECT_DIR/main/infrastructure/settings_store.c" \
     "$SCRIPT_DIR/test_network_settings.c" \
     -o "$NETWORK_SETTINGS_TEST_BIN"
@@ -342,6 +345,18 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
     -Wall \
     -Wextra \
     -Werror \
+    -I"$PROJECT_DIR/main/core" \
+    "$PROJECT_DIR/main/core/agent_autonomy.c" \
+    "$SCRIPT_DIR/test_agent_autonomy.c" \
+    -o "$AGENT_AUTONOMY_TEST_BIN"
+
+"$AGENT_AUTONOMY_TEST_BIN"
+
+"${CC:-cc}" \
+    -std=c11 -D_DEFAULT_SOURCE \
+    -Wall \
+    -Wextra \
+    -Werror \
     -I"$SCRIPT_DIR/idf_stubs" \
     -I"$PROJECT_DIR/main/application" \
     "$SCRIPT_DIR/test_agent_request_broker.c" \
@@ -455,7 +470,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
 "$PYTHON" "$SCRIPT_DIR/check_agent_checkpoint_identity_contract.py"
 "$PYTHON" "$SCRIPT_DIR/check_agent_runtime_isolation_contract.py"
 "$PYTHON" "$SCRIPT_DIR/check_agent_history_writer_contract.py"
-"$PYTHON" "$SCRIPT_DIR/check_agent_runtime_shadow_cutover_gate.py"
+"$PYTHON" "$SCRIPT_DIR/check_agent_autonomy_gate.py"
 "$PYTHON" "$SCRIPT_DIR/check_agent_degraded_control_contract.py"
 "$PYTHON" "$SCRIPT_DIR/check_agent_http_exact_control_contract.py"
 "$PYTHON" "$SCRIPT_DIR/test_agent_runtime_http_cli.py"

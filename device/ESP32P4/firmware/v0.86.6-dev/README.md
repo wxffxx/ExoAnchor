@@ -26,7 +26,7 @@ tests/host/       # 本地主机测试
 
 板级 GPIO 必须先在 `main/Kconfig.projbuild` 定义，再由 `main/config/board_config.h` 暴露给驱动。不要在驱动中加入私有 `CONFIG_*` 回退值或硬编码板级 GPIO。
 
-0.87.4 起，主线的 Locator LED 支持可选第二 GPIO：单 GPIO 板仍只控制亮灭；双 GPIO 板可在 Settings 的高级设置中切换哪一路为高电平，以交换灯色/方向。选择会保存到 NVS；板型必须通过 `CONFIG_SI_POWER_LOCATOR_RETURN_GPIO` 明确提供第二路，不允许在运行时推断硬件拓扑。
+0.87.4 起，主线的 Locator LED 支持可选第二 GPIO：单 GPIO 板仍只控制亮灭；双 GPIO 板可在 Settings 的「设备与视频 → 硬件方向」中切换哪一路为高电平，以交换灯色/方向。选择会保存到 NVS；板型必须通过 `CONFIG_SI_POWER_LOCATOR_RETURN_GPIO` 明确提供第二路，不允许在运行时推断硬件拓扑。
 
 构建配置的组合规则见 [`configs/README.md`](configs/README.md)，源码配置职责见 [`main/config/README.md`](main/config/README.md)，板型实现状态以 [`../../boards/IMPLEMENTATION_PROFILES_zh.md`](../../boards/IMPLEMENTATION_PROFILES_zh.md) 为准。
 

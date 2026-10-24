@@ -116,10 +116,13 @@ for forbidden in ("fopen(", "stat(", "agent_repository_ensure"):
 for marker in (
     "#define AGENT_RUNTIME_V2_SHADOW_BINDING_ENABLED 1",
     "#define AGENT_RUNTIME_RECOVERY_RAM_ONLY 0",
-    "#define AGENT_RUNTIME_MUTATION_ENABLED 0",
 ):
     if marker not in REQUEST:
         raise AssertionError(f"Runtime V2 cutover boundary missing: {marker}")
+# Mutation admission is no longer a compile-time switch: the autonomy gate
+# (check_agent_autonomy_gate.py) decides per call at runtime.
+if "AGENT_RUNTIME_MUTATION_ENABLED" in REQUEST:
+    raise AssertionError("stale compile-time mutation switch would bypass the autonomy gate")
 run_submit = body(TASK, "static esp_err_t agent_run_submit(")
 guard = run_submit.index("#if AGENT_RUNTIME_V2_SHADOW_BINDING_ENABLED")
 task_submit = run_submit.index("si_agent_task_service_submit(", guard)
@@ -274,40 +277,27 @@ for forbidden in (
     if forbidden in degraded:
         raise AssertionError(f"degraded mode reaches storage/mutation: {forbidden}")
 capability_snapshot = body(REQUEST, "static void agent_add_runtime_capability_snapshot(")
-if "recovery_available_tool" not in capability_snapshot:
-    raise AssertionError("recovery tool catalog is not a positive allowlist")
-catalog_gate = capability_snapshot[
-    capability_snapshot.index("bool recovery_available_tool"):
-    capability_snapshot.index("si_capability_t required")
-]
+# The advertised catalog follows the autonomy level; storage-backed memory
+# tools stay unadvertised and the model is never told HID is available.
 for marker in (
-    'strcmp(tool_names[i], "observe_status") == 0',
-    'strcmp(tool_names[i], "uart_read") == 0',
-    'strcmp(tool_names[i], "wait") == 0',
+    "bool level_available_tool",
+    'strncmp(tool_names[i], "memory_", 7) != 0',
+    'strcmp(tool_names[i], "history_search") != 0',
+    "si_agent_autonomy_allows(autonomy,",
+    "agent_tool_min_class(tool_names[i])",
+    'cJSON_AddBoolToObject(snapshot, "hid_actions_route_allowed", false);',
 ):
-    if marker not in catalog_gate:
-        raise AssertionError(f"recovery tool catalog lost bounded read: {marker}")
-for forbidden in (
-    '"observe_screenshot"',
-    '"ssh_exec"',
-    '"check_service"',
-    '"verify_port"',
-    '"host_display"',
-    '"boot_key_sequence"',
-    '"memory_search"',
-    '"ask_user"',
-):
-    if forbidden in catalog_gate:
-        raise AssertionError(f"recovery tool catalog advertises closed tool: {forbidden}")
+    if marker not in capability_snapshot:
+        raise AssertionError(f"level-gated tool catalog missing: {marker}")
 for marker in (
+    "AGENT_RUNTIME_ADVICE_ONLY_PROMPT",
     "AGENT_RUNTIME_READONLY_TOOL_PROMPT",
-    "SSH, screenshot capture, HID actions",
     "Always return actions as an empty array",
     "agent_runtime_tool_prompt()",
-    "AGENT_RUNTIME_MUTATION_ENABLED &&",
+    "agent_add_autonomy_prompt(messages);",
 ):
     if marker not in REQUEST:
-        raise AssertionError(f"recovery prompt/catalog boundary missing: {marker}")
+        raise AssertionError(f"autonomy prompt/catalog boundary missing: {marker}")
 tool_loop = body(DISPATCH, "static void agent_execute_tool_calls(")
 for marker in (
     "#if AGENT_RUNTIME_RECOVERY_RAM_ONLY",

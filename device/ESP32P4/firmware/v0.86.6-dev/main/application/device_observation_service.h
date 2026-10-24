@@ -242,9 +242,12 @@ typedef struct {
     uint32_t largest_free_block;
 } si_device_heap_observation_t;
 
+#define SI_DEVICE_CPU_MAX_CORES 2
+
 typedef struct {
     bool valid;
     double overall_percent;
+    double core_percent[SI_DEVICE_CPU_MAX_CORES];
     uint32_t core_count;
     uint32_t sample_window_ms;
 } si_device_cpu_observation_t;

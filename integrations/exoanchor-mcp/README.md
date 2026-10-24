@@ -103,7 +103,7 @@ python3 -m exoanchor_mcp.server --list-tools
 | `EXOANCHOR_ALLOW_UNVERIFIED_SSH_HOST` | `0` | 允许未验证主机的受监督例外 |
 | `EXOANCHOR_ALLOW_ARBITRARY_SSH` | `0` | 启用任意 SSH 命令入口 |
 
-设备侧还需在 `Settings → 集成与权限 → 外部 MCP 控制器` 中开启“允许外部 MCP 访问”。
+设备侧还需在 `Settings → AI 与集成 → 外部 MCP`（Stable 固件为 `Settings → MCP 集成`） 中开启“允许外部 MCP 访问”。
 
 ## 安装与运行
 

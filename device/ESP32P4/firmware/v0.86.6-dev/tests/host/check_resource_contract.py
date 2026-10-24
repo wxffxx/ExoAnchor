@@ -225,8 +225,8 @@ def main() -> int:
         ),
         (
             "main/services/web/base_settings_http_module.inc",
-            "xTaskCreateWithCaps(auth_login_worker",
-            "password verification must use a PSRAM-backed worker",
+            "xTaskCreateStatic(\n            auth_login_worker",
+            "password verification must run on the boot-time static worker",
         ),
         (
             "main/services/ssh_client.c",
@@ -717,8 +717,8 @@ def main() -> int:
             failures.append("same-origin MJPEG must run outside the main HTTP task")
     for marker, description in (
         (
-            "#define SI_VIDEO_HTTP_MAX_WORKERS 2",
-            "MJPEG reconnect overlap needs two dedicated worker slots",
+            "#define SI_VIDEO_HTTP_MAX_WORKERS 4",
+            "MJPEG reconnect overlap needs dedicated worker slots beyond retiring streams",
         ),
         (
             "s_video_http_slots",

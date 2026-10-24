@@ -13,8 +13,8 @@
  * application service. A store is owned by one caller and must not be shared
  * concurrently. Missing values are reported as ESP_ERR_NOT_FOUND, writes are
  * not durable until si_settings_store_commit() succeeds, and close never
- * commits implicitly. On ESP targets every flash-touching operation also
- * fails closed with ESP_ERR_INVALID_STATE when called from a PSRAM stack.
+ * commits implicitly. On ESP targets a caller on a PSRAM stack has each
+ * flash-touching operation run by the flash_access proxy task.
  */
 typedef struct {
     uintptr_t handle;

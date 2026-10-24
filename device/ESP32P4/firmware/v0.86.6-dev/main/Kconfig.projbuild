@@ -328,6 +328,30 @@ menu "SI ESP32-P4 Host Configuration"
             for controlled custom builds. Device control remains locked until the
             bootstrap password is replaced.
 
+    menu "Advanced security"
+
+        config SI_AUTH_PASSWORD_PBKDF2
+            bool "Harden stored passwords with PBKDF2-HMAC-SHA256 (60000 rounds)"
+            default n
+            help
+                Off (default): new passwords are stored as salted single-round
+                SHA-256, so login and first-run setup finish in about a second.
+                On: new passwords use PBKDF2-HMAC-SHA256 with 60000 rounds, which
+                makes offline guessing from a copied NVS far slower but makes every
+                login take tens of seconds on the ESP32-P4.
+                Either way an existing password is re-stored in the configured
+                format after its next successful login.
+
+        config SI_AUTH_DISABLED_FOR_LAN_TESTING
+            bool "Disable web/API login (bench testing on a trusted LAN only)"
+            default n
+            help
+                Every request is treated as an authenticated local browser, so
+                automated board tests can drive pages and APIs without a
+                password. Never enable this for a build that leaves the bench.
+
+    endmenu
+
     menu "ATX power control"
 
         config SI_POWER_ENABLE
@@ -674,15 +698,16 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_VIDEO_H264_EXPERIMENT
             bool "Enable experimental hardware H.264 KVM stream"
-            default y if SI_BUILD_PROFILE_DEV && SI_BOARD_REQUIRES_REV3
             default n
             depends on SI_VIDEO_ENABLE && SI_BOARD_REQUIRES_REV3
             help
                 Add the MJPEG -> hardware JPEG decode -> hardware H.264 encode
-                path. Rev3 Dev builds enable it by default. Stable keeps it
-                disabled unless tools/build-firmware.sh explicitly constructs
-                the restricted Stable H.264 candidate. MJPEG and H.264 remain
-                separate, explicitly selected browser output modes.
+                path. Off by default: on the MS2109 boards this path is not
+                product-ready and its codec workspace takes 138 KiB of internal
+                RAM. tools/build-firmware.sh enables it only for
+                --h264-experiment Dev builds and the restricted Stable H.264
+                candidate. MJPEG and H.264 remain separate, explicitly selected
+                browser output modes.
 
         config SI_VIDEO_H264_BITRATE
             int "Experimental H.264 target bitrate"

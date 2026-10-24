@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include "action_event.h"
 #include "app_config.h"
+#include "psram_stream_buffer.h"
 #include "agent_api_settings.h"
 #include "agent_cloud_retry_policy.h"
 #if SI_CFG_EMBEDDED_AGENT_ENABLED
@@ -255,8 +256,10 @@ _Static_assert(CONFIG_LWIP_MAX_SOCKETS >= SI_HTTP_SOCKET_BUDGET_REQUIRED,
 #define AGENT_PAGE_CONTEXT_ITEM_MAX 8
 #define AGENT_PAGE_CONTEXT_LABEL_MAX_LEN 64
 #define AGENT_PAGE_CONTEXT_VALUE_MAX_LEN 384
-#define AGENT_RUN_TASK_STACK 24576
-#define AGENT_RUN_TASK_MEMORY_CAPS (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+#define AGENT_RUN_TASK_STACK 40960 /* 24 KiB left 2 KiB after one tool + report */
+/* PSRAM stack: a 24 KiB internal block is rarely free on Dev H.264. Its NVS and
+ * otadata reads go through the internal-stack flash_access proxy. */
+#define AGENT_RUN_TASK_MEMORY_CAPS (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
 #define HID_WS_MAX_FRAME 1024
 #define HID_ACTIONS_MAX_BODY 4096
 #define HID_ACTIONS_MAX_ITEMS 64
@@ -469,6 +472,7 @@ static esp_err_t agent_run_revoke_page_context(const si_product_feature_settings
 #endif
 #include "web/resource_operation_contract.inc"
 #include "web/base_settings_http_module.inc"
+#include "web/agent_tools_settings_http_module.inc"
 #include "web/two_step_http_module.inc"
 #include "web/passkey_http_module.inc"
 #include "web/access_mode_http_module.inc"
@@ -498,6 +502,7 @@ static esp_err_t agent_run_revoke_page_context(const si_product_feature_settings
 #include "web/agent_boot_key_tool_module.inc"
 #include "web/agent_web_search_tool_module.inc"
 #include "web/agent_ssh_primitives_module.inc"
+#include "web/agent_autonomy_gate_module.inc"
 #include "web/agent_broker_http_module.inc"
 #include "web/agent_run_status_snapshot_module.inc"
 #include "web/agent_run_checkpoint_module.inc"
@@ -709,12 +714,13 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/api/uart/read", HTTP_GET, uart_read_handler, false);
     register_uri(s_server, "/api/uart/write", HTTP_POST, uart_write_handler, false);
     register_uri(s_server, "/api/uart/authenticate", HTTP_POST,
-                 uart_authenticate_handler, false);
+                 uart_authenticate_async_handler, false);
     register_uri(s_server, "/api/settings/gpio-map", HTTP_GET, power_gpio_map_handler, false);
     register_uri(s_server, "/api/settings/gpio-map", HTTP_POST, power_gpio_map_handler, false);
     register_uri(s_server, "/api/capabilities", HTTP_GET, capabilities_handler, false);
     register_uri(s_server, "/api/status", HTTP_GET, overall_status_handler, false);
     register_uri(s_server, "/api/system/info", HTTP_GET, system_info_handler, false);
+    register_uri(s_server, "/api/system/tasks", HTTP_GET, system_tasks_handler, false);
     register_uri(s_server, "/api/v1/network/status", HTTP_GET,
                  si_network_status_http_handler, false);
     register_uri(s_server, "/api/v1/network/config", HTTP_GET,
@@ -738,7 +744,7 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/api/ms2109/status", HTTP_GET,
                  ms2109_status_handler, false);
     register_uri(s_server, "/api/ms2109/power", HTTP_POST,
-                 ms2109_power_handler, false);
+                 ms2109_power_async_handler, false);
 #endif
 #if SI_CFG_MS2109_TEST_ENABLED
     register_uri(s_server, "/api/ms2109/eeprom/probe", HTTP_POST,

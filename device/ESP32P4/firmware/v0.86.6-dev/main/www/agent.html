@@ -386,6 +386,8 @@ function registryGroup(title,rows){return `<section class="registry-group"><h2>$
 function renderCapabilityRegistry(){
   const groups=[];
   const mcp=workspaceState.mcp;
+  const tools0=workspaceState.toolSettings;
+  if(tools0&&Number.isInteger(tools0.autonomy_level))groups.push(registryGroup("Autonomy",[registryRow("LEVEL",tools0.autonomy_label||`L${tools0.autonomy_level}`,"设置 → AI 与集成 → 自动化等级",`L${tools0.autonomy_level}`,tools0.autonomy_level<=1?"":"warn",["只给建议，不调用工具","只读工具自动运行","普通操作逐次批准","普通操作自动；系统级逐次批准","系统级自动；不可逆逐次批准"][tools0.autonomy_level]||"")]));
   groups.push(registryGroup("MCP",[mcp?registryRow("MCP","External MCP Controller",mcp.scope||"device API",mcp.enabled?"ENABLED":"OFF",mcp.enabled?"ok":"warn",`${mcp.control_owner||"mcp"} · ${mcp.client_header||"client header"}`):registryRow("MCP","External MCP Controller","/api/settings/mcp","UNAVAILABLE","bad","Settings endpoint did not respond")]));
   const profiles=agentProfiles.map(item=>registryRow("API",item.label||item.id,item.endpoint||item.provider||"OpenAI compatible",item.api_key_configured?"CONFIGURED":"NEEDS KEY",item.api_key_configured?"":"warn",item.model||"No model selected"));
   groups.push(registryGroup("API Profiles",profiles.length?profiles:[registryRow("API","No profiles","/api/settings/agent-api","EMPTY","warn","No configured provider profiles")]));
@@ -538,7 +540,7 @@ function runKindLabel(kind){const k=String(kind||"info");if(k==="cmd")return"执
 function runKindClass(kind){const k=String(kind||"info");return["cmd","ok","bad","warn","progress"].includes(k)?k:"info"}
 function runVisibleEvent(kind,text){const s=String(text||"").trim();if(!s)return"";if(/tool\[\d+\] output ·/.test(s))return"";if(s.length>260)return compactTerminalText(s,260);return s}
 function appendRunStep(el,kind,text){if(!el||!el.dataset?.runBubble)return;const visible=runVisibleEvent(kind,text);if(!visible)return;const list=el.querySelector(".run-steps");if(!list)return;const previous=list.lastElementChild;if(previous?.textContent===visible)return;const row=document.createElement("div");row.className=`run-step ${runKindClass(kind)}`;row.textContent=visible;list.appendChild(row);while(list.children.length>8)list.removeChild(list.firstElementChild);chatLog.scrollTop=chatLog.scrollHeight}
-function updateRunBubble(el,status,ctx){if(!el||!el.isConnected||!el.dataset?.runBubble)return;const stage=status?.stage||status?.state||"运行中";const label=el.querySelector(".agent-stream-label");const elapsed=el.querySelector(".agent-stream-elapsed");const failed=["failed","aborted"].includes(status?.state),paused=status?.state==="paused",done=status?.state==="done";el.classList.toggle("done",done&&!failed);el.classList.toggle("failed",failed);el.classList.toggle("paused",paused);if(label)label.textContent=status?.cancel_requested?"正在停止":failed?"任务结束，需要检查":paused?"已暂停":done?"已完成":stage;if(elapsed)elapsed.textContent=done||failed?"":formatRunElapsed(status?.elapsed_ms||0)}
+function updateRunBubble(el,status,ctx){if(!el||!el.isConnected||!el.dataset?.runBubble)return;const stage=status?.stage||status?.state||"运行中";const label=el.querySelector(".agent-stream-label");const elapsed=el.querySelector(".agent-stream-elapsed");const failed=["failed","aborted"].includes(status?.state),paused=status?.state==="paused"||status?.task_state==="paused",done=status?.state==="done";el.classList.toggle("done",done&&!failed);el.classList.toggle("failed",failed);el.classList.toggle("paused",paused);if(label)label.textContent=status?.cancel_requested?"正在停止":failed?"任务结束，需要检查":paused?"已暂停":done?"已完成":stage;if(elapsed)elapsed.textContent=done||failed?"":formatRunElapsed(status?.elapsed_ms||0)}
 function streamTextInto(node,text){return UI.streamText(node,text,()=>{chatLog.scrollTop=chatLog.scrollHeight})}
 async function finishRunBubble(el,ok,text){if(!el||!el.dataset?.runBubble)return;el.classList.toggle("done",!!ok);el.classList.toggle("failed",!ok);el.classList.remove("paused");const label=el.querySelector(".agent-stream-label");const elapsed=el.querySelector(".agent-stream-elapsed");if(label)label.textContent=ok?"已完成":"任务结束，需要检查";if(elapsed)elapsed.textContent="";await streamTextInto(el.querySelector(".agent-stream-answer"),text)}
 function safeSessionId(id){return String(id||"default").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,24)||"default"}
@@ -881,7 +883,7 @@ async function clearAllAgentData(){
   }
 }
 function cleanAgentText(text){return String(text||"").split("\n").filter(line=>!/^(dry-run|executed) · actions=\d+ · hid=\d+$/.test(line.trim())).join("\n").trim()}
-function summarizeRun(run){const actions=Array.isArray(run.actions)?run.actions:[];const toolCalls=Array.isArray(run.tool_calls)?run.tool_calls:[];const toolResults=Array.isArray(run.tool_results)?run.tool_results:[];const lines=[];const report=run.final_report&&typeof run.final_report==="object"?run.final_report:null;const message=(report?.message||run.message||"").trim();if(message)lines.push(message);if(report&&Array.isArray(report.next_steps)&&report.next_steps.length)lines.push("下一步："+report.next_steps.filter(Boolean).slice(0,3).join("；"));const toolFailed=toolResults.some(r=>!r.ok);const hasToolStatus=toolCalls.length>0||toolResults.length>0||actions.length>0||Number(run.tool_executed||0)>0||Number(run.executed||0)>0;if(hasToolStatus&&!message){lines.push(`${run.dry_run?"dry-run":"executed"} · tools=${toolCalls.length}/${Number(run.tool_executed||0)} · hid=${actions.length}/${Number((run.hid_executed??run.executed)||0)}`)}else if(hasToolStatus&&toolFailed){lines.push(`工具执行存在失败项，完整输出见左侧执行日志。`)}if(run.screenshot?.error)lines.push(`snapshot: ${run.screenshot.error}`);if(!run.ok&&run.error)lines.push(run.error);return lines.join("\n")||"没有收到可显示的回复。"}
+function summarizeRun(run){const actions=Array.isArray(run.actions)?run.actions:[];const toolCalls=Array.isArray(run.tool_calls)?run.tool_calls:[];const toolResults=Array.isArray(run.tool_results)?run.tool_results:[];const lines=[];const report=run.final_report&&typeof run.final_report==="object"?run.final_report:null;const message=(report?.message||run.message||"").trim();if(message)lines.push(message);if(report&&Array.isArray(report.next_steps)&&report.next_steps.length)lines.push("下一步："+report.next_steps.filter(Boolean).slice(0,3).join("；"));const toolFailed=toolResults.some(r=>!r.ok);const hasToolStatus=toolCalls.length>0||toolResults.length>0||actions.length>0||Number(run.tool_executed||0)>0||Number(run.executed||0)>0;if(hasToolStatus&&!message){lines.push(`${run.dry_run?"dry-run":"executed"} · tools=${toolCalls.length}/${Number(run.tool_executed||0)} · hid=${actions.length}/${Number((run.hid_executed??run.executed)||0)}`)}else if(hasToolStatus&&toolFailed){lines.push(`工具执行存在失败项，完整输出见左侧执行日志。`)}if(run.screenshot?.error)lines.push(`snapshot: ${run.screenshot.error}`);const errors=toolResults.map(r=>String(r?.error||""));if(errors.some(e=>e.includes("does not allow")))lines.push("部分操作超出当前自动化等级，已被设备拒绝。可在 设置 → AI 与集成 → 自动化等级 调整。");if(errors.some(e=>e.includes("(HID) actions are not open")))lines.push("键盘鼠标操作暂未开放给内置 Agent。");if(run.completion_verification?.status==="outcome_unknown")lines.push("注意：本次执行了修改类操作，设备还不能独立回读验证结果，请在 KVM 或 Terminal 中确认实际效果；设备不会自动重试。");if(!run.ok&&run.error)lines.push(agentStartErrorText(run.error));return lines.join("\n")||"没有收到可显示的回复。"}
 function renderHistoryRecord(record){const role=String(record?.role||record?.kind||"system").toLowerCase();const kind=role==="user"?"user":(role==="agent"||role==="assistant")?"agent":"system";let text=record?.content||record?.text||record?.message||"";if(!text){try{text=JSON.stringify(record)}catch(e){text=""}}if(kind==="agent")text=cleanAgentText(text);if(text)addBubble(kind,text)}
 function agentHistoryRecordRole(record){const role=String(record?.role||record?.kind||"system").toLowerCase();return role==="agent"?"assistant":role}
 function agentHistoryRecordContent(record){return String(record?.content||record?.text||record?.message||"").trim()}
@@ -940,7 +942,30 @@ let activeAgentLastStage="";
 let activeAgentLastEventSeq=0;
 let activeAgentHeartbeats=new Set();
 const AGENT_RUN_HEARTBEATS=[5,10,20,30,45,60,90,120,180,240,300];
-async function postAgentRun(payload){return API.durablePost("/api/agent/run",payload)}
+function parseErrorJson(text){try{const value=JSON.parse(String(text||""));return value&&typeof value==="object"?value:null}catch(_){return null}}
+// 409 receipts (busy / idempotency) arrive as error text; hand them back as data.
+async function postAgentRun(payload){try{return await API.durablePost("/api/agent/run",payload)}catch(e){const body=parseErrorJson(e?.message);if(body&&("busy" in body||"accepted" in body))return body;throw e}}
+const AGENT_MESSAGE_MAX_BYTES=512;
+function agentStartErrorText(text){
+  const raw=String(text||"");
+  if(/H\.264 codec is active/i.test(raw))return "KVM 正在使用 H.264 视频，Agent 暂时无法取得截图。请在 KVM 页面切换到 MJPEG 或关闭视频后重试。";
+  if(/embedded Agent disabled/i.test(raw))return "内置 Agent 已在设置中关闭。可在 设置 → AI 与集成 → 运行与数据 中开启。";
+  if(/api key not configured/i.test(raw))return "还没有配置模型 API Key。请到 设置 → AI 与集成 → 云端模型 API 填写后再试。";
+  if(/idempotency_conflict/i.test(raw))return "这条消息与设备上正在处理的请求冲突，请稍后重试。";
+  if(/agent_run_busy/i.test(raw))return "设备上已有一个 Agent 任务在运行。";
+  return raw||"Agent request failed";
+}
+// Checks the device would reject anyway, explained before anything is sent.
+function agentPreflightError(text,newRun){
+  const bytes=new TextEncoder().encode(text).length;
+  if(bytes>AGENT_MESSAGE_MAX_BYTES)return `消息最多 ${AGENT_MESSAGE_MAX_BYTES} 字节（当前 ${bytes}），请精简后再发送；较长的资料可以放进 设置 → 被控端信息。`;
+  const current=agentProfiles.find(item=>item.id===agentProfile.value);
+  if(newRun&&current&&workspaceState.api&&!current.api_key_configured&&!workspaceState.api.api_key_configured)return agentStartErrorText("api key not configured");
+  return "";
+}
+function agentScreenshotWarning(model){const profile=agentProfiles.find(item=>item.id===agentProfile.value);const name=model||profile?.model||"";return profile&&!agentModelAcceptsImages(profile.provider,name)?`当前模型 ${name} 不支持图像输入，本次 KVM 截图不会发送给模型。需要看屏幕时请换用支持视觉的模型（如 OpenAI、Qwen-VL、Kimi K3）。`:""}
+// Mirrors core/model_provider.c; the device decides what is actually sent.
+function agentModelAcceptsImages(provider,model){const p=String(provider||"").toLowerCase(),m=String(model||"").toLowerCase();if(p==="openai")return true;if(p==="qwen")return m.includes("-vl")||m.includes("omni");if(p==="kimi")return m.startsWith("kimi-k3");return false}
 async function getAgentRunStatus(){const status=await API.getShared("/api/agent/run/status",{timeoutMs:5000});if(status?.state==="unavailable")throw new Error("agent run snapshot temporarily unavailable");return status}
 async function getAgentRunEvents(jobId,afterSeq=0){return API.get(`/api/agent/run/events?job_id=${encodeURIComponent(jobId||"")}&after_seq=${Number(afterSeq)||0}`,{timeoutMs:5000})}
 async function controlAgentRun(action){const routes={pause:"/api/agent/run/pause",resume:"/api/agent/run/resume",abort:"/api/agent/run/abort"};if(!routes[action])throw new Error("invalid run control");if(!activeAgentJob)throw new Error("no exact run selected");return API.post(routes[action],{run_id:activeAgentJob})}
@@ -1273,6 +1298,8 @@ async function sendAgentMessage(){
   const draft=promptBox.value,text=draft.trim();
   if(!text||agentSendOwner||UI.lifecycle.destroyed)return;
   if(!validateOutgoingPrompt(text))return;
+  const preflight=agentPreflightError(text,!activeAgentJob);
+  if(preflight){addBubble("system",preflight);return}
   const owner={};
   agentSendOwner=owner;
   let sessionId=activeSessionId,generation=activeSessionGeneration;
@@ -1309,6 +1336,8 @@ async function sendAgentMessage(){
     const includeScreenshot=!agentKvmPermission.disabled&&agentKvmPermission.checked;
     const includeWebSearch=!agentWebPermission.disabled&&agentWebPermission.checked;
     if(model)localStorage.setItem("ea_agent_model",model);
+    const screenshotWarning=includeScreenshot?agentScreenshotWarning(model):"";
+    if(screenshotWarning){terminalLine("warn","selected model does not accept images; screenshot will not reach the model",sessionId);addBubble("system",screenshotWarning)}
     if(!sessionId)sessionId=materializeSession(text);
     generation=activeSessionGeneration;
     terminalLine("cmd",`agent run --session ${sessionId} --profile ${profile} --model ${model||"(default)"} ${dryRun?"--dry-run":"--execute"}${includeScreenshot?" --screenshot":""}${includeWebSearch?" --web-search":""}`,sessionId);
@@ -1320,7 +1349,7 @@ async function sendAgentMessage(){
       await attachAgentJob(started,{sessionId,profile,model,dryRun,includeScreenshot,includeWebSearch,userText:"(已有后台任务)"});
       return;
     }
-    if(!started.accepted)throw new Error(started.error||"agent run was not accepted");
+    if(!started.accepted)throw new Error(started.error||started.reason||"agent run was not accepted");
     chatLog.querySelectorAll(".bubble.system").forEach(el=>{if(el.textContent.startsWith("此会话还没有消息"))el.remove()});
     addBubble("user",text);
     rememberProvisionalAgentTurn(sessionId,"user",text);
@@ -1331,8 +1360,8 @@ async function sendAgentMessage(){
     await attachAgentJob(started,{pending,sessionId,profile,model,dryRun,includeScreenshot,includeWebSearch,userText:text});
   }catch(e){
     if(!current())return;
-    const msg=e.message||"Agent request failed";
-    terminalLine("bad",msg,sessionId);
+    terminalLine("bad",e.message||"Agent request failed",sessionId);
+    const msg=agentStartErrorText(e.message);
     addBubble("system",`Agent 启动失败\n原因: ${msg}`);
     await loadAgentSessions().catch(()=>{});
     if(!current())return;

@@ -1,6 +1,7 @@
 #include "agent_event_store.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <float.h>
 #include <inttypes.h>
 #include <stdarg.h>
@@ -9,6 +10,8 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "freertos/FreeRTOS.h"
@@ -16,6 +19,7 @@
 #include "storage_layout.h"
 
 #ifdef ESP_PLATFORM
+#include "esp_timer.h"
 #include "mbedtls/sha256.h"
 #include "storage_manager.h"
 #endif
@@ -598,6 +602,52 @@ static void recovery_reset(si_agent_event_recovery_t *recovery)
               SI_AGENT_EVENT_ZERO_HASH);
 }
 
+/* Byte-wise stdio reads cost ~0.1 ms of CPU per byte on FATFS: both fgetc()
+ * and an unbuffered fread() end up issuing one VFS read() per byte, which made
+ * boot recovery of a 0.8 MB journal take minutes. Read the journal with POSIX
+ * read() in large chunks and hand out bytes here. */
+#define SCAN_READ_CHUNK_BYTES (16U * 1024U)
+
+static si_agent_event_scan_stats_t s_last_scan_stats;
+
+static uint64_t scan_now_us(void)
+{
+#ifdef ESP_PLATFORM
+    return (uint64_t)esp_timer_get_time();
+#else
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (uint64_t)now.tv_sec * 1000000ULL + (uint64_t)now.tv_nsec / 1000ULL;
+#endif
+}
+
+typedef struct {
+    int fd;
+    unsigned char *buf;
+    size_t len;
+    size_t pos;
+    bool failed;
+} scan_reader_t;
+
+static int scan_getc(scan_reader_t *reader)
+{
+    if (reader->pos == reader->len) {
+        ssize_t got;
+        do {
+            got = read(reader->fd, reader->buf, SCAN_READ_CHUNK_BYTES);
+        } while (got < 0 && errno == EINTR);
+        reader->pos = 0U;
+        reader->len = got > 0 ? (size_t)got : 0U;
+        if (got < 0) {
+            reader->failed = true;
+        }
+        if (reader->len == 0U) {
+            return EOF;
+        }
+    }
+    return reader->buf[reader->pos++];
+}
+
 static esp_err_t scan_locked(uint64_t after_seq,
                              si_agent_event_replay_cb_t callback,
                              void *user_ctx,
@@ -629,8 +679,8 @@ static esp_err_t scan_locked(uint64_t after_seq,
     }
 
     errno = 0;
-    FILE *file = fopen(SI_AGENT_EVENT_STORE_FILE, "rb");
-    if (!file) {
+    int fd = open(SI_AGENT_EVENT_STORE_FILE, O_RDONLY);
+    if (fd < 0) {
         if (recovery) {
             recovery->status = SI_AGENT_EVENT_RECOVERY_IO_ERROR;
         }
@@ -638,11 +688,19 @@ static esp_err_t scan_locked(uint64_t after_seq,
         return ESP_FAIL;
     }
     char *line = malloc(SI_AGENT_EVENT_RECORD_MAX_BYTES + 1U);
-    if (!line) {
-        fclose(file);
+    scan_reader_t reader = {
+        .fd = fd,
+        .buf = malloc(SCAN_READ_CHUNK_BYTES),
+    };
+    if (!line || !reader.buf) {
+        free(line);
+        free(reader.buf);
+        close(fd);
         return ESP_ERR_NO_MEM;
     }
 
+    si_agent_event_scan_stats_t stats = {0};
+    const uint64_t scan_started_us = scan_now_us();
     uint64_t offset = 0U;
     uint64_t latest_seq = 0U;
     char latest_hash[SI_AGENT_EVENT_HASH_HEX_LEN + 1U];
@@ -654,7 +712,8 @@ static esp_err_t scan_locked(uint64_t after_seq,
         bool oversized = false;
         bool terminated = false;
         int ch;
-        while ((ch = fgetc(file)) != EOF) {
+        const uint64_t read_started_us = scan_now_us();
+        while ((ch = scan_getc(&reader)) != EOF) {
             ++offset;
             if (ch == '\n') {
                 terminated = true;
@@ -666,8 +725,9 @@ static esp_err_t scan_locked(uint64_t after_seq,
                 oversized = true;
             }
         }
+        stats.read_us += scan_now_us() - read_started_us;
         if (!terminated) {
-            if (ferror(file)) {
+            if (reader.failed) {
                 if (recovery) {
                     recovery->status = SI_AGENT_EVENT_RECOVERY_IO_ERROR;
                     recovery->fault_offset = record_offset;
@@ -713,8 +773,11 @@ static esp_err_t scan_locked(uint64_t after_seq,
 
         si_agent_event_record_t record;
         cJSON *root = NULL;
+        const uint64_t verify_started_us = scan_now_us();
         ret = parse_and_verify_record(line, line_len, latest_seq + 1U,
                                       latest_hash, &record, &root);
+        stats.verify_us += scan_now_us() - verify_started_us;
+        ++stats.records;
         if (ret != ESP_OK) {
             if (recovery) {
                 recovery->status = SI_AGENT_EVENT_RECOVERY_CORRUPT;
@@ -740,8 +803,12 @@ static esp_err_t scan_locked(uint64_t after_seq,
         }
     }
 
+    free(reader.buf);
+    stats.bytes = offset;
+    stats.total_us = scan_now_us() - scan_started_us;
+    s_last_scan_stats = stats;
     free(line);
-    if (fclose(file) != 0 && ret == ESP_OK) {
+    if (close(fd) != 0 && ret == ESP_OK) {
         if (recovery) {
             recovery->status = SI_AGENT_EVENT_RECOVERY_IO_ERROR;
         }
@@ -1047,6 +1114,13 @@ esp_err_t si_agent_event_store_latest(
 const char *si_agent_event_store_path(void)
 {
     return SI_AGENT_EVENT_STORE_FILE;
+}
+
+void si_agent_event_store_last_scan_stats(si_agent_event_scan_stats_t *out)
+{
+    if (out) {
+        *out = s_last_scan_stats;
+    }
 }
 
 const char *si_agent_event_store_last_error(void)

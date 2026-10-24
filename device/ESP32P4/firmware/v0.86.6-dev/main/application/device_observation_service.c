@@ -18,6 +18,7 @@
 #include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "flash_access.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hid_device.h"
@@ -50,7 +51,7 @@ static size_t s_log_count;
 static portMUX_TYPE s_log_mux = portMUX_INITIALIZER_UNLOCKED;
 static bool s_cpu_usage_valid;
 static int64_t s_cpu_prev_wall_us;
-static configRUN_TIME_COUNTER_TYPE s_cpu_prev_idle;
+static configRUN_TIME_COUNTER_TYPE s_cpu_prev_idle[SI_DEVICE_CPU_MAX_CORES];
 
 static void *observation_calloc(size_t count, size_t size)
 {
@@ -346,7 +347,7 @@ void si_device_observation_get_ms2109_power(
 #endif
 }
 
-static void collect_flash(si_device_flash_observation_t *out)
+static void collect_flash_uncached(si_device_flash_observation_t *out)
 {
     memset(out, 0, sizeof(*out));
     out->detected = esp_flash_get_size(NULL, &out->total_bytes) == ESP_OK &&
@@ -405,6 +406,47 @@ static void collect_flash(si_device_flash_observation_t *out)
             sizeof(out->next_update_partition));
     out->running_partition_bytes = running ? running->size : 0;
     out->next_update_partition_bytes = next ? next->size : 0;
+}
+
+/* /api/status and /api/system/info are polled every few seconds. The
+ * partition table is fixed and NVS usage moves slowly, but this walk also
+ * reads otadata from flash; serve a copy for FLASH_OBSERVATION_TTL_US. */
+#define FLASH_OBSERVATION_TTL_US (10LL * 1000LL * 1000LL)
+static si_device_flash_observation_t s_flash_cache;
+static int64_t s_flash_cache_us;
+static bool s_flash_cache_valid;
+static portMUX_TYPE s_flash_cache_mux = portMUX_INITIALIZER_UNLOCKED;
+
+static esp_err_t collect_flash_proxy(void *ctx)
+{
+    collect_flash_uncached((si_device_flash_observation_t *)ctx);
+    return ESP_OK;
+}
+
+static void collect_flash(si_device_flash_observation_t *out)
+{
+    int64_t now_us = esp_timer_get_time();
+    bool hit = false;
+    taskENTER_CRITICAL(&s_flash_cache_mux);
+    if (s_flash_cache_valid && now_us - s_flash_cache_us < FLASH_OBSERVATION_TTL_US) {
+        *out = s_flash_cache;
+        hit = true;
+    }
+    taskEXIT_CRITICAL(&s_flash_cache_mux);
+    if (hit) {
+        return;
+    }
+    /* Reads otadata from flash, so PSRAM-stack callers (Agent tools) go
+     * through the flash_access proxy. */
+    if (si_flash_access_call(collect_flash_proxy, out) != ESP_OK) {
+        memset(out, 0, sizeof(*out));
+        return;
+    }
+    taskENTER_CRITICAL(&s_flash_cache_mux);
+    s_flash_cache = *out;
+    s_flash_cache_us = now_us;
+    s_flash_cache_valid = true;
+    taskEXIT_CRITICAL(&s_flash_cache_mux);
 }
 
 static void collect_tf(si_device_tf_observation_t *out)
@@ -516,21 +558,36 @@ static void collect_cpu(si_device_cpu_observation_t *out)
     memset(out, 0, sizeof(*out));
     out->core_count = CONFIG_FREERTOS_NUMBER_OF_CORES;
 #if (configGENERATE_RUN_TIME_STATS == 1) && (INCLUDE_xTaskGetIdleTaskHandle == 1)
+    /* ulTaskGetIdleRunTimeCounter() only reports the calling core's idle
+     * task on SMP, which made one busy core read as ~50-95 % overall.
+     * Sample every core's idle task explicitly. */
     int64_t wall_us = esp_timer_get_time();
-    configRUN_TIME_COUNTER_TYPE idle_runtime = ulTaskGetIdleRunTimeCounter();
     uint64_t wall_delta = s_cpu_usage_valid && wall_us > s_cpu_prev_wall_us ?
                           (uint64_t)(wall_us - s_cpu_prev_wall_us) : 0;
-    uint64_t idle_delta = s_cpu_usage_valid ?
-                          (uint64_t)(idle_runtime - s_cpu_prev_idle) : 0;
+    uint64_t idle_total = 0;
+    for (int core = 0; core < CONFIG_FREERTOS_NUMBER_OF_CORES &&
+                       core < SI_DEVICE_CPU_MAX_CORES; ++core) {
+        TaskStatus_t idle_status = {0};
+        vTaskGetInfo(xTaskGetIdleTaskHandleForCore(core), &idle_status,
+                     pdFALSE, eInvalid);
+        configRUN_TIME_COUNTER_TYPE idle_runtime = idle_status.ulRunTimeCounter;
+        uint64_t idle_delta = s_cpu_usage_valid ?
+                              (uint64_t)(idle_runtime - s_cpu_prev_idle[core]) : 0;
+        idle_total += idle_delta;
+        if (wall_delta > 0) {
+            out->core_percent[core] = clamp_percent(100.0 -
+                (((double)idle_delta * 100.0) / (double)wall_delta));
+        }
+        s_cpu_prev_idle[core] = idle_runtime;
+    }
     if (wall_delta > 0) {
         double capacity = (double)wall_delta * (double)CONFIG_FREERTOS_NUMBER_OF_CORES;
         out->overall_percent = clamp_percent(100.0 -
-            (((double)idle_delta * 100.0) / capacity));
+            (((double)idle_total * 100.0) / capacity));
         out->sample_window_ms = (uint32_t)(wall_delta / 1000U);
         out->valid = true;
     }
     s_cpu_prev_wall_us = wall_us;
-    s_cpu_prev_idle = idle_runtime;
     s_cpu_usage_valid = true;
 #endif
 }

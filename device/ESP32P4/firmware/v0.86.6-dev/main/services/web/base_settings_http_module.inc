@@ -24,6 +24,8 @@ static void add_session_settings_json(cJSON *root)
     cJSON_AddBoolToObject(root, "stored_in_nvs", true);
 }
 
+#define EMBEDDED_ASSET_CHUNK_BYTES 16384U
+
 static esp_err_t send_embedded_asset(httpd_req_t *req, const char *type,
                                      const uint8_t *start, const uint8_t *end)
 {
@@ -55,7 +57,23 @@ static esp_err_t send_embedded_asset(httpd_req_t *req, const char *type,
             return httpd_resp_send(req, NULL, 0);
         }
     }
-    return httpd_resp_send(req, (const char *)start, len);
+    if (len <= EMBEDDED_ASSET_CHUNK_BYTES) {
+        return httpd_resp_send(req, (const char *)start, len);
+    }
+    /* Every page and API shares one httpd task, and TLS encryption is CPU
+     * bound. Send large pages in chunks and yield in between so the idle
+     * task (and the task watchdog) keep running. */
+    for (size_t sent = 0; sent < len; sent += EMBEDDED_ASSET_CHUNK_BYTES) {
+        size_t chunk = len - sent < EMBEDDED_ASSET_CHUNK_BYTES ?
+                       len - sent : EMBEDDED_ASSET_CHUNK_BYTES;
+        esp_err_t ret = httpd_resp_send_chunk(
+            req, (const char *)start + sent, (ssize_t)chunk);
+        if (ret != ESP_OK) {
+            return ret;
+        }
+        vTaskDelay(1);
+    }
+    return httpd_resp_send_chunk(req, NULL, 0);
 }
 
 static esp_err_t send_embedded_html(httpd_req_t *req, const uint8_t *start, const uint8_t *end)
@@ -177,6 +195,12 @@ typedef struct {
 
 static SemaphoreHandle_t s_auth_login_lock;
 static auth_login_job_t s_auth_login_job;
+/* Password checks run on one worker created at boot with a static internal
+ * stack (NVS writes during credential migration disable the PSRAM cache).
+ * Creating it per login failed whenever internal RAM was fragmented. */
+static StackType_t s_auth_login_stack[AUTH_LOGIN_JOB_TASK_STACK_SIZE / sizeof(StackType_t)];
+static StaticTask_t s_auth_login_task_buffer;
+static TaskHandle_t s_auth_login_task;
 
 static bool auth_request_is_mcp(httpd_req_t *req)
 {
@@ -293,9 +317,8 @@ static int64_t auth_client_time(const cJSON *obj)
     return cJSON_IsNumber(v) && v->valuedouble >= 0 && v->valuedouble <= (double)SI_TWO_STEP_CLIENT_TIME_MAX ? (int64_t)v->valuedouble : 0;
 }
 
-static void auth_login_worker(void *arg)
+static void auth_login_process_job(void)
 {
-    (void)arg;
     char username[SI_AUTH_USERNAME_MAX_LEN + 1] = {0};
     char password[SI_AUTH_PASSWORD_MAX_LEN + 1] = {0};
     char otp[SI_TWO_STEP_CODE_MAX + 1] = {0};
@@ -349,7 +372,26 @@ static void auth_login_worker(void *arg)
             xSemaphoreGive(s_auth_login_lock);
         }
     }
-    vTaskDeleteWithCaps(NULL);
+}
+
+static void auth_login_worker(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        auth_login_process_job();
+    }
+}
+
+static esp_err_t auth_login_worker_start(void)
+{
+    if (!s_auth_login_task) {
+        s_auth_login_task = xTaskCreateStatic(
+            auth_login_worker, "si_auth_login",
+            sizeof(s_auth_login_stack) / sizeof(s_auth_login_stack[0]), NULL,
+            tskIDLE_PRIORITY + 2, s_auth_login_stack, &s_auth_login_task_buffer);
+    }
+    return s_auth_login_task ? ESP_OK : ESP_FAIL;
 }
 
 static esp_err_t auth_login_handler(httpd_req_t *req)
@@ -463,18 +505,14 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
     char job_id[AUTH_LOGIN_JOB_ID_LEN + 1] = {0};
     strlcpy(job_id, s_auth_login_job.job_id, sizeof(job_id));
 
-    BaseType_t task_ok =
-        xTaskCreateWithCaps(auth_login_worker, "si_auth_login",
-                            AUTH_LOGIN_JOB_TASK_STACK_SIZE, NULL,
-                            tskIDLE_PRIORITY + 2, NULL,
-                            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (task_ok != pdPASS) {
+    if (!s_auth_login_task) {
         auth_login_job_reset_locked();
         xSemaphoreGive(s_auth_login_lock);
         cJSON_Delete(root);
         return si_http_send_text_status(req, "503 Service Unavailable",
                                         "login worker unavailable");
     }
+    xTaskNotifyGive(s_auth_login_task);
     xSemaphoreGive(s_auth_login_lock);
     cJSON_Delete(root);
     return auth_login_send_pending(req, job_id);
@@ -1167,254 +1205,6 @@ static bool agent_web_search_strategy_valid(const char *strategy)
             strcasecmp(strategy, "agent_max") == 0 ||
             strcasecmp(strategy, "turbo") == 0 ||
             strcasecmp(strategy, "max") == 0);
-}
-
-void si_web_add_agent_tools_settings_json(cJSON *root)
-{
-    char mode[16] = "observe";
-    char *policy = heap_caps_calloc(1, AGENT_TOOLS_POLICY_MAX_LEN + 1,
-                                    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!policy) {
-        policy = calloc(1, AGENT_TOOLS_POLICY_MAX_LEN + 1);
-    }
-    char *skills = heap_caps_calloc(1, AGENT_TOOLS_SKILLS_MAX_LEN + 1,
-                                    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!skills) {
-        skills = calloc(1, AGENT_TOOLS_SKILLS_MAX_LEN + 1);
-    }
-
-    (void)agent_tools_load_string(AGENT_TOOLS_MODE_KEY, "observe",
-                                  mode, sizeof(mode));
-    if (!agent_tools_mode_valid(mode)) {
-        strlcpy(mode, "observe", sizeof(mode));
-    }
-    cJSON_AddBoolToObject(root, "supported", true);
-    cJSON_AddNumberToObject(root, "policy_schema_version", 2);
-    cJSON_AddStringToObject(root, "settings_endpoint", "/api/settings/agent-tools");
-    cJSON_AddStringToObject(root, "default_mode", mode);
-    cJSON_AddNumberToObject(root, "policy_max_length", AGENT_TOOLS_POLICY_MAX_LEN);
-    cJSON_AddNumberToObject(root, "skills_max_length", AGENT_TOOLS_SKILLS_MAX_LEN);
-
-    cJSON *modes = cJSON_AddArrayToObject(root, "modes");
-    cJSON_AddItemToArray(modes, cJSON_CreateString("observe"));
-    cJSON_AddItemToArray(modes, cJSON_CreateString("supervised"));
-    cJSON_AddItemToArray(modes, cJSON_CreateString("autonomous"));
-
-    if (policy) {
-        (void)agent_tools_load_string(AGENT_TOOLS_POLICY_KEY, AGENT_TOOLS_POLICY_DEFAULT,
-                                      policy, AGENT_TOOLS_POLICY_MAX_LEN + 1);
-        cJSON_AddStringToObject(root, "policy_json", policy);
-        cJSON *parsed = cJSON_Parse(policy);
-        if (parsed) {
-            cJSON_AddItemToObject(root, "policy", parsed);
-        }
-    }
-    if (skills) {
-        (void)agent_tools_load_string(AGENT_TOOLS_SKILLS_KEY, AGENT_TOOLS_SKILLS_DEFAULT,
-                                      skills, AGENT_TOOLS_SKILLS_MAX_LEN + 1);
-#if SI_CFG_EMBEDDED_AGENT_ENABLED
-        cJSON *parsed = agent_skills_parse_with_defaults(skills, AGENT_TOOLS_SKILLS_MAX_LEN + 1);
-#else
-        cJSON *parsed = cJSON_Parse(skills);
-        if (!cJSON_IsArray(parsed)) { cJSON_Delete(parsed); strlcpy(skills, "[]", AGENT_TOOLS_SKILLS_MAX_LEN + 1); parsed = cJSON_CreateArray(); }
-#endif
-        cJSON_AddStringToObject(root, "skills_json", skills);
-        if (parsed) {
-            cJSON_AddItemToObject(root, "skills", parsed);
-        }
-    }
-    agent_web_search_settings_t web_search;
-    agent_web_search_defaults(&web_search);
-    (void)agent_web_search_load(&web_search);
-    cJSON *web = cJSON_AddObjectToObject(root, "web_search");
-    if (web) {
-        cJSON_AddBoolToObject(web, "enabled", web_search.enabled);
-        cJSON_AddStringToObject(web, "provider", "qwen_chat_search");
-        cJSON_AddStringToObject(web, "profile", web_search.profile);
-        cJSON_AddStringToObject(web, "endpoint", web_search.endpoint);
-        cJSON_AddStringToObject(web, "model", web_search.model);
-        cJSON_AddStringToObject(web, "strategy", web_search.strategy);
-        cJSON_AddBoolToObject(web, "api_key_configured",
-                              web_search.api_key_configured);
-        cJSON_AddBoolToObject(web, "available",
-                              agent_web_search_available(&web_search));
-        cJSON_AddStringToObject(web, "api_key_source",
-                                web_search.api_key_configured ?
-                                "web_search" : "agent_profile");
-        cJSON_AddStringToObject(web, "default_endpoint_source",
-                                "empty endpoint uses selected API profile base");
-    }
-    free(policy);
-    free(skills);
-}
-
-static esp_err_t settings_agent_tools_handler(httpd_req_t *req)
-{
-    esp_err_t auth_ret =
-        si_http_require_capability(req, SI_CAPABILITY_SETTINGS, NULL);
-    if (auth_ret != ESP_OK) {
-        return auth_ret;
-    }
-
-    if (req->method == HTTP_GET) {
-        cJSON *resp = cJSON_CreateObject();
-        si_web_add_agent_tools_settings_json(resp);
-        esp_err_t ret = si_http_send_json(req, resp);
-        cJSON_Delete(resp);
-        return ret;
-    }
-
-    if (req->method != HTTP_POST) {
-        return httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED, "method not allowed");
-    }
-    if (req->content_len <= 0 || req->content_len > AGENT_TOOLS_MAX_BODY) {
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "json body required");
-    }
-
-    char *buf = calloc(1, AGENT_TOOLS_MAX_BODY);
-    if (!buf) {
-        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "request alloc failed");
-    }
-    cJSON *root = NULL;
-    esp_err_t ret = si_http_recv_json(req, buf, AGENT_TOOLS_MAX_BODY, &root);
-    free(buf);
-    if (ret != ESP_OK) {
-        return ret;
-    }
-    cJSON *reset = cJSON_GetObjectItemCaseSensitive(root, "reset_default");
-    if (!reset) {
-        reset = cJSON_GetObjectItemCaseSensitive(root, "reset");
-    }
-    if (cJSON_IsTrue(reset)) {
-        cJSON_Delete(root);
-        (void)automation_request_stop_all(
-            "Agent/MCP tool policy reset in Settings");
-        ret = agent_tools_reset_settings();
-        if (ret != ESP_OK) {
-            return si_http_send_text_status(req, "500 Internal Server Error", esp_err_to_name(ret));
-        }
-        cJSON *resp = cJSON_CreateObject();
-        si_web_add_agent_tools_settings_json(resp);
-        esp_err_t send_ret = si_http_send_json(req, resp);
-        cJSON_Delete(resp);
-        return send_ret;
-    }
-
-    const char *mode = json_string_any(root, "default_mode", "mode", NULL);
-    const char *policy = json_string_any(root, "policy_json", "policy", NULL);
-    const char *skills = json_string_any(root, "skills_json", "skills", NULL);
-    const cJSON *web_search = cJSON_GetObjectItemCaseSensitive(root, "web_search");
-    bool web_search_present = cJSON_IsObject(web_search);
-    const cJSON *web_enabled = web_search_present ?
-                                cJSON_GetObjectItemCaseSensitive(web_search, "enabled") : NULL;
-    const cJSON *web_clear_key = web_search_present ?
-                                 cJSON_GetObjectItemCaseSensitive(web_search, "clear_api_key") : NULL;
-    const char *web_profile = web_search_present ?
-                              json_string_any(web_search, "profile", "api_profile", "profile_id") : NULL;
-    const char *web_endpoint = web_search_present ?
-                               json_string_any(web_search, "endpoint", "api_base", "base_url") : NULL;
-    const char *web_model = web_search_present ?
-                            json_string_any(web_search, "model", "model_name", NULL) : NULL;
-    const char *web_strategy = web_search_present ?
-                               json_string_any(web_search, "strategy", "search_strategy", NULL) : NULL;
-    const char *web_api_key = web_search_present ?
-                              json_string_any(web_search, "api_key", "key", "secret") : NULL;
-    if (mode && !agent_tools_mode_valid(mode)) {
-        cJSON_Delete(root);
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                   "default_mode must be observe, supervised, or autonomous");
-    }
-    if (policy) {
-        ret = agent_tools_validate_policy_json(policy);
-        if (ret == ESP_ERR_INVALID_SIZE) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "policy_json too large");
-        }
-        if (ret != ESP_OK) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(
-                req, HTTPD_400_BAD_REQUEST,
-                "policy_json must contain boolean Agent/MCP switches and valid permission/risk values");
-        }
-    }
-    if (skills) {
-        ret = agent_tools_validate_json_text(skills, AGENT_TOOLS_SKILLS_MAX_LEN, true);
-        if (ret == ESP_ERR_INVALID_SIZE) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "skills_json too large");
-        }
-        if (ret != ESP_OK) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "skills_json must be a JSON array");
-        }
-    }
-    if (web_search_present) {
-        if (web_enabled && !cJSON_IsBool(web_enabled)) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                       "web_search.enabled must be boolean");
-        }
-        if (web_profile && agent_api_profile_slot(web_profile) < 0) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                       "web_search.profile must be a known API profile");
-        }
-        if (web_endpoint &&
-            agent_api_validate_endpoint(web_endpoint, true) != ESP_OK) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                       "web_search.endpoint must use https");
-        }
-        if (web_model &&
-            agent_api_validate_text(web_model, AGENT_API_MODEL_MAX_LEN, false) != ESP_OK) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                       "web_search.model invalid or too large");
-        }
-        if (web_strategy && !agent_web_search_strategy_valid(web_strategy)) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                       "web_search.strategy must be agent, agent_max, turbo, or max");
-        }
-        if (web_api_key && web_api_key[0] &&
-            agent_api_validate_text(web_api_key, AGENT_API_SECRET_MAX_LEN, false) != ESP_OK) {
-            cJSON_Delete(root);
-            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                       "web_search.api_key invalid or too large");
-        }
-    }
-
-    si_agent_tools_update_t update = {
-        .mode = mode,
-        .policy = policy,
-        .skills = skills,
-        .web_present = web_search_present,
-        .web_enabled_present = cJSON_IsBool(web_enabled),
-        .web_enabled = cJSON_IsTrue(web_enabled),
-        .web_profile = web_profile,
-        .web_endpoint = web_endpoint,
-        .web_model = web_model,
-        .web_strategy = web_strategy,
-        .web_api_key = web_api_key,
-        .clear_web_api_key = cJSON_IsTrue(web_clear_key),
-    };
-    (void)automation_request_stop_all(
-        "Agent/MCP tool policy changed in Settings");
-    ret = si_agent_tools_update(&update);
-    if (web_api_key && web_api_key[0]) {
-        memset((char *)web_api_key, 0, strlen(web_api_key));
-    }
-    cJSON_Delete(root);
-
-    if (ret != ESP_OK) {
-        return si_http_send_text_status(req, "500 Internal Server Error", esp_err_to_name(ret));
-    }
-
-    cJSON *resp = cJSON_CreateObject();
-    si_web_add_agent_tools_settings_json(resp);
-    esp_err_t send_ret = si_http_send_json(req, resp);
-    cJSON_Delete(resp);
-    return send_ret;
 }
 
 #if SI_CFG_EMBEDDED_AGENT_ENABLED

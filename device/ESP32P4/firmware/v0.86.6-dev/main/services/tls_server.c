@@ -1,8 +1,12 @@
 #include "tls_server.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include "esp_attr.h"
 #include "esp_https_server.h"
 #include "esp_random.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "mbedtls/ecp.h"
 #include "mbedtls/oid.h"
 #include "mbedtls/pk.h"
@@ -14,8 +18,8 @@
 #include "lwip/inet.h"
 
 /* Private key stays on the device. The public certificate is downloadable through the setup UI. */
-static unsigned char s_certificate[2048];
-static unsigned char s_private_key[1024];
+static EXT_RAM_BSS_ATTR unsigned char s_certificate[2048];
+static EXT_RAM_BSS_ATTR unsigned char s_private_key[1024];
 static bool s_ready;
 
 static int random_bytes(void *ctx, unsigned char *out, size_t size)
@@ -129,6 +133,24 @@ static esp_err_t load_identity(void)
     return ESP_OK;
 }
 
+/* A full handshake is ~1.5 s of uninterrupted CPU on the httpd task. After a
+ * reboot a browser reconnects with several handshakes back to back, which
+ * starved IDLE0 past the 5 s task watchdog and rebooted the board. Yield one
+ * tick after every handshake so the idle task can run in between. user_cb only
+ * fires for handshakes that succeed; close_fn also runs when one fails or a
+ * browser aborts it, which is common against a self-signed certificate. */
+static void tls_session_yield(esp_https_server_user_cb_arg_t *arg)
+{
+    if (arg && arg->user_cb_state == HTTPD_SSL_USER_CB_SESS_CREATE) vTaskDelay(1);
+}
+
+static void tls_session_close(httpd_handle_t server, int sockfd)
+{
+    (void)server;
+    close(sockfd);
+    vTaskDelay(1);
+}
+
 esp_err_t si_tls_server_start(httpd_handle_t *server, const httpd_config_t *config)
 {
     if (!server || !config) return ESP_ERR_INVALID_ARG;
@@ -142,7 +164,16 @@ esp_err_t si_tls_server_start(httpd_handle_t *server, const httpd_config_t *conf
     tls.servercert_len = strlen((char *)s_certificate) + 1;
     tls.prvtkey_pem = s_private_key;
     tls.prvtkey_len = strlen((char *)s_private_key) + 1;
-    tls.tls_handshake_timeout_ms = 5000;
+    /* Includes waiting for ClientHello; a silent client must not hold the
+     * single httpd task for a whole watchdog period. */
+    tls.tls_handshake_timeout_ms = 3000;
+    tls.user_cb = tls_session_yield;
+    if (!tls.httpd.close_fn) tls.httpd.close_fn = tls_session_close;
+#if CONFIG_ESP_TLS_SERVER_SESSION_TICKETS
+    /* A full handshake costs ~1.2 s on the P4; resumption keeps page loads
+     * from queueing one per parallel browser connection. */
+    tls.session_tickets = true;
+#endif
     return httpd_ssl_start(server, &tls);
 }
 

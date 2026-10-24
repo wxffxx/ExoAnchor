@@ -337,6 +337,11 @@ static void assert_last_unknown(const si_agent_task_receipt_t *receipt,
     assert(snapshot.runtime.has_active_turn);
     assert(snapshot.runtime.active_turn.status ==
            SI_AGENT_TURN_OUTCOME_UNKNOWN);
+    si_agent_task_service_snapshot_t short_wait = {0};
+    assert(si_agent_task_service_snapshot_wait(&short_wait, 30U) == ESP_OK);
+    assert(short_wait.runtime.active_turn.status ==
+           snapshot.runtime.active_turn.status);
+    assert(short_wait.latest_event_seq == snapshot.latest_event_seq);
     task_record_t *record = record_by_run(receipt->run_id);
     assert(record != NULL);
     task_dedupe_t *dedupe = dedupe_find(record->execution.idempotency_key);

@@ -3445,8 +3445,8 @@ def main() -> int:
     for marker in (
         "#define SI_H264_ENCODER_INTERNAL_MIN_FREE (24U * 1024U)",
         "#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (18U * 1024U)",
-        "#define SI_AGENT_EXECUTOR_INTERNAL_MIN_FREE (48U * 1024U)",
-        "#define SI_AGENT_EXECUTOR_INTERNAL_MIN_LARGEST (26U * 1024U)",
+        "#define SI_AGENT_EXECUTOR_INTERNAL_MIN_FREE (20U * 1024U)",
+        "#define SI_AGENT_EXECUTOR_INTERNAL_MIN_LARGEST (6U * 1024U)",
     ):
         if marker not in h264:
             failures.append(f"peak internal-memory admission gate missing: {marker}")

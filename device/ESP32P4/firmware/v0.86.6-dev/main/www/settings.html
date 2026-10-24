@@ -206,6 +206,54 @@ button.danger{border-color:#7f2d2d;color:#fecaca}
 .msg:empty,.browser-preference-note:empty{display:none}
 button,.button-link{min-height:38px}
 .card-head-actions button,.card-head-actions .button-link{min-height:34px;padding:7px 10px}
+/* Settings layout: page → subsection → card */
+.settings-menu-group[data-scope="maintenance"]:before{background:var(--muted)}
+.settings-menu a[data-scope="maintenance"]:after{background:#5b6470!important}
+.settings-menu a.has-dirty:after{background:var(--yellow)!important;box-shadow:0 0 0 4px rgba(242,190,99,.16)}
+.settings-content>.settings-page,.settings-content>.settings-savebar{width:min(960px,100%);margin-left:auto;margin-right:auto}
+.settings-page-head{position:relative;margin:0 0 var(--space-5);padding:0 0 var(--space-4);border-bottom:1px solid var(--line)}
+.settings-page-head h2{margin:0;font-size:24px;line-height:1.2;letter-spacing:-.02em;color:var(--text)}
+.settings-page-head p{margin:var(--space-1) 0 0;color:var(--muted);max-width:720px;line-height:1.55}
+.settings-page-actions{position:absolute;top:0;right:0;display:flex;gap:var(--space-2)}
+.settings-subhead{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);margin:var(--space-6) 0 var(--space-3);font-size:13px;line-height:1.3;font-weight:760;color:var(--soft);text-transform:none;letter-spacing:.02em}
+.settings-subhead .subhead-link{min-height:30px;padding:6px 10px;font-size:12px}
+.settings-cards{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-4)}
+.settings-cards.diagnostic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card .card-head h3{margin:0;font-size:15px;line-height:1.35;color:#e8edf3;font-weight:720}
+.card-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px;font-weight:650;line-height:1.5;white-space:nowrap;vertical-align:1px}
+.card-chip.live{color:var(--blue);border-color:#35507a}
+.card-chip.danger{color:#fecaca;border-color:#7f2d2d}
+.ui-setting-copy b .card-chip{margin-left:6px}
+.card-status{margin:0 0 var(--space-2);color:var(--soft);font-size:13px;overflow-wrap:anywhere}
+.card-status:empty{display:none}
+.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 var(--space-3)}
+.card>.rows{margin-bottom:var(--space-3)}
+.card-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-3)}
+.card-actions button,.card-actions .button-link{min-height:34px;padding:7px 12px}
+.key-list>.actions{justify-content:space-between;margin-top:var(--space-2);padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}
+.recovery-codes{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--soft)}
+.settings-cards>.editor{margin-top:0}
+.settings-savebar{position:sticky;bottom:76px;z-index:6;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:var(--space-5);padding:12px 14px 12px 16px;border:1px solid #705720;border-radius:12px;background:rgba(32,27,18,.96);box-shadow:0 14px 40px rgba(0,0,0,.45);backdrop-filter:blur(12px)}
+.settings-savebar[hidden]{display:none}
+.settings-savebar-copy{display:grid;gap:2px;min-width:0}
+.settings-savebar-copy b{color:var(--yellow);font-size:14px}
+.settings-savebar-copy small{color:var(--soft);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.settings-savebar-copy small.bad{color:var(--red);white-space:normal}
+.settings-savebar-actions{display:flex;gap:var(--space-2);flex:0 0 auto}
+.settings-savebar.saved{border-color:#24675d;background:rgba(16,40,37,.96)}
+.settings-savebar.saved .settings-savebar-copy b{color:var(--green)}
+.autonomy-levels{display:grid;gap:var(--space-2)}
+.autonomy-level{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2);cursor:pointer}
+.autonomy-level:has(input:checked){border-color:#24675d;background:#122723}
+.autonomy-level input{margin-top:3px;accent-color:var(--green)}
+.autonomy-level b{display:block;color:var(--text);font-size:14px}
+.autonomy-level small{display:block;color:var(--muted);font-size:12px;line-height:1.5}
+.autonomy-matrix{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-2);margin-top:var(--space-3)}
+.autonomy-cell{padding:9px 10px;border:1px solid var(--line2);border-radius:8px;background:#0e1014;min-width:0}
+.autonomy-cell b{display:block;font-size:12px;color:var(--soft)}
+.autonomy-cell small{display:block;margin-top:3px;font-size:12px;font-weight:700}
+.autonomy-cell.auto small{color:var(--green)}.autonomy-cell.confirm small{color:var(--yellow)}.autonomy-cell.blocked small{color:#6b7480}
+@media(max-width:1040px){.settings-menu .settings-menu-group{display:none}.autonomy-matrix{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-cards.diagnostic-grid,.field-grid{grid-template-columns:1fr}.settings-page-actions{position:static;margin-top:var(--space-3)}.settings-savebar{bottom:66px;flex-direction:column;align-items:stretch}.settings-savebar-actions{justify-content:flex-end}}
 </style>
 <link rel="stylesheet" href="/assets/ui-core.css">
 <link rel="stylesheet" href="/assets/ui-shell.css">
@@ -216,474 +264,461 @@ button,.button-link{min-height:38px}
 <div id="appShell"></div><script>ExoAnchorShell.mount("settings")</script>
 <main class="wrap">
   <nav class="settings-menu" aria-label="Settings sections">
-    <h1>Settings</h1>
-    <a href="#target-info" data-scope="target"><b>被控端信息</b><small>身份、配置、用途与备注</small></a>
-    <a href="#target" data-scope="target"><b>被控端访问</b><small>Console 与 SSH</small></a>
-    <a href="#device" data-scope="device"><b>设备与网络</b><small>设备、KVM、HID 与诊断</small></a>
-    <a href="#security"><b>账户与安全</b><small>本地账户和会话策略</small></a>
-    <a href="#agent"><b id="automationMenuTitle">集成与权限</b><small id="automationMenuLead">MCP、Agent 与工具授权</small></a>
-    <a href="#system"><b>系统与支持</b><small>远程更新与版本维护</small></a>
-    <a href="#advanced"><b>高级设置</b><small>硬件、存储、诊断与恢复</small></a>
+    <h1>设置</h1>
+    <div class="settings-menu-group" data-scope="target">被控端</div>
+    <a href="#target-info" data-scope="target"><b>被控端信息</b><small>主机身份、用途与备注</small></a>
+    <a href="#target" data-scope="target"><b>被控端访问</b><small>Console 与 SSH 凭据</small></a>
+    <div class="settings-menu-group" data-scope="device">本设备</div>
+    <a href="#device" data-scope="device"><b>设备与视频</b><small>名称、视频、发现与硬件方向</small></a>
+    <a href="#security" data-scope="device"><b>账户与安全</b><small>账户、通行密钥、两步验证与会话</small></a>
+    <a href="#agent" data-scope="device"><b id="automationMenuTitle">AI 与集成</b><small id="automationMenuLead">MCP、内置 Agent、模型与工具</small></a>
+    <div class="settings-menu-group" data-scope="maintenance">维护</div>
+    <a href="#system" data-scope="maintenance"><b>系统维护</b><small>固件更新、存储与恢复出厂</small></a>
+    <a href="#status" data-scope="maintenance"><b>状态与诊断</b><small>运行状态、GPIO 占用与日志</small></a>
+    <a href="#advanced" data-scope="maintenance"><b>高级</b><small>GPIO 映射</small></a>
   </nav>
 
   <div class="settings-content">
-  <div class="page-head">
-    <div><h1>设置</h1><p>管理设备、访问、安全、集成与系统维护选项。</p></div>
-  </div>
-  <div id="device" class="section-title anchor-target" data-settings-section="device"><span>设备与网络</span></div>
-  <p class="section-lead" data-settings-section="device">管理设备身份、网络、KVM、HID 与诊断。</p>
-  <div class="section-title" data-settings-section="device" data-settings-level="subsection" data-settings-first><span>设备基础</span></div>
-  <section class="grid hardware-grid" data-settings-section="device">
-    <div class="card">
-      <div class="card-head"><h2>设备身份</h2></div>
-      <div class="card-note">显示在页面左上角，用来区分多台 ExoAnchor 设备。</div>
-      <form id="deviceForm" class="form-block">
-        <div class="field"><label for="deviceLabel">设备标注名</label><input id="deviceLabel" type="text" maxlength="48" autocomplete="off" placeholder="例如：机房 KVM-01"></div>
-        <div class="actions"><button class="primary" type="submit">保存设备身份</button></div>
-      </form>
-      <div id="deviceMsg" class="msg"></div>
-    </div>
-    <div id="deviceHardwareCard" class="card full-span">
-      <div class="card-head"><h2>设备硬件方向</h2></div>
-      <div class="card-note">调整当前设备的板级方向配置。变更会立即应用并持久保存；不会触发 PWR、RST 或 Locator LED 动作。</div>
-      <div id="powerResetSwapRow" class="ui-setting-row" hidden><div class="ui-setting-copy"><b>开机 / 重启交换</b><small id="powerResetSwapMeta">正在读取当前映射</small></div><button id="powerResetSwap" type="button">交换</button></div>
-      <div id="settingsLocatorReverseRow" class="ui-setting-row" hidden><div class="ui-setting-copy"><b>Locator LED 方向反转</b><small id="settingsLocatorReverseMeta">反转设置会保存到设备</small></div><label class="ui-switch"><input id="settingsLocatorReverse" type="checkbox" role="switch" aria-label="Reverse Locator LED direction"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div id="deviceHardwareMsg" class="msg"></div>
-      <div id="settingsLocatorMsg" class="msg" hidden></div>
-    </div>
-  </section>
 
-  <div id="networkSettings" class="section-title anchor-target" data-settings-section="device" data-settings-priority="5" data-settings-level="subsection"><span>网络设置</span></div>
-  <p class="section-lead" data-settings-section="device" data-settings-priority="5">控制设备在当前局域网中的发现入口。</p>
-  <section class="grid hardware-grid" data-settings-section="device" data-settings-priority="5">
-    <div id="productFeaturesCard" class="card">
-      <div class="card-head"><h2>局域网发现</h2></div>
-      <div class="card-note">允许 Toolkit 通过 UDP Discovery 或 <code>_exoanchor._tcp</code> mDNS 在同一局域网中找到这台设备。关闭后仍可直接使用已知 IP 访问。</div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许局域网发现</b><small>关闭会同时停止 UDP Discovery 与 _exoanchor._tcp mDNS</small></div><label class="ui-switch"><input id="lanDiscoveryEnabled" type="checkbox" role="switch" aria-label="允许局域网发现"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div id="productFeaturesMsg" class="msg"></div>
-    </div>
-  </section>
-
-  <div id="deviceDiagnostics" class="section-title anchor-target" data-settings-section="device" data-settings-priority="20" data-settings-level="subsection"><span>设备诊断摘要</span></div>
-  <p class="section-lead" data-settings-section="device" data-settings-priority="20">快速查看设备、网络、视频、USB 与 GPIO 的当前状态。</p>
-  <section id="deviceDiagnosticsSummary" class="grid diagnostic-grid" data-settings-section="device" data-settings-priority="20">
-    <div class="card">
-      <div class="card-head"><h2>设备信息</h2></div>
-      <div id="diagnosticDevice" class="rows"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>网络</h2></div>
-      <div class="card-note">当前网络契约只读显示。以太网配置通过设备 UART0 的 <code>network</code> 命令安全应用并确认。</div>
-      <div id="diagnosticNetwork" class="rows"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>视频流</h2></div>
-      <div id="diagnosticVideo" class="rows"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>USB 详情</h2></div>
-      <div id="diagnosticUsb" class="rows"></div>
-    </div>
-    <div class="card full-span">
-      <div class="card-head"><h2>GPIO 状态</h2><div class="card-head-actions"><button id="refreshDeviceDiagnostics" type="button">刷新摘要</button></div></div>
-      <div id="diagnosticGpio" class="rows"></div>
-      <div id="deviceDiagnosticsMsg" class="msg"></div>
-    </div>
-  </section>
-
-  <div id="gpioMatrix" class="section-title anchor-target" data-settings-section="device" data-settings-priority="90" data-settings-level="subsection"><span>只读 GPIO 矩阵</span></div>
-  <p class="section-lead" data-settings-section="device" data-settings-priority="90">查看各 GPIO 当前用途与占用状态。</p>
-  <section class="grid hardware-grid" data-settings-section="device" data-settings-priority="90">
-    <div id="gpioMatrixCard" class="card full-span">
-      <div class="card-head"><h2>当前占用</h2></div>
-      <div class="card-note">展示 GPIO0–54 当前固件和运行配置实际占用的编号 GPIO。未分配仅表示当前固件未使用，不代表该引脚一定可安全外接。</div>
-      <div class="gpio-matrix-head"><div id="gpioMatrixSummary" class="gpio-matrix-summary">正在读取板型引脚占用…</div><div class="gpio-matrix-legend"><span><i class="fixed"></i>板型固定</span><span><i class="runtime"></i>运行映射</span><span><i></i>未分配</span></div></div>
-      <div id="gpioMatrixGrid" class="gpio-matrix-grid" aria-label="GPIO0 到 GPIO54 占用矩阵"></div>
-    </div>
-  </section>
-
-  <section id="advancedSettings" data-settings-section="advanced" data-settings-priority="10">
-  <div id="advanced" class="section-title anchor-target"><span>高级设置</span></div>
-  <p class="section-lead">管理硬件映射、存储、诊断与设备恢复功能。</p>
-  <div id="gpio" class="section-title anchor-target" data-settings-section="advanced" data-settings-priority="50" data-settings-level="subsection" data-settings-first><span>GPIO 映射</span></div>
-  <p class="section-lead" data-settings-section="advanced" data-settings-priority="50">仅在接线或板型变化时修改。错误的引脚或有效电平可能导致电源控制不可用。</p>
-  <section class="grid hardware-grid" data-settings-section="advanced" data-settings-priority="50">
-    <div class="card full-span">
-      <div class="card-head"><h2>GPIO 映射</h2></div>
-      <div class="card-note">配置可热更新的主机控制与状态探测引脚；固定外设引脚不能用于运行映射。</div>
-      <form id="gpioMapForm" class="form-block">
-        <div id="gpioMapRows"></div>
-        <div class="actions"><button class="primary" type="submit">保存 GPIO 映射</button><button id="resetGpioMap" type="button">恢复默认</button></div>
-      </form>
-      <div id="gpioMapMsg" class="msg"></div>
-    </div>
-  </section>
-
-  <div id="storage" class="section-title anchor-target" data-settings-section="advanced" data-settings-priority="30" data-settings-level="subsection"><span>存储与文件管理</span></div>
-  <p class="section-lead" data-settings-section="advanced" data-settings-priority="30">查看内部 Flash、TF 卡和 ExoAnchor 目录。文件浏览和上传属于高级维护操作。</p>
-  <section class="grid storage-grid" data-settings-section="advanced" data-settings-priority="30">
-    <div class="card">
-      <div class="card-head"><h2>空间预览</h2></div>
-      <div class="storage-preview">
-        <div class="storage-meter"><b>Internal Flash</b><span id="storageFlashText">--</span><div class="progress"><div id="storageFlashBar" class="bar"></div></div></div>
-        <div class="storage-meter"><b>TF Card</b><span id="storageTfText">--</span><div class="progress"><div id="storageTfBar" class="bar"></div></div></div>
-      </div>
-      <div class="rows" id="storageRows"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>文件目录</h2></div>
-      <div class="path-chips" id="storageQuickLinks">
-        <button type="button" data-path="">/EA</button>
-        <button type="button" data-path="AGENT">AGENT</button>
-        <button type="button" data-path="ASSETS">ASSETS</button>
-        <button type="button" data-path="LOGS">LOGS</button>
-        <button type="button" data-path="SNAPSHOTS">SNAPSHOTS</button>
-        <button type="button" data-path="MCP">MCP</button>
-        <button type="button" data-path="OTA">OTA</button>
-      </div>
-      <div class="path-line"><span id="storageCurrentPath">/EA</span><button id="storageRefreshDir" type="button">Refresh</button></div>
-      <div id="storageFileList" class="file-list"></div>
-      <div id="storageFileMsg" class="msg"></div>
-    </div>
-    <div class="card full-span">
-      <div class="card-head"><h2>文件上传与日志</h2></div>
-      <div class="card-note">把文件上传到当前目录；点击目录中的文件可查看前几 KB 内容或下载完整文件。</div>
-      <form id="storageUploadForm" class="form-block">
-        <div class="grid storage-grid">
-          <div class="field"><label for="storageUploadFiles">选择文件</label><input id="storageUploadFiles" type="file" multiple></div>
-          <div class="field"><label for="storageUploadName">目标文件名（单文件可选）</label><input id="storageUploadName" autocomplete="off" placeholder="留空使用原文件名"></div>
+  <section class="settings-page" data-settings-section="target-info">
+    <header class="settings-page-head">
+      <h2 id="target-info" class="anchor-target" data-scope="target">被控端信息</h2>
+      <p>维护被操作主机的身份、配置和用途资料。这些资料只作为 Agent 的背景信息，不包含连接方式，也不授予操作权限。</p>
+    </header>
+    <div class="settings-cards">
+      <form id="targetProfileForm" class="card" data-settings-group="target_profile">
+        <div class="card-head"><h3>主机资料</h3></div>
+        <p class="card-note">结构化字段帮助 Agent 识别主机类型和环境；配置、用途与备注是自由文本。</p>
+        <div class="field-grid">
+          <div class="field"><label for="targetProfileName">主机名称</label><input id="targetProfileName" maxlength="64" autocomplete="off" placeholder="例如：构建服务器"></div>
+          <div class="field"><label for="targetLocation">位置</label><input id="targetLocation" maxlength="96" autocomplete="off" placeholder="例如：实验室机架 A3"></div>
+          <div class="field"><label for="targetDeviceType">设备类型</label><select id="targetDeviceType"><option value="unknown">未指定</option><option value="desktop">台式机</option><option value="workstation">工作站</option><option value="server">服务器</option><option value="laptop">笔记本</option><option value="embedded">嵌入式设备</option><option value="virtual_machine">虚拟机</option><option value="network_appliance">网络设备</option><option value="other">其他</option></select></div>
+          <div class="field"><label for="targetOperatingSystem">操作系统</label><select id="targetOperatingSystem"><option value="unknown">未指定</option><option value="linux">Linux</option><option value="windows">Windows</option><option value="macos">macOS</option><option value="bsd">BSD</option><option value="appliance">专用系统 / Appliance</option><option value="other">其他</option></select></div>
+          <div class="field"><label for="targetEnvironment">环境</label><select id="targetEnvironment"><option value="unknown">未指定</option><option value="development">开发</option><option value="testing">测试</option><option value="staging">预发布</option><option value="production">生产</option><option value="lab">实验室</option><option value="home">家庭</option><option value="other">其他</option></select></div>
         </div>
-        <div class="actions"><button class="primary" type="submit">上传到当前目录</button><button id="downloadSystemLogs" type="button">下载系统日志</button></div>
-        <div class="progress"><div id="storageUploadProgress" class="bar"></div></div>
-        <div id="storageUploadMsg" class="msg"></div>
-      </form>
-      <details id="storagePreviewPanel" class="editor" style="display:none">
-        <summary id="storagePreviewTitle">文件预览</summary>
-        <div><pre id="storagePreviewBody" class="file-preview"></pre></div>
-      </details>
-    </div>
-  </section>
-
-  <div id="diagnostics" class="section-title anchor-target" data-settings-section="advanced" data-settings-priority="20" data-settings-level="subsection"><span>详细日志</span></div>
-  <p class="section-lead" data-settings-section="advanced" data-settings-priority="20">查看、刷新和下载近期系统日志。</p>
-  <section class="grid diagnostic-grid" data-settings-section="advanced" data-settings-priority="20">
-    <div class="card full-span">
-      <div class="card-head"><h2>近期日志</h2><div class="card-head-actions"><button id="refreshDiagnostics" type="button">刷新日志</button><button id="downloadDiagnosticLogs" type="button">下载日志</button></div></div>
-      <div id="diagnosticLogs" class="diagnostic-log"></div>
-      <div id="diagnosticLogsMsg" class="msg"></div>
-    </div>
-  </section>
-
-  </section>
-
-  <div id="security" class="section-title anchor-target" data-settings-section="security"><span>账户与安全</span></div>
-  <p class="section-lead" data-settings-section="security">管理 Web 控制台账户与当前浏览器的会话策略。</p>
-  <section class="grid account-grid" data-settings-section="security">
-    <div class="card">
-      <div class="card-head"><h2>本地账户</h2></div>
-      <div class="card-note">保护 Web 控制台和设备 API，默认凭据必须修改。</div>
-      <div class="rows" id="authRows"></div>
-      <details class="editor"><summary>编辑本地账户</summary>
-      <form id="accountForm">
-        <div class="field"><label for="currentPassword">当前密码</label><input id="currentPassword" type="password" autocomplete="current-password"></div>
-        <div class="field"><label for="accountOtp">验证码 / 恢复码（已启用时填写）</label><input id="accountOtp" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div><div class="field"><label for="accountUsername">新用户名</label><input id="accountUsername" type="text" autocomplete="username" maxlength="32"></div>
-        <div class="field"><label for="newPassword">新密码</label><input id="newPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
-        <div class="field"><label for="confirmPassword">确认新密码</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
-        <div class="actions"><button class="primary" type="submit">保存账户</button></div>
-        <div id="accountMsg" class="msg"></div>
-        <a href="/api/auth/certificate" download="exoanchor-device.pem">下载设备证书</a>
-      </form>
-      </details>
-    </div>
-
-    <div class="card" id="passkeyCard">
-      <h2>通行密钥 · Passkey</h2>
-      <p>用 iPhone / Mac 的 Face ID、Touch ID 或设备解锁登录。密码和两步验证仍可用于备用登录。</p>
-      <p id="passkeyStatus" role="status">正在读取状态…</p>
-      <p id="passkeyEnvironment" role="status" style="overflow-wrap:anywhere"></p>
-      <p>先通过固定主机名打开设备并信任 HTTPS 证书，再绑定当前网址。添加或删除前请重新登录，并输入当前密码和已启用的验证码。删除所有密钥后才能更换绑定网址。</p>
-      <div class="actions"><button id="passkeyRefresh" type="button">刷新状态</button><button id="passkeyLogin" type="button">重新登录</button></div>
-      <form id="passkeyForm" autocomplete="off">
-        <div class="field"><label for="passkeyPassword">当前密码</label><input id="passkeyPassword" type="password" autocomplete="current-password" maxlength="64"></div>
-        <div class="field"><label for="passkeyOtp">验证码 / 恢复码（已启用时填写）</label><input id="passkeyOtp" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div>
-        <div class="field"><label for="passkeyLabel">密钥名称</label><input id="passkeyLabel" value="我的通行密钥" maxlength="16" autocomplete="off"></div>
-        <div class="actions"><button id="passkeyConfigure" type="button" disabled>绑定当前网址</button><button id="passkeyAdd" type="submit" disabled>添加通行密钥</button><button id="passkeyCancel" type="button" hidden>取消操作</button></div>
-      </form>
-      <div id="passkeyList"></div>
-      <div id="passkeyMsg" class="msg" role="status"></div>
-    </div>
-
-    <div class="card" id="twoStepCard">
-      <h2>两步验证 · 动态验证码</h2>
-      <p>验证器每 30 秒生成一个 6 位验证码。启用后，登录需要密码和验证码，也可使用一次性恢复码。</p>
-      <p id="twoStepStatus" role="status">正在读取状态…</p>
-      <div class="actions"><button id="twoStepRefresh" type="button">刷新状态</button><button id="twoStepLogin" type="button">重新登录</button></div>
-      <form id="twoStepForm" autocomplete="off">
-        <div class="field"><label for="twoStepPassword">当前密码</label><input id="twoStepPassword" type="password" autocomplete="current-password" maxlength="64"></div>
-        <div id="twoStepEnrollment" hidden>
-          <p>在验证器中手动添加以下密钥，选择基于时间。请将恢复码保存在安全位置；它们只显示这一次。5 分钟内确认启用。</p>
-          <div class="field"><label for="twoStepSecret">验证器密钥</label><input id="twoStepSecret" readonly autocomplete="off" spellcheck="false"></div>
-          <a id="twoStepOpen">在本机验证器中打开</a>
-          <pre id="twoStepRecovery" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
-          <label><input id="twoStepSaved" type="checkbox">我已保存恢复码</label>
-        </div>
-        <div class="field"><label for="twoStepOtp">验证码 / 恢复码</label><input id="twoStepOtp" type="text" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div>
-        <p>开始或停用前需在 1 分钟内重新登录。验证码不能重复使用，登录后停用请等待下一组验证码。</p>
-        <div class="actions"><button id="twoStepBegin" type="button">设置两步验证</button><button id="twoStepConfirm" type="submit" hidden>确认启用</button><button id="twoStepCancel" type="button" hidden>取消设置</button><button id="twoStepDisable" type="button" hidden>停用两步验证</button></div>
-      </form>
-      <div id="twoStepMsg" class="msg" role="status"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>会话</h2></div>
-      <div class="card-note">控制浏览器空闲后是否自动退出本地会话。</div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>自动退出</b><small>浏览器空闲后重新认证</small></div><label class="ui-switch"><input id="autoLogoutEnabled" type="checkbox" role="switch" aria-label="自动退出"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div class="field"><label for="autoLogoutMinutes">空闲时间（分钟）</label><input id="autoLogoutMinutes" type="number" min="1" max="1440" step="1" inputmode="numeric"></div>
-      <div class="actions"><button id="saveAutoLogout" class="primary" type="button">保存会话</button></div>
-      <div id="sessionMsg" class="msg"></div>
-    </div>
-  </section>
-
-  <div id="target-info" class="section-title anchor-target" data-settings-section="target-info" data-scope="target"><span>被控端信息</span></div>
-  <p class="section-lead" data-settings-section="target-info">维护被操作主机的身份、配置和用途资料；这些资料不包含连接方式或操作权限。</p>
-  <section class="grid control-grid" data-settings-section="target-info">
-    <div class="card full-span">
-      <div class="card-head"><h2>主机资料</h2></div>
-      <div class="card-note">结构化字段帮助 Agent 识别主机类型和环境；配置、用途与备注是自由文本。所有内容只作为背景资料，不会授予操作权限。</div>
-      <form id="targetProfileForm" class="form-block">
-        <div class="field"><label for="targetProfileName">主机名称</label><input id="targetProfileName" maxlength="64" autocomplete="off" placeholder="例如：构建服务器"></div>
-        <div class="field"><label for="targetDeviceType">设备类型</label><select id="targetDeviceType"><option value="unknown">未指定</option><option value="desktop">台式机</option><option value="workstation">工作站</option><option value="server">服务器</option><option value="laptop">笔记本</option><option value="embedded">嵌入式设备</option><option value="virtual_machine">虚拟机</option><option value="network_appliance">网络设备</option><option value="other">其他</option></select></div>
-        <div class="field"><label for="targetOperatingSystem">操作系统</label><select id="targetOperatingSystem"><option value="unknown">未指定</option><option value="linux">Linux</option><option value="windows">Windows</option><option value="macos">macOS</option><option value="bsd">BSD</option><option value="appliance">专用系统 / Appliance</option><option value="other">其他</option></select></div>
-        <div class="field"><label for="targetEnvironment">环境</label><select id="targetEnvironment"><option value="unknown">未指定</option><option value="development">开发</option><option value="testing">测试</option><option value="staging">预发布</option><option value="production">生产</option><option value="lab">实验室</option><option value="home">家庭</option><option value="other">其他</option></select></div>
-        <div class="field"><label for="targetLocation">位置</label><input id="targetLocation" maxlength="96" autocomplete="off" placeholder="例如：实验室机架 A3"></div>
         <div class="field"><label for="targetConfiguration">设备配置</label><textarea id="targetConfiguration" maxlength="256" placeholder="CPU、内存、存储、网络、外设等"></textarea></div>
         <div class="field"><label for="targetPurpose">作用</label><textarea id="targetPurpose" maxlength="256" placeholder="这台主机承担的服务、工作负载或测试职责"></textarea></div>
         <div class="field"><label for="targetNotes">备注</label><textarea id="targetNotes" maxlength="256" placeholder="维护窗口、已知限制、联系人等补充信息"></textarea></div>
-        <div class="actions"><button class="primary" type="submit">保存被控端信息</button><button id="targetProfileLoad" type="button">重新读取</button></div>
         <div id="targetProfileMsg" class="msg"></div>
       </form>
     </div>
   </section>
 
-  <div id="target" class="section-title anchor-target" data-settings-section="target" data-scope="target"><span>被控端访问</span></div>
-  <p class="section-lead" data-settings-section="target">配置访问被控主机所需的 Console 和 SSH 凭据。</p>
-  <div id="kvm" class="section-title anchor-target" data-settings-section="device" data-settings-priority="10" data-settings-level="subsection"><span>KVM 与 HID</span></div>
-  <section id="kvmDeviceSettings" class="grid kvm-grid" data-settings-section="device" data-settings-priority="10">
-    <div class="card full-span">
-      <div class="card-head"><h2>视频运行与电源</h2></div>
-      <div class="card-note">集中管理预览刷新、后台采集、返回 KVM 重连和视频采集芯片电源。</div>
-      <div class="field"><label for="previewFpsSelect">Overview 预览帧率</label><select id="previewFpsSelect"><option value="100">1 FPS</option><option value="200">2 FPS</option><option value="300">3 FPS</option><option value="400">4 FPS</option><option value="500">5 FPS</option><option value="600">6 FPS</option><option value="700">7 FPS</option><option value="800">8 FPS</option><option value="900">9 FPS</option><option value="1000">10 FPS</option></select><small>只控制 Overview 快照刷新，不修改 KVM 的分辨率或采集 FPS。</small></div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>视频采集常在线</b><small>无页面租约时仍保持后台采集</small></div><label class="ui-switch"><input id="videoAlwaysOnline" type="checkbox" role="switch" aria-label="视频采集常在线"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>返回 KVM 自动刷新</b><small>当前浏览器 · 返回页面或窗口时重新连接视频</small></div><label class="ui-switch"><input id="browserFocusRefreshEnabled" type="checkbox" role="switch" aria-label="返回 KVM 自动刷新"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div id="ms2109PowerControl" class="ui-setting-row" data-ms2109-control hidden><div class="ui-setting-copy"><b>MS 视频电源</b><small>关闭后 KVM 停止连接，开启后自动恢复</small></div><label class="ui-switch"><input id="ms2109PowerToggle" type="checkbox" role="switch" aria-label="MS 视频电源"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div class="actions"><button id="saveVideoRuntime" class="primary" type="button">保存视频运行</button></div>
-      <div id="videoRuntimeMsg" class="msg"></div>
-      <div id="browserPreferenceMsg" class="browser-preference-note" aria-live="polite"></div>
-      <div id="ms2109PowerMsg" class="msg"></div>
-    </div>
-  </section>
-
-  <div id="console" class="settings-subsection-title first anchor-target" data-settings-section="target"><span>Console 登录</span></div>
-  <p class="section-lead" data-settings-section="target">维护被控主机本地 Console 登录所使用的账户；密码只在设备本地转换为 KVM HID 输入。</p>
-  <section class="grid control-grid" data-settings-section="target">
-    <div class="card full-span">
-      <div class="card-head"><h2>Console 账户</h2></div>
-      <div class="card-note">仅支持当前 KVM 键盘布局可复现的 ASCII 凭据。留空密码可保留已保存值；读取接口、模型 API、日志和 UART 均不会获得密码。</div>
-      <div class="rows" id="consoleCredentialsRows"></div>
-      <details class="editor"><summary>编辑 Console 账户</summary>
-      <form id="consoleCredentialsForm">
-        <div class="field"><label for="consoleUsername">Username</label><input id="consoleUsername" autocomplete="username" maxlength="63" placeholder="ubuntu"></div>
-        <div class="field"><label for="consolePassword">Password</label><input id="consolePassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存密码"></div>
+  <section class="settings-page" data-settings-section="target">
+    <header class="settings-page-head">
+      <h2 id="target" class="anchor-target" data-scope="target">被控端访问</h2>
+      <p>配置访问被控主机所需的 Console 与 SSH 凭据。密码和密钥只在设备本地使用，不会发送给模型 API、日志或 UART。</p>
+    </header>
+    <h3 id="console" class="settings-subhead anchor-target">Console 登录</h3>
+    <div class="settings-cards">
+      <form id="consoleCredentialsForm" class="card" data-settings-group="console_credentials">
+        <div class="card-head"><h3>Console 账户</h3></div>
+        <p class="card-note">用于被控主机本地 Console 登录；密码只在设备本地转换为 KVM HID 输入。仅支持当前键盘布局可输入的 ASCII 字符。</p>
+        <div class="rows" id="consoleCredentialsRows"></div>
+        <div class="field-grid">
+          <div class="field"><label for="consoleUsername">用户名</label><input id="consoleUsername" autocomplete="username" maxlength="63" placeholder="ubuntu"></div>
+          <div class="field"><label for="consolePassword">密码</label><input id="consolePassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存密码"></div>
+        </div>
         <label class="checkline"><input id="consoleClearPassword" type="checkbox"> 清空已保存密码</label>
-        <div class="actions"><button class="primary" type="submit">保存 Console 账户</button><button id="consoleCredentialsLoad" type="button">读取状态</button><button id="consoleCredentialsClear" class="danger" type="button">清空 Console 账户</button></div>
+        <div class="card-actions"><button id="consoleCredentialsClear" class="danger" type="button">清空 Console 账户</button></div>
         <div id="consoleCredentialsMsg" class="msg"></div>
       </form>
-      </details>
     </div>
-  </section>
-
-  <div id="remote" class="settings-subsection-title anchor-target" data-settings-section="target"><span>SSH 维护接入</span></div>
-  <p class="section-lead" data-settings-section="target">配置被控主机的 SSH 地址、账户和认证材料；凭据只在设备本地使用。</p>
-  <section class="grid control-grid" data-settings-section="target">
-    <div class="card full-span">
-      <div class="card-head"><h2>维护目标主机</h2><div class="card-head-actions"><a class="button-link" href="/terminal">打开 Terminal</a></div></div>
-      <div class="card-note">默认 SSH 目标。密码只在设备本地执行 SSH 时读取，不发送给模型 API。</div>
-      <div class="rows" id="sshTargetRows"></div>
-      <details class="editor"><summary>编辑维护目标主机</summary>
-      <form id="sshTargetForm">
-        <div class="field"><label for="sshTargetHost">Host / IPv4</label><input id="sshTargetHost" autocomplete="off" maxlength="63" placeholder="192.0.2.10"></div>
-        <div class="field"><label for="sshTargetPort">Port</label><input id="sshTargetPort" type="number" min="1" max="65535" value="22"></div>
-        <div class="field"><label for="sshTargetUsername">Username</label><input id="sshTargetUsername" autocomplete="username" maxlength="63" placeholder="root"></div>
-        <div class="field"><label for="sshTargetAuth">Auth</label><select id="sshTargetAuth"><option value="auto">Auto</option><option value="key">Stored Key</option><option value="password">Password</option></select></div>
-        <div class="field"><label for="sshTargetPassword">Password</label><input id="sshTargetPassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存密码"></div>
+    <h3 id="remote" class="settings-subhead anchor-target">SSH 维护接入</h3>
+    <div class="settings-cards">
+      <form id="sshTargetForm" class="card" data-settings-group="ssh_target">
+        <div class="card-head"><h3>维护目标主机</h3><div class="card-head-actions"><a class="button-link" href="/terminal">打开 Terminal</a></div></div>
+        <p class="card-note">默认 SSH 目标。密码只在设备本地执行 SSH 时读取。</p>
+        <div class="rows" id="sshTargetRows"></div>
+        <div class="field-grid">
+          <div class="field"><label for="sshTargetHost">主机 / IPv4</label><input id="sshTargetHost" autocomplete="off" maxlength="63" placeholder="192.0.2.10"></div>
+          <div class="field"><label for="sshTargetPort">端口</label><input id="sshTargetPort" type="number" min="1" max="65535" value="22"></div>
+          <div class="field"><label for="sshTargetUsername">用户名</label><input id="sshTargetUsername" autocomplete="username" maxlength="63" placeholder="root"></div>
+          <div class="field"><label for="sshTargetAuth">认证方式</label><select id="sshTargetAuth"><option value="auto">自动</option><option value="key">已保存的密钥</option><option value="password">密码</option></select></div>
+          <div class="field"><label for="sshTargetPassword">密码</label><input id="sshTargetPassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存密码"></div>
+          <div class="field"><label for="sshTargetSudoPassword">sudo 密码</label><input id="sshTargetSudoPassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存 sudo 密码"></div>
+          <div class="field"><label for="sshTargetTimeout">超时（毫秒）</label><input id="sshTargetTimeout" type="number" min="5000" max="120000" step="1000" value="30000"></div>
+        </div>
         <label class="checkline"><input id="sshTargetClearPassword" type="checkbox"> 清空已保存密码</label>
-        <div class="field"><label for="sshTargetSudoPassword">Sudo Password</label><input id="sshTargetSudoPassword" type="password" autocomplete="new-password" maxlength="127" placeholder="留空则保留已保存 sudo 密码"></div>
         <label class="checkline"><input id="sshTargetClearSudoPassword" type="checkbox"> 清空已保存 sudo 密码</label>
-        <div class="field"><label for="sshTargetTimeout">Timeout ms</label><input id="sshTargetTimeout" type="number" min="5000" max="120000" step="1000" value="30000"></div>
-        <div class="actions"><button class="primary" type="submit">保存目标主机</button><button id="sshTargetLoad" type="button">读取目标</button><button id="sshTargetClear" class="danger" type="button">清空目标</button></div>
+        <div class="card-actions"><button id="sshTargetClear" class="danger" type="button">清空目标</button></div>
         <div id="sshTargetMsg" class="msg"></div>
       </form>
-      </details>
-    </div>
-    <div class="card full-span">
-      <div class="card-head"><h2>SSH Key</h2></div>
-      <div class="card-note">手动上传 private key，用于目标主机 SSH public key auth。private key 保存后不会回显。</div>
-      <div class="rows" id="sshKeyRows"></div>
-      <details class="editor"><summary>编辑 SSH Key</summary>
-      <form id="sshKeyForm">
-        <div class="field"><label for="sshPrivateKeyFile">Private key 文件</label><input id="sshPrivateKeyFile" type="file" accept=".pem,.key,.txt"></div>
-        <div class="field"><label for="sshPrivateKey">Private key</label><textarea id="sshPrivateKey" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea></div>
-        <div class="field"><label for="sshPublicKey">Public key（可选，用于展示和后续 authorized_keys 辅助）</label><textarea id="sshPublicKey" spellcheck="false" placeholder="ssh-ed25519 AAAA... exoanchor"></textarea></div>
-        <div class="field"><label for="sshKeyPassphrase">Key passphrase（可选）</label><input id="sshKeyPassphrase" type="password" autocomplete="off" placeholder="留空则不保存/清空 passphrase"></div>
-        <div class="actions"><button class="primary" type="submit">保存 SSH Key</button><button id="sshKeyLoad" type="button">读取状态</button><button id="sshKeyClear" class="danger" type="button">清空 SSH Key</button></div>
+      <div class="card">
+        <div class="card-head"><h3>SSH 密钥</h3><span class="card-chip live">单独导入</span></div>
+        <p class="card-note">导入 private key 用于目标主机的公钥认证。private key 保存后不会回显；导入和清空会立即写入设备，不经过页面保存栏。</p>
+        <div class="rows" id="sshKeyRows"></div>
+        <details class="editor"><summary>导入新的 SSH 密钥</summary>
+        <form id="sshKeyForm" data-dirty-ignore>
+          <div class="field"><label for="sshPrivateKeyFile">Private key 文件</label><input id="sshPrivateKeyFile" type="file" accept=".pem,.key,.txt"></div>
+          <div class="field"><label for="sshPrivateKey">Private key</label><textarea id="sshPrivateKey" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea></div>
+          <div class="field"><label for="sshPublicKey">Public key（可选，用于展示和后续 authorized_keys 辅助）</label><textarea id="sshPublicKey" spellcheck="false" placeholder="ssh-ed25519 AAAA... exoanchor"></textarea></div>
+          <div class="field"><label for="sshKeyPassphrase">Key passphrase（可选）</label><input id="sshKeyPassphrase" type="password" autocomplete="off" placeholder="留空则不保存/清空 passphrase"></div>
+          <div class="card-actions"><button class="primary" type="submit">导入 SSH 密钥</button><button id="sshKeyClear" class="danger" type="button">清空 SSH 密钥</button></div>
+        </form>
+        </details>
         <div id="sshKeyMsg" class="msg"></div>
-      </form>
-      </details>
+      </div>
     </div>
   </section>
 
-  <div id="agent" class="section-title anchor-target" data-settings-section="agent"><span id="automationSectionTitle">集成与权限</span></div>
-  <p id="automationSectionLead" class="section-lead" data-settings-section="agent">管理外部 MCP 的连接与工具权限；Dev 固件同时提供内置 Agent 设置。</p>
-  <section class="grid agent-grid" data-settings-section="agent">
-    <div class="card full-span">
-      <div class="card-head"><h2>外部 MCP 控制器</h2></div>
-      <div class="card-note">供 Codex、Claude 等外部客户端通过设备 API 操作 ExoAnchor；它不是被控主机的 SSH。</div>
-      <div class="rows" id="mcpRows"></div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许外部 MCP 访问</b><small>开启后仍受下方逐项工具授权和控制租约约束</small></div><label class="ui-switch"><input id="mcpEnabled" type="checkbox" role="switch" aria-label="允许外部 MCP 访问"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div class="actions"><button id="saveMcpSettings" class="primary" type="button">保存 MCP 设置</button></div>
-      <div id="mcpMsg" class="msg"></div>
+  <section class="settings-page" data-settings-section="device">
+    <header class="settings-page-head">
+      <h2 id="device" class="anchor-target">设备与视频</h2>
+      <p>管理这台 ExoAnchor 的名称、视频采集、局域网发现和板级硬件方向。</p>
+    </header>
+    <div class="settings-cards">
+      <form id="deviceForm" class="card" data-settings-group="device">
+        <div class="card-head"><h3>设备名称</h3></div>
+        <p class="card-note">显示在页面左上角，用来区分多台 ExoAnchor 设备。</p>
+        <div class="field"><label for="deviceLabel">设备标注名</label><input id="deviceLabel" type="text" maxlength="48" autocomplete="off" placeholder="例如：机房 KVM-01"></div>
+        <div id="deviceMsg" class="msg"></div>
+      </form>
     </div>
-    <div class="card full-span agent-only">
-      <div class="card-head"><h2>内置 Agent</h2></div>
-      <div class="card-note">控制 Dev 固件中的本地运行时及其数据使用方式；这些设置不会改变 MCP 权限。</div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>启用内置 Agent</b><small>关闭后拒绝新的本地 Agent 任务</small></div><label class="ui-switch"><input id="embeddedAgentEnabled" type="checkbox" role="switch" aria-label="启用内置 Agent"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许页面上下文</b><small>设备级 · 后端会丢弃未授权的页面上下文</small></div><label class="ui-switch"><input id="pageContextEnabled" type="checkbox" role="switch" aria-label="允许页面上下文"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>保存对话历史</b><small>设备级 · 关闭后新对话不再写入 TF 历史</small></div><label class="ui-switch"><input id="conversationHistoryEnabled" type="checkbox" role="switch" aria-label="保存对话历史"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许长期记忆</b><small>设备级 · 默认关闭</small></div><label class="ui-switch"><input id="longTermMemoryEnabled" type="checkbox" role="switch" aria-label="允许长期记忆"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div class="actions"><button id="saveAgentPrivacy" class="primary" type="button">保存 Agent 设置</button></div>
-      <div id="agentPrivacyMsg" class="msg"></div>
+    <h3 id="kvm" class="settings-subhead anchor-target">视频与 KVM</h3>
+    <div class="settings-cards">
+      <div id="kvmDeviceSettings" class="card" data-settings-group="video_runtime">
+        <div class="card-head"><h3>视频运行</h3></div>
+        <p class="card-note">预览刷新、后台采集和返回 KVM 时的重连方式。</p>
+        <div class="field"><label for="previewFpsSelect">Overview 预览帧率</label><select id="previewFpsSelect"><option value="100">1 FPS</option><option value="200">2 FPS</option><option value="300">3 FPS</option><option value="400">4 FPS</option><option value="500">5 FPS</option><option value="600">6 FPS</option><option value="700">7 FPS</option><option value="800">8 FPS</option><option value="900">9 FPS</option><option value="1000">10 FPS</option></select><small>只控制 Overview 快照刷新，不修改 KVM 的分辨率或采集 FPS。</small></div>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>视频采集常在线</b><small>无页面租约时仍保持后台采集</small></div><label class="ui-switch"><input id="videoAlwaysOnline" type="checkbox" role="switch" aria-label="视频采集常在线"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>返回 KVM 自动刷新 <span class="card-chip">仅当前浏览器</span></b><small>返回页面或窗口时重新连接视频；切换后立即生效</small></div><label class="ui-switch"><input id="browserFocusRefreshEnabled" type="checkbox" role="switch" aria-label="返回 KVM 自动刷新" data-dirty-ignore><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div id="ms2109PowerControl" class="ui-setting-row" data-ms2109-control hidden><div class="ui-setting-copy"><b>MS 视频电源 <span class="card-chip live">立即生效</span></b><small>关闭后 KVM 停止连接，开启后自动恢复</small></div><label class="ui-switch"><input id="ms2109PowerToggle" type="checkbox" role="switch" aria-label="MS 视频电源" data-dirty-ignore><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div id="videoRuntimeMsg" class="msg"></div>
+        <div id="browserPreferenceMsg" class="browser-preference-note" aria-live="polite"></div>
+        <div id="ms2109PowerMsg" class="msg"></div>
+      </div>
     </div>
-    <div class="card full-span agent-only">
-      <div class="card-head"><h2>操作可见性</h2></div>
-      <div class="card-note">只影响当前浏览器，切换后立即生效。</div>
-      <div class="ui-setting-row"><div class="ui-setting-copy"><b>显示 Agent 操作过程</b><small>在 KVM 和 Terminal 中显示 Agent 的实际操作</small></div><label class="ui-switch"><input id="browserAgentActionsEnabled" type="checkbox" role="switch" aria-label="显示 Agent 操作过程"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
-      <div id="agentBrowserPreferenceMsg" class="browser-preference-note" aria-live="polite"></div>
+    <h3 id="networkSettings" class="settings-subhead anchor-target">网络</h3>
+    <div class="settings-cards">
+      <div id="productFeaturesCard" class="card" data-settings-group="product_features">
+        <div class="card-head"><h3>局域网发现</h3></div>
+        <p class="card-note">允许 Toolkit 通过 UDP Discovery 或 <code>_exoanchor._tcp</code> mDNS 在同一局域网中找到这台设备。关闭后仍可直接使用已知 IP 访问。以太网地址通过设备 UART0 的 <code>network</code> 命令配置，当前状态见「状态与诊断」。</p>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许局域网发现</b><small>关闭会同时停止 UDP Discovery 与 _exoanchor._tcp mDNS</small></div><label class="ui-switch"><input id="lanDiscoveryEnabled" type="checkbox" role="switch" aria-label="允许局域网发现"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div id="productFeaturesMsg" class="msg"></div>
+      </div>
     </div>
-    <form id="agentIdentityForm" class="card full-span agent-only">
-      <div class="card-head"><h2>助手身份</h2></div>
-      <div class="card-note">这是设备端助手在 Agent 工作区、悬浮对话窗和运行时上下文中的显示名称；默认名称为 Agent，不会改变模型 Provider 或工具权限。</div>
-      <div class="field"><label for="agentDisplayName">助手名称</label><input id="agentDisplayName" type="text" maxlength="32" autocomplete="off" placeholder="Agent"></div>
-      <div class="actions"><button class="primary" type="submit">保存助手名称</button><button id="agentDisplayNameDefault" type="button">恢复 Agent</button></div>
-      <div id="agentIdentityMsg" class="msg"></div>
-    </form>
-    <div class="card agent-only">
-      <div class="card-head"><h2>云端模型 API</h2></div>
-      <div class="card-note">保存多家兼容 OpenAI Chat Completions 的 Provider。API Key 只保存在设备本地，保存后不会回显。</div>
-      <form id="agentApiForm" class="form-block">
-        <div class="field"><label for="agentApiProfile">API Profile</label><select id="agentApiProfile"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="kimi">Kimi K3</option><option value="custom">Custom</option></select></div>
-        <div class="field"><label for="agentApiLabel">Profile 名称</label><input id="agentApiLabel" autocomplete="off" maxlength="24" placeholder="DeepSeek"></div>
-        <div class="field"><label for="agentApiProvider">Provider</label><select id="agentApiProvider"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="kimi">Kimi K3</option><option value="custom">Custom</option></select></div>
-        <div class="field"><label for="agentApiBase">OpenAI API Base</label><input id="agentApiBase" type="url" autocomplete="off" placeholder="https://api.deepseek.com"></div>
-        <div class="field"><label for="agentApiModelSelect">模型列表</label><select id="agentApiModelSelect"><option value="">尚未枚举</option></select></div>
-        <div class="field"><label for="agentApiModel">选中 Model</label><input id="agentApiModel" autocomplete="off" placeholder="deepseek-v4-pro"></div>
+    <h3 id="hardware" class="settings-subhead anchor-target">硬件方向</h3>
+    <div class="settings-cards">
+      <div id="deviceHardwareCard" class="card">
+        <div class="card-head"><h3>板级方向</h3><span class="card-chip live">立即生效</span></div>
+        <p class="card-note">调整当前板型的接线方向。变更会立即应用并持久保存，不会触发 PWR、RST 或 Locator LED 动作。</p>
+        <div id="powerResetSwapRow" class="ui-setting-row" hidden><div class="ui-setting-copy"><b>开机 / 重启交换</b><small id="powerResetSwapMeta">正在读取当前映射</small></div><button id="powerResetSwap" type="button">交换</button></div>
+        <div id="settingsLocatorReverseRow" class="ui-setting-row" hidden><div class="ui-setting-copy"><b>Locator LED 方向反转</b><small id="settingsLocatorReverseMeta">反转设置会保存到设备</small></div><label class="ui-switch"><input id="settingsLocatorReverse" type="checkbox" role="switch" aria-label="Reverse Locator LED direction" data-dirty-ignore><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div id="deviceHardwareMsg" class="msg"></div>
+        <div id="settingsLocatorMsg" class="msg" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-page" data-settings-section="security">
+    <header class="settings-page-head">
+      <h2 id="security" class="anchor-target">账户与安全</h2>
+      <p>管理 Web 控制台账户、登录方式和会话策略。账户、通行密钥和两步验证的修改需要当前密码，并会立即生效。</p>
+    </header>
+    <div class="settings-cards">
+      <div class="card">
+        <div class="card-head"><h3>本地账户</h3><span class="card-chip live">立即生效</span></div>
+        <p class="card-note">保护 Web 控制台和设备 API，默认凭据必须修改。</p>
+        <div class="rows" id="authRows"></div>
+        <details class="editor"><summary>修改用户名或密码</summary>
+        <form id="accountForm" data-dirty-ignore>
+          <div class="field"><label for="currentPassword">当前密码</label><input id="currentPassword" type="password" autocomplete="current-password"></div>
+          <div class="field"><label for="accountOtp">验证码 / 恢复码（已启用时填写）</label><input id="accountOtp" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div>
+          <div class="field"><label for="accountUsername">新用户名</label><input id="accountUsername" type="text" autocomplete="username" maxlength="32"></div>
+          <div class="field"><label for="newPassword">新密码</label><input id="newPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
+          <div class="field"><label for="confirmPassword">确认新密码</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="64"></div>
+          <div class="card-actions"><button class="primary" type="submit">修改账户</button><a class="button-link" href="/api/auth/certificate" download="exoanchor-device.pem">下载设备证书</a></div>
+          <div id="accountMsg" class="msg"></div>
+        </form>
+        </details>
+      </div>
+      <div class="card" data-settings-group="session">
+        <div class="card-head"><h3>会话</h3></div>
+        <p class="card-note">控制浏览器空闲后是否自动退出本地会话。</p>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>自动退出</b><small>浏览器空闲后需要重新认证</small></div><label class="ui-switch"><input id="autoLogoutEnabled" type="checkbox" role="switch" aria-label="自动退出"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div class="field"><label for="autoLogoutMinutes">空闲时间（分钟）</label><input id="autoLogoutMinutes" type="number" min="1" max="1440" step="1" inputmode="numeric"></div>
+        <div id="sessionMsg" class="msg"></div>
+      </div>
+      <div class="card" id="passkeyCard">
+        <div class="card-head"><h3>通行密钥 · Passkey</h3><span class="card-chip live">立即生效</span></div>
+        <p class="card-note">用 iPhone / Mac 的 Face ID、Touch ID 或设备解锁登录，密码和两步验证仍可作为备用登录方式。先通过固定主机名打开设备并信任 HTTPS 证书，再绑定当前网址；删除所有密钥后才能更换绑定网址。</p>
+        <p id="passkeyStatus" class="card-status" role="status">正在读取状态…</p>
+        <p id="passkeyEnvironment" class="card-status" role="status"></p>
+        <form id="passkeyForm" autocomplete="off" data-dirty-ignore>
+          <div class="field-grid">
+            <div class="field"><label for="passkeyPassword">当前密码</label><input id="passkeyPassword" type="password" autocomplete="current-password" maxlength="64"></div>
+            <div class="field"><label for="passkeyOtp">验证码 / 恢复码（已启用时填写）</label><input id="passkeyOtp" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div>
+          </div>
+          <div class="field"><label for="passkeyLabel">密钥名称</label><input id="passkeyLabel" value="我的通行密钥" maxlength="16" autocomplete="off"></div>
+          <div class="card-actions"><button id="passkeyConfigure" type="button" disabled>绑定当前网址</button><button id="passkeyAdd" class="primary" type="submit" disabled>添加通行密钥</button><button id="passkeyCancel" type="button" hidden>取消操作</button><button id="passkeyRefresh" type="button">刷新状态</button><button id="passkeyLogin" type="button">重新登录</button></div>
+        </form>
+        <div id="passkeyList" class="key-list"></div>
+        <div id="passkeyMsg" class="msg" role="status"></div>
+      </div>
+      <div class="card" id="twoStepCard">
+        <div class="card-head"><h3>两步验证 · 动态验证码</h3><span class="card-chip live">立即生效</span></div>
+        <p class="card-note">验证器每 30 秒生成一个 6 位验证码。启用后，登录需要密码和验证码，也可使用一次性恢复码。开始或停用前需在 1 分钟内重新登录；验证码不能重复使用。</p>
+        <p id="twoStepStatus" class="card-status" role="status">正在读取状态…</p>
+        <form id="twoStepForm" autocomplete="off" data-dirty-ignore>
+          <div class="field"><label for="twoStepPassword">当前密码</label><input id="twoStepPassword" type="password" autocomplete="current-password" maxlength="64"></div>
+          <div id="twoStepEnrollment" hidden>
+            <p class="card-note">在验证器中手动添加以下密钥，选择基于时间。恢复码只显示这一次，请保存在安全位置；5 分钟内确认启用。</p>
+            <div class="field"><label for="twoStepSecret">验证器密钥</label><input id="twoStepSecret" readonly autocomplete="off" spellcheck="false"></div>
+            <a id="twoStepOpen">在本机验证器中打开</a>
+            <pre id="twoStepRecovery" class="recovery-codes"></pre>
+            <label class="checkline"><input id="twoStepSaved" type="checkbox">我已保存恢复码</label>
+          </div>
+          <div class="field"><label for="twoStepOtp">验证码 / 恢复码</label><input id="twoStepOtp" type="text" autocomplete="one-time-code" maxlength="32" spellcheck="false"></div>
+          <div class="card-actions"><button id="twoStepBegin" class="primary" type="button">设置两步验证</button><button id="twoStepConfirm" class="primary" type="submit" hidden>确认启用</button><button id="twoStepCancel" type="button" hidden>取消设置</button><button id="twoStepDisable" class="danger" type="button" hidden>停用两步验证</button><button id="twoStepRefresh" type="button">刷新状态</button><button id="twoStepLogin" type="button">重新登录</button></div>
+        </form>
+        <div id="twoStepMsg" class="msg" role="status"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-page" data-settings-section="agent">
+    <header class="settings-page-head">
+      <h2 id="agent" class="anchor-target"><span id="automationSectionTitle">AI 与集成</span></h2>
+      <p id="automationSectionLead">管理外部 MCP 客户端、工具能力授权，以及 Dev 固件中的内置 Agent、模型与技能。</p>
+    </header>
+    <h3 id="mcp" class="settings-subhead anchor-target">外部 MCP</h3>
+    <div class="settings-cards">
+      <div class="card" data-settings-group="mcp">
+        <div class="card-head"><h3>外部 MCP 控制器</h3></div>
+        <p class="card-note">供 Codex、Claude 等外部客户端通过设备 API 操作 ExoAnchor；它不是被控主机的 SSH。</p>
+        <div class="rows" id="mcpRows"></div>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许外部 MCP 访问</b><small>开启后仍受下方逐项工具授权和控制租约约束</small></div><label class="ui-switch"><input id="mcpEnabled" type="checkbox" role="switch" aria-label="允许外部 MCP 访问"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div id="mcpMsg" class="msg"></div>
+      </div>
+      <div class="card" data-settings-group="agent_tools">
+        <div class="card-head"><h3 id="toolAccessTitle">工具能力授权</h3><div class="card-head-actions"><button id="resetAgentTools" type="button">恢复默认</button></div></div>
+        <p id="toolAccessLead" class="card-note">分别决定哪些能力可由设备内置 Agent 或外部 MCP 调用。关闭只影响对应调用方，不影响人工 KVM 与 Terminal。</p>
+        <div class="tool-access-head" aria-hidden="true"><span>工具</span><span>本地 Agent</span><span>MCP</span><span>权限</span><span>风险</span></div>
+        <div id="agentToolPolicyRows" class="tool-table tool-access-table"></div>
+        <details class="editor developer-details"><summary>开发者 · 工具契约与默认管理模式</summary><div><div class="field"><label for="agentToolDefaultMode">默认管理模式</label><select id="agentToolDefaultMode"><option value="observe">observe</option><option value="supervised">supervised</option><option value="autonomous">autonomous</option></select></div><div id="agentToolRows" class="tool-table"></div></div></details>
+        <div id="agentToolMsg" class="msg"></div>
+        <div id="skillMsg" class="msg"></div>
+      </div>
+    </div>
+    <h3 id="embeddedAgent" class="settings-subhead anchor-target agent-only">内置 Agent <a id="openAgentFromSkills" class="button-link subhead-link" href="/agent">打开 Agent 工作区</a></h3>
+    <div class="settings-cards agent-only">
+      <div id="agentAutonomyCard" class="card" data-settings-group="agent_autonomy">
+        <div class="card-head"><h3>自动化等级</h3></div>
+        <p class="card-note">参照汽车自动驾驶分级。设备按每次调用的精确参数判定动作类别，模型无法更改；超出等级的调用直接被拒绝，需要确认的调用会在 Agent 页等待你批准。L5 完全自动化不提供：不可逆动作始终需要人确认。键盘鼠标动作暂不开放。</p>
+        <div class="autonomy-levels" role="radiogroup" aria-label="自动化等级">
+          <label class="autonomy-level"><input type="radio" name="agentAutonomy" value="0"><span><b>L0 无自动化</b><small>只给建议，不调用任何设备工具</small></span></label>
+          <label class="autonomy-level"><input type="radio" name="agentAutonomy" value="1"><span><b>L1 辅助 <span class="card-chip">默认</span></b><small>只读工具自动运行：状态、视频、串口读取、只读 SSH 命令</small></span></label>
+          <label class="autonomy-level"><input type="radio" name="agentAutonomy" value="2"><span><b>L2 部分自动化</b><small>普通操作每次需你批准；系统级与不可逆动作不允许</small></span></label>
+          <label class="autonomy-level"><input type="radio" name="agentAutonomy" value="3"><span><b>L3 有条件自动化</b><small>普通操作自动运行；sudo、服务、软件包、电源等系统级动作每次需你批准</small></span></label>
+          <label class="autonomy-level"><input type="radio" name="agentAutonomy" value="4"><span><b>L4 高度自动化</b><small>系统级动作也自动运行；递归删除、格式化、断电等不可逆动作每次需你批准</small></span></label>
+        </div>
+        <div id="agentAutonomyMatrix" class="autonomy-matrix" aria-live="polite"></div>
+        <div id="agentAutonomyMsg" class="msg"></div>
+      </div>
+      <div class="card" data-settings-group="agent_privacy">
+        <div class="card-head"><h3>运行与数据</h3></div>
+        <p class="card-note">控制 Dev 固件中的本地 Agent 运行时及其数据使用方式；这些设置不会改变 MCP 权限。</p>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>启用内置 Agent</b><small>关闭后拒绝新的本地 Agent 任务</small></div><label class="ui-switch"><input id="embeddedAgentEnabled" type="checkbox" role="switch" aria-label="启用内置 Agent"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许页面上下文</b><small>后端会丢弃未授权的页面上下文</small></div><label class="ui-switch"><input id="pageContextEnabled" type="checkbox" role="switch" aria-label="允许页面上下文"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>保存对话历史</b><small>关闭后新对话不再写入 TF 历史</small></div><label class="ui-switch"><input id="conversationHistoryEnabled" type="checkbox" role="switch" aria-label="保存对话历史"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许长期记忆</b><small>默认关闭</small></div><label class="ui-switch"><input id="longTermMemoryEnabled" type="checkbox" role="switch" aria-label="允许长期记忆"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>显示 Agent 操作过程 <span class="card-chip">仅当前浏览器</span></b><small>在 KVM 和 Terminal 中显示 Agent 的实际操作；切换后立即生效</small></div><label class="ui-switch"><input id="browserAgentActionsEnabled" type="checkbox" role="switch" aria-label="显示 Agent 操作过程" data-dirty-ignore><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div id="agentPrivacyMsg" class="msg"></div>
+        <div id="agentBrowserPreferenceMsg" class="browser-preference-note" aria-live="polite"></div>
+      </div>
+      <form id="agentIdentityForm" class="card" data-settings-group="agent_identity">
+        <div class="card-head"><h3>助手名称</h3><div class="card-head-actions"><button id="agentDisplayNameDefault" type="button">使用默认名称</button></div></div>
+        <p class="card-note">设备端助手在 Agent 工作区、悬浮对话窗和运行时上下文中的显示名称；不会改变模型 Provider 或工具权限。</p>
+        <div class="field"><label for="agentDisplayName">助手名称</label><input id="agentDisplayName" type="text" maxlength="32" autocomplete="off" placeholder="Agent"></div>
+        <div id="agentIdentityMsg" class="msg"></div>
+      </form>
+      <form id="agentApiForm" class="card" data-settings-group="agent_api">
+        <div class="card-head"><h3>云端模型 API</h3><div class="card-head-actions"><button id="agentApiRefreshModels" type="button">枚举模型</button></div></div>
+        <p class="card-note">保存多家兼容 OpenAI Chat Completions 的 Provider。API Key 只保存在设备本地，保存后不会回显。</p>
+        <div class="field-grid">
+          <div class="field"><label for="agentApiProfile">API Profile</label><select id="agentApiProfile"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="kimi">Kimi K3</option><option value="custom">Custom</option></select></div>
+          <div class="field"><label for="agentApiLabel">Profile 名称</label><input id="agentApiLabel" autocomplete="off" maxlength="24" placeholder="DeepSeek"></div>
+          <div class="field"><label for="agentApiProvider">Provider</label><select id="agentApiProvider"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="qwen">阿里云百炼 Qwen</option><option value="kimi">Kimi K3</option><option value="custom">Custom</option></select></div>
+          <div class="field"><label for="agentApiBase">OpenAI API Base</label><input id="agentApiBase" type="url" autocomplete="off" placeholder="https://api.deepseek.com"></div>
+          <div class="field"><label for="agentApiModelSelect">模型列表</label><select id="agentApiModelSelect" data-dirty-ignore><option value="">尚未枚举</option></select></div>
+          <div class="field"><label for="agentApiModel">选中模型</label><input id="agentApiModel" autocomplete="off" placeholder="deepseek-v4-pro"></div>
+        </div>
         <div class="field"><label for="agentApiKey">API Key</label><input id="agentApiKey" type="password" autocomplete="off" placeholder="保存后不会显示明文"></div>
-        <div class="actions"><button class="primary" type="submit">保存当前 API</button><button id="agentApiLoad" type="button">读取配置</button><button id="agentApiRefreshModels" type="button">枚举模型</button></div>
         <div id="agentApiMsg" class="msg"></div>
       </form>
-    </div>
-    <div class="card agent-only">
-      <div class="card-head"><h2>System Prompt</h2></div>
-      <div class="card-note">保存后下一次 Agent 请求立即生效；恢复默认只删除自定义提示词。</div>
-      <details class="editor"><summary>编辑 System Prompt</summary>
-      <form id="agentPromptForm">
+      <form id="agentPromptForm" class="card" data-settings-group="agent_prompt">
+        <div class="card-head"><h3>System Prompt</h3><div class="card-head-actions"><button id="agentPromptDefault" type="button">恢复默认</button></div></div>
+        <p class="card-note">保存后下一次 Agent 请求立即生效；「恢复默认」会立即删除自定义提示词。</p>
         <div class="field"><label for="agentSystemPrompt">Agent system prompt</label><textarea id="agentSystemPrompt" maxlength="2048" spellcheck="false"></textarea></div>
-        <div class="actions"><button class="primary" type="submit">保存提示词</button><button id="agentPromptLoad" type="button">读取提示词</button><button id="agentPromptDefault" type="button">恢复默认</button></div>
         <div id="agentPromptMsg" class="msg"></div>
       </form>
-      </details>
-    </div>
-    <div class="card full-span">
-      <div class="card-head"><h2 id="toolAccessTitle">工具能力授权</h2></div>
-      <div id="toolAccessLead" class="card-note">分别决定哪些能力可由设备内置 Agent 或外部 MCP 调用。关闭只影响对应调用方，不影响人工 KVM 与 Terminal。</div>
-      <div class="tool-access-head" aria-hidden="true"><span>工具</span><span>本地 Agent</span><span>MCP</span><span>权限</span><span>风险</span></div>
-      <div id="agentToolPolicyRows" class="tool-table tool-access-table"></div>
-      <div class="actions"><button id="saveAgentTools" class="primary" type="button">保存工具授权</button><button id="resetAgentTools" type="button">恢复默认</button><button id="refreshSkills" type="button">刷新</button><button id="openAgentFromSkills" type="button">Agent</button></div>
-      <div id="agentToolMsg" class="msg"></div>
-      <div id="skillMsg" class="msg"></div>
-      <details class="developer-details"><summary>Developer · 工具契约与默认管理模式</summary><div><div class="field"><label for="agentToolDefaultMode">默认管理模式</label><select id="agentToolDefaultMode"><option value="observe">observe</option><option value="supervised">supervised</option><option value="autonomous">autonomous</option></select></div><div id="agentToolRows" class="tool-table"></div></div></details>
-    </div>
-    <div class="card full-span agent-only">
-      <div class="card-head"><h2>联网搜索</h2></div>
-      <div class="card-note">允许 Agent 在需要实时资料时调用联网搜索。默认复用所选 API Profile，单独填写 API Key 会覆盖该来源。</div>
-      <div class="rows" id="webSearchRows"></div>
-      <form id="webSearchForm" class="form-block">
+      <form id="webSearchForm" class="card" data-settings-group="web_search">
+        <div class="card-head"><h3>联网搜索</h3></div>
+        <p class="card-note">允许 Agent 在需要实时资料时调用联网搜索。默认复用所选 API Profile，单独填写 API Key 会覆盖该来源。</p>
+        <div class="rows" id="webSearchRows"></div>
         <div class="ui-setting-row"><div class="ui-setting-copy"><b>允许 Agent 调用 web_search</b><small>联网由运行时工具执行，不让模型私自访问网络</small></div><label class="ui-switch"><input id="webSearchEnabled" type="checkbox" role="switch" aria-label="允许 Agent 调用 web_search"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
         <details class="editor"><summary>搜索 Provider 与 Key</summary>
         <div>
-          <div class="field"><label for="webSearchProfile">API Profile</label><select id="webSearchProfile"><option value="qwen">阿里云百炼 Qwen</option><option value="openai">OpenAI</option><option value="deepseek">DeepSeek</option><option value="custom">Custom</option></select></div>
-          <div class="field"><label for="webSearchEndpoint">Search API Base（可留空复用 Profile）</label><input id="webSearchEndpoint" type="url" autocomplete="off" placeholder="留空则使用所选 API Profile 的 Base"></div>
-          <div class="field"><label for="webSearchModel">Search Model</label><input id="webSearchModel" autocomplete="off" maxlength="64" placeholder="qwen-plus"></div>
-          <div class="field"><label for="webSearchStrategy">Search Strategy</label><select id="webSearchStrategy"><option value="agent">agent</option><option value="agent_max">agent_max</option><option value="turbo">turbo</option><option value="max">max</option></select></div>
+          <div class="field-grid">
+            <div class="field"><label for="webSearchProfile">API Profile</label><select id="webSearchProfile"><option value="qwen">阿里云百炼 Qwen</option><option value="openai">OpenAI</option><option value="deepseek">DeepSeek</option><option value="custom">Custom</option></select></div>
+            <div class="field"><label for="webSearchModel">Search Model</label><input id="webSearchModel" autocomplete="off" maxlength="64" placeholder="qwen-plus"></div>
+            <div class="field"><label for="webSearchStrategy">Search Strategy</label><select id="webSearchStrategy"><option value="agent">agent</option><option value="agent_max">agent_max</option><option value="turbo">turbo</option><option value="max">max</option></select></div>
+            <div class="field"><label for="webSearchEndpoint">Search API Base（可留空复用 Profile）</label><input id="webSearchEndpoint" type="url" autocomplete="off" placeholder="留空则使用所选 API Profile 的 Base"></div>
+          </div>
           <div class="field"><label for="webSearchApiKey">Search API Key（可选覆盖）</label><input id="webSearchApiKey" type="password" autocomplete="off" maxlength="256" placeholder="留空则保留/复用 Profile key"></div>
           <label class="checkline"><input id="webSearchClearKey" type="checkbox"> 清空单独保存的 Search API Key</label>
         </div>
         </details>
-        <div class="actions"><button class="primary" type="submit">保存联网搜索</button></div>
         <div id="webSearchMsg" class="msg"></div>
       </form>
-    </div>
-    <div class="card full-span agent-only">
-      <div class="card-head"><h2>Skill Registry</h2></div>
-      <div class="card-note">可编辑的技能注册表，用于给 Agent 暴露可复用流程和工具组合。</div>
-      <details class="editor"><summary>编辑 Skills JSON</summary>
-      <div>
-      <div class="field"><label for="agentSkillsJson">skills JSON</label><textarea id="agentSkillsJson" class="tool-json" spellcheck="false"></textarea></div>
-      <div class="actions"><button id="saveAgentSkills" class="primary" type="button">保存 Skills</button><button id="formatAgentSkills" type="button">格式化</button></div>
-      <div id="agentSkillsMsg" class="msg"></div>
+      <div class="card" data-settings-group="agent_skills">
+        <div class="card-head"><h3>Skill Registry</h3><div class="card-head-actions"><button id="formatAgentSkills" type="button">格式化</button></div></div>
+        <p class="card-note">可编辑的技能注册表，用于给 Agent 暴露可复用流程和工具组合。</p>
+        <details class="editor"><summary>编辑 Skills JSON</summary>
+        <div>
+        <div class="field"><label for="agentSkillsJson">skills JSON</label><textarea id="agentSkillsJson" class="tool-json" spellcheck="false"></textarea></div>
+        </div>
+        </details>
+        <div id="agentSkillsMsg" class="msg"></div>
       </div>
-      </details>
     </div>
   </section>
 
-  <div id="system" class="section-title anchor-target" data-settings-section="system" data-settings-priority="10"><span>系统与支持</span></div>
-  <p class="section-lead" data-settings-section="system" data-settings-priority="10">检查远程更新与当前固件版本。</p>
-  <section class="grid firmware-grid" data-settings-section="system" data-settings-priority="10">
-    <div class="card">
-      <div class="card-head"><h2>远程更新</h2></div>
-      <div class="card-note">从 Manifest URL 检查并安装远程固件，安装后需要重启应用。</div>
-      <div class="rows" id="otaRows"></div>
-      <details class="editor"><summary>远程 OTA 设置</summary>
-      <form id="otaSettingsForm">
-        <div class="field"><label for="otaManifestUrl">Manifest URL</label><input id="otaManifestUrl" type="url" autocomplete="off"></div>
-        <div class="field"><label for="otaChannel">Channel</label><input id="otaChannel" type="text" autocomplete="off" maxlength="16" placeholder="stable"></div>
-        <div class="actions"><button class="primary" type="submit">保存更新设置</button><button id="otaCheck" type="button">检查更新</button><button id="otaInstall" type="button">安装更新</button><button id="otaReboot" class="danger" type="button">重启应用</button></div>
+  <section class="settings-page" data-settings-section="system">
+    <header class="settings-page-head">
+      <h2 id="system" class="anchor-target">系统维护</h2>
+      <p>固件更新、TF 卡文件管理和恢复出厂。这里的按钮都会立即执行。</p>
+    </header>
+    <h3 id="firmware" class="settings-subhead anchor-target">固件更新</h3>
+    <div class="settings-cards">
+      <form id="otaSettingsForm" class="card" data-settings-group="ota">
+        <div class="card-head"><h3>远程更新</h3><div class="card-head-actions"><button id="otaCheck" type="button">检查更新</button><button id="otaInstall" type="button">安装更新</button><button id="otaReboot" class="danger" type="button">重启应用</button></div></div>
+        <p class="card-note">从 Manifest URL 检查并安装远程固件，安装后需要重启应用。修改更新源后请先保存，再检查更新。</p>
+        <div class="rows" id="otaRows"></div>
+        <div class="field-grid">
+          <div class="field"><label for="otaManifestUrl">Manifest URL</label><input id="otaManifestUrl" type="url" autocomplete="off"></div>
+          <div class="field"><label for="otaChannel">更新通道</label><input id="otaChannel" type="text" autocomplete="off" maxlength="16" placeholder="stable"></div>
+        </div>
+        <div id="otaMsg" class="msg"></div>
       </form>
+      <details class="editor developer-details">
+        <summary>开发者 · 本地固件上传</summary>
+        <form id="otaUploadForm" data-dirty-ignore>
+          <p class="card-note">手动上传 <code>.bin</code> 固件到 OTA 分区，上传期间视频可能暂停。</p>
+          <div class="field"><label for="otaFile">固件 bin</label><input id="otaFile" type="file" accept=".bin,application/octet-stream"></div>
+          <div class="card-actions"><button class="primary" type="submit">上传固件</button></div>
+          <div class="progress"><div id="otaProgress" class="bar"></div></div>
+          <div id="otaUploadMsg" class="msg"></div>
+        </form>
       </details>
-      <div id="otaMsg" class="msg"></div>
+    </div>
+    <h3 id="storage" class="settings-subhead anchor-target">存储与文件</h3>
+    <div class="settings-cards">
+      <div class="card">
+        <div class="card-head"><h3>空间</h3></div>
+        <div class="storage-preview">
+          <div class="storage-meter"><b>Internal Flash</b><span id="storageFlashText">--</span><div class="progress"><div id="storageFlashBar" class="bar"></div></div></div>
+          <div class="storage-meter"><b>TF Card</b><span id="storageTfText">--</span><div class="progress"><div id="storageTfBar" class="bar"></div></div></div>
+        </div>
+        <div class="rows" id="storageRows"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>文件</h3><div class="card-head-actions"><button id="storageRefreshDir" type="button">刷新目录</button></div></div>
+        <p class="card-note">浏览 TF 卡上的 ExoAnchor 目录。点击文件可预览前几 KB 或下载完整文件；上传会写入当前目录。</p>
+        <div class="path-chips" id="storageQuickLinks">
+          <button type="button" data-path="">/EA</button>
+          <button type="button" data-path="AGENT">AGENT</button>
+          <button type="button" data-path="ASSETS">ASSETS</button>
+          <button type="button" data-path="LOGS">LOGS</button>
+          <button type="button" data-path="SNAPSHOTS">SNAPSHOTS</button>
+          <button type="button" data-path="MCP">MCP</button>
+          <button type="button" data-path="OTA">OTA</button>
+        </div>
+        <div class="path-line"><span id="storageCurrentPath">/EA</span></div>
+        <div id="storageFileList" class="file-list"></div>
+        <div id="storageFileMsg" class="msg"></div>
+        <details id="storagePreviewPanel" class="editor" style="display:none">
+          <summary id="storagePreviewTitle">文件预览</summary>
+          <div><pre id="storagePreviewBody" class="file-preview"></pre></div>
+        </details>
+        <details class="editor"><summary>上传文件到当前目录</summary>
+        <form id="storageUploadForm" data-dirty-ignore>
+          <div class="field-grid">
+            <div class="field"><label for="storageUploadFiles">选择文件</label><input id="storageUploadFiles" type="file" multiple></div>
+            <div class="field"><label for="storageUploadName">目标文件名（单文件可选）</label><input id="storageUploadName" autocomplete="off" placeholder="留空使用原文件名"></div>
+          </div>
+          <div class="card-actions"><button class="primary" type="submit">上传</button></div>
+          <div class="progress"><div id="storageUploadProgress" class="bar"></div></div>
+          <div id="storageUploadMsg" class="msg"></div>
+        </form>
+        </details>
+      </div>
+    </div>
+    <h3 id="reset" class="settings-subhead anchor-target">恢复出厂</h3>
+    <div class="settings-cards">
+      <div class="card danger-zone">
+        <div class="card-head"><h3>恢复出厂设置</h3><span class="card-chip danger">不可撤销</span></div>
+        <p class="card-note">清空本地账户、API、视频、会话和设备设置，然后重启设备。</p>
+        <div class="card-actions"><button id="resetEverything" class="danger" type="button">清空所有设置并重启</button></div>
+        <div id="systemMsg" class="msg"></div>
+      </div>
     </div>
   </section>
-  <details class="editor developer-details" data-settings-section="advanced" data-settings-priority="70">
-  <summary>开发者 · 本地固件上传</summary>
-  <div>
-  <section class="grid firmware-grid" data-settings-section="advanced">
-    <form id="otaUploadForm" class="card">
-      <div class="card-head"><h2>高级 · 本地固件上传</h2></div>
-      <div class="card-note">手动上传 `.bin` 固件到 OTA 分区，上传期间视频可能暂停。</div>
-      <div class="field"><label for="otaFile">固件 bin</label><input id="otaFile" type="file" accept=".bin,application/octet-stream"></div>
-      <div class="actions"><button class="primary" type="submit">上传固件</button></div>
-      <div class="progress"><div id="otaProgress" class="bar"></div></div>
-      <div id="otaUploadMsg" class="msg"></div>
-    </form>
+
+  <section class="settings-page" data-settings-section="status">
+    <header class="settings-page-head">
+      <h2 id="status" class="anchor-target">状态与诊断</h2>
+      <p>只读的运行状态，用于排查问题；这里没有可修改的设置。数据每 10 秒自动刷新。</p>
+      <div class="settings-page-actions"><button id="refreshDeviceDiagnostics" type="button">立即刷新</button></div>
+    </header>
+    <h3 id="deviceDiagnostics" class="settings-subhead anchor-target">运行摘要</h3>
+    <div id="deviceDiagnosticsSummary" class="settings-cards diagnostic-grid">
+      <div class="card"><div class="card-head"><h3>设备</h3></div><div id="diagnosticDevice" class="rows"></div></div>
+      <div class="card"><div class="card-head"><h3>网络</h3></div><div id="diagnosticNetwork" class="rows"></div></div>
+      <div class="card"><div class="card-head"><h3>视频流</h3></div><div id="diagnosticVideo" class="rows"></div></div>
+      <div class="card"><div class="card-head"><h3>USB</h3></div><div id="diagnosticUsb" class="rows"></div></div>
+      <div class="card full-span"><div class="card-head"><h3>GPIO 状态</h3></div><div id="diagnosticGpio" class="rows"></div></div>
+    </div>
+    <div id="deviceDiagnosticsMsg" class="msg"></div>
+    <h3 id="gpioMatrix" class="settings-subhead anchor-target">GPIO 占用</h3>
+    <div class="settings-cards">
+      <div id="gpioMatrixCard" class="card">
+        <p class="card-note">GPIO0–54 当前被固件和运行配置实际占用的情况。未分配只表示当前固件未使用，不代表该引脚一定可以安全外接。</p>
+        <div class="gpio-matrix-head"><div id="gpioMatrixSummary" class="gpio-matrix-summary">正在读取板型引脚占用…</div><div class="gpio-matrix-legend"><span><i class="fixed"></i>板型固定</span><span><i class="runtime"></i>运行映射</span><span><i></i>未分配</span></div></div>
+        <div id="gpioMatrixGrid" class="gpio-matrix-grid" aria-label="GPIO0 到 GPIO54 占用矩阵"></div>
+      </div>
+    </div>
+    <h3 id="diagnostics" class="settings-subhead anchor-target">近期日志</h3>
+    <div class="settings-cards">
+      <div class="card">
+        <div class="card-head"><h3>系统日志</h3><div class="card-head-actions"><button id="refreshDiagnostics" type="button">刷新日志</button><button id="downloadDiagnosticLogs" type="button">下载日志</button></div></div>
+        <div id="diagnosticLogs" class="diagnostic-log"></div>
+        <div id="diagnosticLogsMsg" class="msg"></div>
+      </div>
+    </div>
   </section>
+
+  <section id="advancedSettings" class="settings-page" data-settings-section="advanced">
+    <header class="settings-page-head">
+      <h2 id="advanced" class="anchor-target">高级</h2>
+      <p>仅在接线或板型变化时修改。错误的引脚或有效电平可能导致电源控制不可用；保存前会再次确认。</p>
+    </header>
+    <h3 id="gpio" class="settings-subhead anchor-target">GPIO 映射</h3>
+    <div class="settings-cards">
+      <form id="gpioMapForm" class="card" data-settings-group="gpio">
+        <div class="card-head"><h3>主机控制与状态探测</h3><div class="card-head-actions"><button id="resetGpioMap" type="button">恢复默认</button></div></div>
+        <p class="card-note">配置可热更新的主机控制与状态探测引脚；固定外设引脚不能用于运行映射。占用情况见「状态与诊断 · GPIO 占用」。</p>
+        <div id="gpioMapRows"></div>
+        <div id="gpioMapMsg" class="msg"></div>
+      </form>
+    </div>
+  </section>
+
+  <div id="settingsSaveBar" class="settings-savebar" role="region" aria-label="未保存的更改" hidden>
+    <div class="settings-savebar-copy"><b id="settingsSaveSummary">有未保存的更改</b><small id="settingsSaveDetail"></small></div>
+    <div class="settings-savebar-actions"><button id="settingsDiscard" type="button">放弃更改</button><button id="settingsSave" class="primary" type="button">保存更改</button></div>
   </div>
-  </details>
-  <section class="grid firmware-grid" data-settings-section="advanced" data-settings-priority="80">
-    <div class="card full-span danger-zone">
-      <div class="card-head"><h2>高级 · 恢复出厂设置</h2></div>
-      <div class="card-note">清空本地账户、API、视频、会话和设备设置，然后重启设备。</div>
-      <div class="actions"><button id="resetEverything" class="danger" type="button">Reset Everything</button></div>
-      <div id="systemMsg" class="msg"></div>
-    </div>
-  </section>
   </div>
 </main>
 <script id="passkey-settings-script">
@@ -826,9 +861,9 @@ const UI=window.ExoAnchorUI,API=UI.api,Session=UI.session,AuthUI=UI.auth;
 const EMBEDDED_AGENT=window.ExoAnchorBuild?.embeddedAgent!==false;
 document.documentElement.classList.toggle("stable-profile",!EMBEDDED_AGENT);
 if(!EMBEDDED_AGENT){
-  automationMenuTitle.textContent="集成与权限";
-  automationMenuLead.textContent="MCP 与工具授权";
-  automationSectionTitle.textContent="集成与权限";
+  automationMenuTitle.textContent="MCP 集成";
+  automationMenuLead.textContent="外部 MCP 与工具授权";
+  automationSectionTitle.textContent="MCP 集成";
   automationSectionLead.textContent="管理外部 MCP 连接及其可调用的设备能力；Stable 固件不包含内置 Agent。";
   toolAccessTitle.textContent="MCP 工具能力授权";
   toolAccessLead.textContent="决定哪些设备能力可由外部 MCP 调用。关闭不会影响人工 KVM 与 Terminal。";
@@ -915,35 +950,98 @@ async function setMs2109Power(action){
   catch(err){if(lastMs2109Status)renderMs2109Status(lastMs2109Status);msg(ms2109PowerMsg,err.message||"MS2109 电源控制失败","bad");throw err}
   finally{setMs2109Busy(false)}
 }
+// Every device-persisted setting lives in a registered group; edits are only
+// written by the page save bar. Secret inputs count as edits while non-empty.
 const SettingsDirty={
-  groups:new Map(),baselines:new Map(),
-  fields(root){return [...root.querySelectorAll("input,select,textarea")].filter(field=>!["password","file"].includes(field.type)&&!field.disabled&&!field.dataset.dirtyIgnore)},
+  groups:new Map(),baselines:new Map(),onChange:null,
+  fields(root){return [...root.querySelectorAll("input,select,textarea")].filter(field=>field.type!=="file"&&!field.disabled&&!field.dataset.dirtyIgnore&&!field.closest?.("[data-dirty-ignore]"))},
   value(field){return field.type==="checkbox"||field.type==="radio"?String(field.checked):field.value},
+  baseValue(field){return field.type==="password"?"":this.value(field)},
   register(name,root){if(root)this.groups.set(name,root)},
-  capture(name){const root=this.groups.get(name);if(!root)return;const baseline=new Map();this.fields(root).forEach(field=>{baseline.set(field,this.value(field));field.classList.remove("settings-field-dirty")});this.baselines.set(name,baseline);root.classList.remove("settings-group-dirty")},
+  capture(name){const root=this.groups.get(name);if(!root)return;const baseline=new Map();this.fields(root).forEach(field=>{baseline.set(field,this.baseValue(field));field.classList.remove("settings-field-dirty")});this.baselines.set(name,baseline);root.classList.remove("settings-group-dirty");this.onChange?.()},
   captureAll(){for(const name of this.groups.keys())this.capture(name)},
-  updateField(field){for(const [name,root] of this.groups){if(!root.contains(field))continue;const baseline=this.baselines.get(name);this.fields(root).forEach(item=>item.classList.toggle("settings-field-dirty",!baseline||!baseline.has(item)||baseline.get(item)!==this.value(item)));root.classList.toggle("settings-group-dirty",this.fields(root).some(item=>item.classList.contains("settings-field-dirty")));return}},
+  evaluate(name){const root=this.groups.get(name),baseline=this.baselines.get(name);if(!root)return false;this.fields(root).forEach(item=>item.classList.toggle("settings-field-dirty",!baseline||!baseline.has(item)||baseline.get(item)!==this.value(item)));const dirty=this.fields(root).some(item=>item.classList.contains("settings-field-dirty"));root.classList.toggle("settings-group-dirty",dirty);return dirty},
+  updateField(field){for(const [name,root] of this.groups){if(!root.contains(field))continue;this.evaluate(name);this.onChange?.();return}},
+  isDirty(name){return !!this.groups.get(name)?.classList.contains("settings-group-dirty")},
+  sync(name){if(!this.isDirty(name))this.capture(name)},
+  restore(name){const baseline=this.baselines.get(name);if(baseline)for(const [field,value] of baseline){if(field.type==="checkbox"||field.type==="radio")field.checked=value==="true";else field.value=value}this.capture(name)},
+  dirtyNames(){return [...this.groups.keys()].filter(name=>this.isDirty(name))},
   any(){return [...this.groups.values()].some(root=>root.classList.contains("settings-group-dirty"))},
 };
-SettingsDirty.register("device",deviceForm);SettingsDirty.register("product_features",productFeaturesCard);SettingsDirty.register("agent_privacy",saveAgentPrivacy.closest(".card"));SettingsDirty.register("agent_identity",agentIdentityForm);SettingsDirty.register("target_profile",targetProfileForm);SettingsDirty.register("mcp",mcpEnabled.closest(".card"));SettingsDirty.register("account",accountForm);SettingsDirty.register("session",saveAutoLogout.closest(".card"));SettingsDirty.register("gpio",gpioMapForm);SettingsDirty.register("video_runtime",saveVideoRuntime.closest(".card"));SettingsDirty.register("console_credentials",consoleCredentialsForm);SettingsDirty.register("ssh_target",sshTargetForm);SettingsDirty.register("ssh_key",sshKeyForm);SettingsDirty.register("agent_api",agentApiForm);SettingsDirty.register("agent_prompt",agentPromptForm);SettingsDirty.register("web_search",webSearchForm);SettingsDirty.register("agent_tools",saveAgentTools.closest(".card"));SettingsDirty.register("agent_skills",saveAgentSkills.closest(".card"));SettingsDirty.register("ota",otaSettingsForm);
+SettingsDirty.register("target_profile",targetProfileForm);SettingsDirty.register("console_credentials",consoleCredentialsForm);SettingsDirty.register("ssh_target",sshTargetForm);SettingsDirty.register("device",deviceForm);SettingsDirty.register("video_runtime",kvmDeviceSettings);SettingsDirty.register("product_features",productFeaturesCard);SettingsDirty.register("session",autoLogoutEnabled.closest(".card"));SettingsDirty.register("mcp",mcpEnabled.closest(".card"));SettingsDirty.register("agent_tools",agentToolPolicyRows.closest(".card"));SettingsDirty.register("agent_autonomy",agentAutonomyCard);SettingsDirty.register("agent_privacy",embeddedAgentEnabled.closest(".card"));SettingsDirty.register("agent_identity",agentIdentityForm);SettingsDirty.register("agent_api",agentApiForm);SettingsDirty.register("agent_prompt",agentPromptForm);SettingsDirty.register("web_search",webSearchForm);SettingsDirty.register("agent_skills",agentSkillsJson.closest(".card"));SettingsDirty.register("ota",otaSettingsForm);SettingsDirty.register("gpio",gpioMapForm);
 document.addEventListener("input",event=>SettingsDirty.updateField(event.target));document.addEventListener("change",event=>SettingsDirty.updateField(event.target));window.addEventListener("beforeunload",event=>{if(SettingsDirty.any()){event.preventDefault();event.returnValue=""}});
+const SETTINGS_SAVERS={
+  target_profile:()=>saveTargetProfile(),
+  console_credentials:()=>saveConsoleCredentials(),
+  ssh_target:()=>saveSshTargetConfig(),
+  device:()=>saveDeviceIdentity(),
+  video_runtime:()=>saveVideoRuntimeSettings(),
+  product_features:()=>saveLanDiscovery(),
+  session:()=>Session.save(),
+  mcp:()=>saveMcpConfig(),
+  agent_tools:async()=>{await saveAgentToolSettings();SettingsDirty.capture("agent_skills");msg(agentToolMsg,"工具授权已保存","ok")},
+  agent_autonomy:()=>saveAgentAutonomy(),
+  agent_privacy:()=>saveAgentPrivacySettings(),
+  agent_identity:()=>saveAgentDisplayName(agentDisplayName.value),
+  agent_api:()=>saveAgentApiConfig(),
+  agent_prompt:()=>saveAgentPrompt(),
+  web_search:async()=>{await saveWebSearchConfig();msg(webSearchMsg,"联网搜索设置已保存","ok")},
+  agent_skills:async()=>{await saveAgentToolSettings({saveSkillsOnly:true});msg(agentSkillsMsg,"Skills 已保存","ok")},
+  ota:()=>saveOtaSettings(),
+  gpio:()=>saveGpioMap(),
+};
+const SETTINGS_DISCARD_HOOKS={
+  agent_autonomy:()=>renderAutonomyMatrix(selectedAutonomyLevel()),
+  agent_tools:()=>renderSkills(),
+  gpio:()=>{gpioMapDirty=false;const power=UI.status.value?.power;if(power)renderGpioMap(power)},
+};
+const SettingsSave={
+  busy:false,timer:0,
+  groupsOn(id){const page=settingsPage(id);return page?[...SettingsDirty.groups.entries()].filter(([,root])=>page.contains(root)).map(([name])=>name):[]},
+  dirtyOn(id){return this.groupsOn(id).filter(name=>SettingsDirty.isDirty(name))},
+  label(name){return SettingsDirty.groups.get(name)?.querySelector(".card-head h3")?.textContent.trim()||name},
+  labels(id){return this.dirtyOn(id).map(name=>this.label(name))},
+  captureSection(id){this.groupsOn(id).forEach(name=>SettingsDirty.capture(name))},
+  update(){
+    const id=shownSettingsSection||activeSettingsSection(),dirty=this.dirtyOn(id);
+    document.querySelectorAll('.settings-menu a[href^="#"]').forEach(a=>a.classList.toggle("has-dirty",this.dirtyOn(a.getAttribute("href").slice(1)).length>0));
+    if(this.busy)return;
+    if(!dirty.length){if(!settingsSaveBar.classList.contains("saved"))settingsSaveBar.hidden=true;return}
+    clearTimeout(this.timer);settingsSaveBar.classList.remove("saved");settingsSaveBar.hidden=false;
+    settingsSaveSummary.textContent=`${dirty.length} 处未保存的更改`;settingsSaveDetail.className="";settingsSaveDetail.textContent=dirty.map(name=>this.label(name)).join("、");
+    settingsSave.disabled=settingsDiscard.disabled=false;
+  },
+  async save(){
+    const names=this.dirtyOn(shownSettingsSection);if(!names.length||this.busy)return;
+    let current="";this.busy=true;settingsSave.disabled=settingsDiscard.disabled=true;settingsSaveSummary.textContent="正在保存…";
+    try{
+      for(const name of names){current=name;settingsSaveDetail.textContent=this.label(name);await SETTINGS_SAVERS[name]();SettingsDirty.capture(name)}
+      this.busy=false;settingsSaveBar.classList.add("saved");settingsSaveBar.hidden=false;settingsSaveSummary.textContent="已保存";settingsSaveDetail.className="";settingsSaveDetail.textContent=names.map(name=>this.label(name)).join("、");
+      this.timer=setTimeout(()=>{settingsSaveBar.classList.remove("saved");this.update()},2200);
+    }catch(err){
+      this.busy=false;this.update();settingsSaveSummary.textContent="保存未完成";settingsSaveDetail.className="bad";settingsSaveDetail.textContent=`「${this.label(current)}」${err?.message||"保存失败"}`;
+    }
+  },
+  discard(id){for(const name of this.dirtyOn(id)){SettingsDirty.restore(name);SETTINGS_DISCARD_HOOKS[name]?.()}this.update()},
+};
+SettingsDirty.onChange=()=>SettingsSave.update();
+settingsSave.onclick=()=>SettingsSave.save();
+settingsDiscard.onclick=()=>SettingsSave.discard(shownSettingsSection);
+for(const form of [targetProfileForm,consoleCredentialsForm,sshTargetForm,deviceForm,agentIdentityForm,agentApiForm,agentPromptForm,webSearchForm,otaSettingsForm,gpioMapForm])form.onsubmit=e=>{e.preventDefault();SettingsSave.save()};
 function fillUsernames(name){if(name&&document.activeElement!==accountUsername)accountUsername.value=name}
-const SETTINGS_IDS=["target-info","target","device","security","agent","system","advanced"];
-const SETTINGS_ALIASES={general:"device",overview:"device",account:"security",hardware:"advanced",ms:"device",ms2109:"device",host:"target-info","target-profile":"target-info",remote:"target","target-host":"target",storage:"advanced","storage-management":"advanced",diagnostic:"device",diagnostics:"advanced","device-diagnostics":"device",gpio:"advanced","gpio-matrix":"device",kvm:"device","kvm-video":"device","control-access":"target",skills:"agent","firmware-maintenance":"advanced","advanced-settings":"advanced",developer:"advanced","developer-settings":"advanced"};
+const SETTINGS_IDS=["target-info","target","device","security","agent","system","status","advanced"];
+const SETTINGS_ALIASES={general:"device",overview:"device",account:"security",hardware:"device",ms:"device",ms2109:"device",kvm:"device","kvm-video":"device",network:"device",networkSettings:"device",host:"target-info","target-profile":"target-info",console:"target",remote:"target","target-host":"target","control-access":"target",mcp:"agent",skills:"agent",embeddedAgent:"agent",storage:"system","storage-management":"system",firmware:"system","firmware-maintenance":"system",ota:"system",reset:"system",diagnostic:"status",diagnostics:"status","device-diagnostics":"status",deviceDiagnostics:"status",logs:"status",gpioMatrix:"status","gpio-matrix":"status",gpio:"advanced","advanced-settings":"advanced",developer:"advanced","developer-settings":"advanced"};
 function settingsId(id){const mapped=SETTINGS_ALIASES[id]||id;return SETTINGS_IDS.includes(mapped)?mapped:"device"}
 function activeSettingsSection(){return settingsId(location.hash.slice(1)||"device")}
-function organizeSettingsPages(){
-  const content=document.querySelector(".settings-content"),nodes=[...content.children].filter(el=>el.dataset.settingsSection);
-  const index=new Map(nodes.map((el,i)=>[el,i]));
-  for(const id of SETTINGS_IDS){
-    const page=document.createElement("div");page.className="settings-page";page.dataset.settingsSection=id;
-    nodes.filter(el=>el.dataset.settingsSection===id).sort((a,b)=>(Number(a.dataset.settingsPriority||0)-Number(b.dataset.settingsPriority||0))||(index.get(a)-index.get(b))).forEach(el=>page.appendChild(el));
-    content.appendChild(page);
-  }
-}
-function showSettingsSection(id,updateHash=false,scrollToTop=false){const active=settingsId(id);document.querySelectorAll(".settings-content>.settings-page[data-settings-section]").forEach(el=>el.classList.toggle("settings-hidden",el.dataset.settingsSection!==active));document.querySelectorAll(".settings-menu a:not(.legacy-control)").forEach(a=>a.classList.toggle("active",a.getAttribute("href")==="#"+active));if(updateHash&&location.hash!=="#"+active)history.replaceState(null,"","#"+active);if(scrollToTop)document.querySelector(".settings-content")?.scrollIntoView({block:"start"});if(Session.active())loadSettingsSection(active).catch(()=>{})}
-function setupSettingsNavigation(){organizeSettingsPages();document.addEventListener("click",e=>{const a=e.target.closest('.settings-menu a[href^="#"]');if(!a||a.classList.contains("legacy-control"))return;const id=settingsId(a.getAttribute("href").slice(1));if(!SETTINGS_IDS.includes(id))return;e.preventDefault();showSettingsSection(id,true,true)});showSettingsSection(location.hash.slice(1)||"device")}
-function updateSettingsMenu(){showSettingsSection(location.hash.slice(1)||"device")}
+function settingsPage(id){return document.querySelector(`.settings-content>.settings-page[data-settings-section="${settingsId(id)}"]`)}
+let shownSettingsSection="";
+function showSettingsSection(id,updateHash=false,scrollToTop=false){const active=settingsId(id);shownSettingsSection=active;document.querySelectorAll(".settings-content>.settings-page[data-settings-section]").forEach(el=>el.classList.toggle("settings-hidden",el.dataset.settingsSection!==active));document.querySelectorAll(".settings-menu a:not(.legacy-control)").forEach(a=>a.classList.toggle("active",a.getAttribute("href")==="#"+active));if(updateHash&&location.hash!=="#"+active)history.replaceState(null,"","#"+active);if(scrollToTop)window.scrollTo({top:0});const menu=document.querySelector(".settings-menu"),link=menu?.querySelector("a.active");if(menu&&link&&menu.scrollWidth>menu.clientWidth)menu.scrollLeft=link.offsetLeft-16;SettingsSave.update();if(Session.active())loadSettingsSection(active).catch(()=>{})}
+// Leaving a page discards its unsaved edits only after the user agrees.
+// The newest navigation wins when several arrive while the dialog is open.
+let settingsNavTicket=0;
+async function requestSettingsSection(id,updateHash=false,scrollToTop=false){const next=settingsId(id),ticket=++settingsNavTicket;if(shownSettingsSection&&next!==shownSettingsSection&&SettingsSave.dirtyOn(shownSettingsSection).length){const ok=await UI.confirmAction({title:"放弃未保存的更改？",message:`「${SettingsSave.labels(shownSettingsSection).join("、")}」的修改尚未保存。`,confirmLabel:"放弃并离开"});if(ticket!==settingsNavTicket)return;if(!ok){if(location.hash!=="#"+shownSettingsSection)history.replaceState(null,"","#"+shownSettingsSection);return}SettingsSave.discard(shownSettingsSection)}showSettingsSection(next,updateHash||location.hash!=="#"+next,scrollToTop)}
+function setupSettingsNavigation(){document.addEventListener("click",e=>{const a=e.target.closest('.settings-menu a[href^="#"]');if(!a||a.classList.contains("legacy-control"))return;const id=settingsId(a.getAttribute("href").slice(1));if(!SETTINGS_IDS.includes(id))return;e.preventDefault();requestSettingsSection(id,true,true)});showSettingsSection(location.hash.slice(1)||"device")}
+function updateSettingsMenu(){requestSettingsSection(location.hash.slice(1)||"device")}
 const settingsSectionLoaded=new Set();
 async function loadSettingsSection(id,{force=false}={}){
   const active=settingsId(id);
@@ -955,10 +1053,10 @@ async function loadSettingsSection(id,{force=false}={}){
   else if(active==="security")await Session.load().catch(()=>{});
   else if(active==="agent"){
     const loads=[loadMcpSettings(true).catch(()=>{}),loadAgentTools(true).catch(()=>{})];
-    if(EMBEDDED_AGENT)loads.push(loadProductFeatures(true).catch(()=>{}),loadAgentApiConfig(true).catch(()=>{}),loadAgentPrompt(true).catch(()=>{}));
+    if(EMBEDDED_AGENT)loads.push(loadProductFeatures(true).catch(()=>{}),loadDeviceIdentity(true).catch(()=>{}),loadAgentApiConfig(true).catch(()=>{}),loadAgentPrompt(true).catch(()=>{}));
     await Promise.all(loads);
   }
-  settingsSectionLoaded.add(active);SettingsDirty.captureAll();
+  settingsSectionLoaded.add(active);SettingsSave.captureSection(active);
   return refreshActiveSection(active);
 }
 let agentApiProfiles=[];
@@ -993,17 +1091,17 @@ async function saveAgentApiConfig(){msg(agentApiMsg,"","");
 function promptBytes(text){return new TextEncoder().encode(String(text||"")).length}
 function applyAgentPromptConfig(cfg){const max=Number(cfg?.max_length||2048);agentSystemPrompt.maxLength=max;agentSystemPrompt.dataset.maxBytes=String(max);if(document.activeElement!==agentSystemPrompt)agentSystemPrompt.value=cfg?.system_prompt||cfg?.default_system_prompt||""}
 async function loadAgentPrompt(silent=false){try{const cfg=await API.get("/api/settings/agent-prompt");applyAgentPromptConfig(cfg);if(!silent)msg(agentPromptMsg,cfg.using_default?"已读取默认提示词":"已读取自定义提示词","ok");return cfg}catch(err){if(!silent)msg(agentPromptMsg,err.message||"无法读取提示词","bad");throw err}}
-async function saveAgentPrompt(){const prompt=agentSystemPrompt.value.trim();if(!prompt){msg(agentPromptMsg,"提示词不能为空","bad");return}const bytes=promptBytes(prompt),max=Number(agentSystemPrompt.dataset.maxBytes||2048);if(bytes>max){msg(agentPromptMsg,`提示词过长：${bytes}/${max} bytes`,"bad");return}const saved=await API.post("/api/settings/agent-prompt",{system_prompt:prompt});applyAgentPromptConfig(saved);SettingsDirty.capture("agent_prompt");msg(agentPromptMsg,`提示词已保存，${bytes}/${Number(saved.max_length||max)} bytes`,"ok")}
+async function saveAgentPrompt(){const prompt=agentSystemPrompt.value.trim();if(!prompt){msg(agentPromptMsg,"提示词不能为空","bad");throw new Error("提示词不能为空")}const bytes=promptBytes(prompt),max=Number(agentSystemPrompt.dataset.maxBytes||2048);if(bytes>max){msg(agentPromptMsg,`提示词过长：${bytes}/${max} bytes`,"bad");throw new Error(`提示词过长：${bytes}/${max} bytes`)}const saved=await API.post("/api/settings/agent-prompt",{system_prompt:prompt});applyAgentPromptConfig(saved);SettingsDirty.capture("agent_prompt");msg(agentPromptMsg,`提示词已保存，${bytes}/${Number(saved.max_length||max)} bytes`,"ok")}
 async function resetAgentPrompt(){const saved=await API.post("/api/settings/agent-prompt",{reset_default:true});applyAgentPromptConfig(saved);SettingsDirty.capture("agent_prompt");msg(agentPromptMsg,"已恢复默认提示词","ok")}
 let consoleCredentialsConfig={configured:false,username:"",password_configured:false};
 function applyConsoleCredentialsConfig(cfg){consoleCredentialsConfig=Object.assign({configured:false,username:"",password_configured:false},cfg||{});const configured=!!consoleCredentialsConfig.configured;const ready=configured&&!!consoleCredentialsConfig.password_configured;consoleCredentialsRows.innerHTML=row("User",consoleCredentialsConfig.username||"未配置")+row("Password",consoleCredentialsConfig.password_configured?"已保存":"未配置")+row("Agent",ready?"console://default · KVM 本地注入":"等待完整凭据")+row("密码策略","不进入模型、日志或 UART");if(document.activeElement!==consoleUsername)consoleUsername.value=consoleCredentialsConfig.username||"";if(document.activeElement!==consolePassword)consolePassword.value="";if(document.activeElement!==consoleClearPassword)consoleClearPassword.checked=false}
 async function loadConsoleCredentials(silent=false){try{const cfg=await API.get("/api/settings/console-credentials");applyConsoleCredentialsConfig(cfg);if(!silent)msg(consoleCredentialsMsg,"Console 账户状态已读取","ok");return cfg}catch(err){if(!silent)msg(consoleCredentialsMsg,err.message||"读取 Console 账户失败","bad");throw err}}
-async function saveConsoleCredentials(){const username=consoleUsername.value.trim();if(!username){msg(consoleCredentialsMsg,"Username 必填","bad");return}const password=consolePassword.value;const ascii=value=>Array.from(value).every(ch=>{const code=ch.charCodeAt(0);return code>=0x20&&code<=0x7e});if(!ascii(username)||password&&!ascii(password)){msg(consoleCredentialsMsg,"Console 凭据仅支持可由当前 KVM 键盘输入的 ASCII 字符","bad");return}const payload={username,clear_password:!!consoleClearPassword.checked};if(password&&!payload.clear_password)payload.password=password;const saved=await API.post("/api/settings/console-credentials",payload);applyConsoleCredentialsConfig(saved);SettingsDirty.capture("console_credentials");msg(consoleCredentialsMsg,"Console 账户已保存；Agent 只能通过 console://default 在设备本地注入","ok")}
+async function saveConsoleCredentials(){const username=consoleUsername.value.trim();if(!username){msg(consoleCredentialsMsg,"用户名必填","bad");throw new Error("用户名必填")}const password=consolePassword.value;const ascii=value=>Array.from(value).every(ch=>{const code=ch.charCodeAt(0);return code>=0x20&&code<=0x7e});if(!ascii(username)||password&&!ascii(password)){msg(consoleCredentialsMsg,"Console 凭据仅支持可由当前 KVM 键盘输入的 ASCII 字符","bad");throw new Error("Console 凭据仅支持 ASCII 字符")}const payload={username,clear_password:!!consoleClearPassword.checked};if(password&&!payload.clear_password)payload.password=password;const saved=await API.post("/api/settings/console-credentials",payload);applyConsoleCredentialsConfig(saved);SettingsDirty.capture("console_credentials");msg(consoleCredentialsMsg,"Console 账户已保存；Agent 只能通过 console://default 在设备本地注入","ok")}
 async function clearConsoleCredentials(){const saved=await API.post("/api/settings/console-credentials",{clear:true});applyConsoleCredentialsConfig(saved);SettingsDirty.capture("console_credentials");msg(consoleCredentialsMsg,"Console 账户已清空","ok")}
 let sshTargetConfig={configured:false,host:"",port:22,username:"",auth_method:"auto",timeout_ms:30000,password_configured:false,sudo_password_configured:false,password_storage:"device_local_secret_store"};
 function applySshTargetConfig(cfg){sshTargetConfig=Object.assign({configured:false,host:"",port:22,username:"",auth_method:"auto",timeout_ms:30000,password_configured:false,sudo_password_configured:false,password_storage:"device_local_secret_store"},cfg||{});const configured=!!sshTargetConfig.configured;const passwordText=sshTargetConfig.password_configured?"已保存":"未配置";const sudoText=sshTargetConfig.sudo_password_configured?"已保存":"未配置";sshTargetRows.innerHTML=row("Host",sshTargetConfig.host||"未配置")+row("User",sshTargetConfig.username||"--")+row("Auth",sshTargetConfig.auth_method||"auto")+row("Password",passwordText)+row("Sudo password",sudoText)+row("密码策略","仅本地使用")+row("Timeout",`${Number(sshTargetConfig.timeout_ms||30000)} ms`);if(document.activeElement!==sshTargetHost)sshTargetHost.value=sshTargetConfig.host||"";if(document.activeElement!==sshTargetPort)sshTargetPort.value=String(sshTargetConfig.port||22);if(document.activeElement!==sshTargetUsername)sshTargetUsername.value=sshTargetConfig.username||"";if(document.activeElement!==sshTargetAuth)sshTargetAuth.value=sshTargetConfig.auth_method||"auto";if(document.activeElement!==sshTargetTimeout)sshTargetTimeout.value=String(sshTargetConfig.timeout_ms||30000);if(document.activeElement!==sshTargetPassword)sshTargetPassword.value="";if(document.activeElement!==sshTargetSudoPassword)sshTargetSudoPassword.value="";if(document.activeElement!==sshTargetClearPassword)sshTargetClearPassword.checked=false;if(document.activeElement!==sshTargetClearSudoPassword)sshTargetClearSudoPassword.checked=false}
 async function loadSshTargetConfig(silent=false){try{const cfg=await API.get("/api/settings/ssh-target");applySshTargetConfig(cfg);if(!silent)msg(sshTargetMsg,"SSH target 已读取","ok");return cfg}catch(err){if(!silent)msg(sshTargetMsg,err.message||"读取 SSH target 失败","bad");throw err}}
-async function saveSshTargetConfig(){const host=sshTargetHost.value.trim(),username=sshTargetUsername.value.trim();if(!host||!username){msg(sshTargetMsg,"Host 和 Username 必填","bad");return}const password=sshTargetPassword.value,sudoPassword=sshTargetSudoPassword.value;const payload={host,port:Number(sshTargetPort.value)||22,username,auth_method:sshTargetAuth.value||"auto",timeout_ms:Number(sshTargetTimeout.value)||30000,clear_password:!!sshTargetClearPassword.checked,clear_sudo_password:!!sshTargetClearSudoPassword.checked};if(password&&!payload.clear_password)payload.password=password;if(sudoPassword&&!payload.clear_sudo_password)payload.sudo_password=sudoPassword;const saved=await API.post("/api/settings/ssh-target",payload);applySshTargetConfig(saved);SettingsDirty.capture("ssh_target");msg(sshTargetMsg,"维护目标主机已保存；SSH/sudo 密码仅本地使用","ok")}
+async function saveSshTargetConfig(){const host=sshTargetHost.value.trim(),username=sshTargetUsername.value.trim();if(!host||!username){msg(sshTargetMsg,"主机和用户名必填","bad");throw new Error("主机和用户名必填")}const password=sshTargetPassword.value,sudoPassword=sshTargetSudoPassword.value;const payload={host,port:Number(sshTargetPort.value)||22,username,auth_method:sshTargetAuth.value||"auto",timeout_ms:Number(sshTargetTimeout.value)||30000,clear_password:!!sshTargetClearPassword.checked,clear_sudo_password:!!sshTargetClearSudoPassword.checked};if(password&&!payload.clear_password)payload.password=password;if(sudoPassword&&!payload.clear_sudo_password)payload.sudo_password=sudoPassword;const saved=await API.post("/api/settings/ssh-target",payload);applySshTargetConfig(saved);SettingsDirty.capture("ssh_target");msg(sshTargetMsg,"维护目标主机已保存；SSH/sudo 密码仅本地使用","ok")}
 async function clearSshTargetConfig(){const saved=await API.post("/api/settings/ssh-target",{clear:true});applySshTargetConfig(saved);SettingsDirty.capture("ssh_target");msg(sshTargetMsg,"维护目标主机已清空","ok")}
 function applySshKeyConfig(cfg){const privateOk=!!cfg.private_key_configured,publicOk=!!cfg.public_key_configured,passOk=!!cfg.passphrase_configured;sshKeyRows.innerHTML=row("Private key",privateOk?"已保存":"未配置")+row("Public key",publicOk?"已配置":"未配置")+row("Passphrase",passOk?"已配置":"未配置")+row("Auth method",privateOk?"可使用密钥":"仅密码");if(document.activeElement!==sshPublicKey)sshPublicKey.value=cfg.public_key||"";sshPrivateKey.value="";sshKeyPassphrase.value="";sshPrivateKey.placeholder=privateOk?"已配置，重新粘贴可覆盖":"-----BEGIN OPENSSH PRIVATE KEY-----"}
 async function loadSshKeyConfig(silent=false){try{const cfg=await API.get("/api/settings/ssh-key");applySshKeyConfig(cfg);if(!silent)msg(sshKeyMsg,"SSH key 状态已读取","ok");return cfg}catch(err){if(!silent)msg(sshKeyMsg,err.message||"读取 SSH key 失败","bad");throw err}}
@@ -1155,16 +1253,21 @@ async function uploadSelectedStorageFiles(){
 }
 function modeCount(video){return Array.isArray(video.modes)?video.modes.length:Number(video.modes_count??video.mode_count??video.modes??0)}
 function renderVideoRuntime(video){
+  if(SettingsDirty.isDirty("video_runtime"))return;
   const ctl=video.control||{};
   const on=!!(ctl.always_on||video.always_online);
   const previewFpsX100=Number(ctl.preview_mode?.fps_x100||100);
   if(document.activeElement!==videoAlwaysOnline)videoAlwaysOnline.checked=on;
   if(document.activeElement!==previewFpsSelect)previewFpsSelect.value=String(previewFpsX100);
+  SettingsDirty.sync("video_runtime");
 }
 function renderOta(ota){
   const settings=ota?.settings||{},last=ota?.last_check||{},part=ota?.partition||{};
-  if(document.activeElement!==otaManifestUrl)otaManifestUrl.value=settings.manifest_url||settings.default_manifest_url||"";
-  if(document.activeElement!==otaChannel)otaChannel.value=settings.channel||"stable";
+  if(!SettingsDirty.isDirty("ota")){
+    if(document.activeElement!==otaManifestUrl)otaManifestUrl.value=settings.manifest_url||settings.default_manifest_url||"";
+    if(document.activeElement!==otaChannel)otaChannel.value=settings.channel||"stable";
+    SettingsDirty.sync("ota");
+  }
   const busy=!!ota?.busy;
   const checked=!!last.checked;
   otaInstall.disabled=busy||!last.update_available;
@@ -1182,11 +1285,12 @@ function toolAccessValue(tool,policy,audience){const field=`${audience}_enabled`
 function toolStateBadge(tool,policy,audience="agent"){const implemented=tool.implemented!==false,available=tool.available!==false,callable=tool[`${audience}_callable`]===true,enabled=toolAccessValue(tool,policy,audience);if(!implemented)return {text:"规划中",kind:"warn"};if(!callable)return {text:"未接入",kind:"neutral"};if(!enabled)return {text:"关闭",kind:"bad"};if(!available)return {text:"暂不可用",kind:"warn"};return {text:"可用",kind:"ok"}}
 function riskKind(risk){return risk==="high"?"bad":risk==="medium"?"warn":"ok"}
 function renderAgentToolRows(tools){
-  if(!Array.isArray(tools)||!tools.length){agentToolRows.innerHTML=row("Tools","none");agentToolPolicyRows.innerHTML="";return}
+  if(!Array.isArray(tools)||!tools.length){agentToolRows.innerHTML=row("Tools","none");agentToolPolicyRows.innerHTML="";SettingsDirty.capture("agent_tools");return}
   agentToolRows.innerHTML=tools.map(t=>{const p=toolPolicyFor(t.name),a=toolStateBadge(t,p,"agent"),m=toolStateBadge(t,p,"mcp");return `<div class="tool-row"><span><b>${esc(t.name)}</b><small>${esc(t.endpoint||"--")}</small></span><span class="data-state ${esc(a.kind)}">A · ${esc(a.text)}</span><span class="data-state ${esc(m.kind)}">M · ${esc(m.text)}</span><span class="data-state ${riskKind(p.risk||t.risk)}">${esc(p.risk||t.risk||"low")}</span><span>${esc(t.description||"")}</span></div>`}).join("");
   agentToolPolicyRows.innerHTML=tools.map(t=>{const p=toolPolicyFor(t.name),agentCallable=t.agent_callable===true&&t.implemented!==false,mcpCallable=t.mcp_callable===true&&t.implemented!==false,agentEnabled=agentCallable&&toolAccessValue(t,p,"agent"),mcpEnabled=mcpCallable&&toolAccessValue(t,p,"mcp");return `<div class="tool-row tool-policy-row" data-tool="${esc(t.name)}"><span class="tool-copy"><b>${esc(t.name)}</b><small>${esc(t.description||t.endpoint||"")}</small></span><label class="ui-switch tool-access-switch ${agentCallable?"":"is-unmapped"}"><input class="tool-agent-enabled" type="checkbox" role="switch" aria-label="${esc(t.name)} 本地 Agent" ${agentEnabled?"checked":""} ${agentCallable?"":"disabled"}><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span class="ui-switch-state">${agentCallable?(agentEnabled?"开":"关"):"未接入"}</span></label><label class="ui-switch tool-access-switch ${mcpCallable?"":"is-unmapped"}"><input class="tool-mcp-enabled" type="checkbox" role="switch" aria-label="${esc(t.name)} MCP" ${mcpEnabled?"checked":""} ${mcpCallable?"":"disabled"}><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span class="ui-switch-state">${mcpCallable?(mcpEnabled?"开":"关"):"未接入"}</span></label><select class="tool-permission" aria-label="${esc(t.name)} 权限"><option value="observe">observe</option><option value="supervised">supervised</option><option value="autonomous">autonomous</option></select><select class="tool-risk" aria-label="${esc(t.name)} 风险"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></div>`}).join("");
   agentToolPolicyRows.querySelectorAll(".tool-policy-row").forEach(el=>{const t=tools.find(item=>item.name===el.dataset.tool)||{};const p=toolPolicyFor(el.dataset.tool);el.querySelector(".tool-permission").value=p.permission||t.permission||"observe";el.querySelector(".tool-risk").value=p.risk||t.risk||"low"});
   agentToolPolicyRows.querySelectorAll(".tool-access-switch input").forEach(input=>input.addEventListener("change",()=>{const state=input.closest(".tool-access-switch").querySelector(".ui-switch-state");state.textContent=input.checked?"开":"关"}));
+  SettingsDirty.capture("agent_tools");
 }
 function renderSkills(){
   const tools=(agentToolContract?.tools||agentToolContract?.agent_tools?.tools||[]).filter(t=>t.agent_callable===true||t.mcp_callable===true);
@@ -1227,6 +1331,21 @@ function collectAgentToolPolicy(){
   });
   return {version:2,default_mode:agentToolDefaultMode.value,tools};
 }
+// Mirrors core/agent_autonomy.c; the device remains the authority.
+const AUTONOMY_CLASSES=[["只读","查看状态、读取日志"],["操作","普通修改"],["系统","sudo、服务、电源"],["不可逆","删除、格式化、断电"]];
+let savedAutonomyLevel=1;
+function selectedAutonomyLevel(){const checked=document.querySelector('input[name="agentAutonomy"]:checked');return checked?Number(checked.value):savedAutonomyLevel}
+function autonomyCell(level,cls){if(level===0||cls>level-1)return"blocked";const through=level===1?0:Math.min(level-2,2);return cls<=through?"auto":"confirm"}
+function renderAutonomyMatrix(level){const text={auto:"自动运行",confirm:"每次需批准",blocked:"不允许"};agentAutonomyMatrix.innerHTML=AUTONOMY_CLASSES.map(([name,hint],cls)=>{const kind=autonomyCell(level,cls);return `<div class="autonomy-cell ${kind}" title="${esc(hint)}"><b>${esc(name)}</b><small>${text[kind]}</small></div>`}).join("")}
+function applyAutonomy(settings){const level=Number.isInteger(settings?.autonomy_level)?settings.autonomy_level:1;savedAutonomyLevel=level;if(!SettingsDirty.isDirty("agent_autonomy")){document.querySelectorAll('input[name="agentAutonomy"]').forEach(input=>{input.checked=Number(input.value)===level});renderAutonomyMatrix(level);SettingsDirty.sync("agent_autonomy")}}
+async function saveAgentAutonomy(){
+  const level=selectedAutonomyLevel();
+  if(level>=3&&level>savedAutonomyLevel&&!(await UI.confirmAction({title:`提升到 L${level}？`,message:level===4?"系统级动作（sudo、服务、电源等）将无需逐次批准自动运行。不可逆动作仍需你确认。":"普通操作将自动运行；系统级动作仍需逐次批准。",confirmLabel:`提升到 L${level}`})))throw new Error("已取消，等级未改变");
+  const saved=await API.post("/api/settings/agent-tools",{autonomy_level:level});
+  savedAutonomyLevel=Number(saved.autonomy_level??level);renderAutonomyMatrix(savedAutonomyLevel);
+  msg(agentAutonomyMsg,`自动化等级已设为 ${saved.autonomy_label||"L"+savedAutonomyLevel}`,"ok");
+}
+agentAutonomyCard.addEventListener("change",event=>{if(event.target.name==="agentAutonomy")renderAutonomyMatrix(selectedAutonomyLevel())});
 async function loadAgentTools(silent=false){
   try{
     const [caps,settings]=await Promise.all([API.get("/api/capabilities"),API.get("/api/settings/agent-tools")]);
@@ -1235,6 +1354,7 @@ async function loadAgentTools(silent=false){
     agentToolPolicy=parseJsonOrDefault(settings.policy_json||"{}",{version:2,tools:{}});
     if(!agentToolPolicy.tools||typeof agentToolPolicy.tools!=="object")agentToolPolicy.tools={};
     agentToolDefaultMode.value=settings.default_mode||agentToolPolicy.default_mode||"observe";
+    applyAutonomy(settings);
     if(document.activeElement!==agentSkillsJson)agentSkillsJson.value=settings.skills_json||"[]";
     applyWebSearchConfig(settings.web_search||{});
     renderSkills();
@@ -1303,7 +1423,8 @@ function renderGpioMap(power,hid,pins){
   gpioMapDirty=false;
   const map=Array.isArray(power.gpio_map)?power.gpio_map:[];
   const mapped=map.map(m=>`<div class="gpio-edit-row" data-role="${esc(m.role)}"><div><b>${esc(m.label||m.role)}</b><small>${esc(m.role)} · ${esc(m.direction)}${m.required?" · required":""}</small></div><input class="gpio-num" aria-label="${esc(m.label||m.role)} GPIO" type="number" min="-1" max="54" step="1" inputmode="numeric" value="${Number(m.gpio)>=0?Number(m.gpio):""}" placeholder="-1"><label class="inline-check"><input class="gpio-active" type="checkbox" ${m.active_high!==false?"checked":""}> active high</label><span class="gpio-state">${esc(gpioMapState(m))}</span></div>`).join("");
-  gpioMapRows.innerHTML=`<div class="gpio-map-group"><div class="gpio-map-group-head"><h3>Control and sensing</h3><small>Power, Reset, state detection, and Locator LED; fixed ownership and duplicate mappings are rejected.</small></div><div class="gpio-edit">${mapped}</div></div>`;
+  gpioMapRows.innerHTML=`<div class="gpio-edit">${mapped}</div>`;
+  SettingsDirty.capture("gpio");
 }
 function collectGpioMap(){
   const fixed=fixedGpioSet(),used=new Map(),items=Array.from(gpioMapRows.querySelectorAll(".gpio-edit-row")).map(el=>{
@@ -1353,7 +1474,8 @@ async function loadDiagnosticLogs(force=false){
 let settingsRefreshBusy=false;
 function renderSettingsRuntime(status){
   if(!status)return;const active=activeSettingsSection(),video=status.video||{},hid=status.hid||{},pins=hid.pins||{},power=status.power||{};
-  if(active==="device"){renderVideoRuntime(video);renderDeviceHardware(power);renderGpioMatrix(power);renderDiagnostics(status,UI.info.value)}
+  if(active==="device"){renderVideoRuntime(video);renderDeviceHardware(power)}
+  if(active==="status"){renderGpioMatrix(power);renderDiagnostics(status,UI.info.value)}
   if(active==="advanced")renderGpioMap(power,hid,pins);
 }
 function renderAuthStatus(auth){
@@ -1365,6 +1487,15 @@ function renderAuthStatus(auth){
   if(must&&valid&&!accountMsg.textContent)msg(accountMsg,"请保存新的账户凭据","warn");
   if(must&&!document.getElementById("authModal")?.classList.contains("show"))AuthUI.show("change",auth);
 }
+// Capabilities describe fixed hardware; periodic refresh reuses them for a
+// minute instead of pulling ~29 KB from the device every 10 s.
+let capabilitiesCache=null,capabilitiesCacheAt=0;
+function loadCapabilities(force=false){
+  if(!force&&capabilitiesCache&&performance.now()-capabilitiesCacheAt<60000)return capabilitiesCache;
+  capabilitiesCacheAt=performance.now();
+  capabilitiesCache=API.get("/api/capabilities").catch(e=>{capabilitiesCache=null;throw e});
+  return capabilitiesCache;
+}
 async function refreshActiveSection(id=activeSettingsSection()){
   if(settingsRefreshBusy)return;
   settingsRefreshBusy=true;
@@ -1372,18 +1503,25 @@ async function refreshActiveSection(id=activeSettingsSection()){
     const active=settingsId(id);
     if(active==="security")renderAuthStatus(await API.get("/api/auth/status"));
     else if(active==="device"){
-      const [capabilities,network,status,info]=await Promise.all([API.get("/api/capabilities"),API.get("/api/v1/network/status"),UI.status.refresh(),UI.info.refresh()]);
-      lastNetworkStatus=network;lastGpioMatrix=capabilities.gpio_matrix||lastGpioMatrix;applyDeviceLabel(deviceLabelValue(info));
+      const [capabilities,status]=await Promise.all([loadCapabilities(),UI.status.fresh(3000)]);
+      lastGpioMatrix=capabilities.gpio_matrix||lastGpioMatrix;
       const ms2109PowerAvailable=ms2109CapabilityAvailable(capabilities);setMs2109Availability(ms2109PowerAvailable);
       if(ms2109PowerAvailable)await loadMs2109Status(true);
-      renderSettingsRuntime(status);renderDiagnostics(status,info);
+      renderSettingsRuntime(status);
+    }else if(active==="status"){
+      const [capabilities,network,status,info]=await Promise.all([loadCapabilities(),API.get("/api/v1/network/status"),UI.status.fresh(3000),UI.info.fresh(10000)]);
+      lastNetworkStatus=network;lastGpioMatrix=capabilities.gpio_matrix||lastGpioMatrix;applyDeviceLabel(deviceLabelValue(info));
+      renderSettingsRuntime(status);
+      await loadDiagnosticLogs().catch(()=>{});
     }else if(active==="target"){
-      await UI.status.refresh();
+      await UI.status.fresh(3000);
     }else if(active==="system"){
-      renderOta(await API.get("/api/ota/status"));
+      const [ota,info]=await Promise.all([API.get("/api/ota/status"),UI.info.fresh(10000)]);
+      renderOta(ota);renderStorage(info);
+      if(!storageDirectoryLoaded)await loadStorageDirectory(currentStoragePath);
     }else if(active==="advanced"){
-      const [status,info]=await Promise.all([UI.status.refresh(),UI.info.refresh()]);
-      renderStorage(info);renderSettingsRuntime(status);
+      const [capabilities,status]=await Promise.all([loadCapabilities(),UI.status.fresh(3000)]);
+      lastGpioMatrix=capabilities.gpio_matrix||lastGpioMatrix;renderSettingsRuntime(status);
     }
   }catch(e){
     if(e?.status===401&&!document.getElementById("authModal")?.classList.contains("show"))AuthUI.requireLogin();
@@ -1408,8 +1546,7 @@ storageQuickLinks.onclick=e=>{const btn=e.target.closest("button[data-path]");if
 storageFileList.onclick=e=>{const rowEl=e.target.closest(".file-row[data-path]");if(!rowEl)return;const action=e.target.closest("[data-action]")?.dataset.action||"";if(rowEl.dataset.type==="directory"||action==="open")loadStorageDirectory(rowEl.dataset.path||"").catch(()=>{});else if(action==="download")downloadStorageFile(rowEl.dataset.path||"").catch(err=>msg(storageFileMsg,err.message||"下载失败","bad"));else viewStorageFile(rowEl.dataset.path||"").catch(err=>msg(storageFileMsg,err.message||"查看失败","bad"))};
 storageRefreshDir.onclick=()=>loadStorageDirectory(currentStoragePath).catch(()=>{});
 storageUploadForm.onsubmit=e=>{e.preventDefault();uploadSelectedStorageFiles().catch(err=>{msg(storageUploadMsg,err.message||"上传失败","bad")})};
-downloadSystemLogs.onclick=()=>downloadApiFile("/api/system/logs/download?n=80","exoanchor-system-logs.txt").then(()=>msg(storageUploadMsg,"系统日志下载已开始","ok")).catch(err=>msg(storageUploadMsg,err.message||"日志下载失败","bad"));
-refreshDeviceDiagnostics.onclick=async()=>{refreshDeviceDiagnostics.disabled=true;msg(deviceDiagnosticsMsg,"正在刷新设备诊断摘要","warn");try{const [capabilities,status,info,network]=await Promise.all([API.get("/api/capabilities"),UI.status.refresh(),UI.info.refresh(),API.get("/api/v1/network/status")]);lastGpioMatrix=capabilities.gpio_matrix||lastGpioMatrix;lastNetworkStatus=network;renderSettingsRuntime(status);renderDiagnostics(status,info);msg(deviceDiagnosticsMsg,"设备诊断摘要已刷新","ok")}catch(err){msg(deviceDiagnosticsMsg,err.message||"设备诊断摘要刷新失败","bad")}finally{refreshDeviceDiagnostics.disabled=false}};
+refreshDeviceDiagnostics.onclick=async()=>{refreshDeviceDiagnostics.disabled=true;msg(deviceDiagnosticsMsg,"正在刷新","warn");try{const [capabilities,status,info,network]=await Promise.all([loadCapabilities(true),UI.status.refresh(),UI.info.refresh(),API.get("/api/v1/network/status")]);lastGpioMatrix=capabilities.gpio_matrix||lastGpioMatrix;lastNetworkStatus=network;renderSettingsRuntime(status);renderDiagnostics(status,info);await loadDiagnosticLogs(true);msg(deviceDiagnosticsMsg,"","")}catch(err){msg(deviceDiagnosticsMsg,err.message||"刷新失败","bad")}finally{refreshDeviceDiagnostics.disabled=false}};
 refreshDiagnostics.onclick=async()=>{refreshDiagnostics.disabled=true;msg(diagnosticLogsMsg,"正在刷新日志","warn");try{await loadDiagnosticLogs(true);msg(diagnosticLogsMsg,"日志已刷新","ok")}catch(err){msg(diagnosticLogsMsg,err.message||"日志刷新失败","bad")}finally{refreshDiagnostics.disabled=false}};
 downloadDiagnosticLogs.onclick=()=>downloadApiFile("/api/system/logs/download?n=80","exoanchor-system-logs.txt").then(()=>msg(diagnosticLogsMsg,"系统日志下载已开始","ok")).catch(err=>msg(diagnosticLogsMsg,err.message||"日志下载失败","bad"));
 sshKeyForm.onsubmit=async e=>{
@@ -1423,23 +1560,20 @@ sshPrivateKeyFile.onchange=async()=>{
   sshPrivateKey.value=await file.text();
   msg(sshKeyMsg,`已载入 ${file.name}，点击保存后写入设备`,"ok");
 };
-sshKeyLoad.onclick=()=>loadSshKeyConfig(false).then(()=>SettingsDirty.capture("ssh_key")).catch(()=>{});
 sshKeyClear.onclick=async()=>{
   if(!(await UI.confirmAction({title:"清空 SSH Key？",message:"设备上保存的 private key 和相关凭据将被删除。",confirmLabel:"清空"})))return;
   msg(sshKeyMsg,"正在清空 SSH key","warn");
   try{await clearSshKeyConfig()}catch(err){msg(sshKeyMsg,err.message||"清空失败","bad")}
 };
-mcpEnabled.onchange=()=>msg(mcpMsg,"MCP 设置尚未保存","warn");
-saveMcpSettings.onclick=()=>saveMcpConfig().catch(err=>{msg(mcpMsg,err.message||"保存 MCP 设置失败","bad")});
-lanDiscoveryEnabled.onchange=async()=>{
-  const before=productFeaturesConfig.lan_discovery_enabled!==false,enabled=lanDiscoveryEnabled.checked;
-  lanDiscoveryEnabled.disabled=true;msg(productFeaturesMsg,enabled?"正在开启局域网发现":"正在关闭局域网发现","warn");
-  try{await saveProductFeatureSettings({lan_discovery_enabled:enabled});msg(productFeaturesMsg,enabled?"局域网发现已开启":"局域网发现已关闭","ok")}
-  catch(err){lanDiscoveryEnabled.checked=before;SettingsDirty.capture("product_features");msg(productFeaturesMsg,err.message||"局域网发现设置失败","bad")}
-  finally{lanDiscoveryEnabled.disabled=false}
-};
-for(const input of [embeddedAgentEnabled,pageContextEnabled,conversationHistoryEnabled,longTermMemoryEnabled])input.onchange=()=>msg(agentPrivacyMsg,"Agent 设置尚未保存","warn");
-saveAgentPrivacy.onclick=()=>{const payload={embedded_agent_enabled:embeddedAgentEnabled.checked,page_context_enabled:pageContextEnabled.checked,conversation_history_enabled:conversationHistoryEnabled.checked,long_term_memory_enabled:longTermMemoryEnabled.checked};msg(agentPrivacyMsg,"正在保存 Agent 设置","warn");saveProductFeatureSettings(payload).then(()=>msg(agentPrivacyMsg,"Agent 设置已保存","ok")).catch(err=>msg(agentPrivacyMsg,err.message||"保存 Agent 设置失败","bad"))};
+async function saveLanDiscovery(){
+  const enabled=lanDiscoveryEnabled.checked;
+  await saveProductFeatureSettings({lan_discovery_enabled:enabled});
+  msg(productFeaturesMsg,enabled?"局域网发现已开启":"局域网发现已关闭","ok");
+}
+async function saveAgentPrivacySettings(){
+  const payload={embedded_agent_enabled:embeddedAgentEnabled.checked,page_context_enabled:pageContextEnabled.checked,conversation_history_enabled:conversationHistoryEnabled.checked,long_term_memory_enabled:longTermMemoryEnabled.checked};
+  await saveProductFeatureSettings(payload);msg(agentPrivacyMsg,"Agent 设置已保存","ok");
+}
 ms2109PowerToggle.onchange=async()=>{
   const on=ms2109PowerToggle.checked;
   if(!on&&!(await UI.confirmAction({title:"关闭 MS2109 电源？",message:"视频采集会立即中断，直到重新开启或重新上电。",confirmLabel:"关闭电源"}))){ms2109PowerToggle.checked=true;return}
@@ -1448,75 +1582,43 @@ ms2109PowerToggle.onchange=async()=>{
 agentApiProfile.onchange=()=>{localStorage.setItem("ea_agent_profile",agentApiProfile.value);applyAgentProfile(selectedAgentProfile())};
 agentApiProvider.onchange=()=>{agentApiBase.value=providerEndpoint(agentApiProvider.value);agentApiModel.value=providerModel(agentApiProvider.value);setAgentModelOptions([],agentApiModel.value)};
 agentApiModelSelect.onchange=()=>{if(agentApiModelSelect.value)agentApiModel.value=agentApiModelSelect.value};
-agentApiLoad.onclick=()=>loadAgentApiConfig(false).then(()=>SettingsDirty.capture("agent_api")).catch(()=>{});
 agentApiRefreshModels.onclick=()=>refreshAgentModels().catch(err=>{msg(agentApiMsg,err.message||"枚举模型失败","bad")});
-agentApiForm.onsubmit=async e=>{
-  e.preventDefault();
-  try{await saveAgentApiConfig()}catch(err){msg(agentApiMsg,err.message||"保存失败","bad")}
-};
-agentPromptLoad.onclick=()=>loadAgentPrompt(false).then(()=>SettingsDirty.capture("agent_prompt")).catch(()=>{});
-agentPromptDefault.onclick=()=>resetAgentPrompt().catch(err=>{msg(agentPromptMsg,err.message||"恢复默认失败","bad")});
-agentPromptForm.onsubmit=async e=>{
-  e.preventDefault();
-  try{await saveAgentPrompt()}catch(err){msg(agentPromptMsg,err.message||"保存失败","bad")}
-};
-sshTargetForm.onsubmit=async e=>{
-  e.preventDefault();msg(sshTargetMsg,"正在保存 SSH target","warn");
-  try{await saveSshTargetConfig();await refresh()}catch(err){msg(sshTargetMsg,err.message||"保存 SSH target 失败","bad")}
-};
-consoleCredentialsForm.onsubmit=async e=>{
-  e.preventDefault();msg(consoleCredentialsMsg,"正在保存 Console 账户","warn");
-  try{await saveConsoleCredentials()}catch(err){msg(consoleCredentialsMsg,err.message||"保存 Console 账户失败","bad")}
-};
-consoleCredentialsLoad.onclick=()=>loadConsoleCredentials(false).then(()=>SettingsDirty.capture("console_credentials")).catch(()=>{});
+agentPromptDefault.onclick=async()=>{if(!(await UI.confirmAction({title:"恢复默认提示词？",message:"自定义 System Prompt 会立即删除。",confirmLabel:"恢复默认"})))return;resetAgentPrompt().catch(err=>{msg(agentPromptMsg,err.message||"恢复默认失败","bad")})};
 consoleCredentialsClear.onclick=async()=>{
   if(!(await UI.confirmAction({title:"清空 Console 账户？",message:"被控端 Console 用户名和本地保存的密码将被删除。",confirmLabel:"清空"})))return;
   msg(consoleCredentialsMsg,"正在清空 Console 账户","warn");
   try{await clearConsoleCredentials()}catch(err){msg(consoleCredentialsMsg,err.message||"清空失败","bad")}
 };
-sshTargetLoad.onclick=()=>loadSshTargetConfig(false).then(()=>SettingsDirty.capture("ssh_target")).catch(()=>{});
 sshTargetClear.onclick=async()=>{
   if(!(await UI.confirmAction({title:"清空维护目标？",message:"SSH 主机、账户和本地保存的密码将被清空。",confirmLabel:"清空"})))return;
   msg(sshTargetMsg,"正在清空 SSH target","warn");
   try{await clearSshTargetConfig();await refresh()}catch(err){msg(sshTargetMsg,err.message||"清空失败","bad")}
 };
-deviceForm.onsubmit=async e=>{
-  e.preventDefault();msg(deviceMsg,"","");
+async function saveDeviceIdentity(){
   const label=deviceLabel.value.trim();
-  if(!label){msg(deviceMsg,"请输入设备标注名","bad");return}
-  try{
-    const r=await API.post("/api/settings/device",{label});
-    applyDeviceIdentity(r);
-    SettingsDirty.capture("device");
-    msg(deviceMsg,"设备名称已保存","ok");
-    await refresh();
-  }catch(err){msg(deviceMsg,err.message,"bad")}
-};
+  if(!label){msg(deviceMsg,"请输入设备标注名","bad");throw new Error("请输入设备标注名")}
+  const r=await API.post("/api/settings/device",{label});
+  applyDeviceIdentity(r);
+  msg(deviceMsg,"设备名称已保存","ok");
+  await refresh().catch(()=>{});
+}
 async function saveAgentDisplayName(name){
   const agent_name=String(name||"").trim();
-  if(!agent_name){msg(agentIdentityMsg,"请输入助手名称","bad");return null}
+  if(!agent_name){msg(agentIdentityMsg,"请输入助手名称","bad");throw new Error("请输入助手名称")}
   const saved=await API.post("/api/settings/device",{agent_name});
   applyDeviceIdentity(saved);
   SettingsDirty.capture("agent_identity");
   msg(agentIdentityMsg,`助手名称已保存：${agent_name}`,"ok");
   return saved;
 }
-agentIdentityForm.onsubmit=e=>{e.preventDefault();msg(agentIdentityMsg,"正在保存助手名称","warn");saveAgentDisplayName(agentDisplayName.value).catch(err=>msg(agentIdentityMsg,err.message||"保存失败","bad"))};
-agentDisplayNameDefault.onclick=()=>{msg(agentIdentityMsg,"正在恢复默认名称","warn");saveAgentDisplayName("Agent").catch(err=>msg(agentIdentityMsg,err.message||"恢复失败","bad"))};
-targetProfileForm.onsubmit=e=>{e.preventDefault();msg(targetProfileMsg,"正在保存被控端信息","warn");saveTargetProfile().catch(err=>msg(targetProfileMsg,err.message||"保存失败","bad"))};
-targetProfileLoad.onclick=()=>loadTargetProfile(false).then(()=>SettingsDirty.capture("target_profile")).catch(()=>{});
-videoAlwaysOnline.onchange=()=>msg(videoRuntimeMsg,"视频运行设置未保存","warn");
-previewFpsSelect.onchange=()=>msg(videoRuntimeMsg,"Overview 预览帧率未保存","warn");
-saveVideoRuntime.onclick=async()=>{
-  msg(videoRuntimeMsg,"正在保存","warn");
-  try{
-    const previewFpsX100=Number(previewFpsSelect.value);
-    await API.post("/api/video/settings",{always_online:videoAlwaysOnline.checked,preview_fps_x100:previewFpsX100});
-    SettingsDirty.capture("video_runtime");
-    msg(videoRuntimeMsg,`视频运行已保存；Overview 预览 ${(previewFpsX100/100).toFixed(0)} FPS`,"ok");
-    await refresh();
-  }catch(err){msg(videoRuntimeMsg,err.message,"bad");await refresh().catch(()=>{})}
-};
+agentDisplayNameDefault.onclick=()=>{agentDisplayName.value="Agent";SettingsDirty.updateField(agentDisplayName)};
+async function saveVideoRuntimeSettings(){
+  const previewFpsX100=Number(previewFpsSelect.value);
+  await API.post("/api/video/settings",{always_online:videoAlwaysOnline.checked,preview_fps_x100:previewFpsX100});
+  SettingsDirty.capture("video_runtime");
+  msg(videoRuntimeMsg,`视频运行已保存；Overview 预览 ${(previewFpsX100/100).toFixed(0)} FPS`,"ok");
+  await refresh().catch(()=>{});
+}
 settingsLocatorReverse.onchange=async()=>{
   if(settingsLocatorReverseBusy)return;
   const reversed=settingsLocatorReverse.checked,before=!reversed;
@@ -1539,18 +1641,16 @@ powerResetSwap.onclick=async()=>{
     await UI.status.refresh();
   }catch(err){powerResetSwapBusy=false;msg(deviceHardwareMsg,err.message||"开机 / 重启交换失败","bad");await refresh().catch(()=>{})}
 };
-gpioMapRows.oninput=()=>{gpioMapDirty=true;msg(gpioMapMsg,"GPIO 映射未保存","warn")};
-gpioMapForm.onsubmit=async e=>{
-  e.preventDefault();msg(gpioMapMsg,"","");
-  try{
-    const gpio_map=collectGpioMap();
-    await API.post("/api/settings/gpio-map",{gpio_map});
-    gpioMapDirty=false;
-    SettingsDirty.capture("gpio");
-    msg(gpioMapMsg,"GPIO 映射已热更新","ok");
-    await refresh();
-  }catch(err){msg(gpioMapMsg,err.message,"bad")}
-};
+gpioMapRows.oninput=()=>{gpioMapDirty=true};
+async function saveGpioMap(){
+  const gpio_map=collectGpioMap();
+  if(!(await UI.confirmAction({title:"保存 GPIO 映射？",message:"错误的引脚或有效电平可能导致电源控制不可用。映射会立即热更新。",confirmLabel:"保存映射"})))throw new Error("已取消，映射未保存");
+  await API.post("/api/settings/gpio-map",{gpio_map});
+  gpioMapDirty=false;
+  SettingsDirty.capture("gpio");
+  msg(gpioMapMsg,"GPIO 映射已热更新","ok");
+  await refresh().catch(()=>{});
+}
 resetGpioMap.onclick=async()=>{
   if(!(await UI.confirmAction({title:"恢复默认 GPIO 映射？",message:"当前主机电源、复位和状态探测引脚配置将被替换。",confirmLabel:"恢复默认"})))return;
   msg(gpioMapMsg,"正在恢复默认映射","warn");
@@ -1562,15 +1662,12 @@ resetGpioMap.onclick=async()=>{
     await refresh();
   }catch(err){msg(gpioMapMsg,err.message,"bad")}
 };
-otaSettingsForm.onsubmit=async e=>{
-  e.preventDefault();msg(otaMsg,"","");
-  try{
-    await API.post("/api/ota/settings",{manifest_url:otaManifestUrl.value.trim(),channel:(otaChannel.value.trim()||"stable"),auto_check:false});
-    SettingsDirty.capture("ota");
-    msg(otaMsg,"更新设置已保存","ok");
-    await refresh();
-  }catch(err){msg(otaMsg,err.message,"bad")}
-};
+async function saveOtaSettings(){
+  await API.post("/api/ota/settings",{manifest_url:otaManifestUrl.value.trim(),channel:(otaChannel.value.trim()||"stable"),auto_check:false});
+  SettingsDirty.capture("ota");
+  msg(otaMsg,"更新设置已保存","ok");
+  await refresh().catch(()=>{});
+}
 otaCheck.onclick=async()=>{
   msg(otaMsg,"正在检查更新","warn");
   try{
@@ -1608,29 +1705,14 @@ otaReboot.onclick=async()=>{
   msg(otaMsg,"正在重启","warn");
   try{await API.post("/api/ota/reboot",{});msg(otaMsg,"重启指令已发送","ok")}catch(err){msg(otaMsg,err.message,"bad")}
 };
-refreshSkills.onclick=()=>loadAgentTools(false).then(()=>{SettingsDirty.capture("agent_tools");SettingsDirty.capture("agent_skills");SettingsDirty.capture("web_search")}).catch(()=>{});
-webSearchForm.onsubmit=async e=>{
-  e.preventDefault();msg(webSearchMsg,"正在保存联网搜索设置","warn");
-  try{await saveWebSearchConfig();SettingsDirty.capture("web_search");msg(webSearchMsg,"联网搜索设置已保存","ok")}catch(err){msg(webSearchMsg,err.message||"保存失败","bad")}
-};
-agentToolDefaultMode.onchange=()=>msg(agentToolMsg,"工具授权尚未保存","warn");
-agentToolPolicyRows.oninput=()=>msg(agentToolMsg,"工具授权尚未保存","warn");
-saveAgentTools.onclick=async()=>{
-  msg(agentToolMsg,"正在保存工具授权","warn");
-  try{await saveAgentToolSettings();SettingsDirty.capture("agent_tools");msg(agentToolMsg,"Agent / MCP 工具授权已保存","ok")}catch(err){msg(agentToolMsg,err.message||"保存失败","bad")}
-};
 resetAgentTools.onclick=async()=>{
+  if(!(await UI.confirmAction({title:"恢复默认工具授权？",message:"工具授权、联网搜索和 Skills 会立即恢复为固件默认值。",confirmLabel:"恢复默认"})))return;
   msg(agentToolMsg,"正在恢复默认工具授权","warn");
   try{const saved=await API.post("/api/settings/agent-tools",{reset_default:true});agentToolSettings=saved;agentToolPolicy=parseJsonOrDefault(saved.policy_json||"{}",{version:2,tools:{}});agentToolDefaultMode.value=saved.default_mode||"observe";agentSkillsJson.value=saved.skills_json||"[]";applyWebSearchConfig(saved.web_search||{});renderSkills();SettingsDirty.capture("agent_tools");SettingsDirty.capture("agent_skills");SettingsDirty.capture("web_search");msg(agentToolMsg,"已恢复默认工具授权、联网搜索和 Skills","ok")}catch(err){msg(agentToolMsg,err.message||"恢复默认失败","bad")}
 };
 formatAgentSkills.onclick=()=>{
-  try{agentSkillsJson.value=JSON.stringify(JSON.parse(agentSkillsJson.value||"[]"),null,2);renderSkills();msg(agentSkillsMsg,"Skills JSON 已格式化","ok")}catch(err){msg(agentSkillsMsg,"skills JSON 格式错误","bad")}
+  try{agentSkillsJson.value=JSON.stringify(JSON.parse(agentSkillsJson.value||"[]"),null,2);SettingsDirty.updateField(agentSkillsJson);msg(agentSkillsMsg,"Skills JSON 已格式化","ok")}catch(err){msg(agentSkillsMsg,"skills JSON 格式错误","bad")}
 };
-saveAgentSkills.onclick=async()=>{
-  msg(agentSkillsMsg,"正在保存 Skills","warn");
-  try{await saveAgentToolSettings({saveSkillsOnly:true});SettingsDirty.capture("agent_skills");msg(agentSkillsMsg,"Skills 已保存","ok")}catch(err){msg(agentSkillsMsg,err.message||"保存失败","bad")}
-};
-openAgentFromSkills.onclick=()=>location.href="/agent";
 resetEverything.onclick=async()=>{
   const phrase=prompt('输入 RESET EVERYTHING 确认清空所有设置并重启');
   if(phrase!=="RESET EVERYTHING"){msg(systemMsg,"已取消","warn");return}
@@ -1642,8 +1724,7 @@ resetEverything.onclick=async()=>{
     setTimeout(()=>location.reload(),3500);
   }catch(err){msg(systemMsg,err.message,"bad")}
 };
-saveAutoLogout.onclick=()=>Session.save().catch(err=>msg(sessionMsg,err.message||"保存失败","bad"));
-autoLogoutMinutes.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();Session.save().catch(err=>msg(sessionMsg,err.message||"保存失败","bad"))}};
+autoLogoutMinutes.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();SettingsSave.save()}};
 window.addEventListener("hashchange",updateSettingsMenu);
 UI.pageContext.register("settings",()=>{
   const info=UI.info.value||{},section=settingsId(location.hash.slice(1)||"device");
@@ -1660,10 +1741,10 @@ async function boot(){
   bindBrowserPreference(browserFocusRefreshEnabled,"si_kvm_focus_refresh",browserPreferenceMsg);
   bindBrowserPreference(browserAgentActionsEnabled,"si_agent_action_visualization",agentBrowserPreferenceMsg);
   setupSettingsNavigation();
-  UI.status.subscribe(status=>{if(["device","advanced"].includes(activeSettingsSection()))renderSettingsRuntime(status)});
-  UI.info.subscribe(info=>{const active=activeSettingsSection();if(active==="device")renderDiagnostics(UI.status.value,info);else if(active==="advanced")renderStorage(info)});
+  UI.status.subscribe(status=>{if(["device","status","advanced"].includes(activeSettingsSection()))renderSettingsRuntime(status)});
+  UI.info.subscribe(info=>{const active=activeSettingsSection();if(active==="status")renderDiagnostics(UI.status.value,info);else if(active==="system")renderStorage(info)});
   if(await AuthUI.checkRequired())await loadSettingsSection(activeSettingsSection(),{force:true});
-  UI.lifecycle.interval(()=>{if(!document.hidden&&!document.getElementById("authModal")?.classList.contains("show")&&["device","target","security","system","advanced"].includes(activeSettingsSection()))refreshActiveSection(activeSettingsSection())},10000);
+  UI.lifecycle.interval(()=>{if(!document.hidden&&!document.getElementById("authModal")?.classList.contains("show")&&["device","target","security","system","status","advanced"].includes(activeSettingsSection()))refreshActiveSection(activeSettingsSection())},10000);
   UI.lifecycle.interval(()=>{if(!document.hidden&&!document.getElementById("authModal")?.classList.contains("show"))AuthUI.checkRequired()},10000);
 }
 boot();

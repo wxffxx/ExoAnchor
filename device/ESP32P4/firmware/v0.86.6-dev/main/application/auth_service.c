@@ -34,6 +34,13 @@
 #define AUTH_SALT_HEX_LEN (AUTH_SALT_BYTES * 2U)
 #define AUTH_VERIFIER_BYTES 32U
 #define AUTH_PBKDF2_ITERATIONS 60000U
+#define AUTH_PBKDF2_MIN_ITERATIONS 10000U
+/* Stored iteration count 1 marks salted single-round SHA-256; counts in
+ * 2..9999 can only come from the unsalted legacy format. */
+#define AUTH_SALTED_SHA256_ITERATIONS 1U
+#define AUTH_PASSWORD_ITERATIONS \
+    (SI_CFG_AUTH_PASSWORD_PBKDF2 ? AUTH_PBKDF2_ITERATIONS : \
+                                   AUTH_SALTED_SHA256_ITERATIONS)
 #define AUTH_BROWSER_SESSION_SLOTS 12U
 #define AUTH_MCP_SESSION_SLOTS 4U
 #define AUTH_SESSION_SLOTS (AUTH_BROWSER_SESSION_SLOTS + AUTH_MCP_SESSION_SLOTS)
@@ -335,12 +342,26 @@ static esp_err_t derive_password(const char *password, const char *salt_hex,
     uint8_t salt[AUTH_SALT_BYTES] = {0};
     uint8_t verifier[AUTH_VERIFIER_BYTES] = {0};
     if (!password || !salt_hex || !hex_to_bytes(salt_hex, sizeof(salt), salt) ||
-        iterations < 10000U) {
+        (iterations != AUTH_SALTED_SHA256_ITERATIONS &&
+         iterations < AUTH_PBKDF2_MIN_ITERATIONS)) {
         return ESP_ERR_INVALID_ARG;
     }
-    int ret = mbedtls_pkcs5_pbkdf2_hmac_ext(
-        MBEDTLS_MD_SHA256, (const uint8_t *)password, strlen(password),
-        salt, sizeof(salt), iterations, sizeof(verifier), verifier);
+    int ret;
+    if (iterations == AUTH_SALTED_SHA256_ITERATIONS) {
+        /* SHA-256(salt || password): the default, fast storage format. */
+        mbedtls_sha256_context sha;
+        mbedtls_sha256_init(&sha);
+        ret = mbedtls_sha256_starts(&sha, 0);
+        if (ret == 0) ret = mbedtls_sha256_update(&sha, salt, sizeof(salt));
+        if (ret == 0) ret = mbedtls_sha256_update(
+            &sha, (const unsigned char *)password, strlen(password));
+        if (ret == 0) ret = mbedtls_sha256_finish(&sha, verifier);
+        mbedtls_sha256_free(&sha);
+    } else {
+        ret = mbedtls_pkcs5_pbkdf2_hmac_ext(
+            MBEDTLS_MD_SHA256, (const uint8_t *)password, strlen(password),
+            salt, sizeof(salt), iterations, sizeof(verifier), verifier);
+    }
     si_secret_store_clear(salt, sizeof(salt));
     if (ret != 0) {
         si_secret_store_clear(verifier, sizeof(verifier));
@@ -442,7 +463,8 @@ static void load_credentials(void)
             s_legacy_password = salt_err != ESP_OK ||
                                 strlen(s_salt) != AUTH_SALT_HEX_LEN ||
                                 iteration_err != ESP_OK ||
-                                s_iterations < 10000U;
+                                (s_iterations != AUTH_SALTED_SHA256_ITERATIONS &&
+                                 s_iterations < AUTH_PBKDF2_MIN_ITERATIONS);
             if (s_legacy_password) {
                 s_salt[0] = '\0';
                 s_iterations = 0;
@@ -516,8 +538,9 @@ bool si_auth_is_enabled(void)
 {
     load_credentials();
     (void)ensure_lock();
-    /* Credential storage failure must never enable anonymous access. */
-    return true;
+    /* Credential storage failure must never enable anonymous access; only
+     * an explicit bench-test build turns login off. */
+    return !SI_CFG_AUTH_DISABLED_FOR_LAN_TESTING;
 }
 
 bool si_auth_credentials_match(const char *username, const char *password)
@@ -535,8 +558,12 @@ bool si_auth_credentials_match(const char *username, const char *password)
         secure_equal(username, strlen(username), s_username, strlen(s_username)) &&
         secure_equal(verifier, strlen(verifier), s_verifier, strlen(s_verifier));
     si_secret_store_clear(verifier, sizeof(verifier));
-    /* Migration holds the credential lock and preserves the login generation. */
-    if (matches && s_legacy_password && si_auth_validate_password(password) == ESP_OK) {
+    /* Migration holds the credential lock and preserves the login generation.
+     * It also moves a password to the storage format this build is
+     * configured for (salted SHA-256 or PBKDF2). */
+    if (matches && (s_legacy_password ||
+                    s_iterations != AUTH_PASSWORD_ITERATIONS) &&
+        si_auth_validate_password(password) == ESP_OK) {
         matches = set_credentials_internal(s_username, password, s_using_default,
                                            false, true, s_setup_pending, 0) == ESP_OK;
     }
@@ -960,7 +987,7 @@ static esp_err_t set_credentials_internal(const char *username,
     bytes_to_hex(salt, sizeof(salt), salt_hex, sizeof(salt_hex));
     si_secret_store_clear(salt, sizeof(salt));
     ESP_RETURN_ON_ERROR(
-        derive_password(password, salt_hex, AUTH_PBKDF2_ITERATIONS, verifier),
+        derive_password(password, salt_hex, AUTH_PASSWORD_ITERATIONS, verifier),
         TAG, "derive password");
 
     if (!s_credentials_lock) s_credentials_lock = xSemaphoreCreateMutex();
@@ -989,7 +1016,7 @@ static esp_err_t set_credentials_internal(const char *username,
     }
     if (ret == ESP_OK) {
         ret = si_settings_store_set_u32(&store, AUTH_PASSWORD_ITERATIONS_KEY,
-                                        AUTH_PBKDF2_ITERATIONS);
+                                        AUTH_PASSWORD_ITERATIONS);
     }
     if (ret == ESP_OK) {
         ret = si_settings_store_set_u8(
@@ -1011,7 +1038,7 @@ static esp_err_t set_credentials_internal(const char *username,
     strlcpy(s_username, username, sizeof(s_username));
     strlcpy(s_verifier, verifier, sizeof(s_verifier));
     strlcpy(s_salt, salt_hex, sizeof(s_salt));
-    s_iterations = AUTH_PBKDF2_ITERATIONS;
+    s_iterations = AUTH_PASSWORD_ITERATIONS;
     s_loaded = true;
     s_using_default = bootstrap_required;
     s_setup_pending = bootstrap_required && allow_setup;

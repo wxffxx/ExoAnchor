@@ -108,6 +108,7 @@ HTTP_GET /api/ws/video/h264
 HTTP_GET /api/system/info
 HTTP_GET /api/system/logs
 HTTP_GET /api/system/logs/download
+HTTP_GET /api/system/tasks
 HTTP_GET /api/v1/network/config
 HTTP_POST /api/v1/network/config
 HTTP_GET /api/v1/network/status

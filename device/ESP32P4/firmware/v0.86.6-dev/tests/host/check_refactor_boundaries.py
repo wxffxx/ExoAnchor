@@ -200,6 +200,7 @@ def main() -> int:
         "core/device_observation_utils.c",
         "services/device_http.c",
         "services/status_ws.c",
+        "infrastructure/flash_access.c",
         "infrastructure/settings_store.c",
         "infrastructure/settings_schema.c",
         "infrastructure/secret_store.c",
@@ -535,7 +536,7 @@ def main() -> int:
     async_http_text = ASYNC_HTTP.read_text(encoding="utf-8")
     for marker in (
         "DEFINE_LONG_HTTP_WRAPPER(power_action_async_handler",
-        "DEFINE_LONG_HTTP_WRAPPER(snapshot_async_handler",
+        "DEFINE_LONG_HTTP_PSRAM_WRAPPER(snapshot_async_handler",
     ):
         if marker not in async_http_text:
             failures.append(f"blocking HTTP isolation missing marker: {marker}")

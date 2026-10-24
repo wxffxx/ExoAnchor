@@ -14,6 +14,7 @@
 #include "driver/spi_master.h"
 #include "esp_check.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "ff.h"
@@ -113,12 +114,35 @@ static bool tf_transport_error_allows_low_speed(esp_err_t error)
            error == ESP_ERR_INVALID_CRC;
 }
 
+/* FATFS sector buffers are not cache-line aligned, so without this the SDMMC
+ * driver bounces every transfer through a fresh MALLOC_CAP_DMA allocation.
+ * Those come from internal RAM, which the H.264 profile leaves nearly empty
+ * once both HTTPS servers run: creating /sdcard/EA then failed with
+ * allocate_dma_buf ESP_ERR_NO_MEM and the Agent journal was unavailable.
+ * The P4 SDMMC DMA reaches PSRAM; it only needs L2 cache-line alignment. */
+#define SI_TF_DMA_BUFFER_BYTES (16U * 1024U)
+#define SI_TF_DMA_BUFFER_ALIGN 128U
+
+static void *tf_dma_aligned_buffer(void)
+{
+    static void *buffer;
+    if (!buffer) {
+        buffer = heap_caps_aligned_calloc(SI_TF_DMA_BUFFER_ALIGN, 1,
+                                          SI_TF_DMA_BUFFER_BYTES,
+                                          MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    }
+    return buffer;
+}
+
 static esp_err_t mount_tf_sdmmc(const esp_vfs_fat_sdmmc_mount_config_t *mount_config,
                                 int bus_width, int max_freq_khz,
                                 int card_detect_level, sdmmc_card_t **card)
 {
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
     host.max_freq_khz = max_freq_khz;
+#if SOC_SDMMC_PSRAM_DMA_CAPABLE
+    host.dma_aligned_buffer = tf_dma_aligned_buffer();
+#endif
 #if SOC_SDMMC_IO_POWER_EXTERNAL && SOC_GP_LDO_SUPPORTED
     host.pwr_ctrl_handle = s_tf_pwr_ctrl;
 #endif

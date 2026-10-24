@@ -5,10 +5,6 @@ static si_capability_t agent_tool_required_runtime_capability(
 static bool agent_run_captured_capability(
     const char *job_id, si_capability_t required);
 
-static bool agent_compat_dispatch_allowed(
-    const char *name, const cJSON *call, si_agent_request_risk_t risk,
-    bool lease_required);
-
 #include "agent_ask_user_tool_module.inc"
 
 #include "agent_wait_tool_module.inc"
@@ -211,31 +207,6 @@ static bool agent_compat_degraded_readonly(
            agent_recovery_tool_allowed(name, call);
 }
 
-/* Runtime V2 is shadow-only at this seam. Risk metadata is necessary but is
- * not authority: a future classifier bug must not turn a new mutation into a
- * compatibility write. Admit only the explicit read allowlist above plus the
- * two exact manager plan-creation operations while the journal is healthy. */
-static bool agent_compat_dispatch_allowed(
-    const char *name, const cJSON *call, si_agent_request_risk_t risk,
-    bool lease_required)
-{
-    if (agent_compat_degraded_readonly(name, call, risk, lease_required)) {
-        return true;
-    }
-    if (name && strcmp(name, "uart_auth") == 0 &&
-        risk == SI_AGENT_REQUEST_RISK_HIGH && !lease_required) {
-        return true;
-    }
-    if (!name || risk != SI_AGENT_REQUEST_RISK_LOW || lease_required ||
-        (strcmp(name, "host_display") != 0 &&
-         strcmp(name, "boot_key_sequence") != 0)) {
-        return false;
-    }
-    const cJSON *args = agent_tool_args(call);
-    const char *operation = json_string_any(args, "operation", "action", "op");
-    return operation && strcmp(operation, "plan") == 0;
-}
-
 static void agent_execute_tool_calls(const char *job_id, const cJSON *tool_calls,
                                      bool dry_run,
                                      bool allow_web_search,
@@ -380,18 +351,37 @@ static void agent_execute_tool_calls(const char *job_id, const cJSON *tool_calls
                 all_ok = false;
                 continue;
             }
-            if (!agent_compat_dispatch_allowed(
-                    policy_name, call, risk, lease_required)) {
-                agent_add_tool_error(
-                    results, i, policy_name,
-                    "mutation execution is disabled until the target-bound manager gateway and typed readback are available");
+            /* Autonomy gate: the operator's level decides which action
+             * classes may run at all; the Broker then decides per call
+             * whether a human must approve it. */
+            const si_agent_action_class_t action_class =
+                agent_tool_action_class(policy_name, call, risk);
+            const si_agent_autonomy_level_t autonomy =
+                si_agent_autonomy_get();
+            if (lease_required ||
+                !si_agent_autonomy_allows(autonomy, action_class)) {
+                char gate_error[160];
+                if (lease_required) {
+                    strlcpy(gate_error,
+                            "keyboard/mouse (HID) actions are not open to the embedded Agent yet",
+                            sizeof(gate_error));
+                } else {
+                    snprintf(gate_error, sizeof(gate_error),
+                             "autonomy %s does not allow %s actions; raise the Agent autonomy level in Settings",
+                             si_agent_autonomy_level_label(autonomy),
+                             si_agent_action_class_name(action_class));
+                }
+                agent_add_tool_error(results, i, policy_name, gate_error);
                 agent_run_add_eventf(
                     job_id, "bad",
-                    "tool[%d] blocked at shadow-only cutover · %s",
-                    i + 1, policy_name);
+                    "tool[%d] blocked by autonomy · %s · class=%s level=%d",
+                    i + 1, policy_name,
+                    si_agent_action_class_name(action_class),
+                    (int)autonomy);
                 all_ok = false;
                 continue;
             }
+            risk = agent_action_class_risk(action_class);
             const bool task_service_bound =
                 agent_run_task_service_is_bound(job_id);
             if (!task_service_bound &&

@@ -36,6 +36,7 @@ typedef struct {
 
 static const char *TAG = "si-video-ctl";
 
+static si_video_control_kvm_reject_t s_last_kvm_reject;
 static SemaphoreHandle_t s_lock;
 static SemaphoreHandle_t s_apply_lock;
 static SemaphoreHandle_t s_transport_lock;
@@ -357,6 +358,13 @@ static bool kvm_transition_under_hid_gate(
             s_kvm_auth_generation == context->auth_generation;
         context->accepted = context->force || live_heartbeat || initial ||
                             compare_exchange || expired;
+        if (!context->accepted) {
+            s_last_kvm_reject.requested = context->stream_id;
+            s_last_kvm_reject.previous = context->expected_previous_stream_id;
+            s_last_kvm_reject.current = s_kvm_stream_id;
+            s_last_kvm_reject.claim = context->claim;
+            s_last_kvm_reject.current_active = was_kvm_active;
+        }
         if (!context->accepted ||
             (!context->session_id || !context->session_id[0])) break;
         if (context->force) {
@@ -469,6 +477,11 @@ static bool run_kvm_transition(kvm_transition_context_t *context,
 {
     return si_hid_authority_transition(kvm_transition_under_hid_gate,
                                        context, owner);
+}
+
+si_video_control_kvm_reject_t si_video_control_last_kvm_reject(void)
+{
+    return s_last_kvm_reject;
 }
 
 bool si_video_control_acquire_kvm_stream_for_session(

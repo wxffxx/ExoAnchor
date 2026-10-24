@@ -101,6 +101,12 @@ static char *agent_build_report_request(const char *provider,
         return NULL;
     }
     cJSON_AddStringToObject(input, "user_message", user_message ? user_message : "");
+    /* The final report is what the user reads; a mid-run steer must reach it. */
+    const cJSON *steer = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(run_resp, "steer"), "message");
+    if (cJSON_IsString(steer) && steer->valuestring[0]) {
+        cJSON_AddStringToObject(input, "user_steer_must_follow", steer->valuestring);
+    }
     cJSON_AddStringToObject(input, "assistant_pre_execution_message",
                             initial_message ? initial_message : "");
     cJSON_AddBoolToObject(input, "dry_run",
@@ -454,7 +460,8 @@ static void agent_run_execute_tool_loop(agent_run_loop_context_t *ctx,
                 xSemaphoreGive(s_agent_run_lock);
             }
             if (shadow_bound &&
-                agent_run_prepare_task_service(ctx->job_id) != ESP_OK) {
+                (si_agent_task_service_steer(ctx->job_id, steer) != ESP_OK ||
+                 agent_run_prepare_task_service(ctx->job_id) != ESP_OK)) {
                 cJSON_AddStringToObject(
                     ctx->resp, "loop_error",
                     "durable replan failed after steer");
@@ -896,7 +903,14 @@ static esp_err_t agent_run_execute_to_json(const char *job_id,
     ret = agent_api_get_secret_for_profile(profile.id, api_key, sizeof(api_key));
     if (ret != ESP_OK) {
         memset(api_key, 0, sizeof(api_key));
-        strlcpy(err, "agent api key not configured", err_size);
+        /* Keep the reason: "not found" means no key, anything else means the
+         * secret could not be read. */
+        if (ret == ESP_ERR_NOT_FOUND) {
+            strlcpy(err, "agent api key not configured", err_size);
+        } else {
+            snprintf(err, err_size, "agent api key unreadable: %s",
+                     esp_err_to_name(ret));
+        }
         return ret;
     }
     if (!agent_run_control_point(job_id)) {

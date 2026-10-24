@@ -931,6 +931,17 @@
       this.inFlight = null;
       this.requestController = null;
       this.lastDurationMs = null;
+      this.updatedAt = 0;
+      this.startedAt = 0;
+    }
+
+    // Reuse a value the poller fetched recently instead of issuing another
+    // request: the device serves every page from one HTTPS task.
+    fresh(maxAgeMs = this.interval) {
+      if (this.value && !this.error && performance.now() - this.updatedAt < maxAgeMs) {
+        return Promise.resolve(this.value);
+      }
+      return this.refresh();
     }
 
     subscribe(listener, immediate = true) {
@@ -956,9 +967,11 @@
       this.requestController = controller;
       const release = lifecycle.addCleanup(() => controller.abort());
       const startedAt = performance.now();
+      this.startedAt = startedAt;
       const request = api.getSilent(this.path, { signal: controller.signal }).then(value => {
         if (controller.signal.aborted) throw new DOMException("poll stopped", "AbortError");
         this.lastDurationMs = Math.max(0, performance.now() - startedAt);
+        this.updatedAt = performance.now();
         this.value = value;
         this.error = null;
         this.notify();
@@ -984,6 +997,10 @@
       if (this.timer || lifecycle.destroyed) return;
       const tick = () => {
         if (document.hidden || byId("authModal")?.classList.contains("show")) return;
+        // Back off when the device is slow to answer so polling never keeps
+        // its single HTTPS task busy more than about a quarter of the time.
+        const spacing = (this.lastDurationMs || 0) * 4;
+        if (spacing > this.interval && performance.now() - this.startedAt < spacing) return;
         this.refresh().catch(() => {});
       };
       tick();
@@ -999,7 +1016,10 @@
     }
   }
 
-  const status = new PollStore("/api/status", 2000);
+  // Live views (dashboard, KVM) keep the 2 s cadence; settings, agent and
+  // terminal only show status in the header and poll at 5 s.
+  const livePage = typeof location === "undefined" || /^\/(index\.html|kvm(\.html)?)?$/.test(location.pathname);
+  const status = new PollStore("/api/status", livePage ? 2000 : 5000);
   const info = new PollStore("/api/system/info", 10000);
 
   function setStatus(element, text, kind) {

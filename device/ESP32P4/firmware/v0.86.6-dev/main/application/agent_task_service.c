@@ -1163,6 +1163,12 @@ esp_err_t si_agent_task_service_submit(const si_agent_task_submit_t *input,
 esp_err_t si_agent_task_service_snapshot(
     si_agent_task_service_snapshot_t *snapshot)
 {
+    return si_agent_task_service_snapshot_wait(snapshot, 500U);
+}
+
+esp_err_t si_agent_task_service_snapshot_wait(
+    si_agent_task_service_snapshot_t *snapshot, uint32_t wait_ms)
+{
     if (!snapshot) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -1172,7 +1178,7 @@ esp_err_t si_agent_task_service_snapshot(
         snapshot->recovery_status = s_recovery_status;
         return start_result;
     }
-    if (xSemaphoreTake(s_task_lock, pdMS_TO_TICKS(500)) != pdTRUE) {
+    if (xSemaphoreTake(s_task_lock, pdMS_TO_TICKS(wait_ms)) != pdTRUE) {
         return ESP_ERR_TIMEOUT;
     }
     memset(snapshot, 0, sizeof(*snapshot));

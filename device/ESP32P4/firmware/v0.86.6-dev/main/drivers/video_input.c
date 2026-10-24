@@ -1824,7 +1824,9 @@ static esp_err_t init_uvc(void)
                         "create USB host task");
 
     const uvc_host_driver_config_t driver_config = {
-        .driver_task_stack_size = 4096,
+        /* Frame callbacks run on this task; a 4 KiB stack bottomed out at
+         * 328 free bytes under a mixed MJPEG/HTTPS soak on V2.4. */
+        .driver_task_stack_size = 6144,
         .driver_task_priority = SI_UVC_DRIVER_PRIORITY,
         .xCoreID = 0,
         .create_background_task = true,

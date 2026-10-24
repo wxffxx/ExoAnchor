@@ -14,7 +14,27 @@ static void agent_task_service_recovery_task(void *arg)
     (void)arg;
     /* Runtime V2 remains a fail-closed shadow. Recovery/storage faults must
      * not take down the legacy Agent manager, KVM, or Web server. */
+    int64_t recovery_started_us = esp_timer_get_time();
     esp_err_t ret = si_agent_task_service_recover_reserved();
+    {
+        /* Recovery replays all of TASKS.LOG before the Agent is usable;
+         * record how long that took so slow journals are visible. */
+        char line[160];
+        si_agent_event_scan_stats_t scan = {0};
+        si_agent_event_store_last_scan_stats(&scan);
+        snprintf(line, sizeof(line),
+                 "Agent recovery %s %lldms; scan %llu rec %lluB read %llums "
+                 "verify %llums total %llums",
+                 ret == ESP_OK ? "finished" : "failed",
+                 (long long)((esp_timer_get_time() - recovery_started_us) / 1000),
+                 (unsigned long long)scan.records,
+                 (unsigned long long)scan.bytes,
+                 (unsigned long long)(scan.read_us / 1000U),
+                 (unsigned long long)(scan.verify_us / 1000U),
+                 (unsigned long long)(scan.total_us / 1000U));
+        si_web_log(ret == ESP_OK ? "INFO" : "ERROR", line);
+        ESP_LOGI(TAG, "%s", line);
+    }
     if (ret != ESP_OK) {
         ESP_LOGE(TAG,
                  "Agent Task Service degraded; legacy Agent remains available "
@@ -211,9 +231,9 @@ static bool agent_run_finalize_task_service(const char *run_id,
     }
 
     if (agent_result_requires_independent_verification(result)) {
-        /* This is a defensive fallback. The candidate dispatcher rejects all
-         * mutation/HID execution before effect. If a future compatibility path
-         * reaches here, Runtime V2 records unknown and cannot self-verify it. */
+        /* Mutations admitted by the autonomy level have no typed manager
+         * read-back yet, so Runtime V2 records the outcome as unknown and
+         * forbids blind retry; the user confirms the effect. */
         esp_err_t unknown_result =
             si_agent_task_service_record_step_verification(
                 run_id, AGENT_RUNTIME_V2_STEP_ID,
@@ -483,6 +503,12 @@ static void agent_run_task(void *arg)
     xSemaphoreGive(s_agent_run_lock);
     ESP_LOGI(TAG, "Agent run task internal stack high-water=%u",
              (unsigned)uxTaskGetStackHighWaterMark(NULL));
+    {
+        char line[80];
+        snprintf(line, sizeof(line), "Agent run stack free minimum=%u bytes",
+                 (unsigned)uxTaskGetStackHighWaterMark(NULL));
+        si_web_log("INFO", line);
+    }
     agent_run_task_arg_free(run);
     vTaskDeleteWithCaps(NULL);
 }
@@ -698,8 +724,20 @@ static esp_err_t agent_run_launch_execution(
     esp_err_t resource_ret =
         si_h264_stream_claim_agent_resources(&resource_token);
     if (resource_ret != ESP_OK) {
-        const char *failure =
-            "H.264 codec is active or releasing resources; retry Agent run";
+        char failure[128];
+        if (resource_ret == ESP_ERR_NO_MEM) {
+            snprintf(failure, sizeof(failure),
+                     "internal RAM too low for Agent run (free=%u largest=%u)",
+                     (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL |
+                                                       MALLOC_CAP_8BIT),
+                     (unsigned)heap_caps_get_largest_free_block(
+                         MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+        } else {
+            strlcpy(failure,
+                    "H.264 codec is active or releasing resources; retry Agent run",
+                    sizeof(failure));
+        }
+        si_web_log("WARN", failure);
         if (err && err_size > 0) {
             strlcpy(err, failure, err_size);
         }
@@ -794,7 +832,7 @@ static esp_err_t agent_run_launch_execution(
             AGENT_RUN_TASK_MEMORY_CAPS);
         if (ok != pdPASS) {
             const char *failure =
-                "create agent run task failed (internal stack unavailable)";
+                "create agent run task failed (stack unavailable)";
             s_agent_run_job.task = NULL;
             (void)agent_run_terminalize_launch_failure_locked(
                 launch_job_id, failure);
@@ -811,6 +849,13 @@ static esp_err_t agent_run_launch_execution(
             return ESP_ERR_NO_MEM;
         }
         xSemaphoreGive(s_agent_run_lock);
+        {
+            char line[112];
+            snprintf(line, sizeof(line),
+                     "Agent executor started internal_free=%u largest=%u",
+                     (unsigned)internal_free, (unsigned)internal_largest);
+            si_web_log("INFO", line);
+        }
         ESP_LOGI(TAG,
                  "Agent executor started run=%s stack=%u internal_free=%u "
                  "internal_largest=%u psram_free=%u",
