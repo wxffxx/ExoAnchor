@@ -2306,30 +2306,28 @@ def main() -> int:
     if "!agent_tool_is_ask_user(call)" not in tool_dispatch_text:
         failures.append("Agent ask_user dispatch guard missing")
     for marker in (
-        "agent_compat_dispatch_allowed(",
         "agent_compat_degraded_readonly(",
         "agent_recovery_tool_allowed(",
-        "risk != SI_AGENT_REQUEST_RISK_LOW || lease_required",
-        'strcmp(name, "host_display") != 0',
-        'strcmp(name, "boot_key_sequence") != 0',
+        "agent_tool_action_class(policy_name, call, risk)",
+        "!si_agent_autonomy_allows(autonomy, action_class)",
+        "risk = agent_action_class_risk(action_class);",
         'strcmp(operation, "plan") == 0',
         "agent_run_task_service_is_bound(job_id)",
         "!task_service_bound &&",
         "agent_request_authorize(",
-        '"mutation execution is disabled until the target-bound manager gateway and typed readback are available"',
         '"HID execution is disabled until target-bound readback is available"',
         '"ask_user is unavailable in the RAM-only recovery candidate"',
         '"tool is unavailable in the RAM-only recovery candidate"',
     ):
         if marker not in tool_dispatch_text:
             failures.append(
-                f"Runtime V2 read-only cutover guard missing {marker}"
+                f"Agent autonomy dispatch guard missing {marker}"
             )
     degraded_start = tool_dispatch_text.find(
         "static bool agent_compat_degraded_readonly("
     )
     healthy_start = tool_dispatch_text.find(
-        "static bool agent_compat_dispatch_allowed(", degraded_start
+        "static void agent_execute_tool_calls(", degraded_start
     )
     degraded_allowlist_text = tool_dispatch_text[
         degraded_start:healthy_start
@@ -2372,7 +2370,8 @@ def main() -> int:
     for marker, source in (
         ("AGENT_RUNTIME_READONLY_TOOL_PROMPT", agent_request_text),
         ("agent_runtime_tool_prompt()", agent_request_text),
-        ("AGENT_RUNTIME_MUTATION_ENABLED &&", agent_request_text),
+        ("AGENT_RUNTIME_ADVICE_ONLY_PROMPT", agent_request_text),
+        ("agent_add_autonomy_prompt(messages);", agent_request_text),
         ("screenshot capture is unavailable in the RAM-only recovery candidate", agent_run_task_text),
         ('workspaceState.run?.admission_scope==="full_cap_browser_only"', agent_text),
     ):

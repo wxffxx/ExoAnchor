@@ -211,9 +211,9 @@ static bool agent_run_finalize_task_service(const char *run_id,
     }
 
     if (agent_result_requires_independent_verification(result)) {
-        /* This is a defensive fallback. The candidate dispatcher rejects all
-         * mutation/HID execution before effect. If a future compatibility path
-         * reaches here, Runtime V2 records unknown and cannot self-verify it. */
+        /* Mutations admitted by the autonomy level have no typed manager
+         * read-back yet, so Runtime V2 records the outcome as unknown and
+         * forbids blind retry; the user confirms the effect. */
         esp_err_t unknown_result =
             si_agent_task_service_record_step_verification(
                 run_id, AGENT_RUNTIME_V2_STEP_ID,

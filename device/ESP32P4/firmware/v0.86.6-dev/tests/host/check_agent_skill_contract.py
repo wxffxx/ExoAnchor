@@ -10,7 +10,7 @@ SERVICE = PROJECT / "main" / "application" / "agent_skill_service.c"
 SERVICE_HEADER = PROJECT / "main" / "application" / "agent_skill_service.h"
 REQUEST = PROJECT / "main" / "services" / "web" / "agent_request_module.inc"
 SETTINGS = (
-    PROJECT / "main" / "services" / "web" / "base_settings_http_module.inc"
+    PROJECT / "main" / "services" / "web" / "agent_tools_settings_http_module.inc"
 )
 SKILL_REGISTRY = (
     PROJECT / "main" / "services" / "web" / "agent_skill_registry_module.inc"

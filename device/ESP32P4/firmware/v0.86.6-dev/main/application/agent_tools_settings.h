@@ -5,10 +5,12 @@
 #include <stdint.h>
 
 #include "agent_api_settings.h"
+#include "agent_autonomy.h"
 #include "esp_err.h"
 
 #define SI_AGENT_TOOLS_MODE_KEY "mode"
 #define SI_AGENT_ACCESS_MODE_KEY "access_mode"
+#define SI_AGENT_AUTONOMY_KEY "autonomy"
 #define SI_AGENT_TOOLS_POLICY_KEY "policy_json"
 #define SI_AGENT_TOOLS_SKILLS_KEY "skills_json"
 #define SI_AGENT_TOOLS_POLICY_MAX_LEN 4096
@@ -57,6 +59,10 @@ bool si_agent_access_mode_valid(const char *mode);
 const char *si_agent_access_mode_name(si_agent_access_mode_t mode);
 si_agent_access_mode_t si_agent_access_mode_get(void);
 esp_err_t si_agent_access_mode_set(si_agent_access_mode_t mode);
+/* Embedded Agent autonomy level (SAE-style L0..L4, default L1). Changing it
+ * bumps the policy revision so outstanding grants are revalidated. */
+si_agent_autonomy_level_t si_agent_autonomy_get(void);
+esp_err_t si_agent_autonomy_set(si_agent_autonomy_level_t level);
 bool si_agent_tool_policy_allows(const char *tool_name, bool dry_run,
                                  char *reason, size_t reason_size);
 bool si_agent_tool_policy_allows_for(const char *tool_name,

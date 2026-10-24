@@ -85,10 +85,16 @@ static si_authorization_risk_t agent_request_authorization_risk(
     }
 }
 
+/* Second, independent line: at L0/L1 the execution guard itself refuses
+ * anything above low risk even if a classifier upstream were wrong. */
 static si_authorization_mode_t agent_request_authorization_mode(void)
 {
-    return si_agent_access_mode_get() == SI_AGENT_ACCESS_FULL ?
-           SI_AUTHZ_MODE_AUTONOMOUS : SI_AUTHZ_MODE_SUPERVISED;
+    switch (si_agent_autonomy_get()) {
+    case SI_AGENT_AUTONOMY_L2: return SI_AUTHZ_MODE_SUPERVISED;
+    case SI_AGENT_AUTONOMY_L3:
+    case SI_AGENT_AUTONOMY_L4: return SI_AUTHZ_MODE_AUTONOMOUS;
+    default: return SI_AUTHZ_MODE_OBSERVE;
+    }
 }
 
 static const char *agent_request_policy_tool_name(
@@ -808,7 +814,13 @@ static bool agent_request_authorize_ex(
                                      error, error_size)) {
         return false;
     }
-    si_agent_access_mode_t access_mode = si_agent_access_mode_get();
+    /* The embedded Agent's delegated approval follows its autonomy level;
+     * irreversible actions and questions to the user are never delegated.
+     * The policy revision check above invalidates grants when it changes. */
+    const int auto_through =
+        si_agent_autonomy_auto_through(si_agent_autonomy_get());
+    const bool delegated = kind == SI_AGENT_REQUEST_KIND_ACTION &&
+                           auto_through >= 0;
     si_agent_request_v2_input_t input = {
         .binding = agent_request_binding_input(&initial_binding),
         .requester = {
@@ -823,12 +835,11 @@ static bool agent_request_authorize_ex(
         .lease_required = lease_required,
         /* Human reviewer remains separate from trusted delegated policy. */
         .reviewer_allowed = false,
-        .delegated_auto_approval =
-            access_mode != SI_AGENT_ACCESS_MANUAL,
+        .delegated_auto_approval = delegated,
         .auto_approve_through =
-            access_mode == SI_AGENT_ACCESS_FULL ?
-            SI_AGENT_REQUEST_RISK_CRITICAL :
-            SI_AGENT_REQUEST_RISK_MEDIUM,
+            delegated ? agent_action_class_risk(
+                            (si_agent_action_class_t)auto_through) :
+                        SI_AGENT_REQUEST_RISK_LOW,
         .requested_grant_scope = SI_AGENT_REQUEST_GRANT_ONCE,
         .ttl_ms = 120000U,
     };
@@ -1068,7 +1079,10 @@ static bool agent_request_authorize_ex(
                 .lease_required = lease_required,
                 .lease_held = exact_lease_held,
                 .human_kvm_active = current_lease.kvm_active,
-                .mode = agent_request_authorization_mode(),
+                /* A question to the user changes nothing on the target. */
+                .mode = kind == SI_AGENT_REQUEST_KIND_CONTEXT ?
+                    SI_AUTHZ_MODE_SUPERVISED :
+                    agent_request_authorization_mode(),
                 .risk = agent_request_authorization_risk(risk),
                 .approval_required = true,
                 .grant_consumed = status.grant_consumed,

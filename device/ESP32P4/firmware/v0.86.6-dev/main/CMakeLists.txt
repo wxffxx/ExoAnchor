@@ -19,6 +19,7 @@ set(SI_MAIN_SRCS
         "application/video_control.c"
         "application/video_stream_metrics.c"
         "core/action_event.c"
+        "core/agent_autonomy.c"
         "core/authorization.c"
         "core/boot_key_sequence.c"
         "core/device_observation_utils.c"

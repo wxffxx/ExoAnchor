@@ -267,6 +267,7 @@ class MockState:
     agent_prompt = "You are the ExoAnchor local mock Agent."
     agent_prompt_default = True
     agent_tool_mode = "observe"
+    agent_autonomy_level = 1
     agent_tool_policy = {"version": 2, "default_mode": "observe", "tools": {}}
     agent_skills = [
         {"name": "system_checklist", "enabled": True, "mode": "guided", "description": "System diagnostics", "tools": ["observe_status", "ssh_exec"]},
@@ -946,6 +947,9 @@ def _agent_api_payload() -> dict:
     }
 
 
+AUTONOMY_LABELS = ("L0 无自动化", "L1 辅助", "L2 部分自动化", "L3 有条件自动化", "L4 高度自动化")
+
+
 def _agent_tools_payload() -> dict:
     return {
         "supported": True,
@@ -960,6 +964,11 @@ def _agent_tools_payload() -> dict:
         "skills_json": json.dumps(MockState.agent_skills, separators=(",", ":")),
         "skills": json.loads(json.dumps(MockState.agent_skills)),
         "web_search": json.loads(json.dumps(MockState.web_search)),
+        "autonomy_level": MockState.agent_autonomy_level,
+        "autonomy_label": AUTONOMY_LABELS[MockState.agent_autonomy_level],
+        "autonomy_max_level": 4,
+        "autonomy_auto_through": -1 if MockState.agent_autonomy_level == 0 else
+        (0 if MockState.agent_autonomy_level == 1 else min(MockState.agent_autonomy_level - 2, 2)),
     }
 
 
@@ -1300,29 +1309,32 @@ def _agent_run_payload() -> dict:
         elapsed = int((time.monotonic() - MockState.agent_run_started_at) * 1000)
         dry_run = bool(run["dry_run"])
         phase = "planned" if dry_run else "input_sent"
-        _append_agent_run_event(
-            "ssh", phase,
-            "tool[1] ssh_exec dry-run $ uname -a" if dry_run else
-            "tool[1] ssh_exec $ uname -a",
-            "ssh-1",
-        )
-        _append_agent_run_event(
-            "hid", phase, "hid[1] absclick · x=19660 y=13106 button=0",
-            "hid-2",
-        )
-        if not dry_run:
+        # Mirror the firmware: a read-only command runs from L1 up, HID never
+        # runs for the embedded Agent, and L0 calls no tools at all.
+        level = MockState.agent_autonomy_level
+        tool_calls, tool_results = [], []
+        if level >= 1:
             _append_agent_run_event(
-                "ssh", "output_received",
-                "tool[1] output · Linux exoanchor-mock", "ssh-1",
-            )
-            _append_agent_run_event(
-                "ssh", "succeeded", "tool[1] ssh_exec ok · exit=0",
+                "ssh", phase,
+                "tool[1] ssh_exec dry-run $ uname -a" if dry_run else
+                "tool[1] ssh_exec $ uname -a",
                 "ssh-1",
             )
-            _append_agent_run_event(
-                "hid", "succeeded",
-                "hid[1] absclick · x=19660 y=13106 button=0 · ok", "hid-2",
-            )
+            tool_calls.append({"name": "ssh_exec", "args": {"command": "uname -a"}})
+            if not dry_run:
+                _append_agent_run_event(
+                    "ssh", "output_received",
+                    "tool[1] output · Linux exoanchor-mock", "ssh-1",
+                )
+                _append_agent_run_event(
+                    "ssh", "succeeded", "tool[1] ssh_exec ok · exit=0 · class=read",
+                    "ssh-1",
+                )
+                tool_results.append({"index": 0, "tool": "ssh_exec", "ok": True,
+                                     "command": "uname -a", "exit_status": 0,
+                                     "stdout": "Linux exoanchor-mock"})
+        message = ("L0：只给建议，没有调用设备工具。" if level == 0 else
+                   "Local mock Agent ran one read-only command (uname -a).")
         run.update({
             "state": "done",
             "running": False,
@@ -1342,11 +1354,13 @@ def _agent_run_payload() -> dict:
                 "profile": run["profile"],
                 "model": run["model"],
                 "dry_run": run["dry_run"],
-                "message": "Local mock Agent received the request and completed the UI contract test.",
+                "message": message,
                 "trace": ["Validated the Agent run lifecycle"],
-                "tool_calls": [],
+                "tool_calls": tool_calls,
                 "actions": [],
-                "tool_results": [],
+                "tool_results": tool_results,
+                "tool_executed": len(tool_results),
+                "completion_verification": {"status": "response_delivered"},
                 "results": [],
                 "history_saved": True,
             },
@@ -2185,6 +2199,10 @@ class Handler(BaseHTTPRequestHandler):
             MockState.token = secrets.token_hex(32)
             self._send_json({"ok": True, "login_required": True})
             return
+        if path == "/api/auth/logout":
+            # Firmware revokes the session; the mock has a single static token.
+            self._send_json({"ok": True})
+            return
         if path == "/api/auth/login":
             try:
                 payload = json.loads(raw.decode("utf-8") or "{}")
@@ -2638,7 +2656,13 @@ class Handler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 self._send_json({"error": "invalid json"}, 400)
                 return
+            if "autonomy_level" in payload:
+                level = payload["autonomy_level"]
+                if isinstance(level, bool) or not isinstance(level, int) or not 0 <= level <= 4:
+                    self._send_json({"error": "autonomy_level must be an integer 0..4; L5 is not offered"}, 400)
+                    return
             if payload.get("reset_default") is True:
+                MockState.agent_autonomy_level = 1
                 MockState.agent_tool_mode = "observe"
                 MockState.agent_tool_policy = {"version": 2, "default_mode": "observe", "tools": {}}
                 MockState.web_search["enabled"] = False
@@ -2657,6 +2681,8 @@ class Handler(BaseHTTPRequestHandler):
                     except (json.JSONDecodeError, TypeError):
                         self._send_json({"error": "skills_json invalid"}, 400)
                         return
+                if "autonomy_level" in payload:
+                    MockState.agent_autonomy_level = payload["autonomy_level"]
                 if isinstance(payload.get("web_search"), dict):
                     MockState.web_search.update({key: value for key, value in payload["web_search"].items() if key != "api_key"})
                     if payload["web_search"].get("clear_api_key") is True:

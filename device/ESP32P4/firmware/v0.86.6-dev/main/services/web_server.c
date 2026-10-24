@@ -469,6 +469,7 @@ static esp_err_t agent_run_revoke_page_context(const si_product_feature_settings
 #endif
 #include "web/resource_operation_contract.inc"
 #include "web/base_settings_http_module.inc"
+#include "web/agent_tools_settings_http_module.inc"
 #include "web/two_step_http_module.inc"
 #include "web/passkey_http_module.inc"
 #include "web/access_mode_http_module.inc"
@@ -498,6 +499,7 @@ static esp_err_t agent_run_revoke_page_context(const si_product_feature_settings
 #include "web/agent_boot_key_tool_module.inc"
 #include "web/agent_web_search_tool_module.inc"
 #include "web/agent_ssh_primitives_module.inc"
+#include "web/agent_autonomy_gate_module.inc"
 #include "web/agent_broker_http_module.inc"
 #include "web/agent_run_status_snapshot_module.inc"
 #include "web/agent_run_checkpoint_module.inc"

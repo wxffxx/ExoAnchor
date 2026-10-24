@@ -5,6 +5,10 @@
 > 但认证 HTTP 与 Agent/KVM HIL 仍未完成。当前 provider/model/tool execution
 > owner 仍是 legacy Agent loop；Runtime V2 尚未从 shadow 切为唯一 canonical
 > execution owner。本文不是 owner 切流、M0、T1/T2 或完整 HIL 通过声明。
+>
+> 2026-10-23：内置 Agent 的写操作不再由"shadow-only 全局封锁"一刀切拒绝，改为
+> 操作者设定的自动化等级（L0–L4，默认 L1 只读）加固件判定的动作类别，见下文
+> 「自动化分级」。Runtime V2 仍是 shadow，owner 切流硬门不变。
 
 ## 架构决定
 
@@ -294,6 +298,36 @@ typed observation、Execution Gateway 与 cutover HIL 完成后，Runtime V2 才
   generation 人工终止成功，活动操作回到 0。该证据关闭本次 actor/generation
   缺陷，但不替代同机 KVM 双消费者、输入抢占/neutral、Terminal 自动输入回放、
   H.264 恢复和长期 soak 的完整矩阵。
+
+## 自动化分级（2026-10-23）
+
+内置 Agent 的执行权限参照汽车自动驾驶分级，由操作者在 Settings → AI 与集成 →
+自动化等级 设置（只有浏览器操作者可改；改动会使未决授权失效）。每次真实工具调用由
+固件按精确参数判定动作类别，模型无法影响：
+
+| 等级 | R0 只读 | R1 操作 | R2 系统 | R3 不可逆 |
+|---|---|---|---|---|
+| L0 无自动化 | 不允许 | 不允许 | 不允许 | 不允许 |
+| L1 辅助（默认） | 自动 | 不允许 | 不允许 | 不允许 |
+| L2 部分自动化 | 自动 | 逐次批准 | 不允许 | 不允许 |
+| L3 有条件自动化 | 自动 | 自动 | 逐次批准 | 不允许 |
+| L4 高度自动化 | 自动 | 自动 | 自动 | 逐次批准 |
+
+L5 不提供：不可逆动作始终需要人确认。实现要点：
+
+- `main/core/agent_autonomy.{h,c}`：等级矩阵与 shell/路径分类器（纯函数，host 测试
+  `tests/host/test_agent_autonomy.c`）。只有可证明只读的命令是 R0；读取凭据文件为 R2；
+  sudo/服务/软件包/用户/网络/系统路径写入为 R2；递归删除、磁盘/分区/格式化、断电为 R3；
+  sudo、env、bash -c、xargs、find -exec 等包装器内的命令同样被识别。
+- `services/web/agent_autonomy_gate_module.inc`：按工具与参数给出类别；SSH 改写主机、
+  账户或凭据至少为 R2。
+- 分发顺序：类别判定 → 等级闸门 → Broker 授权（自动批准上限随等级）→ 执行。
+  `tests/host/check_agent_autonomy_gate.py` 固定该顺序。
+- 第二道防线：L0/L1 时 Execution Guard 处于 observe 模式，非低风险一律拒绝。
+- ask_user 等上下文请求永不自动批准；HID（键盘鼠标）与需要控制租约的调用仍对内置
+  Agent 关闭；日志降级（Task journal 不健康）时仍只允许只读白名单。
+- 写操作没有类型化回读，完成验证记录为 `outcome_unknown` 且禁止盲目重试，由用户
+  在 KVM/Terminal 确认。共享的访问模式（手动/替我审批/完全访问）只再作用于 MCP。
 
 ## 生产切流硬门
 

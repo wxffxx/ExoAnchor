@@ -25,6 +25,8 @@ function harness(jobId = null) {
     agentProfile: { value: "profile" }, agentModel: { value: "model" },
     agentKvmPermission: { disabled: true }, agentWebPermission: { disabled: true },
     UI: { lifecycle: { destroyed: false } }, validateOutgoingPrompt: () => true,
+    agentPreflightError: () => "", agentScreenshotWarning: () => "",
+    agentStartErrorText: value => String(value || ""),
     optionalSessionId: id => id || "", localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     materializeSession: () => context.setActiveSession("new-session"),
     terminalLine: (...args) => terminal.push(args), compactTerminalText: value => value,
@@ -140,3 +142,35 @@ for (const method of ["getItem", "setItem"]) {
   assert.ok(storage.bubbles.some(([, kind, text]) => kind === "system" && text.includes("local storage unavailable")));
 }
 console.log("Workspace submission ownership and draft preservation tests: PASS");
+
+// Start errors and preflight checks speak the user's language, and the
+// vision check mirrors core/model_provider.c.
+{
+  const context = {
+    TextEncoder, AGENT_MESSAGE_MAX_BYTES: 512,
+    agentProfiles: [{ id: "deepseek", provider: "deepseek", model: "deepseek-v4-pro", api_key_configured: false },
+                    { id: "openai", provider: "openai", model: "gpt-4o", api_key_configured: true }],
+    agentProfile: { value: "deepseek" }, workspaceState: { api: { api_key_configured: false } },
+  };
+  vm.runInNewContext(["agentStartErrorText", "agentModelAcceptsImages", "agentPreflightError",
+                      "agentScreenshotWarning", "parseErrorJson"].map(extract).join("\n"), context);
+  assert.match(context.agentPreflightError("x".repeat(513), true), /最多 512 字节（当前 513）/);
+  assert.match(context.agentPreflightError("检".repeat(171), true), /当前 513/, "limit counts UTF-8 bytes");
+  assert.match(context.agentPreflightError("hello", true), /API Key/);
+  assert.equal(context.agentPreflightError("hello", false), "", "steering an active run needs no key check");
+  context.agentProfile.value = "openai";
+  assert.equal(context.agentPreflightError("hello", true), "");
+  assert.equal(context.agentScreenshotWarning("gpt-4o"), "");
+  context.agentProfile.value = "deepseek";
+  assert.match(context.agentScreenshotWarning(""), /deepseek-v4-pro 不支持图像输入/);
+  assert.equal(context.agentModelAcceptsImages("qwen", "qwen3-vl-flash"), true);
+  assert.equal(context.agentModelAcceptsImages("qwen", "qwen-plus"), false);
+  assert.equal(context.agentModelAcceptsImages("kimi", "kimi-k3"), true);
+  assert.match(context.agentStartErrorText("H.264 codec is active; stop streaming"), /H\.264/);
+  assert.match(context.agentStartErrorText("agent api key not configured"), /API Key/);
+  assert.match(context.agentStartErrorText("embedded Agent disabled in Settings"), /已在设置中关闭/);
+  assert.equal(context.agentStartErrorText("something else"), "something else");
+  assert.equal(context.parseErrorJson('{"busy":true,"accepted":false}').busy, true);
+  assert.equal(context.parseErrorJson("plain text"), null);
+}
+console.log("Agent start error and preflight tests: PASS");
