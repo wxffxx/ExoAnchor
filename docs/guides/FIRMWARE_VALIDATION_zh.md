@@ -199,8 +199,8 @@ UDP 数据报应保留当前 socket，不应触发重建。覆盖关闭发现功
 
 ## 6. 慢视频接收端与恢复
 
-通过 `tools/build-firmware.sh` 构建的 Rev3 Dev 镜像会叠加 `sdkconfig.defaults.dev-h264`，默认具备 H.264 能力；实际测试仍须记录所选输出模式。普通 Stable
-组合保持 MJPEG，不能把 H.264 测试结果推定到未启用该功能的镜像。
+当前 MS2109 板卡的 Dev 与 Stable 镜像默认只提供 MJPEG。只有显式加上 `--h264-experiment` 构建的 Rev3 Dev 镜像，才会叠加
+`sdkconfig.defaults.dev-h264` 并具备 H.264 能力；实际测试仍须记录所选输出模式，不能把 H.264 测试结果推定到未启用该功能的镜像。
 
 主机侧应分别模拟 `send()` 的部分成功、`EAGAIN`、`EINTR`、断连和超时。核心
 断言是每次 HTTPD 发送回调受 1,000 ms 绝对期限限制：即使每次调用都发送了一点

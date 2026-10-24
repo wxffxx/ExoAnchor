@@ -35,3 +35,9 @@ CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048
 CONFIG_MBEDTLS_POLY1305_C=y
 CONFIG_MBEDTLS_CHACHA20_C=y
 CONFIG_MBEDTLS_CHACHAPOLY_C=y
+
+# Dev places large Agent/runtime state (run job, task-service runtime, status
+# caches) in PSRAM via EXT_RAM_BSS_ATTR. Without this option those objects
+# silently fall back to internal BSS and cost ~260 KiB of internal heap. It
+# used to come only with the H.264 overlay; Dev is MJPEG-only by default now.
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y

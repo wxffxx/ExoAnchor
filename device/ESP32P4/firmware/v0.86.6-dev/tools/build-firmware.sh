@@ -6,12 +6,14 @@ BOARD="exoanchor-prototype-v2.3"
 BUILD_DIR=""
 REUSE_SDKCONFIG=0
 STABLE_H264_CANDIDATE=0
+H264_EXPERIMENT=0
 
 usage() {
   cat <<'EOF'
 Usage:
   build-firmware.sh [--profile dev|stable] [--board BOARD] [--build-dir DIR]
                     [--reuse-sdkconfig] [--stable-h264-candidate]
+                    [--h264-experiment]
 
 Profiles:
   dev       Embedded Agent runtime plus external MCP support.
@@ -35,6 +37,12 @@ Configuration:
       Build an offline H.264 candidate from the Stable composition. This is
       accepted only with --profile stable --board exoanchor-prototype-v2.3;
       normal Stable builds remain MJPEG-only.
+
+  --h264-experiment
+      Dev builds are MJPEG-only by default: the MS2109 boards' MJPEG -> H.264
+      path is not product-ready, and its reserved codec workspace takes 138 KiB
+      of internal RAM. This opts an esp32p4-rev3 Dev build back into the
+      H.264 experiment overlay.
 EOF
 }
 
@@ -58,6 +66,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --stable-h264-candidate)
       STABLE_H264_CANDIDATE=1
+      shift
+      ;;
+    --h264-experiment)
+      H264_EXPERIMENT=1
       shift
       ;;
     -h|--help)
@@ -93,6 +105,11 @@ case "$BOARD" in
     ;;
 esac
 
+if [[ "$H264_EXPERIMENT" -eq 1 ]] &&
+   [[ "$PROFILE" != "dev" || "$SILICON" != "esp32p4-rev3" ]]; then
+  echo "[build-firmware] --h264-experiment only supports --profile dev on esp32p4-rev3 boards" >&2
+  exit 64
+fi
 if [[ "$STABLE_H264_CANDIDATE" -eq 1 ]] &&
    [[ "$PROFILE" != "stable" ||
       "$BOARD" != "exoanchor-prototype-v2.3" ||
@@ -153,7 +170,8 @@ SDKCONFIG_PATH="$BUILD_DIR_PATH/sdkconfig"
 
 DEFAULTS="sdkconfig.defaults;configs/boards/sdkconfig.defaults.${BOARD};configs/silicon/sdkconfig.defaults.${SILICON};configs/profiles/sdkconfig.defaults.${PROFILE}"
 H264_BUILD=0
-if [[ "$PROFILE" == "dev" && "$SILICON" == "esp32p4-rev3" ]] ||
+if [[ "$PROFILE" == "dev" && "$SILICON" == "esp32p4-rev3" &&
+      "$H264_EXPERIMENT" -eq 1 ]] ||
    [[ "$STABLE_H264_CANDIDATE" -eq 1 ]]; then
   H264_BUILD=1
   DEFAULTS="${DEFAULTS};configs/profiles/sdkconfig.defaults.dev-h264"
@@ -173,7 +191,7 @@ if [[ "$REUSE_SDKCONFIG" -eq 0 ]]; then
   rm -f -- "$SDKCONFIG_PATH" "${SDKCONFIG_PATH}.old"
 fi
 
-echo "[build-firmware] board=$BOARD silicon=$SILICON profile=$PROFILE stable_h264_candidate=$STABLE_H264_CANDIDATE version=$FIRMWARE_VERSION"
+echo "[build-firmware] board=$BOARD silicon=$SILICON profile=$PROFILE h264=$H264_BUILD stable_h264_candidate=$STABLE_H264_CANDIDATE version=$FIRMWARE_VERSION"
 echo "[build-firmware] build_dir=$BUILD_DIR_PATH"
 idf.py -B "$BUILD_DIR_PATH" \
   -D "IDF_TARGET=esp32p4" \

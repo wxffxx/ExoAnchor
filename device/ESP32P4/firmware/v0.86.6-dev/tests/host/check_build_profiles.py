@@ -202,10 +202,19 @@ require(
 h264_kconfig = kconfig.split("config SI_VIDEO_H264_EXPERIMENT", 1)[1].split(
     "config SI_VIDEO_H264_BITRATE", 1
 )[0]
+# MS2109 boards ship MJPEG-only: H.264 is opt-in for Dev experiments.
+if "default y" in h264_kconfig:
+    raise AssertionError("H.264 must not be enabled by default on MS2109 boards")
+require(build_script, "--h264-experiment", "Dev H.264 opt-in CLI")
 require(
-    h264_kconfig,
-    "default y if SI_BUILD_PROFILE_DEV && SI_BOARD_REQUIRES_REV3",
-    "Rev3 Dev H.264 default",
+    build_script,
+    '"$H264_EXPERIMENT" -eq 1 ]]',
+    "Dev H.264 overlay requires the explicit opt-in",
+)
+require(
+    (ROOT / "configs/profiles/sdkconfig.defaults.dev").read_text(encoding="utf-8"),
+    "CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y",
+    "Dev keeps EXT_RAM_BSS_ATTR state in PSRAM without the H.264 overlay",
 )
 require(
     h264_kconfig,
