@@ -717,8 +717,8 @@ def main() -> int:
             failures.append("same-origin MJPEG must run outside the main HTTP task")
     for marker, description in (
         (
-            "#define SI_VIDEO_HTTP_MAX_WORKERS 2",
-            "MJPEG reconnect overlap needs two dedicated worker slots",
+            "#define SI_VIDEO_HTTP_MAX_WORKERS 4",
+            "MJPEG reconnect overlap needs dedicated worker slots beyond retiring streams",
         ),
         (
             "s_video_http_slots",

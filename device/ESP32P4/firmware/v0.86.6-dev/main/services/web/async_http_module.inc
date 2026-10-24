@@ -1,7 +1,11 @@
 // Long HTTP operations run outside the main esp_http_server task so page
 // navigation, status probes, and logout remain responsive.
 #define SI_LONG_HTTP_MAX_WORKERS 3
-#define SI_VIDEO_HTTP_MAX_WORKERS 2
+/* A browser reconnect briefly overlaps the retiring and the new multipart
+ * stream (Chrome may keep the old <img> connection open for a while); with
+ * only two slots the replacement got 503 "slots busy" and the KVM page sat at
+ * "connecting". Video workers use PSRAM stacks, so headroom is cheap. */
+#define SI_VIDEO_HTTP_MAX_WORKERS 4
 #define SI_LONG_HTTP_TASK_STACK_SIZE 12288
 
 typedef esp_err_t (*si_http_handler_fn_t)(httpd_req_t *req);
@@ -67,6 +71,17 @@ static void long_http_worker(void *arg)
     vTaskDeleteWithCaps(NULL);
 }
 
+/* A 503 here is invisible to the page; record which operation was refused
+ * and why so reconnect stalls can be traced from the device log. */
+static void dispatch_http_log_refusal(const char *name, const char *reason,
+                                      esp_err_t err)
+{
+    char line[96];
+    snprintf(line, sizeof(line), "%s refused: %s (%s)", name ? name : "?",
+             reason, esp_err_to_name(err));
+    si_web_log("WARN", line);
+}
+
 static esp_err_t dispatch_http_worker(httpd_req_t *req,
                                       si_http_handler_fn_t handler,
                                       const char *name,
@@ -74,6 +89,7 @@ static esp_err_t dispatch_http_worker(httpd_req_t *req,
                                       UBaseType_t stack_caps)
 {
     if (!slot_pool || xSemaphoreTake(slot_pool, 0) != pdTRUE) {
+        dispatch_http_log_refusal(name, "slots busy", ESP_ERR_NO_MEM);
         httpd_resp_set_hdr(req, "Retry-After", "1");
         return si_http_send_text_status(req, "503 Service Unavailable",
                                         "long operation slots busy");
@@ -82,6 +98,7 @@ static esp_err_t dispatch_http_worker(httpd_req_t *req,
     httpd_req_t *async_req = NULL;
     esp_err_t ret = httpd_req_async_handler_begin(req, &async_req);
     if (ret != ESP_OK) {
+        dispatch_http_log_refusal(name, "async request unavailable", ret);
         xSemaphoreGive(slot_pool);
         return si_http_send_text_status(req, "503 Service Unavailable",
                                         "async request unavailable");
@@ -106,6 +123,7 @@ static esp_err_t dispatch_http_worker(httpd_req_t *req,
                             SI_LONG_HTTP_TASK_STACK_SIZE, task,
                             tskIDLE_PRIORITY + 2, NULL, stack_caps);
     if (task_ok != pdPASS) {
+        dispatch_http_log_refusal(name, "worker unavailable", ESP_ERR_NO_MEM);
         free(task);
         httpd_resp_set_status(async_req, "503 Service Unavailable");
         (void)httpd_resp_sendstr(async_req,

@@ -379,7 +379,15 @@ static esp_err_t video_lease_handler(httpd_req_t *req)
                 const char *reason = conflict.agent_takeover
                                          ? "agent input control is active"
                                          : "stale KVM stream";
-                si_web_log("WARN", reason);
+                si_video_control_kvm_reject_t reject =
+                    si_video_control_last_kvm_reject();
+                char line[128];
+                snprintf(line, sizeof(line),
+                         "%s: req=%" PRIu32 " prev=%" PRIu32 " cur=%" PRIu32
+                         " claim=%d cur_active=%d",
+                         reason, reject.requested, reject.previous,
+                         reject.current, reject.claim, reject.current_active);
+                si_web_log("WARN", line);
                 cJSON_Delete(root);
                 return si_http_send_text_status(req, "409 Conflict", reason);
             }
@@ -498,6 +506,20 @@ static esp_err_t snapshot_handler(httpd_req_t *req)
     return ret;
 }
 
+/* Record why a KVM multipart stream ended, so a viewer stuck on
+ * "connecting" can be traced to its cause from the device log. */
+static esp_err_t video_stream_ended(bool agent_stream, uint32_t stream_id,
+                                    const char *reason)
+{
+    if (!agent_stream) {
+        char line[96];
+        snprintf(line, sizeof(line), "KVM MJPEG stream %" PRIu32 " ended: %s",
+                 stream_id, reason);
+        si_web_log("INFO", line);
+    }
+    return ESP_OK;
+}
+
 static esp_err_t stream_handler(httpd_req_t *req)
 {
     si_auth_session_context_t session = {0};
@@ -562,6 +584,15 @@ static esp_err_t stream_handler(httpd_req_t *req)
     }
 
     httpd_resp_set_type(req, "multipart/x-mixed-replace; boundary=frame");
+    /* The main server's 1 s send timeout suits page loads, but a browser that
+     * stops reading a multipart stream for just over a second (background
+     * window throttling, a busy main thread) then ended the KVM stream with
+     * "send failed". Give this long-lived socket more slack. */
+    {
+        const struct timeval stream_send_timeout = {.tv_sec = 5, .tv_usec = 0};
+        (void)setsockopt(httpd_req_to_sockfd(req), SOL_SOCKET, SO_SNDTIMEO,
+                         &stream_send_timeout, sizeof(stream_send_timeout));
+    }
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     httpd_resp_set_hdr(req, "Pragma", "no-cache");
     httpd_resp_set_hdr(req, "Connection", "close");
@@ -587,13 +618,13 @@ static esp_err_t stream_handler(httpd_req_t *req)
         }
         if (!agent_stream && stream_id != 0) {
             if (!si_video_control_kvm_stream_is_current(stream_id)) {
-                return ESP_OK;
+                return video_stream_ended(agent_stream, stream_id, "superseded");
             }
         }
         if (last_peer_check_ms == 0 ||
             (uint32_t)(now_ms - last_peer_check_ms) >= 250U) {
             if (video_stream_peer_closed(req)) {
-                return ESP_OK;
+                return video_stream_ended(agent_stream, stream_id, "peer closed");
             }
             last_peer_check_ms = now_ms;
         }
@@ -626,7 +657,7 @@ static esp_err_t stream_handler(httpd_req_t *req)
         if (gate_ret == ESP_ERR_INVALID_STATE) {
             /* Output changed to H.264. End the superseded multipart response
              * instead of spinning until the browser happens to abort it. */
-            return ESP_OK;
+            return video_stream_ended(agent_stream, stream_id, "output mode changed");
         }
         if (gate_ret != ESP_OK) {
             continue;
@@ -650,7 +681,7 @@ static esp_err_t stream_handler(httpd_req_t *req)
             if (last_frame_tick != 0 &&
                 (int32_t)(now - last_frame_tick) >=
                     (int32_t)pdMS_TO_TICKS(VIDEO_STREAM_STALL_TIMEOUT_MS)) {
-                return ESP_OK;
+                return video_stream_ended(agent_stream, stream_id, "no new frame");
             }
             vTaskDelay(pdMS_TO_TICKS(10));
             continue;
@@ -665,7 +696,7 @@ static esp_err_t stream_handler(httpd_req_t *req)
             if (last_frame_tick != 0 &&
                 (int32_t)(now - last_frame_tick) >=
                     (int32_t)pdMS_TO_TICKS(VIDEO_STREAM_STALL_TIMEOUT_MS)) {
-                return ESP_OK;
+                return video_stream_ended(agent_stream, stream_id, "no new frame");
             }
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
@@ -694,7 +725,7 @@ static esp_err_t stream_handler(httpd_req_t *req)
             send_ret = httpd_resp_send_chunk(req, "\r\n", 2);
         }
         if (send_ret != ESP_OK) {
-            return ESP_OK;
+            return video_stream_ended(agent_stream, stream_id, "send failed");
         }
         last_frame_id = frame_id;
         last_frame_tick = xTaskGetTickCount();
