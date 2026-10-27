@@ -647,11 +647,7 @@ esp_err_t si_web_server_start(void)
 #if SI_CFG_UART_TERMINAL_ENABLED
     register_uri(s_server, "/terminal", HTTP_GET, terminal_handler, false);
 #endif
-    register_uri(s_server, "/assets/ui-core.css", HTTP_GET, ui_core_css_handler, false);
-    register_uri(s_server, "/assets/ui-core.js", HTTP_GET, ui_core_js_handler, false);
-    register_uri(s_server, "/assets/ui-shell.css", HTTP_GET, ui_shell_css_handler, false);
-    register_uri(s_server, "/assets/ui-shell.js", HTTP_GET, ui_shell_js_handler, false);
-    register_uri(s_server, "/assets/exoanchor-ui-mark.svg", HTTP_GET, exoanchor_ui_mark_svg_handler, false);
+    register_ui_asset_routes(s_server);
     register_uri(s_server, "/favicon.svg", HTTP_GET, favicon_svg_handler, false);
 #if SI_CFG_UART_TERMINAL_ENABLED
     register_uri(s_server, "/assets/xterm/xterm.css", HTTP_GET, xterm_css_handler, false);
@@ -794,7 +790,7 @@ esp_err_t si_web_server_start(void)
     httpd_register_err_handler(s_server, HTTPD_404_NOT_FOUND, not_found_handler);
     ESP_RETURN_ON_ERROR(start_stream_server(), TAG, "start stream server");
     register_uri(s_stream_server, "/stream", HTTP_GET, stream_handler, false);
-    si_web_log("INFO", "HTTPS server started");
-    ESP_LOGI(TAG, "HTTPS server started on port %d", SI_DEFAULT_HTTP_PORT);
+    si_web_log("INFO", SI_WEB_SCHEME_NAME " server started");
+    ESP_LOGI(TAG, "%s server started on port %d", SI_WEB_SCHEME_NAME, SI_DEFAULT_HTTP_PORT);
     return ESP_OK;
 }

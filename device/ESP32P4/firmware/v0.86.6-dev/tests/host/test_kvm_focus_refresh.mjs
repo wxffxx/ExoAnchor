@@ -20,10 +20,12 @@ class FakeEventTarget {
   }
 }
 
-const kvmHtml = fs.readFileSync(
-  new URL("../../main/www/kvm.html", import.meta.url),
-  "utf8",
-);
+const KVM_SOURCE_FILES = ["kvm.html", "assets/kvm-core.js", "assets/kvm-video.js", "assets/kvm-lease.js", "assets/kvm-modes.js", "assets/kvm-input.js", "assets/kvm-status.js"];
+function readKvmSources() {
+  return KVM_SOURCE_FILES.map(rel => fs.readFileSync(
+    new URL(`../../main/www/${rel}`, import.meta.url), "utf8")).join("\n");
+}
+const kvmHtml = readKvmSources();
 const focusStart = kvmHtml.indexOf('const focusRefresh={enabled:localStorage.getItem("si_kvm_focus_refresh")');
 const focusEnd = kvmHtml.indexOf("function leaveKvmPage()", focusStart);
 assert.ok(focusStart >= 0 && focusEnd > focusStart,
@@ -75,6 +77,8 @@ function createHarness(initialStorage = {}) {
   const counts = {
     startKvmLease: 0,
     startOptions: [],
+    releaseKvmLease: 0,
+    recoveryMessages: [],
     stopVideoTimers: 0,
     cancelVideoTransition: 0,
     closeVideoTransport: 0,
@@ -102,6 +106,8 @@ function createHarness(initialStorage = {}) {
     } },
     kvmLeaving: false,
     kvmWindowBlurred: false,
+    kvmBlurPaused: false,
+    videoClaimed: true,
     kvmPageActive: true,
     videoModeSwitching: false,
     hidFocusBlocked: false,
@@ -130,8 +136,10 @@ function createHarness(initialStorage = {}) {
     cancelVideoTransition() { counts.cancelVideoTransition += 1; },
     closeVideoTransport() { counts.closeVideoTransport += 1; },
     scheduleVideoRecovery() { counts.scheduleVideoRecovery += 1; },
+    releaseKvmLease() { counts.releaseKvmLease += 1; },
+    showVideoRecovery(message) { counts.recoveryMessages.push(message); },
   });
-  vm.runInContext(`${focusSource}\nglobalThis.__focusRefresh=focusRefresh;`, context,
+  vm.runInContext(`${focusSource}\nglobalThis.__focusRefresh=focusRefresh;globalThis.__blurPause=blurPause;`, context,
     { filename: "kvm-focus-refresh.js" });
   return { context, windowTarget, documentTarget, timers, counts,
     focusRefreshToggle, focusRefreshText };
@@ -282,3 +290,46 @@ assert.equal(poweredOff.counts.startKvmLease, 0,
   "focus recovery must not request a video lease while MS2109 power is off");
 
 console.log("kvm focus refresh tests: PASS");
+
+// Blur-pause capture: a browser preference that defaults to OFF and, when
+// enabled, releases the video lease on window blur and reclaims it on focus.
+{
+  const off = createHarness();
+  assert.equal(off.context.__blurPause.enabled, false,
+    "blur pause must default to disabled");
+  off.windowTarget.dispatch("blur");
+  assert.equal(off.counts.releaseKvmLease, 0,
+    "default blur must keep the video lease and capture alive");
+  assert.equal(off.counts.closeVideoTransport, 0);
+  assert.equal(off.context.kvmBlurPaused, false);
+
+  const on = createHarness({ si_kvm_blur_pause: "1", si_kvm_focus_refresh: "0" });
+  assert.equal(on.context.__blurPause.enabled, true,
+    "stored preference must enable blur pause");
+  on.windowTarget.dispatch("blur");
+  assert.equal(on.counts.releaseKvmLease, 1,
+    "blur with the preference on must release the video lease once");
+  assert.equal(on.counts.closeVideoTransport, 1);
+  assert.equal(on.counts.stopVideoTimers, 1);
+  assert.equal(on.counts.cancelVideoTransition, 1);
+  assert.equal(on.context.kvmBlurPaused, true);
+  assert.deepEqual(on.counts.recoveryMessages, ["窗口失焦，已中断采集；回到窗口后自动恢复"]);
+  on.windowTarget.dispatch("blur");
+  assert.equal(on.counts.releaseKvmLease, 1,
+    "a repeated blur must not release the lease again");
+  on.windowTarget.dispatch("focus");
+  await runTimers(on);
+  assert.equal(on.context.kvmBlurPaused, false,
+    "focus must clear the paused state");
+  assert.equal(on.counts.startKvmLease, 1,
+    "focus must reclaim the lease even when focus refresh is disabled");
+  assert.deepEqual(on.counts.startOptions, [{ rotate: true, resetStream: true, delay: 0 }]);
+
+  const storage = createHarness();
+  storage.windowTarget.dispatch = undefined;
+  for (const callback of storage.windowTarget.listeners.get("storage") || []) {
+    callback({ key: "si_kvm_blur_pause", newValue: "1" });
+  }
+  assert.equal(storage.context.__blurPause.enabled, true,
+    "a change saved from the Settings page must apply to an open KVM tab");
+}

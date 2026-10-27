@@ -146,6 +146,12 @@ set(SI_WEB_ASSETS
         "www/assets/ui-core.js"
         "www/assets/ui-shell.css"
         "www/assets/ui-shell.js"
+        "www/assets/kvm-core.js"
+        "www/assets/kvm-video.js"
+        "www/assets/kvm-lease.js"
+        "www/assets/kvm-modes.js"
+        "www/assets/kvm-input.js"
+        "www/assets/kvm-status.js"
         "www/assets/exoanchor-ui-mark.svg"
         "www/assets/favicon.svg"
         "www/settings.html")

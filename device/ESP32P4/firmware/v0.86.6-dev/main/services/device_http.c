@@ -554,6 +554,10 @@ void si_device_http_add_video_json(cJSON *root,
                             video->stream_bitrate_bps / 1000000.0);
     cJSON_AddNumberToObject(stream_metrics, "sample_window_ms",
                             video->stream_sample_window_ms);
+    cJSON_AddNumberToObject(stream_metrics, "latency_avg_us",
+                            video->stream_latency_avg_us);
+    cJSON_AddNumberToObject(stream_metrics, "latency_max_us",
+                            video->stream_latency_max_us);
     cJSON_AddStringToObject(root, "last_error", video->last_error);
 #if SI_CFG_VIDEO_H264_ENABLED
     si_h264_stream_status_t h264 = {0};
@@ -638,6 +642,11 @@ void si_device_http_add_video_json(cJSON *root,
                             h264.encode_max_us);
     cJSON_AddNumberToObject(h264_metrics, "send_max_us",
                             h264.send_max_us);
+    cJSON_AddNumberToObject(h264_metrics, "latency_avg_us",
+                            h264.latency_avg_us);
+    cJSON_AddNumberToObject(h264_metrics, "latency_max_us",
+                            h264.latency_max_us);
+    cJSON_AddBoolToObject(h264_metrics, "low_latency", h264.low_latency);
     cJSON_AddNumberToObject(h264_metrics, "overlap_pairs",
                             h264.overlap_pairs);
     cJSON_AddNumberToObject(h264_metrics, "overlap_misses",
@@ -727,6 +736,9 @@ void si_device_http_add_video_json(cJSON *root,
     cJSON_AddNumberToObject(h264_metrics, "decode_max_us", 0);
     cJSON_AddNumberToObject(h264_metrics, "encode_max_us", 0);
     cJSON_AddNumberToObject(h264_metrics, "send_max_us", 0);
+    cJSON_AddNumberToObject(h264_metrics, "latency_avg_us", 0);
+    cJSON_AddNumberToObject(h264_metrics, "latency_max_us", 0);
+    cJSON_AddBoolToObject(h264_metrics, "low_latency", false);
     cJSON_AddNumberToObject(h264_metrics, "overlap_pairs", 0);
     cJSON_AddNumberToObject(h264_metrics, "overlap_misses", 0);
     cJSON_AddNumberToObject(h264_metrics, "overlap_wait_timeouts", 0);
@@ -1250,6 +1262,12 @@ void si_device_http_add_ms2109_power_json(
                             power_status->core_enable_output_level);
     cJSON_AddNumberToObject(root, "operation_count",
                             power_status->operation_count);
+    cJSON_AddBoolToObject(root, "cold_start_active",
+                          power_status->cold_start_active);
+    cJSON_AddNumberToObject(root, "cold_start_off_ms",
+                            power_status->cold_start_off_ms);
+    cJSON_AddNumberToObject(root, "cold_start_remaining_ms",
+                            power_status->cold_start_remaining_ms);
     cJSON_AddStringToObject(root, "last_result", power_status->last_result);
 }
 

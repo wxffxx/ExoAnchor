@@ -82,6 +82,8 @@ typedef struct {
     uint32_t stream_fps_x100;
     uint32_t stream_bitrate_bps;
     uint32_t stream_sample_window_ms;
+    uint32_t stream_latency_avg_us;
+    uint32_t stream_latency_max_us;
     char source[24];
     char pixel_format[16];
     char capture_owner[16];
@@ -187,6 +189,9 @@ typedef struct {
     int switch_output_level;
     int core_enable_output_level;
     uint32_t operation_count;
+    bool cold_start_active;
+    uint32_t cold_start_off_ms;
+    uint32_t cold_start_remaining_ms;
     char state_kind[16];
     char last_result[32];
 } si_device_ms2109_power_observation_t;

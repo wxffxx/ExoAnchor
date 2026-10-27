@@ -4,7 +4,7 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
-const kvm = fs.readFileSync(`${root}/main/www/kvm.html`, "utf8");
+const kvm = ["kvm.html", "assets/kvm-core.js", "assets/kvm-video.js", "assets/kvm-lease.js", "assets/kvm-modes.js", "assets/kvm-input.js", "assets/kvm-status.js"].map(rel => fs.readFileSync(`${root}/main/www/${rel}`, "utf8")).join("\n");
 const videoHttp = fs.readFileSync(
   `${root}/main/services/web/video_http_module.inc`, "utf8",
 );

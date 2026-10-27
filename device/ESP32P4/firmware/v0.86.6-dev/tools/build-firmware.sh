@@ -6,17 +6,16 @@ BOARD="exoanchor-prototype-v2.3"
 BUILD_DIR=""
 REUSE_SDKCONFIG=0
 STABLE_H264_CANDIDATE=0
-H264_EXPERIMENT=0
 
 usage() {
   cat <<'EOF'
 Usage:
   build-firmware.sh [--profile dev|stable] [--board BOARD] [--build-dir DIR]
                     [--reuse-sdkconfig] [--stable-h264-candidate]
-                    [--h264-experiment]
 
 Profiles:
-  dev       Embedded Agent runtime plus external MCP support.
+  dev       Embedded Agent runtime plus external MCP support. On esp32p4-rev3
+            boards it also carries the hardware H.264 KVM stream.
   stable    External MCP support without the embedded Agent runtime.
 
 Boards:
@@ -37,12 +36,6 @@ Configuration:
       Build an offline H.264 candidate from the Stable composition. This is
       accepted only with --profile stable --board exoanchor-prototype-v2.3;
       normal Stable builds remain MJPEG-only.
-
-  --h264-experiment
-      Dev builds are MJPEG-only by default: the MS2109 boards' MJPEG -> H.264
-      path is not product-ready, and its reserved codec workspace takes 138 KiB
-      of internal RAM. This opts an esp32p4-rev3 Dev build back into the
-      H.264 experiment overlay.
 EOF
 }
 
@@ -66,10 +59,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --stable-h264-candidate)
       STABLE_H264_CANDIDATE=1
-      shift
-      ;;
-    --h264-experiment)
-      H264_EXPERIMENT=1
       shift
       ;;
     -h|--help)
@@ -105,11 +94,6 @@ case "$BOARD" in
     ;;
 esac
 
-if [[ "$H264_EXPERIMENT" -eq 1 ]] &&
-   [[ "$PROFILE" != "dev" || "$SILICON" != "esp32p4-rev3" ]]; then
-  echo "[build-firmware] --h264-experiment only supports --profile dev on esp32p4-rev3 boards" >&2
-  exit 64
-fi
 if [[ "$STABLE_H264_CANDIDATE" -eq 1 ]] &&
    [[ "$PROFILE" != "stable" ||
       "$BOARD" != "exoanchor-prototype-v2.3" ||
@@ -170,8 +154,7 @@ SDKCONFIG_PATH="$BUILD_DIR_PATH/sdkconfig"
 
 DEFAULTS="sdkconfig.defaults;configs/boards/sdkconfig.defaults.${BOARD};configs/silicon/sdkconfig.defaults.${SILICON};configs/profiles/sdkconfig.defaults.${PROFILE}"
 H264_BUILD=0
-if [[ "$PROFILE" == "dev" && "$SILICON" == "esp32p4-rev3" &&
-      "$H264_EXPERIMENT" -eq 1 ]] ||
+if [[ "$PROFILE" == "dev" && "$SILICON" == "esp32p4-rev3" ]] ||
    [[ "$STABLE_H264_CANDIDATE" -eq 1 ]]; then
   H264_BUILD=1
   DEFAULTS="${DEFAULTS};configs/profiles/sdkconfig.defaults.dev-h264"
@@ -256,11 +239,18 @@ if [[ "$PROFILE" == "dev" ]] &&
   exit 70
 fi
 if [[ "$PROFILE" == "dev" ]]; then
+  # The H.264 overlay sends 16 KiB TLS records so an access unit leaves in
+  # fewer records; the buffers are external (PSRAM) either way.
+  if [[ "$H264_BUILD" -eq 1 ]]; then
+    EXPECTED_TLS_OUT_CONTENT_LEN='CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=16384'
+  else
+    EXPECTED_TLS_OUT_CONTENT_LEN='CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048'
+  fi
   for expected_agent_tls_config in \
     'CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y' \
     'CONFIG_MBEDTLS_DYNAMIC_BUFFER=y' \
     'CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=16384' \
-    'CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048' \
+    "$EXPECTED_TLS_OUT_CONTENT_LEN" \
     'CONFIG_MBEDTLS_AES_C=y' \
     'CONFIG_MBEDTLS_GCM_C=y' \
     'CONFIG_SPIRAM_USE_MALLOC=y' \

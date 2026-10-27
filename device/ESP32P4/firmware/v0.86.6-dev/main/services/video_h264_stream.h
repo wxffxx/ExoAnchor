@@ -47,6 +47,11 @@ typedef struct {
     uint32_t decode_max_us;
     uint32_t encode_max_us;
     uint32_t send_max_us;
+    /* UVC delivery -> WebSocket send complete, per access unit. */
+    uint32_t latency_avg_us;
+    uint32_t latency_max_us;
+    /* Decoded frames are encoded at once instead of held for the overlap. */
+    bool low_latency;
     uint32_t overlap_pairs;
     uint32_t overlap_misses;
     uint32_t overlap_wait_timeouts;

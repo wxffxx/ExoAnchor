@@ -81,7 +81,7 @@ function harness() {
     clearTimeout: id => timers.delete(id),
   });
   const elements = new Map();
-  for (const id of ["badgeVideo", "badgePwr", "videoPowerToggle", "powerActionPower",
+  for (const id of ["badgeVideo", "badgePwr", "videoPowerToggle", "videoColdStart", "powerActionPower",
     "powerActionReset", "logoutNav", "eaAutomationStop", "shellLogoutCancel",
     "shellLogoutConfirm", "shellLogoutModal"]) elements.set(id, new Element());
   document.getElementById = id => elements.get(id) || null;

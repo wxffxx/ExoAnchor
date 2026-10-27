@@ -58,6 +58,10 @@ typedef struct {
     uint8_t dev_addr;
     uint8_t stream_index;
     uint32_t logical_fps_x100;
+    /* >1: publish every Nth frame of the physical mode so a rate the device
+     * does not advertise (1080p15 on an MS2109 that lists 5/10/20/25/30) is
+     * derived from an exact multiple (1080p30).  1 = advertised rate. */
+    uint8_t decimation;
     uvc_host_stream_format_t format;
 } si_uvc_selection_t;
 
@@ -74,6 +78,7 @@ typedef struct {
     uint32_t epoch;
     uint32_t h264_epoch;
     uint32_t frame_id;
+    int64_t captured_us;
 } si_uvc_frame_item_t;
 
 typedef struct {
@@ -174,6 +179,21 @@ static uint32_t s_target_fps_x100;
 static bool s_target_exact_fps;
 static bool s_capture_enabled;
 static uint32_t s_capture_stride_ms;
+static uint32_t s_decimation_counter;
+/* frame_id -> UVC delivery time for frames published to the MJPEG store, so
+ * borrowed views can carry captured_us without widening the store API. */
+#define SI_CAPTURE_US_RING 8U
+static struct { uint32_t frame_id; int64_t us; } s_capture_us_ring[SI_CAPTURE_US_RING];
+static void remember_capture_us(uint32_t frame_id, int64_t captured_us)
+{
+    s_capture_us_ring[frame_id % SI_CAPTURE_US_RING] =
+        (typeof(s_capture_us_ring[0])){ .frame_id = frame_id, .us = captured_us };
+}
+static int64_t lookup_capture_us(uint32_t frame_id)
+{
+    const typeof(s_capture_us_ring[0]) entry = s_capture_us_ring[frame_id % SI_CAPTURE_US_RING];
+    return entry.frame_id == frame_id ? entry.us : 0;
+}
 static char s_capture_owner[16];
 static uint32_t s_last_accepted_frame_ms;
 static uint32_t s_fps_last_ms;
@@ -364,6 +384,27 @@ static bool select_stored_mode_locked(uint32_t width, uint32_t height,
             best = mode;
         }
     }
+    uint8_t decimation = 1U;
+    if (!best && exact_resolution && exact_fps && fps_x100 > 0U) {
+        /* Derived rate: no advertised mode at this exact rate, so take the
+         * same resolution at the smallest exact multiple and publish every
+         * k-th frame (1080p15 from 1080p30).  USB bandwidth is unchanged;
+         * only decode/encode load drops. */
+        for (uint8_t k = 2U; k <= 4U && !best; k++) {
+            for (size_t i = 0; i < s_mode_count; i++) {
+                const si_uvc_mode_t *mode = &s_modes[i];
+                if (mode->public_mode.width != width ||
+                    mode->public_mode.height != height ||
+                    diff_u32(mode->public_mode.fps_x100, fps_x100 * k) >
+                        50U * k) {
+                    continue;
+                }
+                best = mode;
+                decimation = k;
+                break;
+            }
+        }
+    }
     if (!best) {
         return false;
     }
@@ -372,11 +413,32 @@ static bool select_stored_mode_locked(uint32_t width, uint32_t height,
         .valid = true,
         .dev_addr = best->dev_addr,
         .stream_index = best->stream_index,
-        .logical_fps_x100 = best->public_mode.fps_x100,
+        .logical_fps_x100 = decimation > 1U ? fps_x100
+                                            : best->public_mode.fps_x100,
+        .decimation = decimation,
         .format = best->format,
     };
     return true;
 }
+
+/* True when the device advertises this exact logical mode. */
+static bool stored_mode_exists_locked(uint32_t width, uint32_t height,
+                                      uint32_t fps_x100)
+{
+    for (size_t i = 0; i < s_mode_count; i++) {
+        const si_uvc_mode_t *mode = &s_modes[i];
+        if (mode->public_mode.width == width &&
+            mode->public_mode.height == height &&
+            diff_u32(mode->public_mode.fps_x100, fps_x100) <= 50U) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Logical rates offered on top of advertised modes when the device lacks
+ * them but has an exact multiple (see si_uvc_selection_t.decimation). */
+static const uint32_t s_derived_fps_x100[] = { 1500U };
 
 static void add_uvc_mode_locked(const uvc_host_frame_info_t *info,
                                 uint8_t dev_addr, uint8_t stream_index,
@@ -875,6 +937,7 @@ static bool uvc_frame_cb(const uvc_host_frame_t *frame, void *user_ctx)
         .frame = frame,
         .stream = stream,
         .epoch = __atomic_load_n(&s_uvc_epoch, __ATOMIC_ACQUIRE),
+        .captured_us = esp_timer_get_time(),
     };
     if (!try_reserve_uvc_frame()) {
         /* Returning true transfers this completed frame straight back to
@@ -928,6 +991,11 @@ static void uvc_ingest_task(void *arg)
                 s_last_accepted_frame_ms != 0U &&
                 timestamp_ms - s_last_accepted_frame_ms <
                     s_capture_stride_ms) {
+                should_publish = false;
+            }
+            if (should_publish && s_uvc_selection.valid &&
+                s_uvc_selection.decimation > 1U &&
+                (++s_decimation_counter % s_uvc_selection.decimation) != 0U) {
                 should_publish = false;
             }
             xSemaphoreGive(s_lock);
@@ -1006,6 +1074,9 @@ static void uvc_ingest_task(void *arg)
                                              &frame_id);
             publish_us = (uint32_t)(esp_timer_get_time() - publish_started_us);
             measured_publish = true;
+            if (publish_ret == ESP_OK && !h264_route) {
+                remember_capture_us(frame_id, item.captured_us);
+            }
             if (publish_ret == ESP_OK) {
                 h264_owns_frame = h264_route;
                 __atomic_store_n(&s_uvc_invalid_streak, 0U,
@@ -1999,7 +2070,49 @@ esp_err_t si_video_get_modes(si_video_mode_t *modes, size_t max_modes,
             diff_u32(s_uvc_selection.logical_fps_x100,
                      modes[i].fps_x100) <= 50U;
     }
-    *out_count = s_mode_count;
+    /* Append derived rates (every k-th frame of an advertised multiple) so
+     * the UI can offer e.g. 1080p15 on a device that only lists 1080p30. */
+    size_t total = s_mode_count;
+    size_t written = copy_count;
+    for (size_t i = 0; i < s_mode_count; i++) {
+        const si_video_mode_t *parent = &s_modes[i].public_mode;
+        for (size_t d = 0;
+             d < sizeof(s_derived_fps_x100) / sizeof(s_derived_fps_x100[0]);
+             d++) {
+            const uint32_t fps_x100 = s_derived_fps_x100[d];
+            bool multiple = false;
+            for (uint8_t k = 2U; k <= 4U && !multiple; k++) {
+                multiple = diff_u32(parent->fps_x100, fps_x100 * k) <= 50U * k;
+            }
+            if (!multiple ||
+                stored_mode_exists_locked(parent->width, parent->height,
+                                          fps_x100)) {
+                continue;
+            }
+            bool duplicate = false;
+            for (size_t j = copy_count; modes && j < written && !duplicate;
+                 j++) {
+                duplicate = modes[j].width == parent->width &&
+                            modes[j].height == parent->height &&
+                            modes[j].fps_x100 == fps_x100;
+            }
+            if (duplicate) {
+                continue;
+            }
+            if (modes && written < max_modes) {
+                modes[written] = *parent;
+                modes[written].fps_x100 = fps_x100;
+                modes[written].selected = s_uvc_selection.valid &&
+                    s_uvc_selection.format.h_res == parent->width &&
+                    s_uvc_selection.format.v_res == parent->height &&
+                    diff_u32(s_uvc_selection.logical_fps_x100,
+                             fps_x100) <= 50U;
+                written++;
+            }
+            total++;
+        }
+    }
+    *out_count = total;
     xSemaphoreGive(s_lock);
     return ESP_OK;
 }
@@ -2206,6 +2319,7 @@ esp_err_t si_video_borrow_jpeg_if_new(uint32_t last_frame_id,
         .len = stored.len,
         .frame_id = stored.frame_id,
         .token = stored.token,
+        .captured_us = lookup_capture_us(stored.frame_id),
     };
     return ESP_OK;
 }
@@ -2303,6 +2417,7 @@ esp_err_t si_video_borrow_h264_jpeg_if_new(uint32_t last_frame_id,
     view->len = item.frame->data_len;
     view->frame_id = item.frame_id;
     view->token = &s_h264_borrowed;
+    view->captured_us = item.captured_us;
     xSemaphoreGive(s_h264_frame_lock);
     return ESP_OK;
 }

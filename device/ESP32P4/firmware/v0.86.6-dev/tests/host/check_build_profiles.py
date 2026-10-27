@@ -70,7 +70,7 @@ require(overview, "if(!EMBEDDED_AGENT)return", "Overview Agent request gate")
 require(overview, "if(EMBEDDED_AGENT)UI.lifecycle.interval", "Overview Agent polling gate")
 require(settings, "stable-profile", "Settings profile gate")
 require(settings, "MCP 工具能力授权", "Stable Settings copy")
-require(root_cmake, 'set(SI_VERSION_BASE "0.87.6")', "version base")
+require(root_cmake, 'set(SI_VERSION_BASE "0.88.0")', "version base")
 require(root_cmake, 'set(PROJECT_VER "${SI_VERSION_BASE}-dev")', "default Dev version")
 require(build_script, 'dev) FIRMWARE_VERSION="${VERSION_BASE}-dev"', "Dev version")
 require(build_script, 'stable) FIRMWARE_VERSION="${VERSION_BASE}-Stable"', "Stable version")
@@ -84,6 +84,8 @@ require(build_script, 'actual=$ACTUAL_VERSION', "built version verification")
 require(cmake, 'PUBLIC SI_BMC_VERSION="${PROJECT_VER}"', "firmware version definition")
 require(profile_asset, r'\",version:\"" SI_BMC_VERSION', "UI version injection")
 require(profile_asset, 'uartTerminal:', "UART Terminal UI profile injection")
+require(profile_asset, '",h264WsPort:" SI_BUILD_PROFILE_STR(SI_STREAM_HTTP_PORT)',
+        "H.264 WebSocket port injection: the route lives only on the video listener")
 require(build_script, "Stable build unexpectedly contains the UART Terminal", "Stable UART Terminal exclusion")
 require(build_script, "Stable build contains excluded runtime symbol", "Stable linked-symbol audit")
 require(build_script, "_binary_terminal_html_start", "UART Terminal asset-symbol audit")
@@ -177,6 +179,7 @@ for fragment in (
     "CONFIG_MBEDTLS_DYNAMIC_BUFFER=y",
     "CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=16384",
     "CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048",
+    "CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=16384",
     "CONFIG_MBEDTLS_AES_C=y",
     "CONFIG_MBEDTLS_GCM_C=y",
     "CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096",
@@ -198,19 +201,28 @@ require(
     "CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=262144",
     "H.264 internal/DMA reserve uses the ESP-IDF 5.5 supported maximum",
 )
+require(
+    h264_defaults,
+    "CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=16384",
+    "H.264 egress uses 16 KiB TLS records",
+)
 
 h264_kconfig = kconfig.split("config SI_VIDEO_H264_EXPERIMENT", 1)[1].split(
     "config SI_VIDEO_H264_BITRATE", 1
 )[0]
-# MS2109 boards ship MJPEG-only: H.264 is opt-in for Dev experiments.
-if "default y" in h264_kconfig:
-    raise AssertionError("H.264 must not be enabled by default on MS2109 boards")
-require(build_script, "--h264-experiment", "Dev H.264 opt-in CLI")
+# Since 0.88 every rev3 Dev build carries H.264; there is no opt-in switch.
+require(
+    h264_kconfig,
+    "default y if SI_BUILD_PROFILE_DEV && SI_BOARD_REQUIRES_REV3",
+    "Rev3 Dev H.264 default",
+)
 require(
     build_script,
-    '"$H264_EXPERIMENT" -eq 1 ]]',
-    "Dev H.264 overlay requires the explicit opt-in",
+    'if [[ "$PROFILE" == "dev" && "$SILICON" == "esp32p4-rev3" ]] ||',
+    "Rev3 Dev builds always select the H.264 overlay",
 )
+if "--h264-experiment" in build_script or "$H264_EXPERIMENT" in build_script:
+    raise AssertionError("Dev H.264 must not depend on a build-time opt-in")
 require(
     (ROOT / "configs/profiles/sdkconfig.defaults.dev").read_text(encoding="utf-8"),
     "CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y",

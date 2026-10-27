@@ -592,6 +592,11 @@ static esp_err_t stream_handler(httpd_req_t *req)
         const struct timeval stream_send_timeout = {.tv_sec = 5, .tv_usec = 0};
         (void)setsockopt(httpd_req_to_sockfd(req), SOL_SOCKET, SO_SNDTIMEO,
                          &stream_send_timeout, sizeof(stream_send_timeout));
+        /* Each JPEG ends in a partial TCP segment; without TCP_NODELAY it
+         * waits for the browser's delayed ACK before the next frame can go. */
+        const int nodelay = 1;
+        (void)setsockopt(httpd_req_to_sockfd(req), IPPROTO_TCP, TCP_NODELAY,
+                         &nodelay, sizeof(nodelay));
     }
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     httpd_resp_set_hdr(req, "Pragma", "no-cache");
@@ -704,6 +709,7 @@ static esp_err_t stream_handler(httpd_req_t *req)
 
         const size_t jpeg_len = jpeg_view.len;
         const uint32_t frame_id = jpeg_view.frame_id;
+        const int64_t captured_us = jpeg_view.captured_us;
         /* The packed frame store reference, not the output-mode gate, owns
          * these immutable bytes. Release the gate before network I/O so one
          * slow MJPEG client cannot block a mode transition or another reader;
@@ -734,9 +740,12 @@ static esp_err_t stream_handler(httpd_req_t *req)
          * past the task watchdog. Always give up the CPU once per frame. */
         vTaskDelay(1);
         if (!agent_stream) {
+            const int64_t sent_us = esp_timer_get_time();
             si_video_stream_metrics_record(
                 stream_id, (size_t)header_len + jpeg_len + 2U,
-                si_monotonic_ms());
+                si_monotonic_ms(),
+                captured_us > 0 && sent_us > captured_us
+                    ? (uint32_t)(sent_us - captured_us) : 0U);
         }
         if (frame_interval > 0) {
             next_send_tick = send_started_tick + frame_interval;

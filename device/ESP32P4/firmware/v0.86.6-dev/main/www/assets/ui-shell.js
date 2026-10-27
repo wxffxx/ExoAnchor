@@ -13,7 +13,7 @@
     ...(uartTerminal ? [["terminal", "/terminal", "Terminal"]] : []),
     ["settings", "/settings", "Settings"],
   ];
-  const RELEASE_NAME = "IndigoShore";
+  const RELEASE_NAME = "AzureDanube";
   const CHIP_LABEL = "P4";
   const DISPLAY_VERSION = UI.VERSION.replace(/-dev$/, "dev");
   const DEFAULT_ASSISTANT_NAME = "Agent";
@@ -30,6 +30,7 @@
   let automationSignature = "";
   let lastDeviceStatus = null;
   let msPowerMutationPending = false;
+  let msColdStartPending = false;
 
   function byId(id) { return document.getElementById(id); }
 
@@ -328,6 +329,7 @@
         byId("videoPowerToggle").disabled = true;
       }
       if (byId("videoPowerState")) byId("videoPowerState").textContent = "不可用";
+      if (byId("videoColdStart")) byId("videoColdStart").disabled = true;
       if (byId("powerActionPower")) byId("powerActionPower").disabled = true;
       if (byId("powerActionReset")) byId("powerActionReset").disabled = true;
       return;
@@ -384,6 +386,18 @@
       !(msPowerAvailable && msPowerKnown);
     byId("videoPowerState").textContent = msPowerKnown ?
       (ms2109.power_on === true ? "开启" : "关闭") : "未知";
+    const coldStartActive = ms2109.cold_start_active === true;
+    const coldStartSeconds = Math.ceil(Number(ms2109.cold_start_remaining_ms || 0) / 1000);
+    if (coldStartActive) {
+      byId("videoPowerState").textContent = "冷启动中 " + coldStartSeconds + " s";
+      byId("videoPowerToggle").disabled = true;
+    }
+    if (byId("videoColdStart")) {
+      byId("videoColdStart").disabled = msColdStartPending || coldStartActive ||
+        !(msPowerAvailable && msPowerKnown);
+      byId("videoColdStart").textContent = coldStartActive ?
+        "冷启动中 · " + coldStartSeconds + " s 后上电" : "冷启动采集卡（断电 45 s）";
+    }
 
     const automationBlocked = automationBlocksPower();
     const available = !!power.available && !power.busy && !automationBlocked;
@@ -464,6 +478,22 @@
     }
   }
 
+  async function ms2109ColdStart() {
+    const button = byId("videoColdStart");
+    if (!button || msColdStartPending || button.disabled) return;
+    msColdStartPending = true;
+    button.disabled = true;
+    button.textContent = "处理中…";
+    try {
+      await UI.api.post("/api/ms2109/power", {
+        action: "cold_start", off_time_ms: 45000,
+      });
+    } finally {
+      msColdStartPending = false;
+      await UI.status.refresh().catch(() => {});
+    }
+  }
+
   function showLogout() { byId("shellLogoutModal").classList.add("show"); }
   function hideLogout() { byId("shellLogoutModal").classList.remove("show"); }
   async function performLogout() {
@@ -483,6 +513,9 @@
     byId("videoPowerToggle").onchange = function () {
       ms2109PowerAction(this.checked).catch(() => {});
     };
+    if (byId("videoColdStart")) {
+      byId("videoColdStart").onclick = function () { ms2109ColdStart().catch(() => {}); };
+    }
     byId("powerActionPower").onclick = function () { powerAction("power").catch(() => {}); };
     byId("powerActionReset").onclick = function () { powerAction("reset").catch(() => {}); };
     byId("logoutNav").onclick = showLogout;
@@ -1389,7 +1422,7 @@
       '<div class="nav">' + nav + '<span id="releaseMeta" class="release-meta">' + CHIP_LABEL + ' ' + RELEASE_NAME + ' v' + DISPLAY_VERSION + '</span></div>' +
       '<div class="status-strip" aria-label="设备概要">' +
         '<div class="status-menu"><button id="badgeVideo" class="data-state neutral" type="button" aria-haspopup="menu" aria-expanded="false" disabled>VIDEO --</button>' +
-          '<div id="videoMenu" class="status-menu-list status-toggle-menu hide" role="menu"><div class="status-toggle-row" role="none"><span class="status-toggle-copy"><b>MS 视频电源</b><small>关闭后停止采集，开启后自动恢复</small></span><label class="ui-switch"><input id="videoPowerToggle" type="checkbox" role="switch" aria-label="MS 视频电源" aria-describedby="videoPowerState" disabled><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span id="videoPowerState" class="ui-switch-state">不可用</span></label></div></div></div>' +
+          '<div id="videoMenu" class="status-menu-list status-toggle-menu hide" role="menu"><div class="status-toggle-row" role="none"><span class="status-toggle-copy"><b>MS 视频电源</b><small>关闭后停止采集，开启后自动恢复</small></span><label class="ui-switch"><input id="videoPowerToggle" type="checkbox" role="switch" aria-label="MS 视频电源" aria-describedby="videoPowerState" disabled><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span><span id="videoPowerState" class="ui-switch-state">不可用</span></label></div><button id="videoColdStart" type="button" role="menuitem" title="断电 45 秒后自动上电。画面整幅偏品红/绿通常是采集卡过热，冷启动可恢复" disabled>冷启动采集卡（断电 45 s）</button></div></div>' +
         '<span id="badgeUsb" class="data-state neutral">USB --</span>' +
         '<div class="status-menu"><button id="badgePwr" class="data-state unknown" type="button" aria-haspopup="menu" aria-expanded="false" disabled>POWER N/A</button>' +
           '<div id="powerMenu" class="status-menu-list hide" role="menu"><button id="powerActionPower" type="button" role="menuitem" disabled>Power</button><button id="powerActionReset" type="button" role="menuitem" disabled>Reset</button></div></div>' +

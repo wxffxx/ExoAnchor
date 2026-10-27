@@ -350,6 +350,16 @@ menu "SI ESP32-P4 Host Configuration"
                 automated board tests can drive pages and APIs without a
                 password. Never enable this for a build that leaves the bench.
 
+        config SI_WEB_PLAIN_HTTP
+            bool "Serve web/API/video over plain HTTP (bench testing on a trusted LAN only)"
+            default n
+            help
+                Replaces both HTTPS listeners (443 UI/API, 444 video) with plain
+                HTTP on ports 80 and 81, drops the Secure flag from the session
+                cookie and allows ws:/http: in the CSP. Used to measure the
+                video path without TLS cost. Never enable this for a build that
+                leaves the bench.
+
     endmenu
 
     menu "ATX power control"
@@ -697,17 +707,19 @@ menu "SI ESP32-P4 Host Configuration"
             depends on SI_VIDEO_ENABLE
 
         config SI_VIDEO_H264_EXPERIMENT
-            bool "Enable experimental hardware H.264 KVM stream"
+            bool "Enable hardware H.264 KVM stream"
+            default y if SI_BUILD_PROFILE_DEV && SI_BOARD_REQUIRES_REV3
             default n
             depends on SI_VIDEO_ENABLE && SI_BOARD_REQUIRES_REV3
             help
                 Add the MJPEG -> hardware JPEG decode -> hardware H.264 encode
-                path. Off by default: on the MS2109 boards this path is not
-                product-ready and its codec workspace takes 138 KiB of internal
-                RAM. tools/build-firmware.sh enables it only for
-                --h264-experiment Dev builds and the restricted Stable H.264
-                candidate. MJPEG and H.264 remain separate, explicitly selected
-                browser output modes.
+                path. Rev3 Dev builds always carry it (0.88 AzureDanube); its
+                codec workspace takes 138 KiB of internal RAM. Stable keeps it
+                disabled unless tools/build-firmware.sh explicitly constructs
+                the restricted Stable H.264 candidate. The symbol keeps its
+                historical name so existing sdkconfig files stay valid. MJPEG
+                and H.264 remain separate, explicitly selected browser output
+                modes.
 
         config SI_VIDEO_H264_BITRATE
             int "Experimental H.264 target bitrate"
@@ -717,9 +729,17 @@ menu "SI ESP32-P4 Host Configuration"
 
         config SI_VIDEO_H264_GOP
             int "Experimental H.264 GOP length"
-            default 25
-            range 1 120
+            default 240
+            range 1 240
             depends on SI_VIDEO_H264_EXPERIMENT
+            help
+                Frames between IDR pictures. The stream rides a lossless
+                WebSocket and every new client gets a forced IDR, so a long
+                GOP costs nothing in recovery; a short one costs a visible
+                hitch at every IDR (90-230 KB vs 5-20 KB P frames, arriving
+                20-40 ms late in a browser that paints frames as they decode).
+                Measured on V2.4: GOP 25 = one hitch every 0.8-1.3 s; the
+                encoder field is 8-bit, so 240 (8 s at 30 fps) is the ceiling.
 
         config SI_VIDEO_H264_PIPELINE_OVERLAP
             bool "Overlap JPEG decode with H.264 encode"
@@ -738,6 +758,41 @@ menu "SI ESP32-P4 Host Configuration"
             default 4194304
             range 262144 8388608
             depends on SI_VIDEO_H264_EXPERIMENT
+
+        config SI_VIDEO_H264_JPEG_COPY
+            bool "Copy each MJPEG frame out of the UVC buffer before H.264 decode"
+            default n
+            depends on SI_VIDEO_H264_EXPERIMENT
+            help
+                In the standalone codec bench (codexws/ms2109-h264-bench-20261024)
+                decoding straight from the UVC buffer while the H.264 engine
+                runs made the USB controller skip isochronous packets and
+                dropped 1080p25 from 25 to 17 fps; a memcpy on the stream task
+                before decode removed that. In the full firmware the same
+                memcpy sits on the stream task's critical path and measured
+                slightly slower (21.8 vs 23.5 fps at 1080p25 over TLS), so it
+                stays off by default and remains available for A/B runs.
+
+        config SI_VIDEO_H264_STOCK_CODEC
+            bool "Build the H.264 experiment against unmodified esp_h264 sources"
+            default n
+            depends on SI_VIDEO_H264_EXPERIMENT
+            help
+                A/B switch only. Skips the project's esp_h264 DMA-ownership,
+                cache-range, workspace-reuse and SPS-escaping overrides so the
+                encoder runs exactly as shipped in esp_h264 1.3.7. The boot-time
+                internal reference-workspace reservation then becomes a no-op
+                and the encoder allocates its own reference buffer on create.
+
+        config SI_VIDEO_H264_JPEG_COPY_BYTES
+            int "H.264 JPEG copy surface bytes"
+            default 1048576
+            range 262144 4194304
+            depends on SI_VIDEO_H264_JPEG_COPY
+            help
+                PSRAM reserved for the copy. Frames larger than this fall back
+                to the zero-copy path for that frame. Real 1080p desktop and
+                video frames from the MS2109 stay below 0.5 MiB.
 
     endmenu
 

@@ -60,7 +60,7 @@ must not advertise another board's capabilities.
 
 ## Build entry points
 
-The current development runtime is `0.87.6-dev`. Its source directory retains
+The current development runtime is `0.88.0-dev`. Its source directory retains
 the name `v0.86.6-dev` because the tree evolved from the hardened 0.86.6
 baseline.
 

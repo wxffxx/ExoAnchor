@@ -125,6 +125,12 @@ HTTP_GET /assets/ui-core.js
 HTTP_GET /assets/exoanchor-ui-mark.svg
 HTTP_GET /assets/ui-shell.css
 HTTP_GET /assets/ui-shell.js
+HTTP_GET /assets/kvm-core.js
+HTTP_GET /assets/kvm-video.js
+HTTP_GET /assets/kvm-lease.js
+HTTP_GET /assets/kvm-modes.js
+HTTP_GET /assets/kvm-input.js
+HTTP_GET /assets/kvm-status.js
 HTTP_GET /assets/xterm/addon-fit.js
 HTTP_GET /assets/xterm/xterm.css
 HTTP_GET /assets/xterm/xterm.js

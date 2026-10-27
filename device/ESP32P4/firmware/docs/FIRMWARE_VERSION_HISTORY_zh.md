@@ -7,8 +7,8 @@
 
 | 项目 | 值 |
 | --- | --- |
-| 开发版本 | `0.87.6-dev` |
-| 发布名称 | `IndigoShore / 靛蓝海岸` |
+| 开发版本 | `0.88.0-dev` |
+| 发布名称 | `AzureDanube / 天青多瑙河` |
 | 开发源码目录 | `v0.86.6-dev/` |
 | 纯 KVM 版本 | `0.86.0-stable-kvm` |
 | 硬件身份记录 | 以主仓外的 `local-profiles/BOARD_IDENTITY_REGISTRY.toml` 为准，不从端口、IP 或固件名推断 |
@@ -18,8 +18,11 @@
 - 固件版本和 PCB 版本是两套独立编号。
 - `V2.3b4`、`V2.3b6`、`V2.4a6` 是硬件标识，不是固件补丁号。
 - `v0.86.6-dev/` 是源码目录名；当前目录内运行版本已经演进到
-  `0.87.6-dev`。
+  `0.88.0-dev`。
 - Dev 检查点不等于 RC 或正式发布。
+- 每个次版本（0.87、0.88……）有一个发布代号，只用于显示；OTA、板型匹配和发布
+  Manifest 仍以数字版本为准。0.88 起代号采用“颜色 + 音乐名词”，并避开紫、品红、
+  绿等与视频偏色故障相关的颜色。
 - 未找到完整源码或产物的历史编号不作为已验证版本。
 
 ## 版本演进
@@ -92,6 +95,24 @@ Factory App。
 
 这个版本创建时间晚于部分 0.86.x Dev 工作，不能按数字顺序理解为主线时间点。
 
+### 0.88.x-dev：AzureDanube
+
+| 检查点 | 说明 |
+| --- | --- |
+| `0.88.0-dev` | 视频流版本：H.264 端到端延迟约 350 → 32 ms、IDR 停画与周期卡顿消除、P 帧发紫根治、1080p20/15 档位；Rev3 Dev 构建一律包含 H.264，移除 `--h264-experiment` 编译开关 |
+
+0.88.0 的逐项改动、根因与测量记录在下方 0.87.5 一节 2026-10-24—27 的条目中；这些
+改动在 0.87.6 之后开发，统一随 0.88.0 发布。
+
+0.88.0 切换时，构建脚本的 Dev TLS 内存审计改为按是否含 H.264 区分出站记录长度（H.264
+构建 16 KiB、其余 2 KiB）：此前 dev-h264 叠加层已把它提到 16 KiB，与审计的 2 KiB 冲突，
+只是 H.264 需要显式开启时这条组合没人走到。2026-10-27 V2.4（rev3.2）实机：无认证台架
+镜像应用 SHA-256 `441e0d50933d53e54db4f36d7991398139700bfa9a109c5279129a3d6852e7a4`，
+开机报 `0.88.0-dev`，页面显示 AzureDanube；H.264 720p30 40 s 为 30.0 fps、设备侧 30.9 ms、
+低延迟模式、0 丢帧，>2 倍帧间隔的到达间隔 0 次（开机约 1 分钟内的第一轮有 18 次）；
+1080p15 30 s 为 15.0 fps、设备侧 64 ms、0 丢帧；MJPEG 720p 正常出流。带认证的正式 Dev
+构建同样通过构建脚本全部审计。
+
 ### 0.87.x-dev：IndigoShore
 
 | 检查点 | 说明 |
@@ -117,6 +138,25 @@ Factory App。
 - Settings 导航的非被控端项目统一使用设备主题色状态点；被控端两项继续使用蓝色点，文字与状态语义色不变。
 - 设备页按“设备基础、网络设置、KVM 与 HID、设备诊断摘要、只读 GPIO 矩阵”排序；只读 GPIO 矩阵固定在末尾。
 - “视频采集常在线”“返回 KVM 自动刷新”和“MS 视频电源”归并到一个视频运行卡片。
+- 2026-10-25 H.264 实验出口修复：原先握手后安装的 `send()` 覆盖绕过了 TLS，视频服务器迁到 444 端口后浏览器收到明文、立即断开（“H.264 连接断开，正在自动重连”）。现改为自行组 WebSocket 帧并经会话传输函数做 send-all；同时把访问单元上限降到 2 MiB 以便 Dev 镜像完成 PSRAM 预留，新增 `SI_VIDEO_H264_JPEG_COPY`（默认关）供解码前拷贝的 A/B。V2.4 真机 1080p25 经 TLS 实测 23.5 fps、约 14 Mbps。 同日第二处修复：构建配置脚本（`/assets/ui-core.js` 前缀）新增 `h264WsPort`，页面据此把 H.264 WebSocket 连到 444 端口视频监听器；此前 HTTPS 下页面连的是 443 同源端口，而该路由只注册在 444，固件回 404，表现为“首帧超时，自动重连仍未恢复”。
+- 2026-10-25 H.264 P 帧"发紫"根因修复：esp_h264 1.3.7 用 `MALLOC_CAP_INTERNAL` 申请去块临时缓冲（db_tmp）和 DMA 描述符，而 ESP32-P4 的 LP(RTC) SRAM 与 SPM 也带 INTERNAL 能力却不可被 H.264 DMA 访问；产品固件内部堆碎片化时 db_tmp 落到 0x5010xxxx（RTC RAM），DMA 内部 AXI 写响应错误计数非零，每个 GOP 的 IDR 正常而随后的 P 帧色度逐帧累积偏紫、宏块行尾条纹。现由构建期补丁给 esp_h264 内部分配强制加 `MALLOC_CAP_DMA` 并对齐缓存行（上游 3f2a00c），并在开机早期与参考窗口一起预留 db_tmp 供每个编码器句柄复用。新增 `SI_VIDEO_H264_STOCK_CODEC`（默认关）用于与原厂驱动做 A/B。V2.4 真机 60 s 闭环：720p30 与 1080p20 全程色度稳定、零解码错误。排查过程与证据见 `codexws/ms2109-h264-bench-20261024/README_zh.md`。
+- 2026-10-25 视频监听器任务优先级提高一档（tskIDLE_PRIORITY+6）：UI 服务器上每次新建 HTTPS 连接的 ECDHE 握手约 200 ms，与 444 端口视频服务任务同优先级轮转时，H.264 流出现 200–900 ms 的停顿；提高一档后在每 5 s 新建一条 HTTPS 连接的压力下，最大停顿 170 ms、绝大多数 70–100 ms。
+- 2026-10-25 H.264 码率突然暴跌（切换模式后恢复）修复：esp_h264 1.3.7 的硬件码率控制把累计比特误差 `ebits` 无上限累加，且只要它超过一帧预算的 20% 就把 QP 步进强制为 +1，于是一段超预算的画面之后 QP 逐帧爬到 qp_max，码率坍缩到几十 kbps，直到重建编码器（切换模式）才复位。现以构建期片段补丁只把 esp_h264 1.4.1 的两处 `rc_end()` 改动套到 1.3.7 上（累计误差限幅为 1 秒码率预算；强制步进改为最小步进而非上限）。没有整体引入 1.4.1 的码率控制器：V2.4 基准上上游 master 对同一张静态 720p 图只有 27–31 dB PSNR（IDR 39 KB、P 帧 7–29 KB），而 1.3.7 为 72 dB（IDR 151 KB、P 帧约 50 B）。
+- 2026-10-25 H.264 “首帧超时、自动重连仍未恢复”修复：开机预留 db_tmp（15.5 KB）之后，会话时的内部 RAM 准入门槛（空闲 ≥24 KB 且最大连续块 ≥18 KB）在正常开机状态下就已不满足（实测空闲 27.9 KB、最大块 12.8 KB），`h264_runtime_reserve_internal` 一直返回 `ESP_ERR_INVALID_STATE`，H.264 永远不可用。该门槛原本是为了避免 esp_h264 在会话时严格内部分配 db_tmp 失败；参考窗口与 db_tmp 都已在开机预留后，会话时内部 RAM 只剩 DMA 描述符、100 字节 SPS/PPS 缓冲（可回落 PSRAM）和 4 KB 的 JPEG 解码 worker 栈，门槛改为 12 KB / 6 KB，合约测试同步更新。V2.4 真机 60 s 闭环：720p30 1800 AU、30.0 fps；1080p20 1201 AU、20.0 fps；零解码错误，U 均值跨 IDR 无锯齿。
+- 2026-10-25 采集卡“发紫”定位与缓解：用户看到的整幅偏品红/绿（白→品红、暗→绿）在 MS2109 输出的原始 MJPEG 里就已存在（`codexws/ms2109-h264-bench-20261024/runs/purple/`），10 分钟 H.264 码流 0 解码错误、无编码器漂移特征；HDMI 插拔、8 s 电源轨断电、P4 重启都无效，整套长时间断电后恢复，判断为 MS2109 过热后 HDMI 色彩格式误判。固件新增两项缓解：`/api/ms2109/power` 新增 `action=cold_start`（`off_time_ms` 30–60 s，默认 45 s，esp_timer 异步断电后上电，手动 on/off/cycle 会取消），状态里新增 `cold_start_active/off_ms/remaining_ms`，顶部 VIDEO 菜单加“冷启动采集卡”按钮；KVM 页按秒采样渲染画面（H.264 直接采 canvas/video，MJPEG 因跨端口不能读 canvas，改为每 2.5 s 取 `/api/snapshot`），整幅 U>145 且 V>150 连续 3 次即显示“采集卡色彩异常”横幅并提供一键冷启动。本地 mock 同步支持 cold_start 倒计时。
+- 2026-10-26 采集卡断电后 UVC 重开的已知现象（未改固件）：串口复现显示，切断 MS2109 电源轨再上电后，`uvc_host_stream_open` 会连续报 `USBH: EP Alloc error: ESP_ERR_NO_MEM` 1–10 s 后自行恢复（空闲时约 8 s，H.264 会话中实测 1–5 s），页面在此期间显示“open UVC stream: ESP_ERR_NOT_FOUND / NO_MEM”。尝试过在断电前先关 UVC 流、关 USB 根端口并 `usb_host_device_free_all()`，结果重新枚举时 `HUB: Failed to add new device`，随后 IDF `hub.c:435 dev_tree_node_dev_gone(NULL,0)` 断言导致整板重启，因此撤回；根因疑似 vendored usb_host_uvc 的“保留已停止 URB 环”补丁让旧设备的管道延迟释放，待单独排查。最终固件（不含 hold）串口闭环：干净启动后在 MJPEG 推流中冷启动 30 s，上电 1.3 s 后重开成功、无 EP 错误，随后 MJPEG 30.1 fps；在 H.264 会话中冷启动，上电后 EP NO_MEM 重试 4 次（约 4 s）后恢复，随后 H.264 451 AU、30.07 fps；两次都没有崩溃。KVM 页在冷启动结束后 20 s 内把 UVC 重开错误显示为“采集卡正在重新枚举”。
+- 2026-10-26 H.264/MJPEG 偶发卡顿根因（Nagle）：640x480@30 抓 60 s，设备端时间戳只有 1 个 >66 ms 的间隔，而浏览器侧到达间隔呈“66 ms、1 ms”成对出现 389 次（1799 帧中 16% 晚到两帧），到达时间相对设备时间在 0 与 −33 ms 之间摆动。原因是视频 socket 从未设置 TCP_NODELAY：480p 的 AU 只有 2–5 KB（一两个 TCP 段），末尾的不足一段数据被 Nagle 攒着等浏览器的延迟 ACK，两帧并发送出；分辨率越低越明显，720p 的 5–8 KB AU 也会偶发。现在 H.264 WebSocket 接入和 MJPEG 多段流都设置 TCP_NODELAY。板上复测 60 s：640x480@30 到达间隔 >66 ms 从 294 次降到 2 次、成对晚到从 389 次降到 1 次、p95 从 67 ms 降到 36.4 ms；1280x720@30 >66 ms 仅 1 次、p95 36.9 ms，剩余 50–70 ms 的间隔都在 IDR 前后（大帧本身的传输时间）。
+- 2026-10-26 固定 2 秒周期卡顿根因（串口日志阻塞）：TCP_NODELAY 之后仍有每 2.0 s 一帧晚到约 20 ms，与任何 HTTP 请求、TLS 握手、以太网 2 s 链路轮询（改成 9 s 后周期不变）都无关。在固件里加了慢帧分解日志（生产侧：取帧/解码/编码间隔；发送侧：队列等待/检查/发送/上一帧发送/空闲），结果是 `queue_wait=20 ms, prev_send≈1, idle_before≈52`：视频 HTTPD 任务并不忙，而是 20 ms 没被调度。原因是 `chain_metrics_report()` 每 2 s 从优先级 8 的推流任务用 ESP_LOGI 打一行约 300 字节的链路统计，控制台 UART 是 115200 波特的阻塞输出（约 20 ms），同核上优先级 6 的视频 HTTPD 任务在这 20 ms 内拿不到 CPU，排队的访问单元只能等。现改为 ESP_LOGD（统计仍在 `/api/video/status` 的 chain_metrics 里），新加的慢帧诊断和 TLS 对端日志只写 `/api/system/logs` 内存环、不走 UART。板上复测 70 s：720p30 非 IDR 的 >45 ms 间隔从每 2 s 一次（约 35 次/分钟）降到 8 次且无周期，设备侧 queue_wait 全部 ≈1 ms；480p30 只剩 1 次。剩余可见的是每 4 s 一次 IDR（75–105 KB，TLS 发送 15–21 ms）带来的约 50 ms 间隔。把 lwIP 发送缓冲从 32 KB 提到 64 KB 对 IDR 发送时间没有改善（仍 13–22 ms，约 5 MB/s），说明瓶颈是软件 TLS 加密的吞吐；Dev 配置因内部 DMA 堆碎片化刻意关闭了硬件 AES，这一项留给 Stable 配置或浏览器侧一帧缓冲去解决，发送缓冲已改回 32 KB。
+- 2026-10-26 明文 HTTP 台架开关（`CONFIG_SI_WEB_PLAIN_HTTP`，`configs/features/sdkconfig.defaults.lan-test-plain-http`，仅台架）：用户要求先去掉加密把性能做达标。开启后 443/444 两个 TLS 监听换成 80（UI/API）和 81（MJPEG/H.264）的普通 esp_http_server，`si_tls_server_start` 直接 `httpd_start`、不加载证书；会话 cookie 去掉 `Secure`，CSP 的 connect-src 增加 `ws: http:`（81 端口与页面不同源，`'self'` 不覆盖）；页面本来就按 `location.protocol` 选 ws/wss，`ExoAnchorBuild.h264WsPort` 随端口宏变成 81。硬件 AES-GCM 先试过：Dev H.264 镜像开机 3.8 s 就因 AES DMA 描述符分不到内部 DMA 内存而循环重启（`esp-aes: Failed to allocate memory for the array of DMA descriptors` → CTR_DRBG 种子失败 → 444 实例初始化会话票据 abort），所以才走明文。V2.4 实测 70 s：720p30 IDR 的额外到达延迟中位 5.9→0.6 ms（p90 8.1→2.6，最大 8.4→4.0），固件 send 平均 3.2→0.42 ms、最大 11.0→1.96 ms，IDR 前一帧间隔中位 39.7→33.8 ms；480p30 send 最大 0.66 ms、非 IDR >45 ms 仅 1 次；空闲内部 RAM 20.5→35 KB、最大块 11.8→29.7 KB（TLS 会话和握手不再吃内部堆）。注意 http://IP 不是安全上下文，浏览器没有 WebCodecs，KVM 页会自动退到 H.264 MSE 路径，想保留 WebCodecs 要在 chrome://flags 的 `unsafely-treat-insecure-origin-as-secure` 里填入设备地址。另一条未解线索：慢帧日志里偶见 `enc_gap=55–62 ms`（解码完成到编码开始的空档，发送只有 0–1 ms），与 TLS 无关。
+- 2026-10-26 KVM 新增 1080p20 和 1080p15 档位：`kvm-modes.js` 的常用模式表加入这两档。MS2109 在 1080p 只枚举 5/10/20/25/30 fps，1080p20 直接用枚举模式；1080p15 由固件派生：`video_input.c` 的精确模式匹配找不到时，取同分辨率、帧率为整数倍（2–4 倍，即 1080p30）的物理模式并按帧计数抽帧发布（`si_uvc_selection_t.decimation`），USB 带宽不变、只省解码/编码负载；`si_video_get_modes` 把派生档（目前只有 15 fps）追加到模式列表，所以 UI 和 `/api/video/resolution` 看到同一张表，逻辑帧率、H.264 目标帧率和 `/api/video/status` 都报 15。mock 和契约测试同步。V2.4 明文实测 60 s（静态桌面）：1080p15 实测 15.0 fps、抽帧间隔 67 ms、解码 25 + 编码 37 ms、背压丢帧 0；1080p20 实测 20.0 fps、背压丢帧 0（解码与编码在两个核上重叠，流水线周期约 37 ms）。同时把“慢帧”诊断阈值从固定 45 ms 改成目标帧周期的 4/3（下限 45 ms），否则 1080p15 的每一帧都会被当成慢帧刷满日志环。
+- 2026-10-26 端到端延迟分段计量：UVC 帧回调记下 `captured_us`（esp_timer），经 `si_video_jpeg_view_t` 带到两条出口——H.264 发送完成时记入 chain_metrics 的 `latency_avg_us/latency_max_us`（`/api/video/status` 的 `h264_runtime.chain_metrics`），MJPEG 多段流发送完成时记入 `stream_metrics` 的同名字段（`si_video_stream_metrics_record` 多一个 latency 参数，host 单测同步）。KVM 页在 H.264 路径按线上时间戳（WebCodecs）或片段 decodeTime（MSE，`requestVideoFrameCallback` 的 mediaTime）记录 WebSocket 到达到上屏的时间，状态栏显示“设备 平均/最大 ms · 上屏 平均/最大 ms”；MJPEG 走 `<img>` 没有逐帧钩子，只显示设备侧。V2.4 明文、静态桌面实测：MJPEG 720p30 设备 12–13 ms（80 KB 帧，百兆线 6.5 ms 加拷贝）；H.264 720p30 设备 51 ms（解码 11 + 编码 16 + 发送 0.2，其余约 23 ms 是流水线为了让 D(B) 与 E(A) 重叠而把已解码帧 A 压到帧 B 到达后再编码，`overlap_wait_timeout_us` 那段），Chrome MSE 路径到达到上屏 284–304 ms；H.264 1080p15 设备 106 ms（25 + 37，重叠等待约 44 ms），MSE 上屏 273 ms。结论：浏览器 MSE 缓冲是最大的一段（http 下无 WebCodecs，需安全上下文或 chrome://flags 的 unsafely-treat-insecure-origin-as-secure），设备侧可省的是重叠等待（720p30 时 D+E=27 ms 已在 33 ms 帧周期内，串行也跟得上）。
+- 2026-10-27 H.264 低延迟模式（自动）：`video_h264_stream.c` 原来为了让 D(B) 与 E(A) 重叠，把已解码的帧 A 压到帧 B 到达后才编码（`overlap_wait_timeout_us`），代价接近一个采集周期的延迟。现在每个 2 s 指标窗口结束时比较“解码 + 编码 + 发送平均”与帧周期（`1e6/fps`）：低于 95% 进入低延迟模式（解码完成立即编码发送，不等下一帧），达到 100% 退出（回到重叠，保吞吐），会话开始时清掉上一会话的平均值、等本会话第一个窗口再判定。状态 JSON 的 chain_metrics 增加 `low_latency`，切换时写一条 `H264 low-latency on/off: stages … vs period …` 到日志环。V2.4 明文、静态桌面实测（UVC 交付→发送完成）：720p30 平均 50.6→26.5 ms（最大 28.4），解码 11.1 + 编码 14.6 + 发送 0.2，30 fps；1080p15 平均 105.8→59.4 ms（最大 59.5），25 + 33 + 0.3，15 fps；两档背压丢帧均只有启动时的 2 帧，重叠对数 0。1080p25 这类 D+E 超过周期的档位仍走重叠路径。
+- 2026-10-27 MSE 路径“延迟超限”不再整条重建：http 下页面没有 WebCodecs，走 MSE，稳态上屏约 280–300 ms，离 500 ms 硬限只差一次卡顿，之前超限就拆掉 WebSocket 重建会话（用户看到的“老断流”）。现在超限先把播放位置跳到实时边沿减 150 ms 原地追赶，只有封装队列停滞超过 1.5 s 或 10 s 内追赶 5 次才重建，状态栏显示“追赶 N”。同时低延迟判定改为只算解码 + 编码（WebSocket 发送在视频 HTTPD 任务上并行），进入阈值 100%、退出 108%：TLS 下 1080p15 的 26.4 + 33.2 = 59.6 ms 对 66.7 ms 周期，之前把 3.5 ms 的 TLS 发送算进去差 1.6 ms 没进入。板子切回 HTTPS 构建（`build-v24-dev-h264-default`，含今天全部改动）：V2.4 实测 720p30 设备侧 30.7 ms（解码 12.9 + 编码 14.7 + TLS 发送 1.6，低延迟模式）、1080p15 63.3 ms（低延迟模式，0 丢帧）；IDR（720p 120 KB、1080p 240 KB）经 TLS 额外 21 / 38 ms，是 HTTPS 下唯一剩余的周期性抖动，每 4 s 一次。明文 HTTP 对浏览器体验是净亏（设备侧省 25 ms，浏览器 MSE 多 300 ms），台架开关保留但默认不用。
+- 2026-10-27 HTTPS 下 IDR 顿挫的两个对策：(1) KVM 页“画质”里新增每浏览器开关“一帧节拍缓冲”（`videoPacingToggle`，localStorage `si_kvm_video_pacing`，默认关）：WebCodecs 路径解出的帧不再立即画，而是按设备时间戳的节拍晚一个帧周期上屏（到达晚于排程就平移排程、缓冲超过两个周期就收回，队列上限 4 帧），一帧 IDR 经 TLS 晚到 20–40 ms 仍能准时上屏，代价是上屏延迟加一个周期；MSE 路径不受影响。(2) `SI_VIDEO_H264_GOP` 默认 120→240（Kconfig 上限随之放到 240，编码器 gop 字段是 8 位），dev-h264 配置显式写 240：V2.4 实测 720p30 IDR 间隔 8.0 s、设备侧 29.4 ms、低延迟模式、0 丢帧。
+- 2026-10-27 WebCodecs 真正的延迟来源与修复：在用户 Chrome 里注入逐帧记录发现，H.264 到达→上屏中位 301 ms、每个 IDR 停画 280 ms——解码器压着 9 帧（720p / level 4.1 的 DPB 上限），IDR 时排空一次。原因是页面把 Annex B（带带内 SPS/PPS）直接喂给 VideoDecoder；同一解码器改用 avcC `description` + 长度前缀的 AVCC 输入后出帧 1–2 ms。现在 `h264WebCodecsConfig` 带 `description=avcCRecord(sps,pps)`，提交 `avccAccessUnit(nalus,false)`，不再注入带内参数集；同时页面把设备 SPS 补上 VUI bitstream_restriction（num_reorder_frames=0、max_dec_frame_buffering=max_num_ref_frames，`patchSpsLowDelay`，比特级单测通过、幂等），MSE 路径的 avcC 也用补丁后的 SPS。实测（Chrome，HTTPS，720p30，GOP 240）：到达→上屏中位 1 ms、p90 2 ms、最大 12 ms（之前 301 / 301 / 335），25 s 内无 >50 ms 的上屏间隔（之前每个 IDR 一次 280 ms），设备侧 30 ms。之前的“延迟超限”（MSE）和“每几秒顿挫”（WebCodecs）都是这同一个 9 帧缓冲。
+- 2026-10-25 H.264 固定周期卡顿改善：浏览器 WebCodecs 路径解出即画、无抖动缓冲，而每个 IDR（720p 约 90 KB、1080p 约 190 KB，P 帧仅 5–20 KB）经 TLS 发送要多花 20–40 ms，GOP=25 时每 0.8–1.3 s 就出现一次可见的顿挫，与分辨率无关。现把 `SI_VIDEO_H264_GOP` 默认改为 120（流走无损 WebSocket，新客户端本就强制 IDR，长 GOP 无恢复代价），并在 `dev-h264` 配置里把 TLS 记录提到 16 KiB、TCP 发送缓冲提到 32 KiB：V2.4 实测每帧发送 720p30 3.4→1.5 ms、1080p20 7.5→4.2 ms，背压丢帧归零，顿挫频率降到每 4–6 s 一次（仅 IDR 处）。另：每次新建 HTTPS 连接的 TLS 握手会让视频管线停顿约 220 ms，浏览器通常复用连接，但外部工具若频繁新建连接会制造周期性停顿。
+- 2026-10-25 KVM 页前端拆分：`kvm.html` 的内联脚本按职责拆为 `assets/kvm-core/video/lease/modes/input/status.js` 六个经典脚本模块，按固定顺序加载、共享全局词法作用域，行为与设备 API 不变；资源路由统一由 `register_ui_asset_routes()` 注册。
+- 2026-10-24 新增仅当前浏览器的“窗口失焦后中断采集”开关，默认关闭：开启后 KVM 窗口失去焦点即释放视频租约、停止采集，回到窗口后自动重连；“视频采集常在线”开启时设备仍后台采集。
 - MS2109 的 GPIO 电平、时序、操作次数、结果、重新上电和手动刷新属于调试面，不再暴露在产品 Settings。
 
 #### 0.87.4 已纳入主线的 Locator LED 反转（2026-08-19）
@@ -178,6 +218,7 @@ Settings 产品化二元开关：
 | 设备发现 | 允许局域网发现 | 开启 | 设备全局 |
 | KVM | 保持视频常在线 | 开启 | 设备全局 |
 | KVM | 返回 KVM 时自动刷新 | 开启 | 当前浏览器 |
+| KVM | 窗口失焦后中断采集 | 关闭 | 当前浏览器 |
 | Agent | 启用内置 Agent | Dev 开启；未编译 Agent 的 Stable 不显示 | 设备全局 |
 | Agent | 允许联网搜索 | 关闭 | 设备全局 |
 | Agent 隐私 | 允许附带当前页面上下文 | 关闭，需用户主动开启 | 当前账户 |

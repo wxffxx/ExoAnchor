@@ -1304,7 +1304,7 @@ def main() -> int:
     h264_header = read("main/services/video_h264_stream.h")
     video_control = read("main/application/video_control.c")
     control_lease = read("main/application/control_lease.c")
-    kvm_html = read("main/www/kvm.html")
+    kvm_html = "\n".join(read(rel) for rel in ("main/www/kvm.html", "main/www/assets/kvm-core.js", "main/www/assets/kvm-video.js", "main/www/assets/kvm-lease.js", "main/www/assets/kvm-modes.js", "main/www/assets/kvm-input.js", "main/www/assets/kvm-status.js"))
     h264_accept = read("tools/h264-accept.py")
     serve_ui = read("tools/serve-ui.py")
     agent_engine = read("main/services/web/agent_run_engine_module.inc")
@@ -2382,7 +2382,8 @@ def main() -> int:
     for marker in (
         "h264SpecMatches(w,h)",
         "h264LastFrameAt=performance.now();markVideoReady()",
-        "annexBWithParameters(packet.nalus,sets)",
+        "avccAccessUnit(packet.nalus,false)",
+        "h264WebCodecsConfig(codec,packet.width,packet.height)",
         "switchH264ToMse(generation,expectedStreamId,`WebCodecs 解码失败",
         'switchH264ToMse(generation,expectedStreamId,"WebCodecs 配置失败',
         'switchH264ToMse(generation,expectedStreamId,"WebCodecs 帧提交失败',
@@ -2596,7 +2597,7 @@ def main() -> int:
         "httpd_ws_get_fd_info(job.server, job.fd)",
         "client_before == HTTPD_WS_CLIENT_WEBSOCKET",
         "send_attempted = true",
-        "httpd_ws_send_frame_async(job.server, job.fd, &frame)",
+        "h264_ws_send_binary(job.server, job.fd, job.payload,",
         "httpd_sess_update_lru_counter(job.server, job.fd)",
         "if (send_attempted && err != ESP_OK)",
         "client_after =",
@@ -2634,7 +2635,8 @@ def main() -> int:
     ):
         if marker not in h264:
             failures.append(f"H.264 dual-AU sender ownership missing: {marker}")
-    if h264.count("httpd_ws_send_frame_async(") != 1 or \
+    if h264.count("h264_ws_send_binary(job.server, job.fd") != 1 or \
+            "httpd_ws_send_frame_async(" in h264 or \
             "static void h264_send_task(" in h264:
         failures.append(
             "H.264 socket I/O must run only inside one queued HTTPD work callback"
@@ -3443,8 +3445,8 @@ def main() -> int:
             "Agent cleanup must compare-release only its exact generation token"
         )
     for marker in (
-        "#define SI_H264_ENCODER_INTERNAL_MIN_FREE (24U * 1024U)",
-        "#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (18U * 1024U)",
+        "#define SI_H264_ENCODER_INTERNAL_MIN_FREE (12U * 1024U)",
+        "#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (6U * 1024U)",
         "#define SI_AGENT_EXECUTOR_INTERNAL_MIN_FREE (20U * 1024U)",
         "#define SI_AGENT_EXECUTOR_INTERNAL_MIN_LARGEST (6U * 1024U)",
     ):
@@ -3919,12 +3921,17 @@ def main() -> int:
         send_all,
         "SI_H264_SEND_TIMEOUT_MS",
         "esp_timer_get_time() >= deadline_us",
-        "flags | MSG_DONTWAIT",
-        "errno == EAGAIN || errno == EWOULDBLOCK",
+        "httpd_socket_send(handle, socket_fd",
+        "HTTPD_SOCK_ERR_TIMEOUT",
+        "ESP_TLS_ERR_SSL_WANT_WRITE",
         "SI_H264_SEND_EAGAIN_RETRY_MS",
         "vTaskDelay(",
     ):
-        failures.append("H.264 send-all must bound transient EAGAIN retries")
+        failures.append("H.264 send-all must bound transient backpressure retries")
+    if " send(socket_fd" in send_all or "httpd_sess_set_send_override" in h264:
+        failures.append(
+            "H.264 egress must go through the session transport: a raw send() bypasses TLS"
+        )
 
     ws_handler = section(
         h264, "esp_err_t si_h264_stream_ws_handler(",

@@ -1,6 +1,6 @@
-# This overlay is selected only by rev3 Dev builds or the explicit restricted
-# Stable H.264 candidate. Keep the feature selection here so ordinary Stable
-# builds retain the Kconfig default-off path.
+# This overlay is selected by every rev3 Dev build and by the explicit
+# restricted Stable H.264 candidate. Keep the feature selection here so
+# ordinary Stable builds retain the Kconfig default-off path.
 CONFIG_SI_VIDEO_H264_EXPERIMENT=y
 
 # Use ESP-IDF 5.5's maximum supported protected internal/DMA pool. The H.264
@@ -40,7 +40,22 @@ CONFIG_SPIRAM_SPEED_250M=y
 CONFIG_SI_VIDEO_UVC_FRAME_BUFFERS=3
 CONFIG_UVC_INTERVAL_ARRAY_SIZE=5
 
-# A maximum-size, high-entropy 1080p MJPEG can produce an IDR above 2 MiB
-# before rate control converges. Keep the full 4 MiB access-unit ceiling;
-# PSRAM still has room for the codec workspace and three full UVC frame buffers.
-CONFIG_SI_VIDEO_H264_MAX_ACCESS_UNIT=4194304
+# Access-unit ceiling.  The 2026-10-24 bench measured IDR sizes of at most
+# 0.5 MiB on real 1080p desktop/video content and 2.3 MiB only for synthetic
+# full-frame noise.  With the Agent, two HTTPS servers and three 2 MiB UVC
+# buffers resident, the Dev image has about 11 MiB of PSRAM left when the
+# H.264 reserve runs; a 4 MiB ceiling made that reserve fail outright.
+CONFIG_SI_VIDEO_H264_MAX_ACCESS_UNIT=2097152
+
+# H.264 egress: 16 KiB TLS records and a 32 KiB TCP send buffer halve the
+# per-access-unit send time (720p30: 3.4 -> 1.5 ms avg; 1080p20 IDR: 51 -> 35 ms
+# max) and removed all backpressure drops in the 2026-10-25 V2.4 runs. mbedTLS
+# buffers are external (CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC) and lwIP pbufs
+# prefer PSRAM, so internal RAM is unaffected.
+CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=16384
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=32768
+CONFIG_LWIP_TCP_WND_DEFAULT=11520
+
+# IDR every 8 s at 30 fps (16 s at 1080p15): each IDR is 120-240 KB and
+# arrives 20-40 ms late through TLS; fewer of them is the only lever left.
+CONFIG_SI_VIDEO_H264_GOP=240

@@ -1,4 +1,6 @@
 // Prepend the compile-time profile before the common UI runtime executes.
+#define SI_BUILD_PROFILE_STR_(x) #x
+#define SI_BUILD_PROFILE_STR(x) SI_BUILD_PROFILE_STR_(x)
 static esp_err_t ui_core_js_handler(httpd_req_t *req)
 {
     si_http_set_security_headers(req);
@@ -26,6 +28,9 @@ static esp_err_t ui_core_js_handler(httpd_req_t *req)
 #else
         "false"
 #endif
+        /* The H.264 WebSocket route lives only on the dedicated video
+         * listener; the page must not assume the UI origin's port. */
+        ",h264WsPort:" SI_BUILD_PROFILE_STR(SI_STREAM_HTTP_PORT)
         ",externalMcp:true};\n";
     ESP_RETURN_ON_ERROR(
         httpd_resp_send_chunk(req, build_profile,

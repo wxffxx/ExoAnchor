@@ -1,4 +1,5 @@
 #include "video_h264_stream.h"
+#include "web_server.h"
 
 #include <stdbool.h>
 #include <limits.h>
@@ -8,6 +9,8 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <netinet/tcp.h>
+#include <errno.h>
 #include <sys/stat.h>
 
 #include "app_config.h"
@@ -15,6 +18,7 @@
 #include "esp_check.h"
 #include "esp_h264_alloc.h"
 #include "esp_h264_enc_single.h"
+#include "esp_tls_errors.h"
 #include "esp_h264_enc_single_hw.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -53,6 +57,17 @@
 #define SI_H264_PIPELINE_IDLE_GRACE_MS 2000U
 #define SI_H264_OVERLAP_WAIT_PERIODS 2U
 #define SI_H264_OVERLAP_WAIT_SLACK_MS 10U
+/* Low-latency mode: when the measured decode+encode+send of a frame fits the
+ * frame period, a decoded frame is encoded and sent at once instead of being
+ * held until the next JPEG arrives for the D(B)||E(A) overlap.  The overlap
+ * buys throughput only when the stages exceed the period; otherwise its hold
+ * costs almost one capture period of latency (23 ms at 720p30, 44 ms at the
+ * derived 1080p15).  Only decode and encode count: the WebSocket send runs on
+ * the video HTTPD task and overlaps the next decode either way.  Enter at or
+ * below the period, leave above 108 % (a few percent over only drops the odd
+ * frame, still far below the overlap's full-period hold). */
+#define SI_H264_LOW_LATENCY_ENTER_PERCENT 100U
+#define SI_H264_LOW_LATENCY_EXIT_PERCENT 108U
 #define SI_H264_STREAM_LOCK_TIMEOUT_MS 250U
 #define SI_H264_WORKER_IO_TIMEOUT_MS 250U
 #define SI_H264_WORKER_STOP_TIMEOUT_MS (SI_H264_JPEG_TIMEOUT_MS + 500U)
@@ -66,8 +81,15 @@
 #define SI_H264_RESTORE_RETRY_MAX_MS 1000U
 #define SI_H264_RESOURCE_RESERVE_WAIT_MS 10000U
 #define SI_H264_RESOURCE_CLAIM_WAIT_MS 250U
-#define SI_H264_ENCODER_INTERNAL_MIN_FREE (24U * 1024U)
-#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (18U * 1024U)
+/* The encoder's reference window and deblocking temp buffer are reserved
+ * from internal RAM at boot (see si_h264_stream_initialize), so a session
+ * only has to find room for the H.264/JPEG DMA descriptors (a few hundred
+ * bytes), the 100-byte SPS/PPS buffer (falls back to PSRAM) and the 4 KiB
+ * JPEG decode worker stack.  The old 24/18 KiB thresholds pre-dated the boot
+ * reservation and blocked every session once that reservation had consumed
+ * the headroom they were protecting. */
+#define SI_H264_ENCODER_INTERNAL_MIN_FREE (12U * 1024U)
+#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (6U * 1024U)
 /* The Agent run stack lives in PSRAM; internal RAM only has to cover its
  * TCB, short-lived small allocations (HTTP client, semaphores) and headroom
  * for the HTTPS servers while it runs. */
@@ -118,6 +140,7 @@ static void log_h264_memory_and_clock_policy(void)
              (unsigned)REG_READ(SPI1_MEM_S_CLOCK_REG));
 }
 
+
 static esp_err_t h264_jpeg_decoder_process(
     jpeg_decoder_handle_t decoder, const jpeg_decode_cfg_t *config,
     const uint8_t *input, uint32_t input_size, uint8_t *output,
@@ -155,6 +178,7 @@ typedef struct {
     uint32_t jpeg_frame;
     uint32_t previous_jpeg_frame;
     uint32_t timestamp_ms;
+    int64_t captured_us;
     uint32_t jpeg_bytes;
     uint32_t copy_us;
     uint32_t info_us;
@@ -213,12 +237,26 @@ typedef struct {
     uint8_t slot_id;
     uint8_t *payload;
     size_t frame_len;
+    int64_t captured_us;
 } si_h264_send_job_t;
 
 typedef struct {
     si_h264_pipeline_t *pipeline;
     si_h264_send_job_t job;
+    int64_t enqueued_us;
 } si_h264_send_work_t;
+
+/* Stutter diagnostics: one WARN line per slow access unit, rate limited. */
+/* "Slow" means an access-unit interval beyond 4/3 of the target frame period,
+ * floored at 45 ms (30 fps): 1080p15 legitimately paces at 66 ms. */
+#define SI_H264_SLOW_AU_INTERVAL_US 45000
+#define SI_H264_SLOW_AU_LOG_GAP_US 300000
+static int64_t s_diag_last_send_end_us;
+static uint32_t s_diag_prev_send_us;
+static int64_t s_diag_last_work_start_us;
+static int64_t s_diag_last_send_log_us;
+static int64_t s_diag_last_enqueue_us;
+static int64_t s_diag_last_produce_log_us;
 
 typedef struct {
     uint8_t *storage;
@@ -233,11 +271,22 @@ struct si_h264_pipeline {
     bool h264_open;
     bool owns_codec_gate;
     bool uses_preallocated_encoder;
+    /* Stream task only: encode each decoded frame immediately (see
+     * SI_H264_LOW_LATENCY_ENTER_PERCENT). */
+    bool low_latency;
     bool uses_preallocated_buffers;
     uint8_t *yuv420;
     size_t yuv420_capacity;
     uint8_t *yuv420_alt;
     size_t yuv420_alt_capacity;
+    /* Codec-owned PSRAM copy of the leased MJPEG frame.  The UVC frame is
+     * written by the driver task on core 0; feeding that buffer to the JPEG
+     * DMA directly while the H.264 engine runs makes the decoder's cross-core
+     * cache writeback stall the USB host long enough for the controller to
+     * mark isochronous packets SKIPPED (see codexws/ms2109-h264-bench-20261024).
+     * Copying on this core (1) and returning the lease first removes that. */
+    uint8_t *jpeg_copy;
+    size_t jpeg_copy_capacity;
     si_h264_au_slot_t au_slots[SI_H264_AU_SLOT_COUNT];
     uint8_t au_slot_count;
     bool egress_initialized;
@@ -246,6 +295,8 @@ struct si_h264_pipeline {
     volatile esp_err_t send_result;
     volatile uint32_t send_result_session;
     volatile uint32_t last_send_us;
+    /* UVC delivery -> WebSocket send complete of the last sent AU. */
+    volatile uint32_t last_latency_us;
     volatile bool encoder_reset_required;
     bool teardown_poisoned;
     uint16_t width;
@@ -254,6 +305,14 @@ struct si_h264_pipeline {
     bool pts_origin_valid;
     uint32_t pts_origin_ms;
 };
+
+static inline int64_t h264_slow_au_interval_us(const si_h264_pipeline_t *pipeline)
+{
+    const uint32_t fps = pipeline && pipeline->fps ? pipeline->fps : 30U;
+    const int64_t period = (int64_t)(1000000U * 4U / 3U) / (int64_t)fps;
+    return period > SI_H264_SLOW_AU_INTERVAL_US ? period
+                                                : SI_H264_SLOW_AU_INTERVAL_US;
+}
 
 typedef struct {
     int64_t started_us;
@@ -269,6 +328,9 @@ typedef struct {
     uint64_t move_us;
     uint64_t send_wait_us;
     uint64_t send_us;
+    uint64_t latency_us;
+    uint32_t max_latency_us;
+    uint32_t low_latency_flushes;
     uint32_t max_decode_us;
     uint32_t max_encode_us;
     uint32_t max_send_wait_us;
@@ -333,6 +395,9 @@ static volatile uint32_t s_metrics_h264_bitrate_bps;
 static volatile uint32_t s_metrics_decode_avg_us;
 static volatile uint32_t s_metrics_encode_avg_us;
 static volatile uint32_t s_metrics_send_avg_us;
+static volatile uint32_t s_metrics_latency_avg_us;
+static volatile bool s_metrics_low_latency;
+static volatile uint32_t s_metrics_latency_max_us;
 static volatile uint32_t s_metrics_decode_max_us;
 static volatile uint32_t s_metrics_encode_max_us;
 static volatile uint32_t s_metrics_send_max_us;
@@ -432,17 +497,17 @@ static bool stream_still_current(uint32_t session, int fd);
 static void stream_detach(uint32_t session, int fd);
 static void stream_fail(uint32_t session, int fd);
 
-/* ESP-IDF 5.5's default HTTPD WebSocket sender calls send() once and treats
- * any non-negative result as success.  POSIX explicitly permits a short
- * write, which is routine for multi-megabyte high-entropy IDR frames.  The
- * advertised WebSocket payload length then exceeds the bytes put on the
- * wire, leaving the browser waiting forever and making subsequent frames
- * part of the truncated payload.  Install this override only on H.264
- * sessions so the HTTPD helper's single call has send-all semantics. */
+/* HTTPD's WebSocket helper hands the whole payload to the session send
+ * function once and treats any non-negative result as success.  The video
+ * listener is a TLS server: its send function fragments the data into small
+ * mbedTLS records and may return early with backpressure, so a
+ * multi-hundred-KB access unit needs send-all semantics on top of it.  An
+ * earlier revision installed a raw send() override for this; on a TLS
+ * session that bypasses encryption and the browser tears the connection
+ * down.  Push every byte through the session transport instead. */
 static int h264_socket_send_all(httpd_handle_t handle, int socket_fd,
                                 const char *buffer, size_t length, int flags)
 {
-    (void)handle;
     if (!buffer || length > INT_MAX) {
         errno = !buffer ? EINVAL : EOVERFLOW;
         return -1;
@@ -452,20 +517,17 @@ static int h264_socket_send_all(httpd_handle_t handle, int socket_fd,
         esp_timer_get_time() +
         (int64_t)SI_H264_SEND_TIMEOUT_MS * 1000LL;
     while (sent < length) {
-        /* One deadline covers positive short writes and EINTR as well as
-         * backpressure. Per-call nonblocking I/O prevents SO_SNDTIMEO from
-         * consuming a fresh timeout on every attempt without changing the
-         * socket's receive behavior for HTTPD control frames. */
+        /* One deadline covers short writes and backpressure alike, so a
+         * slow peer cannot stretch a single access unit indefinitely. */
         if (esp_timer_get_time() >= deadline_us) {
             errno = ETIMEDOUT;
             return -1;
         }
-        ssize_t result = send(socket_fd, buffer + sent, length - sent,
-                              flags | MSG_DONTWAIT);
-        if (result < 0 && errno == EINTR) {
-            continue;
-        }
-        if (result < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+        int result = httpd_socket_send(handle, socket_fd, buffer + sent,
+                                       length - sent, flags);
+        if (result == HTTPD_SOCK_ERR_TIMEOUT ||
+            result == ESP_TLS_ERR_SSL_WANT_WRITE ||
+            result == ESP_TLS_ERR_SSL_WANT_READ) {
             TickType_t retry_ticks =
                 pdMS_TO_TICKS(SI_H264_SEND_EAGAIN_RETRY_MS);
             vTaskDelay(retry_ticks > 0 ? retry_ticks : 1);
@@ -474,13 +536,46 @@ static int h264_socket_send_all(httpd_handle_t handle, int socket_fd,
         if (result <= 0) {
             if (result == 0) {
                 errno = EPIPE;
+            } else if (errno == 0) {
+                errno = EIO;
             }
-            /* HTTPD treats any nonnegative override result as success. */
+            /* A partial WebSocket payload can never be reported as sent. */
             return -1;
         }
         sent += (size_t)result;
     }
     return (int)sent;
+}
+
+/* One complete, unmasked binary WebSocket message from the server. */
+static esp_err_t h264_ws_send_binary(httpd_handle_t server, int fd,
+                                     const uint8_t *payload, size_t length)
+{
+    uint8_t header[10];
+    size_t header_len = 2;
+    header[0] = 0x80U | 0x02U; /* FIN + binary opcode */
+    if (length < 126U) {
+        header[1] = (uint8_t)length;
+    } else if (length <= 0xFFFFU) {
+        header[1] = 126U;
+        header[2] = (uint8_t)(length >> 8);
+        header[3] = (uint8_t)length;
+        header_len = 4;
+    } else {
+        header[1] = 127U;
+        for (int i = 0; i < 8; i++) {
+            header[2 + i] = (uint8_t)((uint64_t)length >> (8 * (7 - i)));
+        }
+        header_len = 10;
+    }
+    if (h264_socket_send_all(server, fd, (const char *)header, header_len, 0) < 0) {
+        return ESP_FAIL;
+    }
+    if (length > 0 &&
+        h264_socket_send_all(server, fd, (const char *)payload, length, 0) < 0) {
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 static esp_h264_enc_handle_t s_preallocated_encoder;
@@ -492,6 +587,8 @@ static uint8_t *s_preallocated_yuv420;
 static size_t s_preallocated_yuv420_capacity;
 static uint8_t *s_preallocated_yuv420_alt;
 static size_t s_preallocated_yuv420_alt_capacity;
+static uint8_t *s_preallocated_jpeg_copy;
+static size_t s_preallocated_jpeg_copy_capacity;
 static uint8_t *s_preallocated_au[SI_H264_AU_SLOT_COUNT];
 static uint32_t s_preallocated_au_capacity[SI_H264_AU_SLOT_COUNT];
 static bool s_preallocated_buffers_claimed;
@@ -717,9 +814,55 @@ bool si_h264_stream_release_agent_resources(
 /* Build-time patched into esp_h264_enc_hw_param.c.  This is intentionally a
  * narrow private ABI: the upstream source hash and exact insertion fragments
  * are guarded by the project CMake override. */
+#if SI_CFG_VIDEO_H264_STOCK_CODEC
+/* Stock esp_h264 allocates its 3-row internal reference window inside
+ * esp_h264_enc_hw_new().  By the time the deferred reserve runs, internal RAM
+ * is too fragmented for that 138 KiB block, so hold an equally sized hole from
+ * early boot and hand it back right before the stock allocator asks. */
+static uint8_t *s_stock_ref_hole;
+static esp_h264_err_t esp_h264_exoanchor_reserve_ref_workspace(
+    uint16_t width, uint32_t *required_bytes, uint32_t *capacity_bytes)
+{
+    const uint32_t mb_width = ((uint32_t)width + 15U) >> 4;
+    const uint32_t required = 3U * 16U * 24U * mb_width + 7U;
+    /* esp_h264_aligned_malloc() rounds the request up to the 64-byte L1
+     * line and heap_caps_aligned_alloc() needs its own block header, so
+     * the hole must be comfortably larger than the bare requirement. */
+    const uint32_t hole = ((required + 63U) & ~63U) + 8192U;
+    if (!s_stock_ref_hole) {
+        s_stock_ref_hole = heap_caps_aligned_alloc(
+            16, hole, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    if (required_bytes) *required_bytes = required;
+    if (capacity_bytes) *capacity_bytes = s_stock_ref_hole ? required : 0;
+    return s_stock_ref_hole ? ESP_H264_ERR_OK : ESP_H264_ERR_MEM;
+}
+static void esp_h264_exoanchor_release_cached_workspaces(void)
+{
+    if (s_stock_ref_hole) {
+        heap_caps_free(s_stock_ref_hole);
+        s_stock_ref_hole = NULL;
+    }
+}
+#define SI_H264_STOCK_RELEASE_HOLE() esp_h264_exoanchor_release_cached_workspaces()
+static esp_h264_err_t esp_h264_exoanchor_reserve_db_tmp(uint16_t width,
+                                                        uint32_t *capacity)
+{
+    (void)width;
+    if (capacity) *capacity = 0;
+    return ESP_H264_ERR_OK;
+}
+static void esp_h264_exoanchor_release_db_tmp(void) {}
+#else
+#define SI_H264_STOCK_RELEASE_HOLE() ((void)0)
 extern esp_h264_err_t esp_h264_exoanchor_reserve_ref_workspace(
     uint16_t width, uint32_t *required_bytes, uint32_t *capacity_bytes);
 extern void esp_h264_exoanchor_release_cached_workspaces(void);
+/* Deblocking temp buffer: same boot-time reservation scheme, see CMake. */
+extern esp_h264_err_t esp_h264_exoanchor_reserve_db_tmp(uint16_t width,
+                                                        uint32_t *capacity_bytes);
+extern void esp_h264_exoanchor_release_db_tmp(void);
+#endif
 
 static void log_pipeline_heap(const char *stage)
 {
@@ -970,6 +1113,11 @@ static void h264_telemetry_metrics_publish(
                      __ATOMIC_RELEASE);
     __atomic_store_n(&s_metrics_send_max_us, metrics->max_send_us,
                      __ATOMIC_RELEASE);
+    __atomic_store_n(&s_metrics_latency_avg_us,
+                     (uint32_t)(metrics->latency_us / frames),
+                     __ATOMIC_RELEASE);
+    __atomic_store_n(&s_metrics_latency_max_us, metrics->max_latency_us,
+                     __ATOMIC_RELEASE);
     __atomic_store_n(&s_metrics_overlap_pairs, metrics->overlap_pairs,
                      __ATOMIC_RELEASE);
     __atomic_store_n(&s_metrics_overlap_misses, metrics->overlap_misses,
@@ -1069,6 +1217,35 @@ static void chain_metrics_record_overlap(
     overlap_probe_reset(probe);
 }
 
+static void h264_low_latency_update(si_h264_pipeline_t *pipeline)
+{
+    if (!pipeline || pipeline->fps == 0U ||
+        __atomic_load_n(&s_metrics_window_ms, __ATOMIC_ACQUIRE) == 0U) {
+        return;
+    }
+    const uint32_t budget_us = 1000000U / pipeline->fps;
+    const uint32_t stage_us =
+        __atomic_load_n(&s_metrics_decode_avg_us, __ATOMIC_ACQUIRE) +
+        __atomic_load_n(&s_metrics_encode_avg_us, __ATOMIC_ACQUIRE);
+    const bool was = pipeline->low_latency;
+    const bool now = was
+        ? (uint64_t)stage_us * 100ULL <
+              (uint64_t)budget_us * SI_H264_LOW_LATENCY_EXIT_PERCENT
+        : (uint64_t)stage_us * 100ULL <=
+              (uint64_t)budget_us * SI_H264_LOW_LATENCY_ENTER_PERCENT;
+    if (now != was) {
+        pipeline->low_latency = now;
+        __atomic_store_n(&s_metrics_low_latency, now, __ATOMIC_RELEASE);
+        char line[128];
+        snprintf(line, sizeof(line),
+                 "H264 low-latency %s: stages %u us vs period %u us at %u fps",
+                 now ? "on" : "off", (unsigned)stage_us, (unsigned)budget_us,
+                 (unsigned)pipeline->fps);
+        ESP_LOGI(TAG, "%s", line);
+        si_web_log("INFO", line);
+    }
+}
+
 static void chain_metrics_report(si_h264_chain_metrics_t *metrics,
                                  int64_t now_us)
 {
@@ -1077,7 +1254,12 @@ static void chain_metrics_report(si_h264_chain_metrics_t *metrics,
         return;
     }
     uint32_t frames = metrics->frames;
-    ESP_LOGI(TAG,
+    /* DEBUG, not INFO: the console UART is a blocking 115200-baud sink and
+     * this ~300-byte line took ~20 ms on the priority-8 stream task every 2 s,
+     * starving the video HTTPD task on the same core (one late frame every
+     * 2 s, visible as periodic stutter).  The same numbers are published in
+     * /api/video/status chain_metrics. */
+    ESP_LOGD(TAG,
              "chain %.2fs: source=%.2ffps output=%.2ffps source_drop=%u jpeg=%.2fMbps h264=%.2fMbps avg_us copy=%u info=%u decode=%u encode=%u move=%u send_wait=%u send=%u max_us decode=%u encode=%u send_wait=%u send=%u overlap pairs=%u miss=%u avg=%u span=%u/%u wait=%u/%u timeout=%u",
              elapsed_us / 1000000.0,
              metrics->source_frames * 1000000.0 / elapsed_us,
@@ -1191,6 +1373,10 @@ static void h264_httpd_send_work(void *arg)
     bool current = false;
     bool send_attempted = false;
     bool active_send_failure = false;
+    const int64_t work_started_us = esp_timer_get_time();
+    int64_t checks_done_us = work_started_us;
+    int64_t send_started_us = 0;
+    int64_t send_finished_us = 0;
 
     if (!__atomic_load_n(&pipeline->send_stopping, __ATOMIC_ACQUIRE) &&
         s_stream.lock &&
@@ -1204,6 +1390,7 @@ static void h264_httpd_send_work(void *arg)
     if (current &&
         (job.stream_id == 0U ||
          si_video_control_kvm_stream_is_current(job.stream_id))) {
+        checks_done_us = esp_timer_get_time();
         /* ESP-IDF marks a peer CLOSE as non-WebSocket before its asynchronous
          * session destruction runs.  An AU already queued behind that CLOSE is
          * therefore canceled work, not a network send failure.  Only an error
@@ -1212,22 +1399,48 @@ static void h264_httpd_send_work(void *arg)
         httpd_ws_client_info_t client_before =
             httpd_ws_get_fd_info(job.server, job.fd);
         if (client_before == HTTPD_WS_CLIENT_WEBSOCKET) {
-            httpd_ws_frame_t frame = {
-                .type = HTTPD_WS_TYPE_BINARY,
-                .payload = job.payload,
-                .len = job.frame_len,
-            };
             send_attempted = true;
             int64_t started_us = esp_timer_get_time();
-            err = httpd_ws_send_frame_async(job.server, job.fd, &frame);
+            err = h264_ws_send_binary(job.server, job.fd, job.payload,
+                                      job.frame_len);
             int64_t finished_us = esp_timer_get_time();
+            send_started_us = started_us;
+            send_finished_us = finished_us;
             __atomic_store_n(&pipeline->last_send_us,
                              (uint32_t)(finished_us - started_us),
                              __ATOMIC_RELEASE);
+            if (job.captured_us > 0 && finished_us > job.captured_us) {
+                __atomic_store_n(&pipeline->last_latency_us,
+                                 (uint32_t)(finished_us - job.captured_us),
+                                 __ATOMIC_RELEASE);
+            }
+            if (s_diag_last_send_end_us != 0 &&
+                finished_us - s_diag_last_send_end_us >
+                    h264_slow_au_interval_us(pipeline) &&
+                finished_us - s_diag_last_send_log_us >
+                    SI_H264_SLOW_AU_LOG_GAP_US) {
+                s_diag_last_send_log_us = finished_us;
+                char diag[160];
+                snprintf(diag, sizeof(diag),
+                         "H264 slow AU: interval=%u ms queue_wait=%u checks=%u send=%u prev_send=%u idle_before=%u (ms) len=%u",
+                         (unsigned)((finished_us - s_diag_last_send_end_us) / 1000),
+                         (unsigned)((work_started_us - work->enqueued_us) / 1000),
+                         (unsigned)((checks_done_us - work_started_us) / 1000),
+                         (unsigned)((send_finished_us - send_started_us) / 1000),
+                         (unsigned)(s_diag_prev_send_us / 1000),
+                         (unsigned)((work_started_us - s_diag_last_send_end_us) / 1000),
+                         (unsigned)job.frame_len);
+                si_web_log("WARN", diag);
+            }
+            s_diag_last_send_end_us = finished_us;
+            s_diag_prev_send_us = (uint32_t)(finished_us - started_us);
+            s_diag_last_work_start_us = work_started_us;
             if (err == ESP_OK) {
                 (void)httpd_sess_update_lru_counter(job.server, job.fd);
-                si_video_stream_metrics_record(job.stream_id, frame.len,
-                                               si_monotonic_ms());
+                si_video_stream_metrics_record(
+                    job.stream_id, job.frame_len, si_monotonic_ms(),
+                    job.captured_us > 0 && finished_us > job.captured_us
+                        ? (uint32_t)(finished_us - job.captured_us) : 0U);
             }
         }
     }
@@ -1276,6 +1489,12 @@ static esp_err_t pipeline_start_egress(si_h264_pipeline_t *pipeline)
     __atomic_store_n(&pipeline->send_result_session, 0,
                      __ATOMIC_RELAXED);
     __atomic_store_n(&pipeline->last_send_us, 0, __ATOMIC_RELEASE);
+    __atomic_store_n(&pipeline->last_latency_us, 0, __ATOMIC_RELEASE);
+    pipeline->low_latency = false;
+    __atomic_store_n(&s_metrics_low_latency, false, __ATOMIC_RELEASE);
+    /* Published stage averages belong to the previous session; the
+     * low-latency decision waits for this session's first window. */
+    __atomic_store_n(&s_metrics_window_ms, 0U, __ATOMIC_RELEASE);
     pipeline->egress_initialized = true;
     return ESP_OK;
 }
@@ -1338,6 +1557,7 @@ static esp_err_t pipeline_release_internal(si_h264_pipeline_t *pipeline,
     } else {
         free(pipeline->yuv420);
         free(pipeline->yuv420_alt);
+        free(pipeline->jpeg_copy);
         for (uint8_t slot_id = 0; slot_id < SI_H264_AU_SLOT_COUNT;
              slot_id++) {
             if (pipeline->au_slots[slot_id].storage) {
@@ -1508,6 +1728,8 @@ static esp_err_t pipeline_configure(si_h264_pipeline_t *pipeline,
         pipeline->yuv420_alt = s_preallocated_yuv420_alt;
         pipeline->yuv420_alt_capacity =
             s_preallocated_yuv420_alt_capacity;
+        pipeline->jpeg_copy = s_preallocated_jpeg_copy;
+        pipeline->jpeg_copy_capacity = s_preallocated_jpeg_copy_capacity;
         for (uint8_t slot_id = 0; slot_id < SI_H264_AU_SLOT_COUNT;
              slot_id++) {
             pipeline->au_slots[slot_id].storage =
@@ -1570,6 +1792,17 @@ static esp_err_t pipeline_configure(si_h264_pipeline_t *pipeline,
         if (!pipeline->yuv420_alt) {
             ESP_LOGW(TAG,
                      "second YUV surface unavailable; H.264 will use the serial fallback");
+        }
+        if (SI_CFG_VIDEO_H264_JPEG_COPY) {
+            pipeline->jpeg_copy = heap_caps_aligned_alloc(
+                128, SI_CFG_VIDEO_H264_JPEG_COPY_BYTES,
+                MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        }
+        pipeline->jpeg_copy_capacity =
+            pipeline->jpeg_copy ? SI_CFG_VIDEO_H264_JPEG_COPY_BYTES : 0U;
+        if (SI_CFG_VIDEO_H264_JPEG_COPY && !pipeline->jpeg_copy) {
+            ESP_LOGW(TAG,
+                     "JPEG copy surface unavailable; falling back to zero-copy UVC input (expect isochronous loss at 1080p)");
         }
     }
 
@@ -1636,7 +1869,8 @@ static esp_err_t pipeline_configure(si_h264_pipeline_t *pipeline,
 
     if (!s_preallocated_encoder) {
         esp_h264_err_t create_err =
-            esp_h264_enc_hw_new(&h264_cfg, &s_preallocated_encoder);
+            (SI_H264_STOCK_RELEASE_HOLE(),
+             esp_h264_enc_hw_new(&h264_cfg, &s_preallocated_encoder));
         if (create_err != ESP_H264_ERR_OK) {
             s_preallocated_encoder = NULL;
             ESP_LOGE(TAG, "H.264 encoder creation failed: %d",
@@ -1705,9 +1939,10 @@ static esp_err_t pipeline_configure(si_h264_pipeline_t *pipeline,
         }
     }
     ESP_LOGI(TAG,
-             "pipeline ready: %ux%u@%u, bitrate=%u, zero-copy-jpeg, raw=%u x%u, primary-au=%u small-egress=%u slots=%u overlap=%d",
+             "pipeline ready: %ux%u@%u, bitrate=%u, jpeg=%s, raw=%u x%u, primary-au=%u small-egress=%u slots=%u overlap=%d",
              (unsigned)width, (unsigned)height, (unsigned)fps,
              (unsigned)SI_CFG_VIDEO_H264_BITRATE,
+             pipeline->jpeg_copy ? "copy" : "zero-copy",
              (unsigned)pipeline->yuv420_capacity,
              pipeline->yuv420_alt ? 2U : 1U,
              (unsigned)(pipeline->au_slots[SI_H264_PRIMARY_AU_SLOT]
@@ -1762,8 +1997,10 @@ static esp_err_t h264_runtime_reserve_internal(
         /* An Agent worker releases its logical claim immediately before
          * vTaskDeleteWithCaps(), while IDF frees that internal stack from a
          * cleanup task.  Treat the short interval (and any other fragmented
-         * low-memory state) as retryable instead of entering esp_h264, whose
-         * strict-internal db_tmp allocation would otherwise fail. */
+         * low-memory state) as retryable instead of entering esp_h264.  The
+         * large strict-internal buffers (reference window, db_tmp) are
+         * already reserved, so the thresholds only cover descriptors and the
+         * JPEG worker stack. */
         if (internal_free < SI_H264_ENCODER_INTERNAL_MIN_FREE ||
             internal_largest < SI_H264_ENCODER_INTERNAL_MIN_LARGEST) {
             ESP_LOGW(TAG,
@@ -1773,6 +2010,7 @@ static esp_err_t h264_runtime_reserve_internal(
                      (unsigned)SI_H264_ENCODER_INTERNAL_MIN_LARGEST);
             return ESP_ERR_INVALID_STATE;
         }
+        SI_H264_STOCK_RELEASE_HOLE();
         esp_h264_err_t err = esp_h264_enc_hw_new(&cfg,
                                                   &s_preallocated_encoder);
         if (err != ESP_H264_ERR_OK) {
@@ -1831,6 +2069,13 @@ static esp_err_t h264_runtime_reserve_internal(
             raw_size, &raw_mem, &s_preallocated_yuv420_capacity);
         s_preallocated_yuv420_alt = jpeg_alloc_decoder_mem(
             raw_size, &raw_mem, &s_preallocated_yuv420_alt_capacity);
+        if (SI_CFG_VIDEO_H264_JPEG_COPY && !s_preallocated_jpeg_copy) {
+            s_preallocated_jpeg_copy = heap_caps_aligned_alloc(
+                128, SI_CFG_VIDEO_H264_JPEG_COPY_BYTES,
+                MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            s_preallocated_jpeg_copy_capacity =
+                s_preallocated_jpeg_copy ? SI_CFG_VIDEO_H264_JPEG_COPY_BYTES : 0U;
+        }
         for (uint8_t slot_id = 0; slot_id < SI_H264_AU_SLOT_COUNT;
              slot_id++) {
             uint32_t allocated = 0;
@@ -1872,11 +2117,16 @@ static esp_err_t h264_runtime_reserve_internal(
         ESP_LOGW(TAG,
                  "startup second YUV reserve failed; serial H.264 remains available");
     }
+    if (SI_CFG_VIDEO_H264_JPEG_COPY && !s_preallocated_jpeg_copy) {
+        ESP_LOGW(TAG,
+                 "startup JPEG copy reserve failed; zero-copy UVC input will lose isochronous packets at 1080p");
+    }
     ESP_LOGI(TAG,
-             "startup H.264 resources reserved: %ux%u@%u zero-copy-jpeg yuv=%u x%u primary-au=%u small-egress=%u slots=%u internal=%u/%u psram=%u/%u",
+             "startup H.264 resources reserved: %ux%u@%u jpeg-copy=%u yuv=%u x%u primary-au=%u small-egress=%u slots=%u internal=%u/%u psram=%u/%u",
              (unsigned)s_preallocated_width,
              (unsigned)s_preallocated_height,
              (unsigned)s_preallocated_fps,
+             (unsigned)s_preallocated_jpeg_copy_capacity,
              (unsigned)s_preallocated_yuv420_capacity,
              s_preallocated_yuv420_alt ? 2U : 1U,
              (unsigned)(s_preallocated_au_capacity[
@@ -2067,12 +2317,25 @@ esp_err_t si_h264_stream_initialize(void)
                      __ATOMIC_RELEASE);
     if (reserve_error != ESP_OK) {
         esp_h264_exoanchor_release_cached_workspaces();
+        esp_h264_exoanchor_release_db_tmp();
         __atomic_store_n(&s_resource_error, reserve_error,
                          __ATOMIC_RELEASE);
         ESP_LOGE(TAG,
                  "H.264 disabled: %u-byte internal reference workspace reserve failed",
                  (unsigned)required_bytes);
         return reserve_error;
+    }
+    /* The deblocking temp buffer must be DMA-capable L2MEM as well; reserve
+     * it now while a contiguous block still exists (MALLOC_CAP_INTERNAL alone
+     * would later fall back to RTC RAM, which the H.264 DMA cannot write). */
+    uint32_t db_tmp_capacity = 0;
+    if (esp_h264_exoanchor_reserve_db_tmp(SI_CFG_VIDEO_WIDTH,
+                                          &db_tmp_capacity) != ESP_H264_ERR_OK) {
+        esp_h264_exoanchor_release_cached_workspaces();
+        esp_h264_exoanchor_release_db_tmp();
+        __atomic_store_n(&s_resource_error, ESP_ERR_NO_MEM, __ATOMIC_RELEASE);
+        ESP_LOGE(TAG, "H.264 disabled: deblocking temp workspace reserve failed");
+        return ESP_ERR_NO_MEM;
     }
 
     __atomic_store_n(&s_service_initialized, true, __ATOMIC_RELEASE);
@@ -2160,6 +2423,12 @@ void si_h264_stream_get_status(si_h264_stream_status_t *status)
         .encode_max_us = __atomic_load_n(&s_metrics_encode_max_us,
                                          __ATOMIC_ACQUIRE),
         .send_max_us = __atomic_load_n(&s_metrics_send_max_us,
+                                       __ATOMIC_ACQUIRE),
+        .latency_avg_us = __atomic_load_n(&s_metrics_latency_avg_us,
+                                          __ATOMIC_ACQUIRE),
+        .latency_max_us = __atomic_load_n(&s_metrics_latency_max_us,
+                                          __ATOMIC_ACQUIRE),
+        .low_latency = __atomic_load_n(&s_metrics_low_latency,
                                        __ATOMIC_ACQUIRE),
         .overlap_pairs = __atomic_load_n(&s_metrics_overlap_pairs,
                                          __ATOMIC_ACQUIRE),
@@ -2680,6 +2949,7 @@ static void stream_finish_fd(int fd, bool error)
     }
 }
 
+
 static esp_err_t pipeline_restart_encoder_for_session(
     si_h264_pipeline_t *pipeline)
 {
@@ -2876,6 +3146,8 @@ static esp_err_t encode_and_send_frame(
     size_t frame_len = SI_H264_HEADER_SIZE + output.length;
     uint32_t send_us = __atomic_load_n(&pipeline->last_send_us,
                                        __ATOMIC_ACQUIRE);
+    uint32_t latency_us = __atomic_load_n(&pipeline->last_latency_us,
+                                          __ATOMIC_ACQUIRE);
     int64_t send_finished_us = esp_timer_get_time();
     si_h264_send_work_t *work = &send_slot->send_work;
     work->pipeline = pipeline;
@@ -2887,7 +3159,27 @@ static esp_err_t encode_and_send_frame(
         .slot_id = send_slot_id,
         .payload = wire_packet,
         .frame_len = frame_len,
+        .captured_us = decoded->captured_us,
     };
+    work->enqueued_us = esp_timer_get_time();
+    if (s_diag_last_enqueue_us != 0 &&
+        work->enqueued_us - s_diag_last_enqueue_us >
+            h264_slow_au_interval_us(pipeline) &&
+        work->enqueued_us - s_diag_last_produce_log_us >
+            SI_H264_SLOW_AU_LOG_GAP_US) {
+        s_diag_last_produce_log_us = work->enqueued_us;
+        char diag[160];
+        snprintf(diag, sizeof(diag),
+                 "H264 slow produce: interval=%u ms jpeg_wait=%d decode=%u enc_gap=%u encode=%u move=%u (ms)",
+                 (unsigned)((work->enqueued_us - s_diag_last_enqueue_us) / 1000),
+                 (int)((decoded->decode_started_us - s_diag_last_enqueue_us) / 1000),
+                 (unsigned)((decoded->decode_finished_us - decoded->decode_started_us) / 1000),
+                 (unsigned)((encode_started_us - decoded->decode_finished_us) / 1000),
+                 (unsigned)((encode_finished_us - encode_started_us) / 1000),
+                 (unsigned)((move_finished_us - move_started_us) / 1000));
+        si_web_log("WARN", diag);
+    }
+    s_diag_last_enqueue_us = work->enqueued_us;
     if (httpd_queue_work(server, h264_httpd_send_work, work) != ESP_OK) {
         pipeline_return_au_slot(pipeline, send_slot_id);
         __atomic_store_n(&pipeline->encoder_reset_required, true,
@@ -2932,6 +3224,7 @@ static esp_err_t encode_and_send_frame(
     chain->move_us += move_finished_us - move_started_us;
     chain->send_wait_us += send_wait_us;
     chain->send_us += send_us;
+    chain->latency_us += latency_us;
     __atomic_fetch_add(&s_access_units_total, 1U, __ATOMIC_RELAXED);
     __atomic_store_n(&s_last_sequence, *sequence, __ATOMIC_RELEASE);
     __atomic_store_n(&s_last_timestamp_ms, decoded->timestamp_ms,
@@ -2947,7 +3240,9 @@ static esp_err_t encode_and_send_frame(
         chain->max_send_wait_us = send_wait_us;
     }
     if (send_us > chain->max_send_us) chain->max_send_us = send_us;
+    if (latency_us > chain->max_latency_us) chain->max_latency_us = latency_us;
     chain_metrics_report(chain, send_finished_us);
+    h264_low_latency_update(pipeline);
     (*sequence)++;
     return ESP_OK;
 }
@@ -3241,6 +3536,20 @@ static void h264_stream_task(void *arg)
                     decoded = completed;
                     decoded_ready = true;
                     decoded_wait_started_us = completed.decode_finished_us;
+                    if (pipeline.low_latency) {
+                        /* Stages fit the frame period: encode and send now
+                         * rather than holding this frame for the overlap. */
+                        chain.low_latency_flushes++;
+                        const bool flushed = flush_decoded_frame(
+                            &pipeline, &decoded, &decoded_ready, server, fd,
+                            session, stream_id, &sequence,
+                            &logged_first_access_unit, &chain,
+                            &overlap_probe, 0U);
+                        decoded_wait_started_us = 0;
+                        if (!flushed) {
+                            continue;
+                        }
+                    }
                 }
             } else {
                 __atomic_fetch_add(&s_decode_failures_total, 1U,
@@ -3320,13 +3629,14 @@ static void h264_stream_task(void *arg)
         uint32_t jpeg_frame = jpeg_view.frame_id;
         last_jpeg_frame = jpeg_frame;
 
-        /* The UVC assembler and this staging copy are both CPU accesses.
-         * Coherency between the cores is provided by the shared cache and the
-         * frame lease; writing the whole leased image back to PSRAM here is
-         * unnecessary.  On maximum-entropy 1080p MJPEG it also occupies the
-         * external-memory path long enough to halve isochronous completion
-         * cadence.  Only the codec-owned destination is published below,
-         * immediately before DMA2D reads it. */
+        /* The leased UVC frame was written by the driver task on core 0, so
+         * its dirty lines live in that core's L1.  Handing the frame to the
+         * JPEG DMA directly makes the decoder's cross-core writeback stall the
+         * USB host while the H.264 engine is busy, and the controller then
+         * marks isochronous packets SKIPPED: measured 1080p25 drops from 25
+         * to 17 fps with zero driver underflows.  Copying the JPEG on this
+         * core into a codec-owned surface and returning the lease at once
+         * removes every skipped packet (codexws/ms2109-h264-bench-20261024). */
 
         si_video_status_t video = {0};
         si_video_get_status(&video);
@@ -3412,11 +3722,23 @@ static void h264_stream_task(void *arg)
         copy_started_us = esp_timer_get_time();
         copy_finished_us = copy_started_us;
         uint8_t *frame_input = (uint8_t *)jpeg_view.data;
-        /* jpeg_decoder_process() is the cache-ownership boundary.  IDF
-         * writes the compressed entropy range back to PSRAM immediately
-         * before starting DMA2D, so doing another full-frame C2M sync here
-         * doubles external-memory traffic on the largest MS2109 frames and
-         * can starve the isochronous producer. */
+        const int64_t captured_us = jpeg_view.captured_us;
+        bool jpeg_copied = false;
+        if (pipeline.jpeg_copy && jpeg_len <= pipeline.jpeg_copy_capacity) {
+            memcpy(pipeline.jpeg_copy, jpeg_view.data, jpeg_len);
+            copy_finished_us = esp_timer_get_time();
+            esp_err_t release_err = si_video_release_h264_jpeg(&jpeg_view);
+            if (release_err != ESP_OK) {
+                ESP_LOGE(TAG, "release copied H.264 UVC frame failed: %s",
+                         esp_err_to_name(release_err));
+            }
+            memset(&jpeg_view, 0, sizeof(jpeg_view));
+            frame_input = pipeline.jpeg_copy;
+            jpeg_copied = true;
+        }
+        /* jpeg_decoder_process() remains the cache-ownership boundary: IDF
+         * writes the compressed range back immediately before DMA2D starts.
+         * With the copy above those lines belong to this core. */
 
         si_h264_decode_job_t completed = {
             .jpeg = frame_input,
@@ -3433,10 +3755,11 @@ static void h264_stream_task(void *arg)
             .jpeg_frame = jpeg_frame,
             .previous_jpeg_frame = previous_jpeg_frame,
             .timestamp_ms = (uint32_t)(copy_finished_us / 1000),
+            .captured_us = captured_us,
             .jpeg_bytes = (uint32_t)jpeg_len,
             .copy_us = (uint32_t)(copy_finished_us - copy_started_us),
             .info_us = (uint32_t)(info_finished_us - info_started_us),
-            .h264_uvc_lease = true,
+            .h264_uvc_lease = !jpeg_copied,
         };
         jpeg_decode_cfg_t decode_cfg = {
             .output_format = JPEG_DECODE_OUT_FORMAT_YUV420,
@@ -3656,18 +3979,6 @@ esp_err_t si_h264_stream_ws_post_handshake(httpd_req_t *req)
                  esp_err_to_name(reserve_err));
         return reserve_err;
     }
-    esp_err_t send_override_err = httpd_sess_set_send_override(
-        req->handle, new_fd, h264_socket_send_all);
-    if (send_override_err != ESP_OK) {
-        if (resource_claimed_here) {
-            (void)h264_stream_release_h264_resources(resource_token);
-        }
-        xSemaphoreGive(s_stream.lock);
-        ESP_LOGE(TAG, "cannot install H.264 send-all transport: %s",
-                 esp_err_to_name(send_override_err));
-        return send_override_err;
-    }
-
     /* Prepare every fallible transport resource before publishing the new
      * session.  A failure must leave the old producer tuple intact. */
     esp_err_t transport_err = si_video_control_set_h264_transport(true);
@@ -3725,6 +4036,19 @@ esp_err_t si_h264_stream_ws_post_handshake(httpd_req_t *req)
         (void)httpd_sess_trigger_close(old_server, old_fd);
     }
     si_video_stream_metrics_begin(stream_id, si_monotonic_ms());
+    /* One access unit per WebSocket frame, and at 480p an AU is only 2-5 KB
+     * (one or two TCP segments).  With Nagle on, the trailing partial segment
+     * waits for the browser's delayed ACK, so frames arrive in pairs (66 ms
+     * gap, then two at once) although the device timestamps are uniform:
+     * measured 389 such pairs per minute at 640x480@30.  Push every AU out
+     * immediately. */
+    {
+        const int nodelay = 1;
+        if (setsockopt(new_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay,
+                       sizeof(nodelay)) != 0) {
+            ESP_LOGW(TAG, "H.264 WebSocket TCP_NODELAY failed: errno=%d", errno);
+        }
+    }
     ESP_LOGI(TAG, "H.264 WebSocket connected: fd=%d stream=%u",
              new_fd, (unsigned)stream_id);
     return ESP_OK;

@@ -7,7 +7,7 @@
 #include "sdkconfig.h"
 
 #ifndef SI_BMC_VERSION
-#define SI_BMC_VERSION "0.87.6-dev"
+#define SI_BMC_VERSION "0.88.0-dev"
 #endif
 #define SI_BMC_HOSTNAME CONFIG_SI_BOARD_HOSTNAME
 #define SI_BMC_BOARD CONFIG_SI_BOARD_NAME
@@ -31,8 +31,17 @@
 #endif
 
 #define SI_STATUS_POLL_INTERVAL_MS 1000U
+#ifdef CONFIG_SI_WEB_PLAIN_HTTP
+/* Bench-only plain HTTP: the UI resolves ws://host:81 for H.264 (see
+ * kvm-video.js h264Url) and the main listener sits on the default port. */
+#define SI_DEFAULT_HTTP_PORT 80
+#define SI_STREAM_HTTP_PORT 81
+#define SI_WEB_SCHEME_NAME "HTTP"
+#else
 #define SI_DEFAULT_HTTP_PORT 443
 #define SI_STREAM_HTTP_PORT 444
+#define SI_WEB_SCHEME_NAME "HTTPS"
+#endif
 
 #ifndef CONFIG_SI_AUTH_USERNAME
 #define CONFIG_SI_AUTH_USERNAME "admin"
@@ -127,6 +136,18 @@
 #define SI_CFG_VIDEO_H264_HIGH_RES_MAX_FPS 25U
 #define SI_CFG_VIDEO_H264_720P_MAX_FPS 30U
 #define SI_CFG_VIDEO_H264_MAX_ACCESS_UNIT CONFIG_SI_VIDEO_H264_MAX_ACCESS_UNIT
+#ifdef CONFIG_SI_VIDEO_H264_STOCK_CODEC
+#define SI_CFG_VIDEO_H264_STOCK_CODEC 1
+#else
+#define SI_CFG_VIDEO_H264_STOCK_CODEC 0
+#endif
+#ifdef CONFIG_SI_VIDEO_H264_JPEG_COPY
+#define SI_CFG_VIDEO_H264_JPEG_COPY 1
+#define SI_CFG_VIDEO_H264_JPEG_COPY_BYTES CONFIG_SI_VIDEO_H264_JPEG_COPY_BYTES
+#else
+#define SI_CFG_VIDEO_H264_JPEG_COPY 0
+#define SI_CFG_VIDEO_H264_JPEG_COPY_BYTES 0
+#endif
 
 static inline bool si_auth_enabled(void)
 {

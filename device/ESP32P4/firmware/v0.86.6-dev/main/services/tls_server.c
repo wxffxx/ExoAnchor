@@ -1,4 +1,5 @@
 #include "tls_server.h"
+#include "web_server.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -16,8 +17,26 @@
 #include "secret_store.h"
 #include "settings_store.h"
 #include "lwip/inet.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "lwip/sockets.h"
 
 /* Private key stays on the device. The public certificate is downloadable through the setup UI. */
+#if CONFIG_SI_WEB_PLAIN_HTTP
+/* Bench-only plain HTTP (CONFIG_SI_WEB_PLAIN_HTTP): no identity and no TLS
+ * session hooks; both listeners are ordinary esp_http_server instances. */
+esp_err_t si_tls_server_start(httpd_handle_t *server, const httpd_config_t *config)
+{
+    if (!server || !config) return ESP_ERR_INVALID_ARG;
+    return httpd_start(server, config);
+}
+
+const char *si_tls_server_certificate(void)
+{
+    return NULL;
+}
+#else /* !CONFIG_SI_WEB_PLAIN_HTTP */
+
 static EXT_RAM_BSS_ATTR unsigned char s_certificate[2048];
 static EXT_RAM_BSS_ATTR unsigned char s_private_key[1024];
 static bool s_ready;
@@ -139,9 +158,53 @@ static esp_err_t load_identity(void)
  * tick after every handshake so the idle task can run in between. user_cb only
  * fires for handshakes that succeed; close_fn also runs when one fails or a
  * browser aborts it, which is common against a self-signed certificate. */
+/* Diagnostics: log the peer of every TLS session that completes its handshake,
+ * with a per-second cap, so a client that keeps reconnecting shows up by IP. */
+static void tls_log_session_peer(esp_https_server_user_cb_arg_t *arg)
+{
+    static uint32_t s_window_s;
+    static uint32_t s_window_count;
+    int fd = -1;
+    if (!arg->tls || esp_tls_get_conn_sockfd(arg->tls, &fd) != ESP_OK || fd < 0) {
+        return;
+    }
+    struct sockaddr_storage addr;
+    socklen_t addr_len = sizeof(addr);
+    if (getpeername(fd, (struct sockaddr *)&addr, &addr_len) != 0) {
+        return;
+    }
+    char ip[48] = "?";
+    uint16_t port = 0;
+    if (addr.ss_family == AF_INET) {
+        const struct sockaddr_in *in = (const struct sockaddr_in *)&addr;
+        inet_ntop(AF_INET, &in->sin_addr, ip, sizeof(ip));
+        port = ntohs(in->sin_port);
+    } else if (addr.ss_family == AF_INET6) {
+        const struct sockaddr_in6 *in6 = (const struct sockaddr_in6 *)&addr;
+        inet_ntop(AF_INET6, &in6->sin6_addr, ip, sizeof(ip));
+        port = ntohs(in6->sin6_port);
+    }
+    uint32_t now_s = (uint32_t)(esp_timer_get_time() / 1000000);
+    if (now_s != s_window_s) {
+        s_window_s = now_s;
+        s_window_count = 0;
+    }
+    ++s_window_count;
+    /* Also into the HTTP-readable log ring (capped harder) so the cadence of
+     * new connections can be read without the serial port. */
+    if (s_window_count <= 2U) {
+        char line[80];
+        snprintf(line, sizeof(line), "TLS session from %s:%u", ip, (unsigned)port);
+        si_web_log("INFO", line);
+    }
+}
+
 static void tls_session_yield(esp_https_server_user_cb_arg_t *arg)
 {
-    if (arg && arg->user_cb_state == HTTPD_SSL_USER_CB_SESS_CREATE) vTaskDelay(1);
+    if (arg && arg->user_cb_state == HTTPD_SSL_USER_CB_SESS_CREATE) {
+        tls_log_session_peer(arg);
+        vTaskDelay(1);
+    }
 }
 
 static void tls_session_close(httpd_handle_t server, int sockfd)
@@ -181,3 +244,4 @@ const char *si_tls_server_certificate(void)
 {
     return s_ready ? (const char *)s_certificate : NULL;
 }
+#endif /* !CONFIG_SI_WEB_PLAIN_HTTP */

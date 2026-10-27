@@ -65,6 +65,17 @@ CORE_JS = "/assets/ui-core.js"
 SHELL_CSS = "/assets/ui-shell.css"
 SHELL_JS = "/assets/ui-shell.js"
 
+KVM_MODULE_FILES = ("kvm-core.js", "kvm-video.js", "kvm-lease.js", "kvm-modes.js", "kvm-input.js", "kvm-status.js")
+
+
+def read_kvm_sources() -> str:
+    """The KVM page plus its classic-script modules, in load order."""
+    parts = [(WWW_DIR / "kvm.html").read_text(encoding="utf-8")]
+    parts.extend((WWW_DIR / "assets" / name).read_text(encoding="utf-8")
+                 for name in KVM_MODULE_FILES)
+    return "\n".join(parts)
+
+
 API_PATTERN = re.compile(r"/api/[A-Za-z0-9_./?-]+")
 FIRMWARE_ROUTE_PATTERN = re.compile(
     r'register_uri\([^,]+,\s*"([^"]+)",\s*(HTTP_[A-Z]+)'
@@ -130,6 +141,9 @@ def expected_http_routes() -> set[tuple[str, str]]:
 def main() -> int:
     frontend_paths: set[str] = set()
     failures = []
+    for name in KVM_MODULE_FILES:
+        frontend_paths.update(normalized_api_paths(
+            (WWW_DIR / "assets" / name).read_text(encoding="utf-8")))
     for page in sorted(WWW_DIR.glob("*.html")):
         text = page.read_text(encoding="utf-8")
         frontend_paths.update(normalized_api_paths(text))
@@ -151,7 +165,7 @@ def main() -> int:
         if "switch-control" in re.sub(r"<style>.*?</style>", "", text, flags=re.S):
             failures.append(f"{page.name} still uses the legacy switch markup")
 
-    kvm_text = (WWW_DIR / "kvm.html").read_text(encoding="utf-8")
+    kvm_text = read_kvm_sources()
     video_style = re.search(r"\.screen img\{([^}]*)\}", kvm_text)
     if not video_style:
         failures.append("KVM video sizing rule is missing")
@@ -372,7 +386,8 @@ def main() -> int:
             failures.append(f"authentication hardening guard missing {marker}")
     for marker in (
         'const char *name = "EA_SESSION=";',
-        "HttpOnly; Secure; SameSite=Strict",
+        'HttpOnly;" SI_HTTP_COOKIE_SECURE_ATTR " SameSite=Strict',
+        '#define SI_HTTP_COOKIE_SECURE_ATTR " Secure;"',
         "media-src 'self' blob:",
         "SI_HTTP_SESSION_COOKIE_MAX_AGE_SECONDS 86400U",
         'httpd_req_get_hdr_value_len(req, name)',
@@ -1585,7 +1600,7 @@ def main() -> int:
     ):
         if marker not in ssh_client_text:
             failures.append(f"SSH shell credential cleanup missing {marker}")
-    kvm_text = (WWW_DIR / "kvm.html").read_text(encoding="utf-8")
+    kvm_text = read_kvm_sources()
     for obsolete in ('id="conn"', 'id="hidStatus"', 'id="videoStatus"', 'class="toolbar"', 'conn.textContent=', 'hidStatus.textContent=', 'videoStatus.textContent='):
         if obsolete in kvm_text:
             failures.append(f"kvm still exposes redundant local status strip {obsolete}")
@@ -1621,6 +1636,11 @@ def main() -> int:
         "function finishKvmFocusRefresh()",
         "hidFocusBlocked=false;if(!kvmReadOnly",
         'localStorage.getItem("si_kvm_focus_refresh")!=="0"',
+        'const blurPause={enabled:localStorage.getItem("si_kvm_blur_pause")==="1"}',
+        'function pauseKvmCaptureOnBlur()',
+        'function resumeKvmCaptureAfterBlur()',
+        'kvmWindowBlurred=false;if(resumeKvmCaptureAfterBlur())return;',
+        'document.hidden||kvmBlurPaused||',
         'id="streamStats" class="stream-stats stale"',
         "v.stream_metrics||{}",
         "UI.status.lastDurationMs",
@@ -1895,7 +1915,9 @@ def main() -> int:
     if "previous_stride != s_capture_stride_ms" in video_input_text:
         failures.append("KVM/preview stride changes still restart the USB UVC hardware stream")
     for marker in (
-        ".logical_fps_x100 = best->public_mode.fps_x100,",
+        ".logical_fps_x100 = decimation > 1U ? fps_x100",
+        ": best->public_mode.fps_x100,",
+        ".decimation = decimation,",
         ".format = best->format,",
         "s_status.target_fps_x100 = selected.logical_fps_x100;",
     ):
@@ -2000,9 +2022,9 @@ def main() -> int:
     else:
         version_base = version_match.group(1)
         version = f"{version_base}-dev"
-        if version_base != "0.87.6":
+        if version_base != "0.88.0":
             failures.append(
-                "0.87.6 IndigoShore integration checkpoint violated; keep SI_VERSION_BASE "
+                "0.88.0 AzureDanube development version violated; keep SI_VERSION_BASE "
                 "aligned with the released current development version"
             )
         if f'window.ExoAnchorBuild?.version || "{version}"' not in core_js:
@@ -2014,7 +2036,7 @@ def main() -> int:
     shell_js = (WWW_DIR / "assets" / "ui-shell.js").read_text(encoding="utf-8")
     for marker in (
         'id="releaseMeta"',
-        'const RELEASE_NAME = "IndigoShore";',
+        'const RELEASE_NAME = "AzureDanube";',
         'const CHIP_LABEL = "P4";',
         'const DISPLAY_VERSION = UI.VERSION.replace(/-dev$/, "dev");',
         "UI.VERSION",
@@ -2498,7 +2520,8 @@ def main() -> int:
         if marker not in access_mode_text:
             failures.append(f"access-mode firmware boundary missing {marker}")
     for page_name in ("kvm.html", "terminal.html"):
-        page_text = (WWW_DIR / page_name).read_text(encoding="utf-8")
+        page_text = (read_kvm_sources() if page_name == "kvm.html"
+                     else (WWW_DIR / page_name).read_text(encoding="utf-8"))
         for marker in ('id="accessModeSelect"', "UI.accessMode.bind("):
             if marker not in page_text:
                 failures.append(f"{page_name} access-mode UI missing {marker}")

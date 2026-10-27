@@ -727,7 +727,9 @@ def main() -> int:
     ):
         if marker not in async_http:
             failures.append(description)
-    kvm_page = (PROJECT_DIR / "main/www/kvm.html").read_text(encoding="utf-8")
+    kvm_page = "\n".join(
+        (PROJECT_DIR / "main/www" / rel).read_text(encoding="utf-8")
+        for rel in ("kvm.html", "assets/kvm-core.js", "assets/kvm-video.js", "assets/kvm-lease.js", "assets/kvm-modes.js", "assets/kvm-input.js", "assets/kvm-status.js"))
     agent_page = (PROJECT_DIR / "main/www/agent.html").read_text(encoding="utf-8")
     if ':81/api/stream' in kvm_page or ':81/api/stream' in agent_page:
         failures.append("browser MJPEG must remain on the async same-origin route")

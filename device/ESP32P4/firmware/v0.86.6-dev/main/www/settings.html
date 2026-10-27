@@ -383,6 +383,7 @@ button,.button-link{min-height:38px}
         <div class="field"><label for="previewFpsSelect">Overview 预览帧率</label><select id="previewFpsSelect"><option value="100">1 FPS</option><option value="200">2 FPS</option><option value="300">3 FPS</option><option value="400">4 FPS</option><option value="500">5 FPS</option><option value="600">6 FPS</option><option value="700">7 FPS</option><option value="800">8 FPS</option><option value="900">9 FPS</option><option value="1000">10 FPS</option></select><small>只控制 Overview 快照刷新，不修改 KVM 的分辨率或采集 FPS。</small></div>
         <div class="ui-setting-row"><div class="ui-setting-copy"><b>视频采集常在线</b><small>无页面租约时仍保持后台采集</small></div><label class="ui-switch"><input id="videoAlwaysOnline" type="checkbox" role="switch" aria-label="视频采集常在线"><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
         <div class="ui-setting-row"><div class="ui-setting-copy"><b>返回 KVM 自动刷新 <span class="card-chip">仅当前浏览器</span></b><small>返回页面或窗口时重新连接视频；切换后立即生效</small></div><label class="ui-switch"><input id="browserFocusRefreshEnabled" type="checkbox" role="switch" aria-label="返回 KVM 自动刷新" data-dirty-ignore><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
+        <div class="ui-setting-row"><div class="ui-setting-copy"><b>窗口失焦后中断采集 <span class="card-chip">仅当前浏览器</span></b><small>KVM 窗口失去焦点时释放视频租约并停止采集，回到窗口后自动重连；默认关闭，开启“视频采集常在线”时设备仍会后台采集</small></div><label class="ui-switch"><input id="browserBlurPauseEnabled" type="checkbox" role="switch" aria-label="窗口失焦后中断采集" data-dirty-ignore><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
         <div id="ms2109PowerControl" class="ui-setting-row" data-ms2109-control hidden><div class="ui-setting-copy"><b>MS 视频电源 <span class="card-chip live">立即生效</span></b><small>关闭后 KVM 停止连接，开启后自动恢复</small></div><label class="ui-switch"><input id="ms2109PowerToggle" type="checkbox" role="switch" aria-label="MS 视频电源" data-dirty-ignore><span class="ui-switch-track"><span class="ui-switch-thumb"></span></span></label></div>
         <div id="videoRuntimeMsg" class="msg"></div>
         <div id="browserPreferenceMsg" class="browser-preference-note" aria-live="polite"></div>
@@ -895,6 +896,7 @@ function applyProductFeatures(cfg={}){
   conversationHistoryEnabled.checked=effective.conversation_history_enabled!==false;
   longTermMemoryEnabled.checked=!!effective.long_term_memory_enabled;
   browserFocusRefreshEnabled.checked=localStorage.getItem("si_kvm_focus_refresh")!=="0";
+  browserBlurPauseEnabled.checked=localStorage.getItem("si_kvm_blur_pause")==="1";
   browserAgentActionsEnabled.checked=localStorage.getItem("si_agent_action_visualization")!=="0";
   window.dispatchEvent(new CustomEvent("exoanchor:product-features-changed",{detail:{...effective}}));
 }
@@ -908,8 +910,8 @@ async function saveProductFeatureSettings(payload){
   if(Object.prototype.hasOwnProperty.call(payload,"embedded_agent_enabled"))broadcastEmbeddedAgentAvailability(saved);
   SettingsDirty.capture("product_features");SettingsDirty.capture("agent_privacy");return saved;
 }
-function bindBrowserPreference(input,key,messageEl){
-  input.checked=localStorage.getItem(key)!=="0";
+function bindBrowserPreference(input,key,messageEl,defaultOn=true){
+  input.checked=defaultOn?localStorage.getItem(key)!=="0":localStorage.getItem(key)==="1";
   input.onchange=()=>{
     localStorage.setItem(key,input.checked?"1":"0");
     if(messageEl){messageEl.textContent=input.checked?"已为当前浏览器开启":"已为当前浏览器关闭";setTimeout(()=>{if(messageEl.textContent.startsWith("已为"))messageEl.textContent=""},1800)}
@@ -1739,6 +1741,7 @@ UI.pageContext.register("settings",()=>{
 async function boot(){
   fillUsernames(API.username);if(EMBEDDED_AGENT){agentDisplayName.value="Agent";initAgentApiForm()}renderSkills();
   bindBrowserPreference(browserFocusRefreshEnabled,"si_kvm_focus_refresh",browserPreferenceMsg);
+  bindBrowserPreference(browserBlurPauseEnabled,"si_kvm_blur_pause",browserPreferenceMsg,false);
   bindBrowserPreference(browserAgentActionsEnabled,"si_agent_action_visualization",agentBrowserPreferenceMsg);
   setupSettingsNavigation();
   UI.status.subscribe(status=>{if(["device","status","advanced"].includes(activeSettingsSection()))renderSettingsRuntime(status)});

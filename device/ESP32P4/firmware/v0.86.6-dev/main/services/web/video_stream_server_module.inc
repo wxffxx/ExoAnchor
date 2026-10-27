@@ -9,6 +9,12 @@ static esp_err_t start_stream_server(void)
     config.server_port = SI_STREAM_HTTP_PORT;
     config.ctrl_port = (uint16_t)(config.ctrl_port + 1);
     config.uri_match_fn = httpd_uri_match_wildcard;
+    /* One notch above the UI server (both default to tskIDLE_PRIORITY+5):
+     * a TLS handshake on the UI server is ~200 ms of ECDHE work, and at equal
+     * priority it round-robins with this task's WebSocket sends, which showed
+     * up as 200-900 ms gaps in the H.264 stream whenever a browser or tool
+     * opened a new HTTPS connection. */
+    config.task_priority = tskIDLE_PRIORITY + 6;
     config.stack_size = 6144;
     /* Its handlers reach NVS only through settings_store, which proxies
      * flash access for PSRAM stacks; keep the 8 KiB TLS stack out of the

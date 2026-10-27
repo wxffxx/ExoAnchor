@@ -2,15 +2,37 @@
 
 # ExoAnchor
 
-**An Another [RCOS](https://rcos.io/) project**
+**Another [RCOS](https://rcos.io/) project**
 
 **[中文](README_zh.md)**
+
+## Latest update: 0.88 AzureDanube
+
+0.88 "AzureDanube" is a major release centered on video streaming: the firmware
+now fully supports H.264.
+
+- **New H.264 mode**: the video stream can now be delivered as H.264, which cuts
+  the bandwidth it needs substantially and makes access over the internet
+  practical. The P4 has enough performance for 720p30 / 1080p25.
+- **Latency**: compared side by side with a VNC client, ExoAnchor's perceived
+  end-to-end latency at 720p30 is about 120 ms. Of that, encoding and decoding on
+  the P4 take about 28 ms (about 13 ms JPEG decode + about 15 ms H.264 encode),
+  roughly a quarter of the total.
+- **1080p**: 1080p15 / 1080p20 / 1080p25 measured 15.0 / 20.0 / 24.6 fps, with
+  about 64 / 92 / 107 ms on the P4 from receiving a captured frame to sending it.
+  At 1080p, JPEG decode takes about 26 ms and H.264 encode 33–38 ms; once that
+  exceeds the frame period (20 fps and up), the firmware overlaps decode and
+  encode to hold the frame rate, at the cost of roughly one extra frame of
+  latency. H.264 tops out at 25 fps at 1080p. When latency matters most, use
+  720p30 or 1080p15.
+
+## About ExoAnchor
 
 ExoAnchor is a fully featured KVM released under the [MIT License](LICENSE),
 with the goal of opening everything from firmware to fabrication. It is an MCU-
 and RTOS-based embedded hardware project with an optional AI Agent layer.
 
-> Current development firmware: `0.87.6-dev IndigoShore`.
+> Current development firmware: `0.88.0-dev AzureDanube`.
 
 **We commit to releasing everything, from R&D to manufacturing, under the MIT
 License.**
@@ -71,8 +93,8 @@ anyone can inspect, modify, reproduce, manufacture, and sell their own hardware.
 | Application and control plane | Dashboard, device API, embedded Agent, and optional MCP adapter | ✅ Published and under active development |
 | MCU firmware | Video, HID, networking, UART, power control, configuration, and build scripts | ✅ Stable and Dev source published |
 | Schematics and PCB | Schematic PDF, native JLCEDA Pro project, KiCad project, and PADS / Altium reference exports | ✅ V2.4a6 published (V2.3B4/B6 kept as historical projects); manufacturing sign-off pending |
-| BOM, netlist, and reproduction guide | Versioned BOM, Protel 2.0 netlist, and build, flashing, assembly, and acceptance instructions | ✅ BOM and netlist published; 🚧 the reproduction guide is being expanded |
-| EasyEDA cloud source project | [Online V2.4a6 schematic and PCB source project](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ✅ Public (MIT); 🚧 online design preview not generated yet |
+| BOM, netlist, and reproduction guide | Versioned BOM, Protel 2.0 netlist, and build, flashing, assembly, and acceptance instructions | ✅ BOM and netlist published |
+| EasyEDA cloud source project | [Online V2.4a6 schematic and PCB source project](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ✅ Public (MIT) |
 | Mechanical design | Editable mechanical CAD source projects | ⏳ Pending |
 
 > ⚠️ This project is still under active development and hardware validation.
@@ -147,7 +169,7 @@ destructive EEPROM test controls and is not a product image.
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3已完全验证) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 build and capability boundary](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
-Dev is the current KVM + embedded Agent development line and runs `0.87.6-dev`;
+Dev is the current KVM + embedded Agent development line and runs `0.88.0-dev`;
 Stable is an independent pure-KVM source line without the embedded Agent. See
 the [firmware version index](device/ESP32P4/firmware/README.md) for all
 versions, upgrade requirements, and entry points.

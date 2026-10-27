@@ -186,6 +186,8 @@ void si_device_observation_get_video(si_device_video_observation_t *out,
         out->stream_fps_x100 = stream_metrics.fps_x100;
         out->stream_bitrate_bps = stream_metrics.bitrate_bps;
         out->stream_sample_window_ms = stream_metrics.sample_window_ms;
+        out->stream_latency_avg_us = stream_metrics.latency_avg_us;
+        out->stream_latency_max_us = stream_metrics.latency_max_us;
         strlcpy(out->source, status.source, sizeof(out->source));
         strlcpy(out->pixel_format, status.pixel_format, sizeof(out->pixel_format));
         strlcpy(out->capture_owner, status.capture_owner, sizeof(out->capture_owner));
@@ -339,6 +341,9 @@ void si_device_observation_get_ms2109_power(
     out->switch_output_level = status.switch_output_level;
     out->core_enable_output_level = status.core_enable_output_level;
     out->operation_count = status.operation_count;
+    out->cold_start_active = status.cold_start_active;
+    out->cold_start_off_ms = status.cold_start_off_ms;
+    out->cold_start_remaining_ms = status.cold_start_remaining_ms;
     strlcpy(out->last_result, esp_err_to_name(status.last_result),
             sizeof(out->last_result));
 #else

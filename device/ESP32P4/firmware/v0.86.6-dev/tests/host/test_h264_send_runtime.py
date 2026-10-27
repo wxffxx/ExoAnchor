@@ -23,11 +23,15 @@ harness = r'''
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
 
 typedef void *httpd_handle_t;
 typedef unsigned TickType_t;
 #define pdMS_TO_TICKS(ms) ((ms) / 10U)
+#define HTTPD_SOCK_ERR_INVALID -1
+#define HTTPD_SOCK_ERR_TIMEOUT -2
+#define HTTPD_SOCK_ERR_FAIL -3
+#define ESP_TLS_ERR_SSL_WANT_WRITE -0x6880
+#define ESP_TLS_ERR_SSL_WANT_READ -0x6900
 
 static int64_t now_us;
 static int64_t advance_us;
@@ -43,31 +47,26 @@ static void vTaskDelay(TickType_t ticks)
     now_us += (int64_t)ticks * 10000;
     sleeps++;
 }
-static ssize_t fake_send(int fd, const void *buffer, size_t length, int flags)
+/* Stands in for the session transport (TLS send function) that
+ * httpd_socket_send() dispatches to. */
+static int httpd_socket_send(httpd_handle_t hd, int fd, const char *buffer, size_t length, int flags)
 {
+    assert(hd == NULL);
     assert(fd == 7);
-    assert((flags & MSG_DONTWAIT) != 0);
-    assert((flags & MSG_OOB) != 0);
+    assert(flags == 0);
     calls++;
     now_us += advance_us;
-    if (scenario == 1 || (scenario == 5 && calls == 1)) {
-        errno = EINTR;
-        return -1;
-    }
-    if (scenario == 2 || (scenario == 5 && calls == 2)) {
-        errno = EAGAIN;
-        return -1;
-    }
+    if (scenario == 2 || (scenario == 5 && calls == 1)) return HTTPD_SOCK_ERR_TIMEOUT;
+    if (scenario == 6 || (scenario == 5 && calls == 2)) return ESP_TLS_ERR_SSL_WANT_WRITE;
     if (scenario == 3 || (scenario == 7 && calls == 2)) return 0;
-    if (scenario == 4) { errno = ECONNRESET; return -1; }
-    if (scenario == 6) { errno = EWOULDBLOCK; return -1; }
+    if (scenario == 4) { errno = ECONNRESET; return HTTPD_SOCK_ERR_FAIL; }
+    if (scenario == 8) { errno = 0; return -0x7F00; }
     size_t count = length < 2 ? length : 2;
     assert(total_sent + count <= sizeof(output));
     memcpy(output + total_sent, buffer, count);
     total_sent += count;
-    return (ssize_t)count;
+    return (int)count;
 }
-#define send fake_send
 '''
 tests = r'''
 static void reset(int selected, int64_t advance)
@@ -82,7 +81,7 @@ static void reset(int selected, int64_t advance)
 }
 static int transmit(const char *buffer, size_t length)
 {
-    return h264_socket_send_all(NULL, 7, buffer, length, MSG_OOB);
+    return h264_socket_send_all(NULL, 7, buffer, length, 0);
 }
 int main(void)
 {
@@ -101,10 +100,7 @@ int main(void)
     assert(errno == ETIMEDOUT && calls == 4 && now_us == budget);
     assert(total_sent == 8);
 
-    reset(1, budget / 4);
-    assert(transmit(payload, sizeof(payload)) == -1);
-    assert(errno == ETIMEDOUT && calls == 4 && now_us == budget);
-
+    /* Backpressure (HTTPD timeout or TLS want-write) retries until the deadline. */
     for (int selected = 2; selected <= 6; selected += 4) {
         reset(selected, 0);
         assert(transmit(payload, sizeof(payload)) == -1);
@@ -113,7 +109,7 @@ int main(void)
 
     reset(5, 1);
     assert(transmit(payload, sizeof(payload)) == sizeof(payload));
-    assert(memcmp(output, payload, sizeof(payload)) == 0 && sleeps == 1);
+    assert(memcmp(output, payload, sizeof(payload)) == 0 && sleeps == 2);
 
     reset(3, 0);
     assert(transmit(payload, sizeof(payload)) == -1 && errno == EPIPE);
@@ -122,6 +118,8 @@ int main(void)
     assert(total_sent == 2); /* A partial WebSocket payload cannot report success. */
     reset(4, 0);
     assert(transmit(payload, sizeof(payload)) == -1 && errno == ECONNRESET);
+    reset(8, 0);
+    assert(transmit(payload, sizeof(payload)) == -1 && errno == EIO);
     reset(0, 0);
     assert(transmit(NULL, 1) == -1 && errno == EINVAL);
     assert(transmit(payload, (size_t)INT_MAX + 1U) == -1 && errno == EOVERFLOW);

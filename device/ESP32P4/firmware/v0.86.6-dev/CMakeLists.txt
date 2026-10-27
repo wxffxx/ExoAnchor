@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-set(SI_VERSION_BASE "0.87.6")
+set(SI_VERSION_BASE "0.88.0")
 if(NOT DEFINED PROJECT_VER)
     set(PROJECT_VER "${SI_VERSION_BASE}-dev")
 endif()
@@ -751,7 +751,7 @@ message(STATUS "Using strict MS2109 FID-boundary compatibility fix")
 # the P4 L2 cache line, while still advertising the full 4 MiB safety window to
 # hardware.  Guard the exact upstream file so this ownership contract is
 # re-reviewed on every component upgrade.
-if(CONFIG_SI_VIDEO_H264_EXPERIMENT)
+if(CONFIG_SI_VIDEO_H264_EXPERIMENT AND NOT CONFIG_SI_VIDEO_H264_STOCK_CODEC)
 if(NOT CONFIG_CACHE_L2_CACHE_LINE_SIZE EQUAL 128)
     message(FATAL_ERROR
         "The esp_h264 DMA ownership override requires a 128-byte P4 L2 cache line")
@@ -795,7 +795,7 @@ endif()
 file(SHA256 "${si_h264_upstream_rc}" si_h264_rc_actual_sha256)
 if(NOT si_h264_rc_actual_sha256 STREQUAL si_h264_137_rc_sha256)
     message(FATAL_ERROR
-        "esp_h264 HW rate control changed; review the 1.3.7 CLIP3 fix")
+        "esp_h264 HW rate control changed; re-review the rate-control saturation override")
 endif()
 file(SHA256 "${si_h264_upstream_nal}" si_h264_nal_actual_sha256)
 if(NOT si_h264_nal_actual_sha256 STREQUAL si_h264_137_nal_sha256)
@@ -986,6 +986,123 @@ if(si_h264_output_sync_index EQUAL -1)
 endif()
 string(REPLACE "${si_h264_output_sync_upstream}"
                "${si_h264_output_sync_fixed}"
+               si_h264_single_patched "${si_h264_single_patched}")
+
+# The deblocking temp buffer must live in DMA-capable L2MEM.  On the product
+# heap that is not available at session time (largest DMA block ~14 KiB), so
+# reserve it once at boot through the same cached-workspace scheme as the
+# reference window and hand it to every encoder handle.
+set(si_h264_dbtmp_alloc_upstream [=[    hw_hd->db_tmp = (uint8_t *)esp_h264_aligned_calloc(16, 1, esp_h264_enc_hw_max_db_tmp_buffer_size(cfg->res.width), &actual_size, ESP_H264_MEM_INTERNAL);
+    ESP_H264_GOTO_ON_FALSE(hw_hd->db_tmp != NULL, ESP_H264_ERR_MEM, __exit__, TAG, "No memory for db_tmp");]=])
+set(si_h264_dbtmp_alloc_fixed [=[    {
+        uint32_t db_tmp_required = esp_h264_enc_hw_max_db_tmp_buffer_size(cfg->res.width);
+        if (s_exo_db_tmp_cache && s_exo_db_tmp_cache_size >= db_tmp_required) {
+            hw_hd->db_tmp = s_exo_db_tmp_cache;
+            hw_hd->db_tmp_size = s_exo_db_tmp_cache_size;
+            s_exo_db_tmp_cache = NULL;
+            s_exo_db_tmp_cache_size = 0;
+            memset(hw_hd->db_tmp, 0, hw_hd->db_tmp_size);
+            esp_h264_cache_check_and_writeback(hw_hd->db_tmp, hw_hd->db_tmp_size);
+            ESP_H264_LOGI(TAG, "Reusing reserved db_tmp workspace: %u/%u bytes at %p",
+                          (unsigned)db_tmp_required, (unsigned)hw_hd->db_tmp_size, hw_hd->db_tmp);
+        } else {
+            hw_hd->db_tmp = (uint8_t *)esp_h264_aligned_calloc(16, 1, db_tmp_required, &actual_size, ESP_H264_MEM_INTERNAL);
+            hw_hd->db_tmp_size = actual_size;
+        }
+    }
+    ESP_H264_GOTO_ON_FALSE(hw_hd->db_tmp != NULL, ESP_H264_ERR_MEM, __exit__, TAG, "No memory for db_tmp");]=])
+string(FIND "${si_h264_single_patched}" "${si_h264_dbtmp_alloc_upstream}" si_h264_dbtmp_alloc_index)
+if(si_h264_dbtmp_alloc_index EQUAL -1)
+    message(FATAL_ERROR "esp_h264 db_tmp allocation fragment not found; review the override")
+endif()
+string(REPLACE "${si_h264_dbtmp_alloc_upstream}" "${si_h264_dbtmp_alloc_fixed}"
+               si_h264_single_patched "${si_h264_single_patched}")
+set(si_h264_dbtmp_free_upstream [=[        if (hw_hd->db_tmp) {
+            esp_h264_free(hw_hd->db_tmp);
+        }
+
+        /** Close the encoder */]=])
+set(si_h264_dbtmp_free_fixed [=[        if (hw_hd->db_tmp) {
+            if (!s_exo_db_tmp_cache || hw_hd->db_tmp_size > s_exo_db_tmp_cache_size) {
+                if (s_exo_db_tmp_cache) {
+                    esp_h264_free(s_exo_db_tmp_cache);
+                }
+                s_exo_db_tmp_cache = hw_hd->db_tmp;
+                s_exo_db_tmp_cache_size = hw_hd->db_tmp_size;
+            } else {
+                esp_h264_free(hw_hd->db_tmp);
+            }
+            hw_hd->db_tmp = NULL;
+        }
+
+        /** Close the encoder */]=])
+string(FIND "${si_h264_single_patched}" "${si_h264_dbtmp_free_upstream}" si_h264_dbtmp_free_index)
+if(si_h264_dbtmp_free_index EQUAL -1)
+    message(FATAL_ERROR "esp_h264 db_tmp free fragment not found; review the override")
+endif()
+string(REPLACE "${si_h264_dbtmp_free_upstream}" "${si_h264_dbtmp_free_fixed}"
+               si_h264_single_patched "${si_h264_single_patched}")
+set(si_h264_dbtmp_field_upstream [=[    uint8_t                    *db_tmp;]=])
+set(si_h264_dbtmp_field_fixed [=[    uint8_t                    *db_tmp;
+    uint32_t                    db_tmp_size;]=])
+string(FIND "${si_h264_single_patched}" "${si_h264_dbtmp_field_upstream}" si_h264_dbtmp_field_index)
+if(si_h264_dbtmp_field_index EQUAL -1)
+    message(FATAL_ERROR "esp_h264 db_tmp field fragment not found; review the override")
+endif()
+string(REPLACE "${si_h264_dbtmp_field_upstream}" "${si_h264_dbtmp_field_fixed}"
+               si_h264_single_patched "${si_h264_single_patched}")
+set(si_h264_dbtmp_hooks_upstream [=[static esp_h264_err_t enc_del(esp_h264_enc_handle_t enc)
+{]=])
+set(si_h264_dbtmp_hooks_fixed [=[static uint8_t *s_exo_db_tmp_cache;
+static uint32_t s_exo_db_tmp_cache_size;
+
+/* ExoAnchor boot-time reservation of the deblocking temp buffer (L2MEM). */
+esp_h264_err_t esp_h264_exoanchor_reserve_db_tmp(uint16_t width, uint32_t *capacity_bytes)
+{
+    uint32_t required = esp_h264_enc_hw_max_db_tmp_buffer_size(width);
+    if (capacity_bytes) {
+        *capacity_bytes = 0;
+    }
+    if (s_exo_db_tmp_cache && s_exo_db_tmp_cache_size >= required) {
+        if (capacity_bytes) {
+            *capacity_bytes = s_exo_db_tmp_cache_size;
+        }
+        return ESP_H264_ERR_OK;
+    }
+    uint32_t actual = 0;
+    uint8_t *buf = (uint8_t *)esp_h264_aligned_calloc(16, 1, required, &actual, ESP_H264_MEM_INTERNAL);
+    if (!buf) {
+        ESP_H264_LOGE(TAG, "ExoAnchor db_tmp reserve failed: %u bytes", (unsigned)required);
+        return ESP_H264_ERR_MEM;
+    }
+    if (s_exo_db_tmp_cache) {
+        esp_h264_free(s_exo_db_tmp_cache);
+    }
+    s_exo_db_tmp_cache = buf;
+    s_exo_db_tmp_cache_size = actual;
+    if (capacity_bytes) {
+        *capacity_bytes = actual;
+    }
+    ESP_H264_LOGI(TAG, "ExoAnchor db_tmp workspace reserved: %u/%u bytes at %p", (unsigned)required, (unsigned)actual, buf);
+    return ESP_H264_ERR_OK;
+}
+
+void esp_h264_exoanchor_release_db_tmp(void)
+{
+    if (s_exo_db_tmp_cache) {
+        esp_h264_free(s_exo_db_tmp_cache);
+        s_exo_db_tmp_cache = NULL;
+        s_exo_db_tmp_cache_size = 0;
+    }
+}
+
+static esp_h264_err_t enc_del(esp_h264_enc_handle_t enc)
+{]=])
+string(FIND "${si_h264_single_patched}" "${si_h264_dbtmp_hooks_upstream}" si_h264_dbtmp_hooks_index)
+if(si_h264_dbtmp_hooks_index EQUAL -1)
+    message(FATAL_ERROR "esp_h264 enc_del fragment not found; review the override")
+endif()
+string(REPLACE "${si_h264_dbtmp_hooks_upstream}" "${si_h264_dbtmp_hooks_fixed}"
                si_h264_single_patched "${si_h264_single_patched}")
 
 # The ESP32-P4 encoder allocates a roughly 3.13 MiB deblocking workspace for
@@ -1448,16 +1565,146 @@ list(REMOVE_ITEM si_h264_sources "${si_h264_upstream_single}")
 list(REMOVE_ITEM si_h264_sources "${si_h264_upstream_param}")
 list(REMOVE_ITEM si_h264_sources "${si_h264_upstream_nal}")
 list(REMOVE_ITEM si_h264_sources "${si_h264_upstream_cache}")
+# Rate control: 1.3.7 leaves the cumulative bit error `ebits` unbounded and
+# forces the QP step to +1 while it stays above 20% of a frame budget, so after
+# a burst of over-budget frames the QP ratchets up to qp_max frame by frame and
+# the bitrate collapses until the encoder is recreated (seen in the KVM as a
+# sudden quality drop that a mode switch "fixes").  Apply only the two
+# rc_end() changes from esp_h264 1.4.1 (saturate the error to one second of
+# the bitrate budget; make the forced step a minimum, not a cap).  The rest
+# of the 1.4.1 rate controller is deliberately NOT imported: on the V2.4
+# bench upstream master encodes the same static 720p picture at 27-31 dB
+# PSNR (IDR 39 KB, P 7-29 KB) where 1.3.7 reaches 72 dB (IDR 151 KB, P ~50 B).
+list(FIND si_h264_sources "${si_h264_upstream_rc}" si_h264_rc_source_index)
+if(si_h264_rc_source_index EQUAL -1)
+    message(FATAL_ERROR "Could not replace esp_h264 rate-control source")
+endif()
+file(READ "${si_h264_upstream_rc}" si_h264_rc_patched)
+set(si_h264_rc_field_upstream [=[    int32_t  ebits;
+    int32_t  err_sum;]=])
+set(si_h264_rc_field_fixed [=[    int64_t  ebits;
+    int64_t  ebits_sat_clip;
+    int32_t  err_sum;]=])
+set(si_h264_rc_new_upstream [=[    prc->bits_per_frame = bitrate / fps;
+    prc->mb_cnt = mb_width * mb_height;]=])
+set(si_h264_rc_new_fixed [=[    prc->bits_per_frame = bitrate / fps;
+    /* ExoAnchor (esp_h264 1.4.1): limit the cumulative error correction to
+     * one second of the bitrate budget. */
+    prc->ebits_sat_clip = bitrate;
+    prc->mb_cnt = mb_width * mb_height;]=])
+set(si_h264_rc_fps_upstream [=[    prc->bits_per_frame = bitrate / fps;
+}]=])
+set(si_h264_rc_fps_fixed [=[    prc->bits_per_frame = bitrate / fps;
+    prc->ebits_sat_clip = bitrate;
+}]=])
+set(si_h264_rc_acc_upstream [=[    prc->ebits += total_enc_bits - prc->bits_per_frame;]=])
+set(si_h264_rc_acc_fixed [=[    {
+        int64_t frame_err = (int64_t)total_enc_bits - (int64_t)prc->bits_per_frame;
+        prc->ebits = CLIP3(-prc->ebits_sat_clip, prc->ebits_sat_clip, prc->ebits + frame_err);
+    }]=])
+set(si_h264_rc_step_upstream [=[    float err_bit_per_frame = 1.0 * prc->ebits / prc->bits_per_frame;
+    if (err_bit_per_frame > 0.2) {
+        prc->eqp = 1;
+    } else if (err_bit_per_frame < -0.2) {
+        prc->eqp = -1;
+    }]=])
+set(si_h264_rc_step_fixed [=[    /* ExoAnchor (esp_h264 1.4.1): enforce a minimum step of 1 while the
+     * cumulative error is large, without capping the [-5, 5] correction. */
+    float err_bit_per_frame = 1.0 * prc->ebits / prc->bits_per_frame;
+    if (err_bit_per_frame > 0.2 && prc->eqp < 1) {
+        prc->eqp = 1;
+    } else if (err_bit_per_frame < -0.2 && prc->eqp > -1) {
+        prc->eqp = -1;
+    }]=])
+foreach(frag field new fps acc step)
+    string(FIND "${si_h264_rc_patched}" "${si_h264_rc_${frag}_upstream}" si_h264_rc_${frag}_index)
+    if(si_h264_rc_${frag}_index EQUAL -1)
+        message(FATAL_ERROR "esp_h264 rate-control fragment '${frag}' not found; review the override")
+    endif()
+    string(REPLACE "${si_h264_rc_${frag}_upstream}" "${si_h264_rc_${frag}_fixed}"
+           si_h264_rc_patched "${si_h264_rc_patched}")
+endforeach()
+set(si_h264_patched_rc "${si_h264_patch_dir}/h264_rc.c")
+file(WRITE "${si_h264_patched_rc}" "${si_h264_rc_patched}")
+list(REMOVE_ITEM si_h264_sources "${si_h264_upstream_rc}")
 list(APPEND si_h264_sources
      "${si_h264_patched_single}"
      "${si_h264_patched_param}"
      "${si_h264_patched_nal}"
+     "${si_h264_patched_rc}"
      "${si_h264_patched_cache}")
 set_property(TARGET ${si_h264_component} PROPERTY SOURCES
              "${si_h264_sources}")
 target_include_directories(${si_h264_component} PRIVATE
     "${si_h264_component_dir}/hw/src")
 message(STATUS "Using ExoAnchor esp_h264 DMA, cache-range, workspace, and SPS escaping overrides")
+elseif(CONFIG_SI_VIDEO_H264_EXPERIMENT)
+message(STATUS "Using stock esp_h264 1.3.7 sources (SI_VIDEO_H264_STOCK_CODEC A/B build)")
+endif()
+
+# Two allocator fixes for esp_h264 1.3.7, applied to both the patched and the
+# stock-codec A/B builds:
+#  1. Cache-line alignment of every codec allocation (upstream master 3f2a00c,
+#     "Align HW encode buffers to cache line", not yet released).
+#  2. MALLOC_CAP_INTERNAL alone also admits LP (RTC) SRAM and SPM on the
+#     ESP32-P4, which the H.264 DMA cannot reach.  On the product firmware's
+#     fragmented internal heap the deblocking temp buffer landed in RTC RAM
+#     (0x5010xxxx): the DMA's internal AXI write-response error counter rose and
+#     every P frame inherited corrupted deblocking tails (IDR clean, chroma
+#     +60 on the next frame, stripes at macroblock-row tails) while the bare
+#     codec bench was clean.  Demand DMA-capable memory instead; the boot-time
+#     reservation below keeps such a block available.
+if(CONFIG_SI_VIDEO_H264_EXPERIMENT)
+idf_component_get_property(si_h264_alloc_component espressif__esp_h264 COMPONENT_LIB)
+idf_component_get_property(si_h264_alloc_component_dir espressif__esp_h264 COMPONENT_DIR)
+set(si_h264_upstream_alloc "${si_h264_alloc_component_dir}/port/src/esp_h264_alloc.c")
+set(si_h264_137_alloc_sha256 "9a4ab822ad89a895b6cf212640cc95020a9d9b686bf0aaff79d5284b10a16766")
+file(SHA256 "${si_h264_upstream_alloc}" si_h264_alloc_actual_sha256)
+if(NOT si_h264_alloc_actual_sha256 STREQUAL si_h264_137_alloc_sha256)
+    message(FATAL_ERROR
+        "esp_h264 allocator changed; re-review the cache-line alignment override")
+endif()
+file(READ "${si_h264_upstream_alloc}" si_h264_alloc_patched)
+set(si_h264_alloc_align_upstream [=[
+    uint32_t out_alignment = 0;
+    esp_cache_get_alignment(caps, (size_t *)&out_alignment);
+    *actual_size = ALIGN_UP(n * size, out_alignment);]=])
+set(si_h264_alloc_align_fixed [=[
+    size_t line = 0;
+    (void)esp_cache_get_alignment(caps, &line);
+    /* ExoAnchor: never let a codec buffer or DMA descriptor share a cache
+     * line with foreign heap data (upstream master 3f2a00c). */
+    if (line > alignment) {
+        alignment = (uint32_t)line;
+    }
+    /* ExoAnchor: MALLOC_CAP_INTERNAL alone also admits LP (RTC) SRAM and SPM,
+     * which the H.264 DMA cannot reach.  On a fragmented product heap the
+     * deblocking temp buffer landed at 0x5010xxxx (RTC RAM), the DMA's
+     * internal AXI write-response error counter rose, and every P frame
+     * inherited corrupted deblocking tails.  Demand DMA-capable memory. */
+    if (caps & MALLOC_CAP_INTERNAL) {
+        caps |= MALLOC_CAP_DMA;
+    }
+    *actual_size = ALIGN_UP(n * size, alignment);]=])
+string(FIND "${si_h264_alloc_patched}" "${si_h264_alloc_align_upstream}" si_h264_alloc_align_index)
+if(si_h264_alloc_align_index EQUAL -1)
+    message(FATAL_ERROR "esp_h264 allocator alignment fragment not found; review the override")
+endif()
+string(REPLACE "${si_h264_alloc_align_upstream}" "${si_h264_alloc_align_fixed}"
+       si_h264_alloc_patched "${si_h264_alloc_patched}")
+set(si_h264_alloc_patch_dir "${CMAKE_BINARY_DIR}/exoanchor-patched/esp_h264")
+file(MAKE_DIRECTORY "${si_h264_alloc_patch_dir}")
+set(si_h264_patched_alloc "${si_h264_alloc_patch_dir}/esp_h264_alloc.c")
+file(WRITE "${si_h264_patched_alloc}" "${si_h264_alloc_patched}")
+get_target_property(si_h264_alloc_sources ${si_h264_alloc_component} SOURCES)
+list(FIND si_h264_alloc_sources "${si_h264_upstream_alloc}" si_h264_alloc_source_index)
+if(si_h264_alloc_source_index EQUAL -1)
+    message(FATAL_ERROR "Could not replace esp_h264 allocator source")
+endif()
+list(REMOVE_ITEM si_h264_alloc_sources "${si_h264_upstream_alloc}")
+list(APPEND si_h264_alloc_sources "${si_h264_patched_alloc}")
+set_property(TARGET ${si_h264_alloc_component} PROPERTY SOURCES "${si_h264_alloc_sources}")
+message(STATUS "Using ExoAnchor esp_h264 cache-line allocation override")
 endif()
 
 # libssh2 through 1.11.1 is affected by CVE-2026-55200: packet_length can

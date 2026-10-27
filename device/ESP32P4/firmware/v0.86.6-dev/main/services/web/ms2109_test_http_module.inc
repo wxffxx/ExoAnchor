@@ -30,6 +30,12 @@ static void add_ms2109_status_json(cJSON *root)
     cJSON_AddNumberToObject(root, "operation_count", status.operation_count);
     cJSON_AddStringToObject(root, "last_result",
                             esp_err_to_name(status.last_result));
+#if !SI_CFG_MS2109_TEST_ENABLED
+    cJSON_AddBoolToObject(root, "cold_start_active", status.cold_start_active);
+    cJSON_AddNumberToObject(root, "cold_start_off_ms", status.cold_start_off_ms);
+    cJSON_AddNumberToObject(root, "cold_start_remaining_ms",
+                            status.cold_start_remaining_ms);
+#endif
 
     cJSON *power = cJSON_AddObjectToObject(root, "power");
     cJSON_AddBoolToObject(power, "on", status.power_on);
@@ -172,9 +178,26 @@ static esp_err_t ms2109_power_handler(httpd_req_t *req)
 #else
         ret = si_ms2109_power_cycle(off_time_ms);
 #endif
+    } else if (strcasecmp(action, "cold_start") == 0) {
+        /* Rails off for 30..60 s (default 45 s): a heat-soaked MS2109 keeps
+         * mis-detecting the HDMI colour format through a short cycle and
+         * only recovers after a real cool-down. */
+        uint32_t cold_ms = cJSON_IsNumber(duration_item) ?
+                           off_time_ms : SI_MS2109_COLD_START_DEFAULT_MS;
+        if (cold_ms < SI_MS2109_COLD_START_MIN_MS) {
+            cold_ms = SI_MS2109_COLD_START_MIN_MS;
+        } else if (cold_ms > SI_MS2109_COLD_START_MAX_MS) {
+            cold_ms = SI_MS2109_COLD_START_MAX_MS;
+        }
+#if SI_CFG_MS2109_TEST_ENABLED
+        (void)cold_ms;
+        ret = ESP_ERR_NOT_SUPPORTED;
+#else
+        ret = si_ms2109_power_cold_start(cold_ms);
+#endif
     } else {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-                                   "action must be on, off, or cycle");
+                                   "action must be on, off, cycle, or cold_start");
     }
     if (ret != ESP_OK) {
         return ms2109_send_operation_error(req, ret, "MS2109 power");

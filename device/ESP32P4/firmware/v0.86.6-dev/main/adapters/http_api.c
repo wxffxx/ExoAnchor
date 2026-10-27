@@ -277,6 +277,16 @@ static bool bootstrap_request_may_pass(
            strcmp(req->uri, "/api/settings/password") == 0;
 }
 
+#ifdef CONFIG_SI_WEB_PLAIN_HTTP
+/* Bench-only plain HTTP: cookies cannot be Secure and the H.264 socket is
+ * ws://host:81, which 'self' (a different port) does not cover. */
+#define SI_HTTP_COOKIE_SECURE_ATTR ""
+#define SI_HTTP_CSP_PLAIN_CONNECT " ws: http:"
+#else
+#define SI_HTTP_COOKIE_SECURE_ATTR " Secure;"
+#define SI_HTTP_CSP_PLAIN_CONNECT ""
+#endif
+
 void si_http_set_security_headers(httpd_req_t *req)
 {
     if (!req) {
@@ -291,7 +301,7 @@ void si_http_set_security_headers(httpd_req_t *req)
         "object-src 'none'; script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
         "media-src 'self' blob:; "
-        "connect-src 'self' wss: https:");
+        "connect-src 'self' wss: https:" SI_HTTP_CSP_PLAIN_CONNECT);
 }
 
 esp_err_t si_http_send_json(httpd_req_t *req, cJSON *root)
@@ -395,7 +405,7 @@ esp_err_t si_http_set_session_cookie(httpd_req_t *req, const char *token,
     }
     int written = snprintf(
         cookie, cookie_size,
-        "EA_SESSION=%s; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=%u",
+        "EA_SESSION=%s; Path=/; HttpOnly;" SI_HTTP_COOKIE_SECURE_ATTR " SameSite=Strict; Max-Age=%u",
         token, (unsigned)SI_HTTP_SESSION_COOKIE_MAX_AGE_SECONDS);
     if (written < 0 || (size_t)written >= cookie_size) {
         return ESP_ERR_INVALID_SIZE;
@@ -439,7 +449,7 @@ void si_http_clear_session_cookie(httpd_req_t *req)
     }
     httpd_resp_set_hdr(
         req, "Set-Cookie",
-        "EA_SESSION=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0");
+        "EA_SESSION=; Path=/; HttpOnly;" SI_HTTP_COOKIE_SECURE_ATTR " SameSite=Strict; Max-Age=0");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
 

@@ -51,7 +51,7 @@ OWNERSHIP = {
     "device": ("deviceForm", "kvm", "kvmDeviceSettings", "networkSettings",
                "lanDiscoveryEnabled", "deviceHardwareCard", "powerResetSwap",
                "settingsLocatorReverse", "ms2109PowerControl",
-               "browserFocusRefreshEnabled"),
+               "browserFocusRefreshEnabled", "browserBlurPauseEnabled"),
     "security": ("accountForm", "autoLogoutEnabled", "passkeyCard", "twoStepCard"),
     "agent": ("mcpEnabled", "agentToolPolicyRows", "embeddedAgentEnabled",
               "agentApiForm", "webSearchForm", "agentSkillsJson"),
@@ -66,8 +66,8 @@ OWNERSHIP = {
 # Controls that act immediately or only on this browser must never be
 # swept into a page save.
 IMMEDIATE_CONTROLS = {
-    "browserFocusRefreshEnabled", "browserAgentActionsEnabled",
-    "ms2109PowerToggle", "settingsLocatorReverse",
+    "browserFocusRefreshEnabled", "browserBlurPauseEnabled",
+    "browserAgentActionsEnabled", "ms2109PowerToggle", "settingsLocatorReverse",
 }
 ACTION_FORMS = {"accountForm", "passkeyForm", "twoStepForm", "sshKeyForm",
                 "otaUploadForm", "storageUploadForm"}
@@ -279,7 +279,7 @@ if factory_reset is not None and factory_reset.has_ancestor_class("developer-det
 
 if controls_inside("kvmDeviceSettings") != {
         "previewFpsSelect", "videoAlwaysOnline", "browserFocusRefreshEnabled",
-        "ms2109PowerToggle"}:
+        "browserBlurPauseEnabled", "ms2109PowerToggle"}:
     fail(f"video settings moved controls without audit: {sorted(controls_inside('kvmDeviceSettings'))}")
 if controls_inside("deviceHardwareCard") != {"powerResetSwap", "settingsLocatorReverse"}:
     fail(f"device hardware settings moved controls without audit: {sorted(controls_inside('deviceHardwareCard'))}")
@@ -360,6 +360,8 @@ required_source_fragments = (
     '.stable-profile .agent-only{display:none!important}',
     "function bindBrowserPreference(",
     'bindBrowserPreference(browserFocusRefreshEnabled,"si_kvm_focus_refresh"',
+    'bindBrowserPreference(browserBlurPauseEnabled,"si_kvm_blur_pause",browserPreferenceMsg,false)',
+    'browserBlurPauseEnabled.checked=localStorage.getItem("si_kvm_blur_pause")==="1"',
     'bindBrowserPreference(browserAgentActionsEnabled,"si_agent_action_visualization"',
     "function loadSettingsSection(",
     "function refreshActiveSection(",

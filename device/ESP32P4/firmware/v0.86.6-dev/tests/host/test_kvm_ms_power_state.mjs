@@ -3,10 +3,12 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 
-const kvmHtml = fs.readFileSync(
-  new URL("../../main/www/kvm.html", import.meta.url),
-  "utf8",
-);
+const KVM_SOURCE_FILES = ["kvm.html", "assets/kvm-core.js", "assets/kvm-video.js", "assets/kvm-lease.js", "assets/kvm-modes.js", "assets/kvm-input.js", "assets/kvm-status.js"];
+function readKvmSources() {
+  return KVM_SOURCE_FILES.map(rel => fs.readFileSync(
+    new URL(`../../main/www/${rel}`, import.meta.url), "utf8")).join("\n");
+}
+const kvmHtml = readKvmSources();
 const stateStart = kvmHtml.indexOf("function suspendKvmForMsPowerOff()");
 const stateEnd = kvmHtml.indexOf("const focusRefresh=", stateStart);
 assert.ok(stateStart >= 0 && stateEnd > stateStart,

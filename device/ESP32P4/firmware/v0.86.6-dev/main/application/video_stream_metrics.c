@@ -13,6 +13,8 @@ static uint32_t s_stream_id;
 static uint32_t s_window_started_ms;
 static uint32_t s_window_frames;
 static uint64_t s_window_bytes;
+static uint64_t s_window_latency_us;
+static uint32_t s_window_latency_max_us;
 static uint32_t s_published_frames;
 static uint64_t s_published_bytes;
 static si_video_stream_metrics_t s_published;
@@ -24,6 +26,8 @@ void si_video_stream_metrics_begin(uint32_t stream_id, uint32_t now_ms)
     s_window_started_ms = now_ms;
     s_window_frames = 0;
     s_window_bytes = 0;
+    s_window_latency_us = 0;
+    s_window_latency_max_us = 0;
     s_published_frames = 0;
     s_published_bytes = 0;
     memset(&s_published, 0, sizeof(s_published));
@@ -32,7 +36,7 @@ void si_video_stream_metrics_begin(uint32_t stream_id, uint32_t now_ms)
 }
 
 void si_video_stream_metrics_record(uint32_t stream_id, size_t frame_bytes,
-                                    uint32_t now_ms)
+                                    uint32_t now_ms, uint32_t latency_us)
 {
     portENTER_CRITICAL(&s_metrics_mux);
     if (stream_id == 0 || stream_id != s_stream_id) {
@@ -41,6 +45,10 @@ void si_video_stream_metrics_record(uint32_t stream_id, size_t frame_bytes,
     }
     s_window_frames++;
     s_window_bytes += frame_bytes;
+    s_window_latency_us += latency_us;
+    if (latency_us > s_window_latency_max_us) {
+        s_window_latency_max_us = latency_us;
+    }
     uint32_t elapsed_ms = now_ms - s_window_started_ms;
     if (elapsed_ms >= SI_STREAM_METRICS_WINDOW_MS) {
         s_published_frames = s_window_frames;
@@ -49,9 +57,14 @@ void si_video_stream_metrics_record(uint32_t stream_id, size_t frame_bytes,
         s_published.stream_id = stream_id;
         s_published.sample_window_ms = elapsed_ms;
         s_published.updated_ms = now_ms;
+        s_published.latency_avg_us =
+            (uint32_t)(s_window_latency_us / s_window_frames);
+        s_published.latency_max_us = s_window_latency_max_us;
         s_window_started_ms = now_ms;
         s_window_frames = 0;
         s_window_bytes = 0;
+        s_window_latency_us = 0;
+        s_window_latency_max_us = 0;
     }
     portEXIT_CRITICAL(&s_metrics_mux);
 }
@@ -74,6 +87,8 @@ void si_video_stream_metrics_get(si_video_stream_metrics_t *out,
         out->fps_x100 = 0;
         out->bitrate_bps = 0;
         out->sample_window_ms = 0;
+        out->latency_avg_us = 0;
+        out->latency_max_us = 0;
         return;
     }
     /* Snapshot under the lock; keep 64-bit division out of the capture

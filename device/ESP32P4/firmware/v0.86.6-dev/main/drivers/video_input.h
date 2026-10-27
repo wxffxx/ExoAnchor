@@ -66,6 +66,10 @@ typedef struct {
     size_t len;
     uint32_t frame_id;
     void *token;
+    /* esp_timer time when the UVC host delivered this frame; 0 if unknown.
+     * Egress paths subtract it from their send-complete time to report
+     * capture-to-sent latency. */
+    int64_t captured_us;
 } si_video_jpeg_view_t;
 
 /* Reserve the persistent PSRAM frame arena and the 64 KiB internal-DMA UVC

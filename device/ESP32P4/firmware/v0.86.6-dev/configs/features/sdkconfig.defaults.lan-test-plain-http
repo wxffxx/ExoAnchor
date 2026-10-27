@@ -1,0 +1,4 @@
+# Bench-only: plain HTTP on 80 (UI/API) and 81 (MJPEG/H.264) instead of TLS on
+# 443/444, to measure the video path without encryption cost. Never use for a
+# build that leaves the bench.
+CONFIG_SI_WEB_PLAIN_HTTP=y

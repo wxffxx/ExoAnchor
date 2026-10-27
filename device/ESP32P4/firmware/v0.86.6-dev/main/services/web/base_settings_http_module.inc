@@ -125,6 +125,76 @@ static esp_err_t exoanchor_ui_mark_svg_handler(httpd_req_t *req)
                                www_exoanchor_ui_mark_svg_end);
 }
 
+/* The KVM page script is split into classic-script modules (see
+ * www/assets/kvm-*.js); they are embedded and served exactly like the shared
+ * UI core and shell. */
+extern const uint8_t www_kvm_core_js_start[] asm("_binary_kvm_core_js_start");
+extern const uint8_t www_kvm_core_js_end[] asm("_binary_kvm_core_js_end");
+extern const uint8_t www_kvm_video_js_start[] asm("_binary_kvm_video_js_start");
+extern const uint8_t www_kvm_video_js_end[] asm("_binary_kvm_video_js_end");
+extern const uint8_t www_kvm_lease_js_start[] asm("_binary_kvm_lease_js_start");
+extern const uint8_t www_kvm_lease_js_end[] asm("_binary_kvm_lease_js_end");
+extern const uint8_t www_kvm_modes_js_start[] asm("_binary_kvm_modes_js_start");
+extern const uint8_t www_kvm_modes_js_end[] asm("_binary_kvm_modes_js_end");
+extern const uint8_t www_kvm_input_js_start[] asm("_binary_kvm_input_js_start");
+extern const uint8_t www_kvm_input_js_end[] asm("_binary_kvm_input_js_end");
+extern const uint8_t www_kvm_status_js_start[] asm("_binary_kvm_status_js_start");
+extern const uint8_t www_kvm_status_js_end[] asm("_binary_kvm_status_js_end");
+
+static esp_err_t kvm_core_js_handler(httpd_req_t *req)
+{
+    return send_embedded_asset(req, "application/javascript; charset=utf-8",
+                               www_kvm_core_js_start, www_kvm_core_js_end);
+}
+
+static esp_err_t kvm_video_js_handler(httpd_req_t *req)
+{
+    return send_embedded_asset(req, "application/javascript; charset=utf-8",
+                               www_kvm_video_js_start, www_kvm_video_js_end);
+}
+
+static esp_err_t kvm_lease_js_handler(httpd_req_t *req)
+{
+    return send_embedded_asset(req, "application/javascript; charset=utf-8",
+                               www_kvm_lease_js_start, www_kvm_lease_js_end);
+}
+
+static esp_err_t kvm_modes_js_handler(httpd_req_t *req)
+{
+    return send_embedded_asset(req, "application/javascript; charset=utf-8",
+                               www_kvm_modes_js_start, www_kvm_modes_js_end);
+}
+
+static esp_err_t kvm_input_js_handler(httpd_req_t *req)
+{
+    return send_embedded_asset(req, "application/javascript; charset=utf-8",
+                               www_kvm_input_js_start, www_kvm_input_js_end);
+}
+
+static esp_err_t kvm_status_js_handler(httpd_req_t *req)
+{
+    return send_embedded_asset(req, "application/javascript; charset=utf-8",
+                               www_kvm_status_js_start, www_kvm_status_js_end);
+}
+
+static void register_uri(httpd_handle_t server, const char *uri, httpd_method_t method,
+                         esp_err_t (*handler)(httpd_req_t *), bool websocket);
+
+static void register_ui_asset_routes(httpd_handle_t server)
+{
+    register_uri(server, "/assets/ui-core.css", HTTP_GET, ui_core_css_handler, false);
+    register_uri(server, "/assets/ui-core.js", HTTP_GET, ui_core_js_handler, false);
+    register_uri(server, "/assets/ui-shell.css", HTTP_GET, ui_shell_css_handler, false);
+    register_uri(server, "/assets/ui-shell.js", HTTP_GET, ui_shell_js_handler, false);
+    register_uri(server, "/assets/exoanchor-ui-mark.svg", HTTP_GET, exoanchor_ui_mark_svg_handler, false);
+    register_uri(server, "/assets/kvm-core.js", HTTP_GET, kvm_core_js_handler, false);
+    register_uri(server, "/assets/kvm-video.js", HTTP_GET, kvm_video_js_handler, false);
+    register_uri(server, "/assets/kvm-lease.js", HTTP_GET, kvm_lease_js_handler, false);
+    register_uri(server, "/assets/kvm-modes.js", HTTP_GET, kvm_modes_js_handler, false);
+    register_uri(server, "/assets/kvm-input.js", HTTP_GET, kvm_input_js_handler, false);
+    register_uri(server, "/assets/kvm-status.js", HTTP_GET, kvm_status_js_handler, false);
+}
+
 static esp_err_t favicon_svg_handler(httpd_req_t *req)
 {
     return send_embedded_asset(req, "image/svg+xml",

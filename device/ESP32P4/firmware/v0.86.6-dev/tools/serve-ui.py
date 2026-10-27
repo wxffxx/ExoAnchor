@@ -212,6 +212,8 @@ class MockState:
     ms2109_probe_valid = False
     ms2109_probe_mask = 0
     ms2109_operation_count = 0
+    ms2109_cold_start_until = 0.0
+    ms2109_cold_start_off_ms = 0
     ms2109_last_result = "ESP_OK"
     ms2109_last_programmed_bytes = 0
     ms2109_last_verified = False
@@ -395,6 +397,19 @@ class MockState:
     }
 
 
+def _ms2109_cold_start_remaining_ms() -> int:
+    """Mock cold start: rails stay off until the deadline, then power returns."""
+    if MockState.ms2109_cold_start_until <= 0:
+        return 0
+    remaining = MockState.ms2109_cold_start_until - time.monotonic()
+    if remaining <= 0:
+        MockState.ms2109_cold_start_until = 0.0
+        MockState.ms2109_power_on = True
+        return 0
+    return int(remaining * 1000)
+
+
+
 def _uptime() -> int:
     return int(time.monotonic() - MockState.started_at)
 
@@ -488,6 +503,9 @@ def _status_payload() -> dict:
     modes = [
         {"pixel_format": "MJPEG", "width": 1920, "height": 1080, "resolution": "1920x1080", "fps": 50.0, "fps_x100": 5000, "selected": MockState.width == 1920 and MockState.height == 1080 and MockState.capture_fps_x100 == 5000},
         {"pixel_format": "MJPEG", "width": 1920, "height": 1080, "resolution": "1920x1080", "fps": 30.0, "fps_x100": 3000, "selected": MockState.width == 1920 and MockState.height == 1080 and MockState.capture_fps_x100 == 3000},
+        {"pixel_format": "MJPEG", "width": 1920, "height": 1080, "resolution": "1920x1080", "fps": 25.0, "fps_x100": 2500, "selected": MockState.width == 1920 and MockState.height == 1080 and MockState.capture_fps_x100 == 2500},
+        {"pixel_format": "MJPEG", "width": 1920, "height": 1080, "resolution": "1920x1080", "fps": 20.0, "fps_x100": 2000, "selected": MockState.width == 1920 and MockState.height == 1080 and MockState.capture_fps_x100 == 2000},
+        {"pixel_format": "MJPEG", "width": 1920, "height": 1080, "resolution": "1920x1080", "fps": 15.0, "fps_x100": 1500, "selected": MockState.width == 1920 and MockState.height == 1080 and MockState.capture_fps_x100 == 1500},
         {"pixel_format": "MJPEG", "width": 1280, "height": 720, "resolution": "1280x720", "fps": 50.0, "fps_x100": 5000, "selected": MockState.width == 1280 and MockState.height == 720 and MockState.capture_fps_x100 == 5000},
         {"pixel_format": "MJPEG", "width": 1280, "height": 720, "resolution": "1280x720", "fps": 30.0, "fps_x100": 3000, "selected": MockState.width == 1280 and MockState.height == 720 and MockState.capture_fps_x100 == 3000},
         {"pixel_format": "MJPEG", "width": 640, "height": 480, "resolution": "640x480", "fps": 30.0, "fps_x100": 3000, "selected": MockState.width == 640 and MockState.height == 480 and MockState.capture_fps_x100 == 3000},
@@ -566,6 +584,8 @@ def _status_payload() -> dict:
                 "fps": h264_fps,
                 "bitrate_mbps": h264_mbps,
                 "sample_window_ms": int(h264_elapsed * 1000),
+                "latency_avg_us": 4200 if MockState.h264_session_active else 0,
+                "latency_max_us": 9800 if MockState.h264_session_active else 0,
             },
             "h264_runtime": {
                 "compiled": bool(H264_FIXTURES),
@@ -595,6 +615,9 @@ def _status_payload() -> dict:
                     "bitrate_bps": int(h264_mbps * 1_000_000),
                     "backpressure_drops_total": 0,
                     "encode_failures_total": 0,
+                    "latency_avg_us": 31000 if MockState.h264_session_active else 0,
+                    "latency_max_us": 48000 if MockState.h264_session_active else 0,
+                    "low_latency": MockState.h264_session_active,
                 },
             },
         },
@@ -816,7 +839,7 @@ def _system_info_payload() -> dict:
 def _ota_payload() -> dict:
     return {
         "busy": False,
-        "current_version": "v0.87.5-dev",
+        "current_version": "v0.88.0-dev",
         "settings": {
             "manifest_url": MockState.ota_manifest_url,
             "default_manifest_url": "https://example.com/exoanchor/esp32p4/manifest.json",
@@ -826,7 +849,7 @@ def _ota_payload() -> dict:
         "last_check": {
             "checked": MockState.ota_checked,
             "update_available": MockState.ota_update_available,
-            "version": "v0.87.5-dev+mock-update" if MockState.ota_update_available else "v0.87.5-dev",
+            "version": "v0.88.0-dev+mock-update" if MockState.ota_update_available else "v0.88.0-dev",
             "message": MockState.ota_message,
             "size": 1048576 if MockState.ota_update_available else 0,
         },
@@ -1141,6 +1164,9 @@ def _ms2109_payload() -> dict:
         "power_on": MockState.ms2109_power_on,
         "write_protected": True,
         "operation_count": MockState.ms2109_operation_count,
+        "cold_start_active": _ms2109_cold_start_remaining_ms() > 0,
+        "cold_start_off_ms": MockState.ms2109_cold_start_off_ms,
+        "cold_start_remaining_ms": _ms2109_cold_start_remaining_ms(),
         "last_result": MockState.ms2109_last_result,
         "power": {
             "on": MockState.ms2109_power_on,
@@ -1572,7 +1598,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/assets/ui-core.js" and H264_FIXTURES:
             profile = {
                 "profile": "dev-h264-browser-fixture",
-                "version": "0.87.5-dev",
+                "version": "0.88.0-dev",
                 "embeddedAgent": True,
                 "uartTerminal": True,
                 "h264Video": True,
@@ -2029,10 +2055,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"error": "invalid json"}, 400)
                 return
             action = str(payload.get("action") or "").lower()
-            if action not in ("on", "off", "cycle"):
-                self._send_json({"error": "action must be on, off, or cycle"}, 400)
+            if action not in ("on", "off", "cycle", "cold_start"):
+                self._send_json({"error": "action must be on, off, cycle, or cold_start"}, 400)
                 return
-            MockState.ms2109_power_on = action != "off"
+            if action == "cold_start":
+                off_ms = int(payload.get("off_time_ms") or 45000)
+                off_ms = min(max(off_ms, 30000), 60000)
+                MockState.ms2109_cold_start_off_ms = off_ms
+                MockState.ms2109_cold_start_until = time.monotonic() + off_ms / 1000.0
+                MockState.ms2109_power_on = False
+            else:
+                MockState.ms2109_cold_start_until = 0.0
+                MockState.ms2109_power_on = action != "off"
             MockState.ms2109_operation_count += 1
             MockState.ms2109_last_result = "ESP_OK"
             self._send_json(_ms2109_payload())
@@ -2716,7 +2750,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"error": "width and height required"}, 400)
                 return
             supported_modes = {
-                (1920, 1080, 5000), (1920, 1080, 3000),
+                (1920, 1080, 5000), (1920, 1080, 3000), (1920, 1080, 2500),
+                (1920, 1080, 2000), (1920, 1080, 1500),
                 (1280, 720, 5000), (1280, 720, 3000),
                 (640, 480, 3000),
             }

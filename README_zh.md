@@ -2,13 +2,28 @@
 
 # ExoAnchor
 
-**An Another [RCOS](https://rcos.io/) project**
+**Another [RCOS](https://rcos.io/) project**
 
 **[English](README.md)**
 
+## 最新更新：0.88 AzureDanube
+
+0.88「AzureDanube」是以视频流为主题的大版本更新，现在固件已经全面支持 H.264。
+
+- **新的 H.264 模式**：视频流现在能以 H.264 形式推送，大幅降低了所需带宽，满足外网
+  访问的需求。P4 的性能足以支持 720p30 / 1080p25。
+- **延迟表现**：与 VNC 客户端对比，720p30 下 ExoAnchor 的最终体感延迟约 120 ms，其中
+  P4 的编解码时间约 28 ms（JPEG 解码约 13 ms + H.264 编码约 15 ms），约占四分之一。
+- **1080p 表现**：1080p15 / 1080p20 / 1080p25 实测分别为 15.0 / 20.0 / 24.6 fps，P4 从
+  拿到采集帧到发出的耗时约 64 / 92 / 107 ms。1080p 下 JPEG 解码约 26 ms、H.264 编码约
+  33–38 ms，两者相加超过帧周期（20 fps 及以上）时，固件让解码与编码重叠流水以保住帧率，
+  代价是多约一帧的延迟；H.264 在 1080p 下最高 25 fps。更看重延迟时建议用 720p30 或 1080p15。
+
+## 项目简介
+
 ExoAnchor 是一个采用 [MIT License](LICENSE) 开源、以从固件到生产资料完整开放为目标的全功能 KVM。它是一个基于 MCU 和 RTOS、以 AI Agent 为可选能力的嵌入式硬件项目。
 
-> 当前开发固件：`0.87.6-dev IndigoShore`。
+> 当前开发固件：`0.88.0-dev AzureDanube`。
 
 **我们承诺将使用 MIT 许可开放从研发到制造的一切资料。**
 
@@ -54,15 +69,15 @@ MIT License 分发，使任何人都能检查、修改、复刻、制造和销�
 | 应用与控制面 | Dashboard、设备 API、设备内 Agent 和可选 MCP 适配器 | ✅ 已公开，持续开发 |
 | MCU 固件 | 视频、HID、网络、UART、电源控制、配置和构建脚本 | ✅ Stable 与 Dev 源码已公开 |
 | 原理图、PCB | 原理图 PDF、嘉立创专业版原生工程、KiCad 工程，以及 PADS / Altium 参考导出 | ✅ V2.4a6 已发布（V2.3B4/B6 为历史工程）；制造签核待完成 |
-| BOM、网表、复刻指南 | 版本化 BOM、Protel 2.0 网表以及构建、烧录、装配与验收说明 | ✅ BOM 与网表已公开；🚧 复刻指南持续补齐 |
-| EasyEDA 云端源工程 | [V2.4a6 原理图与 PCB 在线源工程](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ✅ 已公开（MIT）；🚧 在线设计图预览待生成 |
+| BOM、网表、复刻指南 | 版本化 BOM、Protel 2.0 网表以及构建、烧录、装配与验收说明 | ✅ BOM 与网表已公开 |
+| EasyEDA 云端源工程 | [V2.4a6 原理图与 PCB 在线源工程](https://oshwhub.com/team_dsksgpyk/project_akawewur) | ✅ 已公开（MIT） |
 | 结构设计 | 可编辑的结构 CAD 源工程 | ⏳ 待发布 |
 
 > ⚠️ 项目仍处于开发和硬件验证阶段，请在使用、复刻或制造前谨慎检查。
 > 如发现任何问题，欢迎通过 [GitHub Issues](https://github.com/wxffxx/ExoAnchor/issues) 反馈。
 
-这是一项资料开放承诺，并非代表已经开源，在所有产物验证完毕之前，我们不会释放
-任何未经过验证和检验的资料。每个硬件修订版实际公开了什么、验证到什么程度，以
+这是一项资料开放承诺，并不代表已经全部开源：在所有产物验证完毕之前，我们不会发布
+任何未经验证和检验的资料。每个硬件修订版实际公开了什么、验证到什么程度，以
 [ExoAnchor-Hardware 硬件仓库](https://github.com/wxffxx/ExoAnchor-Hardware)
 为准。公开原理图、PCB 工程和生产资料，不等于已经完成量产验证；复刻与验收仍应
 遵循对应修订版的指南和验证状态。
@@ -122,7 +137,7 @@ V2.4 与 V2.4a6 共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合，
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3已完全验证) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 构建与能力边界](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
-Dev 是当前 KVM + 设备内 Agent 开发线，运行版本为 `0.87.6-dev`；Stable 是不含
+Dev 是当前 KVM + 设备内 Agent 开发线，运行版本为 `0.88.0-dev`；Stable 是不含
 设备内 Agent 的独立纯 KVM 源码线。所有固件版本、升级要求和完整入口见
 [固件版本说明](device/ESP32P4/firmware/README.md)。
 

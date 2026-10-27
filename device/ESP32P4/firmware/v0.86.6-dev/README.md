@@ -1,6 +1,6 @@
 # ExoAnchor 开发固件
 
-当前版本：**0.87.6-dev「IndigoShore / 靛蓝海岸」**。
+当前版本：**0.88.0-dev「AzureDanube / 天青多瑙河」**。
 
 本目录是 ESP32-P4 平台的唯一开发主线，包含 KVM、Web 控制台、嵌入式 Agent、SSH、TF 文件管理和外部 MCP 接口。版本号由 [`CMakeLists.txt`](CMakeLists.txt) 中的 `SI_VERSION_BASE` 加构建配置后缀组成（`tools/build-firmware.sh` 写入 `PROJECT_VER`，如 `-dev`、`-Stable`）；正式历史见[固件版本历史](../docs/FIRMWARE_VERSION_HISTORY_zh.md)。
 
