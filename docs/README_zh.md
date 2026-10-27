@@ -19,6 +19,7 @@
 - [Toolkit 网络 OTA 验证](guides/TOOLKIT_OTA_VALIDATION_zh.md)
 - [ExoAnchor Relay 协议 V1（设计）](protocols/EXOANCHOR_RELAY_PROTOCOL_V1_zh.md)
 - [固件版本历史](../device/ESP32P4/firmware/docs/FIRMWARE_VERSION_HISTORY_zh.md)
+- [0.88 AzureDanube 视频流实验记录](R&D%20Journey/VIDEO_STREAMING_0.88_zh.md)
 - [双系统启动目标编排方案](../device/ESP32P4/firmware/docs/DUAL_BOOT_ORCHESTRATION_zh.md)
 - [硬件设计与生产资料](https://github.com/wxffxx/ExoAnchor-Hardware)
 

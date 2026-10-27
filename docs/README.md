@@ -20,6 +20,7 @@ synchronize this English mirror.
 - [Toolkit network OTA validation (Chinese)](guides/TOOLKIT_OTA_VALIDATION_zh.md)
 - [ExoAnchor Relay protocol V1, design (Chinese)](protocols/EXOANCHOR_RELAY_PROTOCOL_V1_zh.md)
 - [Firmware version history](../device/ESP32P4/firmware/docs/FIRMWARE_VERSION_HISTORY_zh.md)
+- [0.88 AzureDanube video streaming experiment log](R&D%20Journey/VIDEO_STREAMING_0.88.md)
 - [Dual-boot target orchestration (Chinese)](../device/ESP32P4/firmware/docs/DUAL_BOOT_ORCHESTRATION_zh.md)
 - [Hardware design and manufacturing files](https://github.com/wxffxx/ExoAnchor-Hardware)
 
