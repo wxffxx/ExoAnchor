@@ -350,3 +350,8 @@ into a product. I believe that lesson is worth more than the project itself.
 
 Many thanks to [JLCPCB](https://jlcpcb.com/) for supporting this project with
 funding, materials, manufacturing, and help promoting ExoAnchor.
+
+Thanks also to the [Rensselaer Center for Open Source (RCOS)](https://rcos.io/)
+at Rensselaer Polytechnic Institute (RPI), and to RPI
+[Professor Wes Turner](https://faculty.rpi.edu/wes-turner), for their support
+and encouragement of this project.

@@ -295,3 +295,7 @@ BOM、网表、结构模型和生产资料，并允许依据覆盖范围内的�
 
 非常感谢[嘉立创](https://www.jlc.com/)对本项目的支持，他们为 ExoAnchor 提供了资金、
 物料、制造和宣传方面的帮助。
+
+感谢 Rensselaer Polytechnic Institute（RPI）的
+[Rensselaer Center for Open Source（RCOS）](https://rcos.io/)，以及 RPI 的
+[Wes Turner 教授](https://faculty.rpi.edu/wes-turner)对本项目的支持和鼓励。
