@@ -315,9 +315,11 @@ mode:
   lack of internal DMA memory. The page offers an optional "one-frame pacing
   buffer" at the cost of one extra frame period of latency.
 - After a capture-card power cycle, reopening UVC reports
-  `EP Alloc error: ESP_ERR_NO_MEM` for 1–10 s. The suspected cause is the vendored
-  usb_host_uvc patch that keeps the stopped URB ring, delaying release of the old
-  device's pipes; it needs its own investigation.
+  `EP Alloc error: ESP_ERR_NO_MEM` for 1–10 s. Resolved on 2026-10-28: the cause is
+  not the URB-ring patch but the USB pipe descriptor lists, which are allocated from
+  the fragmented internal DMA heap (see
+  [MS2109 restart reboots the board](MS2109_RESTART_REBOOT.md)). The fix is verified
+  on the board but not committed yet.
 - The slow-frame log occasionally shows a 55–62 ms gap between decode completion
   and encode start, unrelated to TLS; the cause is unknown.
 - An idle H.264 build has about 20 KB of free internal RAM with a largest block of
