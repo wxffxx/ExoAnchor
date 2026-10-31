@@ -77,6 +77,50 @@ set_property(TARGET ${si_http_client_component} PROPERTY SOURCES
              "${si_http_client_sources}")
 message(STATUS "Using ExoAnchor ESP-IDF 5.5.5 async response-read fix")
 
+# ESP-IDF 5.5.5 allocates every USB pipe's transfer-descriptor list from
+# internal DMA RAM with 512-byte alignment, so TLSF needs a free block of about
+# 1 KiB (1.5 KiB for ISOC) per list.  While an H.264 viewer is active the
+# internal DMA heap holds no such block, a replugged MS2109 fails EP0 pipe
+# allocation ("HCD Pipe alloc error: ESP_ERR_NO_MEM") and video never returns.
+# Move only the descriptor lists to PSRAM, which the P4 USB-DWC DMA can read;
+# CONFIG_USB_HOST_DWC_DMA_CAP_MEMORY_IN_PSRAM would also move the URB data
+# buffers and measurably drops 1080p25 ingest to 10-18 fps.
+idf_component_get_property(si_usb_component usb COMPONENT_LIB)
+idf_component_get_property(si_usb_component_dir usb COMPONENT_DIR)
+set(si_usb_hcd_upstream "${si_usb_component_dir}/hcd_dwc.c")
+set(si_usb_hcd_555_sha256
+    "33fea9059ee546d1c773fc5e86ed0c294e600e645c4c14e0788ce879f596280b")
+file(SHA256 "${si_usb_hcd_upstream}" si_usb_hcd_actual_sha256)
+if(NOT si_usb_hcd_actual_sha256 STREQUAL si_usb_hcd_555_sha256)
+    message(FATAL_ERROR
+        "hcd_dwc.c changed; review the ExoAnchor descriptor-list override")
+endif()
+file(READ "${si_usb_hcd_upstream}" si_usb_hcd_source)
+set(si_usb_desc_caps_upstream
+"#define XFER_DESC_LIST_CAPS                     (MALLOC_CAP_DMA | MALLOC_CAP_CACHE_ALIGNED | MALLOC_CAP_INTERNAL)")
+set(si_usb_desc_caps_fixed
+"#define XFER_DESC_LIST_CAPS                     (MALLOC_CAP_DMA | MALLOC_CAP_CACHE_ALIGNED | MALLOC_CAP_SPIRAM)")
+string(FIND "${si_usb_hcd_source}" "${si_usb_desc_caps_upstream}"
+       si_usb_desc_caps_index)
+if(si_usb_desc_caps_index EQUAL -1)
+    message(FATAL_ERROR "hcd_dwc.c descriptor-list caps fragment not found")
+endif()
+string(REPLACE "${si_usb_desc_caps_upstream}" "${si_usb_desc_caps_fixed}"
+               si_usb_hcd_patched "${si_usb_hcd_source}")
+set(si_usb_hcd_patch_dir "${CMAKE_BINARY_DIR}/exoanchor-patched/usb")
+file(MAKE_DIRECTORY "${si_usb_hcd_patch_dir}")
+set(si_usb_hcd_patched_source "${si_usb_hcd_patch_dir}/hcd_dwc.c")
+file(WRITE "${si_usb_hcd_patched_source}" "${si_usb_hcd_patched}")
+get_target_property(si_usb_sources ${si_usb_component} SOURCES)
+list(FIND si_usb_sources "${si_usb_hcd_upstream}" si_usb_hcd_upstream_index)
+if(si_usb_hcd_upstream_index EQUAL -1)
+    message(FATAL_ERROR "Could not replace usb hcd_dwc.c source")
+endif()
+list(REMOVE_ITEM si_usb_sources "${si_usb_hcd_upstream}")
+list(APPEND si_usb_sources "${si_usb_hcd_patched_source}")
+set_property(TARGET ${si_usb_component} PROPERTY SOURCES "${si_usb_sources}")
+message(STATUS "Using ExoAnchor USB descriptor lists in PSRAM")
+
 # Preserve the non-Espressif license notices alongside every build so the
 # Toolkit can include them in precompiled firmware release archives.
 configure_file(

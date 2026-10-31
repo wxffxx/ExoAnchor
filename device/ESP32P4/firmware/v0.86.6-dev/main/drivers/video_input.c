@@ -22,6 +22,9 @@
 #include "usb/uvc_host.h"
 #include "video_frame_store.h"
 #include "video_mjpeg.h"
+#if SI_CFG_MS2109_POWER_ENABLED
+#include "ms2109_power.h"
+#endif
 
 static const char *TAG = "si-video";
 
@@ -37,6 +40,7 @@ static const char *TAG = "si-video";
 #define SI_UVC_CLOSE_DRAIN_TIMEOUT_MS 1500U
 #define SI_UVC_MISSING_DEVICE_RECOVERY_DELAY_MS 5000U
 #define SI_UVC_MISSING_DEVICE_RECOVERY_INTERVAL_MS 15000U
+#define SI_UVC_REENUMERATE_MS2109_OFF_MS 1000U
 #define SI_UVC_INVALID_FRAME_FAULT_LIMIT 8U
 #define SI_UVC_HEALTHY_RESET_MS 2000U
 #define SI_UVC_HEALTHY_RESET_CALLBACKS 8U
@@ -1327,10 +1331,57 @@ static void invalidate_stream_generation(void)
     si_video_frame_store_clear();
 }
 
+static bool usb_host_has_device(void)
+{
+    uint8_t addrs[4];
+    int count = 0;
+    return usb_host_device_addr_list_fill((int)sizeof(addrs), addrs,
+                                          &count) == ESP_OK &&
+           count > 0;
+}
+
+/* The rail being off, or still coming up, is not a failed enumeration. */
+static bool ms2109_rail_settled(void)
+{
+#if SI_CFG_MS2109_POWER_ENABLED
+    si_ms2109_power_status_t ms2109 = {0};
+    return si_ms2109_power_get_status(&ms2109) == ESP_OK && ms2109.power_on &&
+           !ms2109.cold_start_active;
+#else
+    return true;
+#endif
+}
+
 static bool power_cycle_uvc_root_port(void)
 {
     if (__atomic_load_n(&s_uvc_stream, __ATOMIC_ACQUIRE)) {
         ESP_LOGE(TAG, "refusing USB power cycle with live stream handle");
+        return false;
+    }
+    /* When the last attach failed to enumerate (e.g. "HCD Pipe alloc error:
+     * ESP_ERR_NO_MEM" right after the MS2109 rails come back), the IDF hub
+     * holds no device node, yet a root-port power-off makes it report the
+     * still-attached device as gone: hub.c dev_tree_node_dev_gone(NULL, 0)
+     * returns NOT_FOUND and aborts the board.  Retry enumeration by
+     * replugging the capture card instead, an ordinary disconnect for the
+     * hub. */
+    if (!usb_host_has_device()) {
+#if SI_CFG_MS2109_POWER_ENABLED
+        si_ms2109_power_status_t ms2109 = {0};
+        if (si_ms2109_power_get_status(&ms2109) == ESP_OK &&
+            ms2109.power_on && !ms2109.cold_start_active) {
+            ESP_LOGW(TAG,
+                     "no enumerated USB device; power-cycling MS2109 "
+                     "(dma internal free=%u largest=%u)",
+                     (unsigned)heap_caps_get_free_size(
+                         MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL),
+                     (unsigned)heap_caps_get_largest_free_block(
+                         MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
+            return si_ms2109_power_cycle(SI_UVC_REENUMERATE_MS2109_OFF_MS) ==
+                   ESP_OK;
+        }
+#endif
+        ESP_LOGD(TAG, "no enumerated USB device; root-port cycle skipped");
         return false;
     }
     esp_err_t ret = usb_host_lib_set_root_port_power(false);
@@ -1503,6 +1554,7 @@ static void uvc_supervisor_task(void *arg)
     (void)arg;
     TickType_t missing_since = 0;
     TickType_t last_missing_recovery = 0;
+    TickType_t unenumerated_since = 0;
     while (true) {
         if (!ensure_uvc_root_port_powered()) {
             vTaskDelay(pdMS_TO_TICKS(1000));
@@ -1565,9 +1617,10 @@ static void uvc_supervisor_task(void *arg)
             }
             TickType_t now = xTaskGetTickCount();
             bool recover = false;
+            const bool rail_settled = ms2109_rail_settled();
             if (s_lock &&
                 xSemaphoreTake(s_lock, pdMS_TO_TICKS(50)) == pdTRUE) {
-                if (s_capture_enabled && s_mode_count == 0U) {
+                if (s_capture_enabled && s_mode_count == 0U && rail_settled) {
                     if (missing_since == 0) {
                         missing_since = now;
                     }
@@ -1652,9 +1705,29 @@ static void uvc_supervisor_task(void *arg)
                     set_error_locked("open UVC stream", ret);
                     xSemaphoreGive(s_lock);
                 }
+                /* The retained selection keeps us here after a failed
+                 * enumeration, and the hub never retries an attach on its
+                 * own: replug the card once no device has shown up. */
+                TickType_t now = xTaskGetTickCount();
+                if (usb_host_has_device() || !ms2109_rail_settled()) {
+                    unenumerated_since = 0;
+                } else if (unenumerated_since == 0) {
+                    unenumerated_since = now;
+                } else if ((int32_t)(now - unenumerated_since) >=
+                               (int32_t)pdMS_TO_TICKS(
+                                   SI_UVC_MISSING_DEVICE_RECOVERY_DELAY_MS) &&
+                           (last_missing_recovery == 0 ||
+                            (int32_t)(now - last_missing_recovery) >=
+                                (int32_t)pdMS_TO_TICKS(
+                                    SI_UVC_MISSING_DEVICE_RECOVERY_INTERVAL_MS))) {
+                    last_missing_recovery = now;
+                    unenumerated_since = 0;
+                    (void)power_cycle_uvc_root_port();
+                }
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 continue;
             }
+            unenumerated_since = 0;
             __atomic_store_n(&s_uvc_stream, opened, __ATOMIC_RELEASE);
             s_uvc_session_state = SI_UVC_SESSION_OPEN_STOPPED;
             s_uvc_open_selection = selection;
