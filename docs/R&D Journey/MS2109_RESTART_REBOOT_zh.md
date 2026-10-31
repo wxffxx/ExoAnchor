@@ -6,7 +6,7 @@
   3.3 V / 1.2 V 两路电源轨由固件控制（GPIO13 / GPIO18）
 - 修复：[`CMakeLists.txt`](../../device/ESP32P4/firmware/v0.86.6-dev/CMakeLists.txt) 与
   [`main/drivers/video_input.c`](../../device/ESP32P4/firmware/v0.86.6-dev/main/drivers/video_input.c)；
-  已在板上验证，**尚未提交**
+  已在板上验证，随 `0.88.1-dev` 发布
 
 ## 1. 结论
 
@@ -150,7 +150,6 @@ IDF 的 Kconfig 注明 ESP32-P4 的 USB-DWC DMA 可以访问外部 RAM。`CONFIG
 
 ## 6. 遗留问题
 
-- 修复尚未提交。按项目规则，需要先用开启登录的配置构建，确认登录正常后再提交。
 - 最终测试中每次都一次枚举成功，没有走到 MS2109 重插路径。重插路径只在修复内存问题之前跑过：能触发，
   但当时枚举仍因内存失败，并伴随 `si_ms2109_power_get_status(210): MS2109 power status busy` 报错。
 - 循环期间查看端前 4 个 40 s 窗口为 20.69–20.96 fps，之后 4 个为 24.10–24.17 fps，原因未查。

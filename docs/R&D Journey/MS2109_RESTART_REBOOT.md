@@ -11,7 +11,7 @@ Chinese version is authoritative.
   (GPIO13 / GPIO18)
 - Fix: [`CMakeLists.txt`](../../device/ESP32P4/firmware/v0.86.6-dev/CMakeLists.txt) and
   [`main/drivers/video_input.c`](../../device/ESP32P4/firmware/v0.86.6-dev/main/drivers/video_input.c);
-  verified on the board, **not committed yet**
+  verified on the board, released in `0.88.1-dev`
 
 ## 1. Summary
 
@@ -199,8 +199,6 @@ off for 4 s and back on, 6 times:
 
 ## 6. Open issues
 
-- The fix is not committed. The project rule is to build with login enabled and
-  confirm login works before committing.
 - In the final test every cycle enumerated on the first try, so the MS2109
   re-plug path was never exercised. It only ran before the memory fix: it fired,
   but enumeration still failed for lack of memory, and it was accompanied by

@@ -23,7 +23,7 @@
 
 ExoAnchor 是一个采用 [MIT License](LICENSE) 开源、以从固件到生产资料完整开放为目标的全功能 KVM。它是一个基于 MCU 和 RTOS、以 AI Agent 为可选能力的嵌入式硬件项目。
 
-> 当前开发固件：`0.88.0-dev AzureDanube`。
+> 当前开发固件：`0.88.1-dev AzureDanube`。
 
 **我们承诺将使用 MIT 许可开放从研发到制造的一切资料。**
 
@@ -137,7 +137,7 @@ V2.4 与 V2.4a6 共用 `exoanchor-prototype-v2.4 + esp32p4-rev3` 产品组合，
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 构建](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3已完全验证) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 构建与能力边界](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
-Dev 是当前 KVM + 设备内 Agent 开发线，运行版本为 `0.88.0-dev`；Stable 是不含
+Dev 是当前 KVM + 设备内 Agent 开发线，运行版本为 `0.88.1-dev`；Stable 是不含
 设备内 Agent 的独立纯 KVM 源码线。所有固件版本、升级要求和完整入口见
 [固件版本说明](device/ESP32P4/firmware/README.md)。
 
