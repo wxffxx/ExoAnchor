@@ -839,7 +839,7 @@ def _system_info_payload() -> dict:
 def _ota_payload() -> dict:
     return {
         "busy": False,
-        "current_version": "v0.88.1-dev",
+        "current_version": "v0.88.2-dev",
         "settings": {
             "manifest_url": MockState.ota_manifest_url,
             "default_manifest_url": "https://example.com/exoanchor/esp32p4/manifest.json",
@@ -849,7 +849,7 @@ def _ota_payload() -> dict:
         "last_check": {
             "checked": MockState.ota_checked,
             "update_available": MockState.ota_update_available,
-            "version": "v0.88.1-dev+mock-update" if MockState.ota_update_available else "v0.88.1-dev",
+            "version": "v0.88.2-dev+mock-update" if MockState.ota_update_available else "v0.88.2-dev",
             "message": MockState.ota_message,
             "size": 1048576 if MockState.ota_update_available else 0,
         },
@@ -1598,7 +1598,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/assets/ui-core.js" and H264_FIXTURES:
             profile = {
                 "profile": "dev-h264-browser-fixture",
-                "version": "0.88.1-dev",
+                "version": "0.88.2-dev",
                 "embeddedAgent": True,
                 "uartTerminal": True,
                 "h264Video": True,
