@@ -2359,7 +2359,7 @@ def main() -> int:
         )
     if "if(selectedOutputMode===\"h264\")h264ReconnectAttempts=0" in kvm_html:
         failures.append(
-            "one decoded H.264 frame must not reset the bounded reconnect budget"
+            "one decoded H.264 frame must not reset the reconnect backoff"
         )
     if "h264StableTimer=UI.lifecycle.timeout" not in kvm_html:
         failures.append(
@@ -2467,11 +2467,11 @@ def main() -> int:
         )
     if kvm_html.count("restartH264Transport(expectedStreamId") != 2:
         failures.append(
-            "all H.264 transport restarts must pass through the bounded recoverH264 budget"
+            "all H.264 transport restarts must pass through the recoverH264 backoff"
         )
     if "function recoverH264(expectedStreamId,message){if(h264RestartTimer||" not in kvm_html:
         failures.append(
-            "concurrent H.264 errors can consume retry budget without starting a retry"
+            "concurrent H.264 errors can advance the backoff without starting a retry"
         )
     if ("outputModeField.hidden=!h264OutputAvailable" not in kvm_html or
             ".side-field[hidden]{display:none!important}" not in kvm_html):
@@ -2958,7 +2958,7 @@ def main() -> int:
             "live H.264 self-test must reject unsupported modes before reserving boot-lifetime codec resources"
         )
     post_handshake = section(
-        h264, "esp_err_t si_h264_stream_ws_post_handshake(",
+        h264, "static esp_err_t stream_attach(",
         "esp_err_t si_h264_stream_ws_handler(")
     if not ordered(
         post_handshake,
@@ -3236,7 +3236,7 @@ def main() -> int:
         h264, "esp_err_t si_h264_stream_initialize(void)",
         "void si_h264_stream_get_status(")
     handshake = section(
-        h264, "esp_err_t si_h264_stream_ws_post_handshake(",
+        h264, "static esp_err_t stream_attach(",
         "esp_err_t si_h264_stream_ws_handler(")
     if "esp_h264_enc_hw_new(" in service_init or \
             "h264_runtime_reserve()" in service_init or \
@@ -3576,7 +3576,7 @@ def main() -> int:
         h264, "static void h264_stream_task(void *arg)",
         "static esp_err_t ensure_stream_task(void)")
     websocket_token = section(
-        h264, "esp_err_t si_h264_stream_ws_post_handshake(",
+        h264, "static esp_err_t stream_attach(",
         "esp_err_t si_h264_stream_ws_handler(")
     websocket_teardown = section(
         stream_task_token, "if (cleanup_claimed)",

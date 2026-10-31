@@ -66,7 +66,7 @@ function renderKvmStatus(s){
   if(selectedOutputMode==="h264"){
     if(videoClaimed&&!videoLeaseHeld){
       scheduleLeaseRecovery(250);
-    }else if(videoClaimed&&videoLeaseHeld&&!browserHealthy&&!outputFailureMessage&&!h264Socket&&!h264Mse){
+    }else if(videoClaimed&&videoLeaseHeld&&!browserHealthy&&!outputFailureMessage&&!h264Socket&&!h264Mse&&!h264RestartTimer){
       startVideo(0);
     }else if(videoClaimed&&videoLeaseHeld&&!browserHealthy&&h264LastFrameAt>0&&performance.now()-h264LastFrameAt>=2500&&++videoUnhealthyPolls>=2){
       videoUnhealthyPolls=0;

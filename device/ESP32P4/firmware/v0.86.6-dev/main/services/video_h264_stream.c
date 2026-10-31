@@ -72,11 +72,14 @@
 #define SI_H264_WORKER_IO_TIMEOUT_MS 250U
 #define SI_H264_WORKER_STOP_TIMEOUT_MS (SI_H264_JPEG_TIMEOUT_MS + 500U)
 #define SI_H264_SEND_EAGAIN_RETRY_MS 5U
-#define SI_H264_SEND_TIMEOUT_MS 1000U
-/* HTTPD sends the WebSocket header and payload in two override calls. The
- * in-flight work must finish both budgets before teardown frees AU storage;
- * later queued work observes send_stopping and returns without sending. */
-#define SI_H264_EGRESS_STOP_TIMEOUT_MS (2U * SI_H264_SEND_TIMEOUT_MS + 500U)
+/* A brief network loss stalls TCP until lwIP retransmits, about 1.5 s and then
+ * 4.5 s after the loss.  The budget outlasts both, so such a loss costs a pause
+ * in the picture rather than the session. */
+#define SI_H264_SEND_TIMEOUT_MS 6000U
+/* In-flight work observes send_stopping after its current blocking write (the
+ * video server's 1 s send_wait_timeout) and later queued work returns without
+ * sending, so teardown does not wait out the send budget. */
+#define SI_H264_EGRESS_STOP_TIMEOUT_MS 2500U
 #define SI_H264_RESTORE_RETRY_INITIAL_MS 100U
 #define SI_H264_RESTORE_RETRY_MAX_MS 1000U
 #define SI_H264_RESOURCE_RESERVE_WAIT_MS 10000U
@@ -250,7 +253,7 @@ typedef struct {
 /* "Slow" means an access-unit interval beyond 4/3 of the target frame period,
  * floored at 45 ms (30 fps): 1080p15 legitimately paces at 66 ms. */
 #define SI_H264_SLOW_AU_INTERVAL_US 45000
-#define SI_H264_SLOW_AU_LOG_GAP_US 300000
+#define SI_H264_SLOW_AU_LOG_GAP_US 30000000
 static int64_t s_diag_last_send_end_us;
 static uint32_t s_diag_prev_send_us;
 static int64_t s_diag_last_work_start_us;
@@ -496,6 +499,7 @@ static void h264_telemetry_pipeline_publish(
 static bool stream_still_current(uint32_t session, int fd);
 static void stream_detach(uint32_t session, int fd);
 static void stream_fail(uint32_t session, int fd);
+static void log_session_end(const char *reason, esp_err_t err);
 
 /* HTTPD's WebSocket helper hands the whole payload to the session send
  * function once and treats any non-negative result as success.  The video
@@ -506,7 +510,8 @@ static void stream_fail(uint32_t session, int fd);
  * session that bypasses encryption and the browser tears the connection
  * down.  Push every byte through the session transport instead. */
 static int h264_socket_send_all(httpd_handle_t handle, int socket_fd,
-                                const char *buffer, size_t length, int flags)
+                                const char *buffer, size_t length, int flags,
+                                const volatile bool *stopping)
 {
     if (!buffer || length > INT_MAX) {
         errno = !buffer ? EINVAL : EOVERFLOW;
@@ -521,6 +526,10 @@ static int h264_socket_send_all(httpd_handle_t handle, int socket_fd,
          * slow peer cannot stretch a single access unit indefinitely. */
         if (esp_timer_get_time() >= deadline_us) {
             errno = ETIMEDOUT;
+            return -1;
+        }
+        if (__atomic_load_n(stopping, __ATOMIC_ACQUIRE)) {
+            errno = ECANCELED;
             return -1;
         }
         int result = httpd_socket_send(handle, socket_fd, buffer + sent,
@@ -549,7 +558,8 @@ static int h264_socket_send_all(httpd_handle_t handle, int socket_fd,
 
 /* One complete, unmasked binary WebSocket message from the server. */
 static esp_err_t h264_ws_send_binary(httpd_handle_t server, int fd,
-                                     const uint8_t *payload, size_t length)
+                                     const uint8_t *payload, size_t length,
+                                     const volatile bool *stopping)
 {
     uint8_t header[10];
     size_t header_len = 2;
@@ -568,11 +578,13 @@ static esp_err_t h264_ws_send_binary(httpd_handle_t server, int fd,
         }
         header_len = 10;
     }
-    if (h264_socket_send_all(server, fd, (const char *)header, header_len, 0) < 0) {
+    if (h264_socket_send_all(server, fd, (const char *)header, header_len, 0,
+                             stopping) < 0) {
         return ESP_FAIL;
     }
     if (length > 0 &&
-        h264_socket_send_all(server, fd, (const char *)payload, length, 0) < 0) {
+        h264_socket_send_all(server, fd, (const char *)payload, length, 0,
+                             stopping) < 0) {
         return ESP_FAIL;
     }
     return ESP_OK;
@@ -1402,7 +1414,7 @@ static void h264_httpd_send_work(void *arg)
             send_attempted = true;
             int64_t started_us = esp_timer_get_time();
             err = h264_ws_send_binary(job.server, job.fd, job.payload,
-                                      job.frame_len);
+                                      job.frame_len, &pipeline->send_stopping);
             int64_t finished_us = esp_timer_get_time();
             send_started_us = started_us;
             send_finished_us = finished_us;
@@ -1468,6 +1480,7 @@ static void h264_httpd_send_work(void *arg)
                          __ATOMIC_RELEASE);
         ESP_LOGI(TAG, "H.264 WebSocket HTTPD send stopped: %s",
                  esp_err_to_name(err));
+        log_session_end("WebSocket send failed", err);
         stream_fail(job.session, job.fd);
     }
     pipeline_return_au_slot(pipeline, job.slot_id);
@@ -2923,6 +2936,14 @@ static void stream_detach(uint32_t session, int fd)
     stream_detach_internal(session, fd, false);
 }
 
+static void log_session_end(const char *reason, esp_err_t err)
+{
+    char line[120];
+    snprintf(line, sizeof(line), "H264 session ended: %s (%s)", reason,
+             esp_err_to_name(err));
+    si_web_log("WARN", line);
+}
+
 static void stream_fail(uint32_t session, int fd)
 {
     stream_detach_internal(session, fd, true);
@@ -2942,8 +2963,10 @@ static void stream_finish_fd(int fd, bool error)
     }
     if (session) {
         if (error) {
+            log_session_end("WebSocket receive failed", ESP_FAIL);
             stream_fail(session, fd);
         } else {
+            log_session_end("client closed WebSocket", ESP_OK);
             stream_detach(session, fd);
         }
     }
@@ -3267,6 +3290,7 @@ static bool flush_decoded_frame(
         return true;
     }
     if (err != ESP_OK) {
+        log_session_end("access unit submit failed", err);
         stream_fail(session, fd);
         return false;
     }
@@ -3466,6 +3490,7 @@ static void h264_stream_task(void *arg)
                 if (restart_err != ESP_OK) {
                     __atomic_store_n(&pipeline.encoder_reset_required, true,
                                      __ATOMIC_RELEASE);
+                    log_session_end("encoder restart failed", restart_err);
                     stream_fail(session, fd);
                     continue;
                 }
@@ -3491,6 +3516,8 @@ static void h264_stream_task(void *arg)
         if (client != HTTPD_WS_CLIENT_WEBSOCKET) {
             ESP_LOGW(TAG, "H.264 client is not an active WebSocket: fd=%d state=%d",
                      fd, (int)client);
+            log_session_end("client socket no longer a WebSocket",
+                            ESP_ERR_INVALID_STATE);
             stream_detach(session, fd);
             continue;
         }
@@ -3515,6 +3542,8 @@ static void h264_stream_task(void *arg)
                     chain.overlap_misses++;
                     overlap_probe_reset(&overlap_probe);
                 }
+                log_session_end("JPEG pipeline result timed out",
+                                ESP_ERR_TIMEOUT);
                 stream_fail(session, fd);
                 decode_inflight = false;
                 continue;
@@ -3676,6 +3705,8 @@ static void h264_stream_task(void *arg)
                      (unsigned)(video.target_fps_x100 / 100U),
                      (unsigned)(video.target_fps_x100 % 100U));
             (void)si_video_release_h264_jpeg(&jpeg_view);
+            log_session_end("capture mode left H.264 contract",
+                            ESP_ERR_NOT_SUPPORTED);
             stream_fail(session, fd);
             continue;
         }
@@ -3699,6 +3730,7 @@ static void h264_stream_task(void *arg)
                 ESP_LOGE(TAG, "pipeline configuration failed: %s",
                          esp_err_to_name(err));
                 (void)si_video_release_h264_jpeg(&jpeg_view);
+                log_session_end("pipeline configuration failed", err);
                 stream_fail(session, fd);
                 continue;
             }
@@ -3784,6 +3816,8 @@ static void h264_stream_task(void *arg)
                            pdMS_TO_TICKS(20)) != pdPASS) {
                 ESP_LOGE(TAG, "JPEG pipeline request queue is blocked");
                 (void)si_video_release_h264_jpeg(&jpeg_view);
+                log_session_end("JPEG pipeline request queue blocked",
+                                ESP_ERR_TIMEOUT);
                 stream_fail(session, fd);
                 continue;
             }
@@ -3890,7 +3924,7 @@ static esp_err_t parse_stream_id(httpd_req_t *req, uint32_t *stream_id,
     return ESP_OK;
 }
 
-esp_err_t si_h264_stream_ws_post_handshake(httpd_req_t *req)
+static esp_err_t stream_attach(httpd_req_t *req)
 {
     /* ESP-IDF 5.5 completes a WebSocket upgrade without calling the normal
      * URI handler.  Attach the producer here so a receive frame is not
@@ -4052,6 +4086,18 @@ esp_err_t si_h264_stream_ws_post_handshake(httpd_req_t *req)
     ESP_LOGI(TAG, "H.264 WebSocket connected: fd=%d stream=%u",
              new_fd, (unsigned)stream_id);
     return ESP_OK;
+}
+
+esp_err_t si_h264_stream_ws_post_handshake(httpd_req_t *req)
+{
+    esp_err_t ret = stream_attach(req);
+    if (ret != ESP_OK) {
+        char line[96];
+        snprintf(line, sizeof(line), "H264 session rejected: %s",
+                 esp_err_to_name(ret));
+        si_web_log("WARN", line);
+    }
+    return ret;
 }
 
 esp_err_t si_h264_stream_ws_handler(httpd_req_t *req)

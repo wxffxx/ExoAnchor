@@ -20,6 +20,7 @@ harness = r'''
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,6 +41,7 @@ static unsigned sleeps;
 static int scenario;
 static size_t total_sent;
 static char output[64];
+static volatile bool stopping;
 static int64_t esp_timer_get_time(void) { return now_us; }
 static void vTaskDelay(TickType_t ticks)
 {
@@ -61,6 +63,7 @@ static int httpd_socket_send(httpd_handle_t hd, int fd, const char *buffer, size
     if (scenario == 3 || (scenario == 7 && calls == 2)) return 0;
     if (scenario == 4) { errno = ECONNRESET; return HTTPD_SOCK_ERR_FAIL; }
     if (scenario == 8) { errno = 0; return -0x7F00; }
+    if (scenario == 9) stopping = true;
     size_t count = length < 2 ? length : 2;
     assert(total_sent + count <= sizeof(output));
     memcpy(output + total_sent, buffer, count);
@@ -76,18 +79,19 @@ static void reset(int selected, int64_t advance)
     calls = sleeps = 0;
     total_sent = 0;
     scenario = selected;
+    stopping = false;
     errno = 0;
     memset(output, 0, sizeof(output));
 }
 static int transmit(const char *buffer, size_t length)
 {
-    return h264_socket_send_all(NULL, 7, buffer, length, 0);
+    return h264_socket_send_all(NULL, 7, buffer, length, 0, &stopping);
 }
 int main(void)
 {
     const char payload[] = "0123456789abcdef";
     const int64_t budget = (int64_t)SI_H264_SEND_TIMEOUT_MS * 1000;
-    assert(SI_H264_EGRESS_STOP_TIMEOUT_MS == 2U * SI_H264_SEND_TIMEOUT_MS + 500U);
+    assert(SI_H264_EGRESS_STOP_TIMEOUT_MS < SI_H264_SEND_TIMEOUT_MS);
     reset(0, 0);
     assert(transmit(payload, sizeof(payload)) == sizeof(payload));
     assert(total_sent == sizeof(payload));
@@ -120,6 +124,11 @@ int main(void)
     assert(transmit(payload, sizeof(payload)) == -1 && errno == ECONNRESET);
     reset(8, 0);
     assert(transmit(payload, sizeof(payload)) == -1 && errno == EIO);
+
+    /* Teardown ends an in-flight send after its current write. */
+    reset(9, 0);
+    assert(transmit(payload, sizeof(payload)) == -1 && errno == ECANCELED);
+    assert(calls == 1 && total_sent == 2);
     reset(0, 0);
     assert(transmit(NULL, 1) == -1 && errno == EINVAL);
     assert(transmit(payload, (size_t)INT_MAX + 1U) == -1 && errno == EOVERFLOW);

@@ -1681,7 +1681,7 @@ def main() -> int:
         'recoverH264(videoStreamId,"H.264 视频流停滞")',
         "function recoverH264(",
         "h264ReconnectAttempts",
-        "自动重连仍未恢复",
+        "正在自动重连（第 ",
         "kvmLeaseEpoch",
         "requestEpoch===kvmLeaseEpoch&&requestStreamId===videoStreamId",
         "kvmLeaseInFlight.streamId===requestStreamId",
