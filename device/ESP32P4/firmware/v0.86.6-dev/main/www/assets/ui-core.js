@@ -3,7 +3,7 @@
 
   const LOGIN_TIMEOUT_MS = 75000;
 
-  const VERSION = String(window.ExoAnchorBuild?.version || "0.88.2-dev");
+  const VERSION = String(window.ExoAnchorBuild?.version || "0.88.3-dev");
   const FEATURES = Object.freeze({
     embeddedAgent: window.ExoAnchorBuild?.embeddedAgent !== false,
     uartTerminal: window.ExoAnchorBuild?.uartTerminal !== false,
