@@ -56,6 +56,12 @@ CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=16384
 CONFIG_LWIP_TCP_SND_BUF_DEFAULT=32768
 CONFIG_LWIP_TCP_WND_DEFAULT=11520
 
+# lwIP's RTO sticks at 3 slow-timer ticks on a LAN, so the tick sets how long a
+# lost burst stalls the picture: 500 ms ticks mean retransmits 1.5 and 4.5 s
+# after a loss, 100 ms ticks mean 0.3, 0.9, 2.1 and 4.5 s.
+CONFIG_LWIP_TCP_TMR_INTERVAL=50
+CONFIG_LWIP_TCP_RTO_TIME=300
+
 # IDR every 8 s at 30 fps (16 s at 1080p15): each IDR is 120-240 KB and
 # arrives 20-40 ms late through TLS; fewer of them is the only lever left.
 CONFIG_SI_VIDEO_H264_GOP=240
