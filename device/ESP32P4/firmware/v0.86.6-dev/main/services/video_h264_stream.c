@@ -84,15 +84,23 @@
 #define SI_H264_RESTORE_RETRY_MAX_MS 1000U
 #define SI_H264_RESOURCE_RESERVE_WAIT_MS 10000U
 #define SI_H264_RESOURCE_CLAIM_WAIT_MS 250U
-/* The encoder's reference window and deblocking temp buffer are reserved
- * from internal RAM at boot (see si_h264_stream_initialize), so a session
- * only has to find room for the H.264/JPEG DMA descriptors (a few hundred
- * bytes), the 100-byte SPS/PPS buffer (falls back to PSRAM) and the 4 KiB
- * JPEG decode worker stack.  The old 24/18 KiB thresholds pre-dated the boot
- * reservation and blocked every session once that reservation had consumed
- * the headroom they were protecting. */
-#define SI_H264_ENCODER_INTERNAL_MIN_FREE (12U * 1024U)
-#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (6U * 1024U)
+/* The encoder handle, its reference window and its deblocking temp buffer are
+ * reserved from internal RAM at boot (see si_h264_stream_initialize), and the
+ * hold below covers the rest of a session's H.264/JPEG descriptors, so starting
+ * a session takes little internal RAM beyond what it frees.  The JPEG decode
+ * worker's 4 KiB stack is optional (serial fallback).  These only guard the
+ * path that rebuilds the handle after an Agent run deleted it. */
+#define SI_H264_ENCODER_INTERNAL_MIN_FREE (2U * 1024U)
+#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (1U * 1024U)
+/* Codec descriptors can only use DMA-capable L2MEM, while ordinary small
+ * allocations also prefer it and only then spill into RTC RAM: TLS sessions
+ * (2 KiB each) and EMAC RX frames drain L2MEM to nothing while "internal" free
+ * still reads above 10 KiB.  This block keeps the pipeline's share out of that
+ * race and is freed right before the pipeline allocates. */
+#define SI_H264_L2_HOLD_CAPS \
+    (MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA)
+#define SI_H264_L2_HOLD_BYTES (4U * 1024U)
+#define SI_H264_L2_HOLD_RETRY_US 1000000ULL
 /* The Agent run stack lives in PSRAM; internal RAM only has to cover its
  * TCB, short-lived small allocations (HTTP client, semaphores) and headroom
  * for the HTTPS servers while it runs. */
@@ -605,6 +613,7 @@ static uint8_t *s_preallocated_au[SI_H264_AU_SLOT_COUNT];
 static uint32_t s_preallocated_au_capacity[SI_H264_AU_SLOT_COUNT];
 static bool s_preallocated_buffers_claimed;
 static bool s_codec_pipeline_claimed;
+static void *s_l2_hold;
 
 enum {
     SI_H264_RESOURCE_OWNER_NONE = 0U,
@@ -1538,6 +1547,25 @@ static esp_err_t pipeline_stop_egress(si_h264_pipeline_t *pipeline)
     return ESP_OK;
 }
 
+static void h264_l2_hold_release(void)
+{
+    heap_caps_free(__atomic_exchange_n(&s_l2_hold, NULL, __ATOMIC_ACQ_REL));
+}
+
+static void h264_l2_hold_take(void)
+{
+    if (__atomic_load_n(&s_l2_hold, __ATOMIC_ACQUIRE)) {
+        return;
+    }
+    void *block = heap_caps_malloc(SI_H264_L2_HOLD_BYTES, SI_H264_L2_HOLD_CAPS);
+    void *expected = NULL;
+    if (block && !__atomic_compare_exchange_n(&s_l2_hold, &expected, block,
+                                              false, __ATOMIC_ACQ_REL,
+                                              __ATOMIC_ACQUIRE)) {
+        heap_caps_free(block);
+    }
+}
+
 static esp_err_t pipeline_release_internal(si_h264_pipeline_t *pipeline,
                                            bool release_codec_gate)
 {
@@ -1587,6 +1615,9 @@ static esp_err_t pipeline_release_internal(si_h264_pipeline_t *pipeline,
     h264_telemetry_pipeline_clear();
     memset(pipeline, 0, sizeof(*pipeline));
     pipeline->owns_codec_gate = retain_codec_gate;
+    if (release_codec_gate) {
+        h264_l2_hold_take();
+    }
     return ESP_OK;
 }
 
@@ -1823,6 +1854,7 @@ static esp_err_t pipeline_configure(si_h264_pipeline_t *pipeline,
      * engine before opening H.264.  JPEG uses the generic DMA2D pool while
      * H.264 has its own DMA engine; their relevant shared resource is the
      * external-memory/cache path, not one common DMA2D channel. */
+    h264_l2_hold_release();
     esp_err_t err = pipeline_recreate_jpeg_decoder(pipeline);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "JPEG decoder engine creation failed: %s",
@@ -1970,6 +2002,34 @@ static esp_err_t pipeline_configure(si_h264_pipeline_t *pipeline,
     return ESP_OK;
 }
 
+static esp_h264_err_t h264_encoder_reserve(void)
+{
+    esp_h264_enc_cfg_hw_t cfg = {
+        .pic_type = ESP_H264_RAW_FMT_O_UYY_E_VYY,
+        .gop = (uint8_t)SI_CFG_VIDEO_H264_GOP,
+        .fps = SI_CFG_VIDEO_FPS,
+        .res = {
+            .width = SI_CFG_VIDEO_WIDTH,
+            .height = SI_CFG_VIDEO_HEIGHT,
+        },
+        .rc = {
+            .bitrate = SI_CFG_VIDEO_H264_BITRATE,
+            .qp_min = SI_H264_QP_MIN,
+            .qp_max = SI_H264_QP_MAX,
+        },
+    };
+    SI_H264_STOCK_RELEASE_HOLE();
+    esp_h264_err_t err = esp_h264_enc_hw_new(&cfg, &s_preallocated_encoder);
+    if (err != ESP_H264_ERR_OK) {
+        s_preallocated_encoder = NULL;
+        return err;
+    }
+    s_preallocated_width = SI_CFG_VIDEO_WIDTH;
+    s_preallocated_height = SI_CFG_VIDEO_HEIGHT;
+    s_preallocated_fps = SI_CFG_VIDEO_FPS;
+    return ESP_H264_ERR_OK;
+}
+
 static esp_err_t h264_runtime_reserve_internal(
     si_h264_resource_token_t resource_token)
 {
@@ -1988,20 +2048,6 @@ static esp_err_t h264_runtime_reserve_internal(
                                                MALLOC_CAP_8BIT),
              (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL |
                                                         MALLOC_CAP_8BIT));
-    esp_h264_enc_cfg_hw_t cfg = {
-        .pic_type = ESP_H264_RAW_FMT_O_UYY_E_VYY,
-        .gop = (uint8_t)SI_CFG_VIDEO_H264_GOP,
-        .fps = s_preallocated_fps,
-        .res = {
-            .width = s_preallocated_width,
-            .height = s_preallocated_height,
-        },
-        .rc = {
-            .bitrate = SI_CFG_VIDEO_H264_BITRATE,
-            .qp_min = SI_H264_QP_MIN,
-            .qp_max = SI_H264_QP_MAX,
-        },
-    };
     if (!s_preallocated_encoder) {
         const size_t internal_free = heap_caps_get_free_size(
             MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -2023,11 +2069,8 @@ static esp_err_t h264_runtime_reserve_internal(
                      (unsigned)SI_H264_ENCODER_INTERNAL_MIN_LARGEST);
             return ESP_ERR_INVALID_STATE;
         }
-        SI_H264_STOCK_RELEASE_HOLE();
-        esp_h264_err_t err = esp_h264_enc_hw_new(&cfg,
-                                                  &s_preallocated_encoder);
+        esp_h264_err_t err = h264_encoder_reserve();
         if (err != ESP_H264_ERR_OK) {
-            s_preallocated_encoder = NULL;
             ESP_LOGE(TAG, "startup H.264 encoder reserve failed: %d", (int)err);
             return h264_vendor_error_to_esp(err);
         }
@@ -2221,8 +2264,9 @@ esp_err_t si_h264_stream_initialize(void)
 {
     /* The UVC frame arena and internal-DMA budget are reserved first, without
      * starting USB/UVC tasks.  Reserve only the small latency-critical H.264
-     * reference workspace at this barrier; all larger codec resources remain
-     * lazy so a failed experiment cannot take down MJPEG capture. */
+     * reference workspace and encoder handle at this barrier; all larger codec
+     * resources remain lazy so a failed experiment cannot take down MJPEG
+     * capture. */
     if (__atomic_load_n(&s_service_initialized, __ATOMIC_ACQUIRE)) {
         return ESP_OK;
     }
@@ -2351,11 +2395,36 @@ esp_err_t si_h264_stream_initialize(void)
         return ESP_ERR_NO_MEM;
     }
 
+    esp_h264_err_t encoder_err = h264_encoder_reserve();
+    if (encoder_err != ESP_H264_ERR_OK) {
+        ESP_LOGW(TAG, "boot H.264 encoder reserve failed: %d; retrying at session start",
+                 (int)encoder_err);
+    }
     __atomic_store_n(&s_service_initialized, true, __ATOMIC_RELEASE);
     ESP_LOGI(TAG,
              "H.264 service initialized; internal reference=%u/%u bytes, remaining codec resources deferred",
              (unsigned)required_bytes, (unsigned)capacity_bytes);
     return ESP_OK;
+}
+
+static void h264_l2_hold_timer_cb(void *arg)
+{
+    (void)arg;
+    if (!__atomic_load_n(&s_codec_pipeline_claimed, __ATOMIC_ACQUIRE)) {
+        h264_l2_hold_take();
+    }
+}
+
+esp_err_t si_h264_stream_start_l2_hold(void)
+{
+    const esp_timer_create_args_t args = {
+        .callback = h264_l2_hold_timer_cb,
+        .name = "si_h264_l2_hold",
+    };
+    esp_timer_handle_t timer = NULL;
+    esp_err_t err = esp_timer_create(&args, &timer);
+    return err == ESP_OK ? esp_timer_start_periodic(timer, SI_H264_L2_HOLD_RETRY_US)
+                         : err;
 }
 
 void si_h264_stream_get_status(si_h264_stream_status_t *status)

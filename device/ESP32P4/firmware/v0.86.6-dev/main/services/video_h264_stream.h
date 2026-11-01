@@ -78,6 +78,10 @@ typedef struct {
 
 /* Optional WebSocket transport for the hardware H.264 KVM pipeline. */
 esp_err_t si_h264_stream_initialize(void);
+/* Keeps the codec's L2MEM block taken while no pipeline runs. Start this once
+ * the HTTP servers run: taken earlier, the block pushes their large internal
+ * stacks out of L2MEM into much slower RTC RAM. */
+esp_err_t si_h264_stream_start_l2_hold(void);
 void si_h264_stream_get_status(si_h264_stream_status_t *status);
 esp_err_t si_h264_stream_ws_post_handshake(httpd_req_t *req);
 esp_err_t si_h264_stream_ws_handler(httpd_req_t *req);

@@ -3238,13 +3238,12 @@ def main() -> int:
     handshake = section(
         h264, "static esp_err_t stream_attach(",
         "esp_err_t si_h264_stream_ws_handler(")
-    if "esp_h264_enc_hw_new(" in service_init or \
-            "h264_runtime_reserve()" in service_init or \
+    if "h264_runtime_reserve()" in service_init or \
             "h264_runtime_reserve_internal()" in service_init or \
             "jpeg_alloc_decoder_mem(" in service_init or \
             "esp_h264_aligned_calloc(" in service_init:
         failures.append(
-            "H.264 service initialization may reserve only the patched internal reference workspace"
+            "H.264 service initialization may reserve only the patched internal reference workspace and encoder handle"
         )
     if not ordered(
         service_init,
@@ -3445,8 +3444,8 @@ def main() -> int:
             "Agent cleanup must compare-release only its exact generation token"
         )
     for marker in (
-        "#define SI_H264_ENCODER_INTERNAL_MIN_FREE (12U * 1024U)",
-        "#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (6U * 1024U)",
+        "#define SI_H264_ENCODER_INTERNAL_MIN_FREE (2U * 1024U)",
+        "#define SI_H264_ENCODER_INTERNAL_MIN_LARGEST (1U * 1024U)",
         "#define SI_AGENT_EXECUTOR_INTERNAL_MIN_FREE (20U * 1024U)",
         "#define SI_AGENT_EXECUTOR_INTERNAL_MIN_LARGEST (6U * 1024U)",
     ):
@@ -3496,7 +3495,7 @@ def main() -> int:
         "SI_H264_ENCODER_INTERNAL_MIN_FREE",
         "SI_H264_ENCODER_INTERNAL_MIN_LARGEST",
         "return ESP_ERR_INVALID_STATE;",
-        "esp_h264_enc_hw_new(",
+        "h264_encoder_reserve()",
         "buffers_already_reserved",
     ):
         failures.append(

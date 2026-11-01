@@ -87,7 +87,7 @@ static void agent_task_service_start_shadow_async(void)
     BaseType_t created = xTaskCreateWithCaps(
         agent_task_service_recovery_task, "si_agent_recover",
         AGENT_TASK_SERVICE_RECOVERY_STACK, NULL, tskIDLE_PRIORITY + 1,
-        NULL, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        NULL, AGENT_RUN_TASK_MEMORY_CAPS);
     if (created != pdPASS) {
         ESP_LOGE(TAG,
                  "Agent Task Service recovery task unavailable; Web/KVM "

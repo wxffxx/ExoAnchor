@@ -363,6 +363,13 @@ void app_main(void)
     }
 
     ESP_ERROR_CHECK(si_web_server_start());
+#if CONFIG_SI_VIDEO_H264_EXPERIMENT
+    esp_err_t l2_hold_ret = si_h264_stream_start_l2_hold();
+    if (l2_hold_ret != ESP_OK) {
+        ESP_LOGW(TAG, "H.264 L2 hold timer unavailable: %s",
+                 esp_err_to_name(l2_hold_ret));
+    }
+#endif
     confirm_running_ota_image();
     ESP_LOGI(TAG, "Initialization complete; releasing app_main task stack");
 }
