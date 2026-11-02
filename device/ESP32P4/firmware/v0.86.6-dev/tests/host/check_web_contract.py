@@ -2022,9 +2022,9 @@ def main() -> int:
     else:
         version_base = version_match.group(1)
         version = f"{version_base}-dev"
-        if version_base != "0.88.3":
+        if version_base != "0.88.4":
             failures.append(
-                "0.88.3 AzureDanube development version violated; keep SI_VERSION_BASE "
+                "0.88.4 AzureDanube development version violated; keep SI_VERSION_BASE "
                 "aligned with the released current development version"
             )
         if f'window.ExoAnchorBuild?.version || "{version}"' not in core_js:
