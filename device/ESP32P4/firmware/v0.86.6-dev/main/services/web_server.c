@@ -485,6 +485,7 @@ static esp_err_t agent_run_revoke_page_context(const si_product_feature_settings
 #include "web/ssh_module.inc"
 #include "web/ssh_bootstrap_module.inc"
 #include "web/uart_module.inc"
+#include "web/terminal_session_module.inc"
 #include "web/ota_runtime_module.inc"
 #include "web/storage_http_module.inc"
 #include "web/ms2109_test_http_module.inc"
@@ -516,7 +517,7 @@ static esp_err_t agent_run_revoke_page_context(const si_product_feature_settings
 #include "web/video_http_module.inc"
 #include "web/async_http_module.inc"
 static esp_err_t ws_auth_pre_handshake(httpd_req_t *req)
-{ return si_http_check_auth(req) ? ESP_OK : ESP_FAIL; }
+{ return si_http_require_capability(req, SI_CAPABILITY_OBSERVE, NULL); }
 static esp_err_t not_found_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     (void)err;
@@ -626,6 +627,7 @@ esp_err_t si_web_server_start(void)
     ESP_RETURN_ON_ERROR(ssh_ws_bridge_start(), TAG, "start SSH WebSocket bridge");
     ESP_RETURN_ON_ERROR(uart_ws_bridge_start(), TAG,
                         "start target UART WebSocket bridge");
+    ESP_RETURN_ON_ERROR(terminal_ws_session_start(), TAG, "start terminal session revocation");
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = SI_DEFAULT_HTTP_PORT;
     config.uri_match_fn = httpd_uri_match_wildcard;

@@ -94,9 +94,13 @@ int main(void)
     assert(stat(si_agent_event_store_path(), &status) == 0);
     assert(status.st_size > 1);
     assert(truncate(si_agent_event_store_path(), status.st_size - 1) == 0);
-    assert(si_agent_event_store_recover(NULL, NULL, &recovery) ==
-           ESP_ERR_INVALID_STATE);
+    assert(si_agent_event_store_recover(NULL, NULL, &recovery) == ESP_OK);
     assert(recovery.status == SI_AGENT_EVENT_RECOVERY_TAIL_TRUNCATED);
+    assert(recovery.latest_seq == 1);
+    assert(stat(si_agent_event_store_path(), &status) == 0);
+    assert((uint64_t)status.st_size == recovery.valid_bytes);
+    assert(si_agent_event_store_latest(&latest, hash) == ESP_OK);
+    assert(latest == 1);
 
     assert(remove(si_agent_event_store_path()) == 0);
     assert(rmdir(SI_AGENT_EVENT_STORE_DIR) == 0);

@@ -76,9 +76,11 @@
  * 4.5 s after the loss.  The budget outlasts both, so such a loss costs a pause
  * in the picture rather than the session. */
 #define SI_H264_SEND_TIMEOUT_MS 6000U
-/* In-flight work observes send_stopping after its current blocking write (the
- * video server's 1 s send_wait_timeout) and later queued work returns without
- * sending, so teardown does not wait out the send budget. */
+/* Teardown sets send_abort: in-flight work stops after its current blocking
+ * write (the video server's 1 s send_wait_timeout) and later queued work
+ * returns without sending, so teardown does not wait out the send budget.
+ * Same-session reconfiguration lets the in-flight AU finish within that
+ * budget and waits for it on top of this margin. */
 #define SI_H264_EGRESS_STOP_TIMEOUT_MS 2500U
 #define SI_H264_RESTORE_RETRY_INITIAL_MS 100U
 #define SI_H264_RESTORE_RETRY_MAX_MS 1000U
@@ -303,6 +305,7 @@ struct si_h264_pipeline {
     bool egress_initialized;
     volatile uint32_t free_au_mask;
     volatile bool send_stopping;
+    volatile bool send_abort;
     volatile esp_err_t send_result;
     volatile uint32_t send_result_session;
     volatile uint32_t last_send_us;
@@ -1423,7 +1426,7 @@ static void h264_httpd_send_work(void *arg)
             send_attempted = true;
             int64_t started_us = esp_timer_get_time();
             err = h264_ws_send_binary(job.server, job.fd, job.payload,
-                                      job.frame_len, &pipeline->send_stopping);
+                                      job.frame_len, &pipeline->send_abort);
             int64_t finished_us = esp_timer_get_time();
             send_started_us = started_us;
             send_finished_us = finished_us;
@@ -1507,6 +1510,7 @@ static esp_err_t pipeline_start_egress(si_h264_pipeline_t *pipeline)
     __atomic_store_n(&pipeline->free_au_mask, all_free_mask,
                      __ATOMIC_RELEASE);
     __atomic_store_n(&pipeline->send_stopping, false, __ATOMIC_RELEASE);
+    __atomic_store_n(&pipeline->send_abort, false, __ATOMIC_RELEASE);
     __atomic_store_n(&pipeline->send_result, ESP_OK, __ATOMIC_RELEASE);
     __atomic_store_n(&pipeline->send_result_session, 0,
                      __ATOMIC_RELAXED);
@@ -1521,18 +1525,23 @@ static esp_err_t pipeline_start_egress(si_h264_pipeline_t *pipeline)
     return ESP_OK;
 }
 
-static esp_err_t pipeline_stop_egress(si_h264_pipeline_t *pipeline)
+static esp_err_t pipeline_stop_egress(si_h264_pipeline_t *pipeline,
+                                      bool abort_in_flight)
 {
     if (!pipeline || !pipeline->egress_initialized) {
         return ESP_OK;
     }
     __atomic_store_n(&pipeline->send_stopping, true, __ATOMIC_RELEASE);
+    if (abort_in_flight) {
+        __atomic_store_n(&pipeline->send_abort, true, __ATOMIC_RELEASE);
+    }
     /* Every cleared bit owns a persistent send_work embedded in this
      * pipeline.  Wait until the dedicated HTTPD task has either sent or
      * rejected each work item before freeing its payload or the context. */
     const TickType_t started = xTaskGetTickCount();
-    const TickType_t timeout =
-        pdMS_TO_TICKS(SI_H264_EGRESS_STOP_TIMEOUT_MS);
+    const TickType_t timeout = pdMS_TO_TICKS(
+        SI_H264_EGRESS_STOP_TIMEOUT_MS +
+        (abort_in_flight ? 0U : SI_H264_SEND_TIMEOUT_MS));
     const uint32_t all_free_mask = pipeline_all_free_au_mask(pipeline);
     while ((__atomic_load_n(&pipeline->free_au_mask, __ATOMIC_ACQUIRE) &
             all_free_mask) != all_free_mask) {
@@ -1573,7 +1582,7 @@ static esp_err_t pipeline_release_internal(si_h264_pipeline_t *pipeline,
         return ESP_ERR_INVALID_ARG;
     }
     esp_err_t worker_err = pipeline_stop_decode_worker(pipeline);
-    esp_err_t egress_err = pipeline_stop_egress(pipeline);
+    esp_err_t egress_err = pipeline_stop_egress(pipeline, release_codec_gate);
     if (worker_err != ESP_OK || egress_err != ESP_OK) {
         pipeline->teardown_poisoned = true;
         return worker_err != ESP_OK ? worker_err : egress_err;

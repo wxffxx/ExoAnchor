@@ -2890,7 +2890,7 @@ def main() -> int:
     if not ordered(
         pipeline_release,
         "worker_err = pipeline_stop_decode_worker(pipeline);",
-        "egress_err = pipeline_stop_egress(pipeline);",
+        "egress_err = pipeline_stop_egress(pipeline, release_codec_gate);",
         "pipeline->teardown_poisoned = true;",
         "return worker_err != ESP_OK ? worker_err : egress_err;",
         "esp_h264_enc_close(",

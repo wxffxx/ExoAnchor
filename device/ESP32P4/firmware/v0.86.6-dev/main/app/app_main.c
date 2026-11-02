@@ -187,12 +187,13 @@ static void confirm_running_ota_image(void)
 
     esp_ota_img_states_t state = ESP_OTA_IMG_UNDEFINED;
     esp_err_t ret = esp_ota_get_state_partition(running, &state);
-    if (ret == ESP_ERR_NOT_SUPPORTED || state != ESP_OTA_IMG_PENDING_VERIFY) {
+    if (ret == ESP_ERR_NOT_SUPPORTED) {
         return;
     }
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Cannot read running OTA image state: %s",
                  esp_err_to_name(ret));
+    } else if (state != ESP_OTA_IMG_PENDING_VERIFY) {
         return;
     }
 

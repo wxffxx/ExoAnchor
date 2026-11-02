@@ -670,6 +670,7 @@ esp_err_t si_ssh_exec(const si_ssh_exec_config_t *config, si_ssh_exec_result_t *
     ctx->result = result;
     ctx->done = xSemaphoreCreateBinary();
     if (!ctx->done) {
+        ssh_secure_clear(&ctx->config, sizeof(ctx->config));
         free(ctx);
         xSemaphoreGive(s_ssh_lock);
         return ESP_ERR_NO_MEM;
@@ -683,6 +684,7 @@ esp_err_t si_ssh_exec(const si_ssh_exec_config_t *config, si_ssh_exec_result_t *
         MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (task_ok != pdPASS) {
         vSemaphoreDelete(ctx->done);
+        ssh_secure_clear(&ctx->config, sizeof(ctx->config));
         free(ctx);
         xSemaphoreGive(s_ssh_lock);
         set_error(result, "create ssh task failed");
@@ -709,7 +711,7 @@ esp_err_t si_ssh_exec(const si_ssh_exec_config_t *config, si_ssh_exec_result_t *
         set_error(result, esp_err_to_name(ret));
     }
     vSemaphoreDelete(ctx->done);
-    memset(&ctx->config, 0, sizeof(ctx->config));
+    ssh_secure_clear(&ctx->config, sizeof(ctx->config));
     free(ctx);
     xSemaphoreGive(s_ssh_lock);
     return ret;

@@ -149,6 +149,14 @@ int main(void)
     /* Writes to /dev/null are harmless; quoting does not hide words. */
     expect_command("ls > /dev/null", R1);
     expect_command("echo 'sudo is not run here'", R2);
+    expect_command("r\\m -rf /var/www/old", R3);
+    expect_command("rm$IFS-rf$IFS/var/www/old", R3);
+    expect_command("rm${IFS}-rf${IFS}/var/www/old", R3);
+    expect_command("sud\\o reboot", R2);
+    expect_command("cat$IFS/etc/shadow", R2);
+    expect_command("r''m -rf /var/www/old", R3);
+    expect_command("r\"m\" -rf /var/www/old", R3);
+    expect_command("s''udo reboot", R2);
 
     expect_path("notes.txt", R1);
     expect_path("/home/deploy/app/config.yml", R1);

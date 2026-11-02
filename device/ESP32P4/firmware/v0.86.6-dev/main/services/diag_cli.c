@@ -18,11 +18,13 @@
 #include "diagnostics_service.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
+#include "esp_expression_with_stack.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "mbedtls/base64.h"
 #if SI_CFG_MS2109_EEPROM_EMULATOR_ENABLED
@@ -53,6 +55,47 @@ static const char *TAG = "si-diag-cli";
 #define DIAG_CLI_UNKNOWN_PREVIEW_MAX 96
 #define DIAG_CLI_UNKNOWN_FLUSH_THRESHOLD 48
 #define DIAG_CLI_TASK_STACK 16384
+/* The CLI task stack lives in PSRAM; NVS writes need an internal stack. */
+#define DIAG_FLASH_SAFE_STACK_SIZE 10240
+
+static esp_err_t (*s_flash_safe_fn)(void *);
+static void *s_flash_safe_arg;
+static esp_err_t s_flash_safe_ret;
+
+static void diag_flash_safe_trampoline(void)
+{
+    s_flash_safe_ret = s_flash_safe_fn(s_flash_safe_arg);
+}
+
+static esp_err_t diag_run_flash_safe(esp_err_t (*fn)(void *), void *arg)
+{
+    static SemaphoreHandle_t lock;
+    if (!lock) {
+        lock = xSemaphoreCreateMutex();
+    }
+    void *stack = heap_caps_malloc(DIAG_FLASH_SAFE_STACK_SIZE,
+                                   MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!lock || !stack) {
+        heap_caps_free(stack);
+        return ESP_ERR_NO_MEM;
+    }
+    s_flash_safe_fn = fn;
+    s_flash_safe_arg = arg;
+    s_flash_safe_ret = ESP_FAIL;
+    esp_execute_shared_stack_function(lock, stack, DIAG_FLASH_SAFE_STACK_SIZE,
+                                      diag_flash_safe_trampoline);
+    heap_caps_free(stack);
+    return s_flash_safe_ret;
+}
+
+static esp_err_t net_apply_cb(void *arg) { (void)arg; return si_net_apply_staged(); }
+static esp_err_t net_commit_cb(void *arg) { (void)arg; return si_net_commit_pending(); }
+static esp_err_t net_rollback_cb(void *arg) { (void)arg; return si_net_rollback_pending(); }
+static esp_err_t net_reset_cb(void *arg) { (void)arg; return si_net_reset_config(); }
+static esp_err_t net_stage_cb(void *arg)
+{
+    return si_net_stage_config((const si_network_config_t *)arg);
+}
 #define DIAG_CLI_AGENT_WATCH_MAX_SECONDS 900
 #define DIAG_CLI_TF_LS_PATH_MAX 192
 #define DIAG_CLI_TF_LS_MAX_ITEMS 80
@@ -451,7 +494,7 @@ static void read_target_uart_backlog(void)
     }
 
     size_t encoded_len = 0;
-    int ret = mbedtls_base64_encode(encoded, sizeof(encoded) - 1,
+    int ret = mbedtls_base64_encode(encoded, sizeof(encoded),
                                     &encoded_len, data, len);
     if (ret != 0) {
         printf("target-uart-read failed base64_error=%d bytes=%u\r\n",
@@ -802,7 +845,7 @@ static bool line_is_resync_command(const char *line)
     // recovery command. Treat short lines ending in the recovery token as a hard
     // resync so UART automation can always regain the prompt.
     size_t cmd_len = strlen(cmd);
-    if (cmd_len > 0 && cmd_len <= 64) {
+    if (cmd_len > 0 && cmd_len <= 64 && !strpbrk(cmd, " \t")) {
         if (cmd_len >= 4 && strcmp(cmd + cmd_len - 4, "sync") == 0) {
             return true;
         }
@@ -943,11 +986,10 @@ static void run_network_command(char *tail)
             printf("network %s takes no arguments\r\n", action);
             return;
         }
-        esp_err_t ret = strcmp(action, "apply") == 0
-                            ? si_net_apply_staged()
-                            : strcmp(action, "commit") == 0
-                                  ? si_net_commit_pending()
-                                  : si_net_rollback_pending();
+        esp_err_t ret = diag_run_flash_safe(
+            strcmp(action, "apply") == 0 ? net_apply_cb :
+            strcmp(action, "commit") == 0 ? net_commit_cb : net_rollback_cb,
+            NULL);
         printf("network %s result=%s\r\n", action, esp_err_to_name(ret));
         return;
     }
@@ -956,7 +998,7 @@ static void run_network_command(char *tail)
             printf("refused: use exactly 'network reset CONFIRM'\r\n");
             return;
         }
-        esp_err_t ret = si_net_reset_config();
+        esp_err_t ret = diag_run_flash_safe(net_reset_cb, NULL);
         printf("network reset result=%s\r\n", esp_err_to_name(ret));
         return;
     }
@@ -1025,7 +1067,7 @@ static void run_network_command(char *tail)
                "rollback|reset\r\n");
         return;
     }
-    ret = si_net_stage_config(&config);
+    ret = diag_run_flash_safe(net_stage_cb, &config);
     printf("network stage mode=%s hostname=%s result=%s\r\n",
            si_network_mode_name(config.mode), config.hostname,
            esp_err_to_name(ret));

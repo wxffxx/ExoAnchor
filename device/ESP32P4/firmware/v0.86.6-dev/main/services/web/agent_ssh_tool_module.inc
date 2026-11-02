@@ -136,6 +136,15 @@ static bool agent_execute_ssh_exec_tool(const char *job_id, const cJSON *call,
         timeout_value = (int)SSH_TARGET_MAX_TIMEOUT_MS;
     }
 
+    if (!ssh_target_matches(&target, host, port)) {
+        cJSON_AddBoolToObject(item, "ok", false);
+        cJSON_AddStringToObject(item, "error", "ssh " SSH_HOST_OVERRIDE_REJECTED);
+        cJSON_AddItemToArray(results, item);
+        if (all_ok) {
+            *all_ok = false;
+        }
+        return false;
+    }
     cJSON_AddStringToObject(item, "target_source", using_stored_target ? "settings" : "call");
     cJSON_AddStringToObject(item, "host", host);
     cJSON_AddNumberToObject(item, "port", port);

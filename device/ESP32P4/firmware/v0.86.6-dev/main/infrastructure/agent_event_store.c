@@ -915,6 +915,13 @@ esp_err_t si_agent_event_store_recover(si_agent_event_replay_cb_t callback,
     } else {
         result->status = SI_AGENT_EVENT_RECOVERY_IO_ERROR;
     }
+    if (ret == ESP_ERR_INVALID_STATE &&
+        result->status == SI_AGENT_EVENT_RECOVERY_TAIL_TRUNCATED &&
+        truncate(SI_AGENT_EVENT_STORE_FILE,
+                 (off_t)result->valid_bytes) == 0) {
+        result->file_bytes = result->valid_bytes;
+        ret = ESP_OK;
+    }
     if (ret == ESP_OK) {
         s_event_store_latest_seq = result->latest_seq;
         s_event_store_file_bytes = result->file_bytes;
@@ -1033,9 +1040,14 @@ esp_err_t si_agent_event_store_append(const si_agent_event_append_t *event,
     const bool synced = descriptor >= 0 && fsync(descriptor) == 0;
     const bool closed = fclose(file) == 0;
     if (!wrote || !flushed || !synced || !closed) {
-        s_event_store_ready = false;
+        const int append_errno = errno;
+        if (truncate(SI_AGENT_EVENT_STORE_FILE,
+                     (off_t)s_event_store_file_bytes) != 0) {
+            s_event_store_ready = false;
+        }
         xSemaphoreGive(s_event_store_lock);
-        event_store_set_error("durable TASKS.LOG append failed errno=%d", errno);
+        event_store_set_error("durable TASKS.LOG append failed errno=%d",
+                              append_errno);
         return ESP_FAIL;
     }
 

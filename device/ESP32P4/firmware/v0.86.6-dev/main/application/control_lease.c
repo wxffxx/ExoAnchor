@@ -178,6 +178,7 @@ typedef enum {
     LEASE_OP_TOUCH_AGENT,
     LEASE_OP_TOUCH_BOOT,
     LEASE_OP_RELEASE_EMBEDDED,
+    LEASE_OP_ABANDON_EMBEDDED,
     LEASE_OP_UPDATE,
     LEASE_OP_REVOKE_SESSION,
     LEASE_OP_MAINTAIN,
@@ -294,6 +295,16 @@ static bool lease_transition_under_hid_gate(
             return false;
         }
         break;
+    case LEASE_OP_ABANDON_EMBEDDED:
+        if (was_active && s_auth_generation == 0U &&
+            strcmp(s_session_id, "embedded-agent") == 0) {
+            s_seen = false;
+            s_reason[0] = '\0';
+            s_resource_id = 0U;
+            epoch_bump_locked();
+            context->state_changed = true;
+        }
+        break;
     case LEASE_OP_UPDATE: {
         bool other = context->active && was_active &&
             (strcasecmp(s_owner, context->owner) != 0 ||
@@ -359,8 +370,17 @@ static bool lease_transition_under_hid_gate(
 static bool run_transition(lease_transition_context_t *context,
                            si_hid_owner_token_t *owner)
 {
-    return si_hid_authority_transition(lease_transition_under_hid_gate,
-                                       context, owner);
+    bool ok = si_hid_authority_transition(lease_transition_under_hid_gate,
+                                          context, owner);
+    if (!ok) {
+        if (context->error == ESP_OK) {
+            context->error = ESP_ERR_NOT_FINISHED;
+        }
+        if (context->update_result == SI_CONTROL_LEASE_UPDATE_OK) {
+            context->update_result = SI_CONTROL_LEASE_UPDATE_UNAVAILABLE;
+        }
+    }
+    return ok;
 }
 
 static void lease_maintenance(void *arg)
@@ -440,7 +460,16 @@ static esp_err_t touch_embedded_owned(lease_operation_t operation,
         .expected_owner = expected.generation != 0U ? &expected : NULL,
     };
     si_hid_owner_token_t granted = {0};
-    if (!run_transition(&context, &granted)) return context.error;
+    if (!run_transition(&context, &granted)) {
+        if (context.error == ESP_ERR_NOT_FINISHED &&
+            expected.generation == 0U) {
+            lease_transition_context_t abandon = {
+                .operation = LEASE_OP_ABANDON_EMBEDDED,
+            };
+            (void)run_transition(&abandon, NULL);
+        }
+        return context.error;
+    }
     esp_err_t bind_ret = si_hid_bind_embedded_producer(&granted);
     if (bind_ret != ESP_OK) {
         lease_transition_context_t release = {

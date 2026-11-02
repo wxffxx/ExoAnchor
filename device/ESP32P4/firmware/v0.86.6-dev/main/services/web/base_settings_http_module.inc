@@ -535,6 +535,9 @@ static esp_err_t auth_login_handler(httpd_req_t *req)
         cJSON_Delete(root);
         return auth_login_send_pending(req, existing_job_id);
     }
+    if (s_auth_login_job.state == AUTH_LOGIN_JOB_REJECTED) {
+        auth_login_job_reset_locked();
+    }
     if (s_auth_login_job.state != AUTH_LOGIN_JOB_IDLE) {
         xSemaphoreGive(s_auth_login_lock);
         cJSON_Delete(root);

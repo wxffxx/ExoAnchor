@@ -4,7 +4,7 @@
 #define UART_AUTH_PROMPT_MAX 96
 #define UART_AUTH_CREDENTIAL_REF_MAX 32
 #if SI_CFG_UART_TERMINAL_ENABLED && defined(CONFIG_HTTPD_WS_SUPPORT)
-#define UART_WS_MAX_FRAME 4096
+#define UART_WS_MAX_FRAME 16384
 #define UART_WS_OUTPUT_BUFFER_BYTES 8192
 #define UART_WS_OUTPUT_BATCH_BYTES 512
 #define UART_WS_OUTPUT_COALESCE_MS 5
@@ -14,11 +14,14 @@
 typedef struct {
     httpd_handle_t handle;
     int fd;
+    uint32_t auth_generation;
+    char session_id[SI_AUTH_SESSION_ID_MAX_LEN + 1];
 } uart_ws_ctx_t;
 
 typedef struct {
     httpd_handle_t handle;
     int fd;
+    uint32_t epoch;
     httpd_ws_type_t type;
     size_t len;
     uint8_t payload[];
@@ -30,6 +33,10 @@ static SemaphoreHandle_t s_uart_operation_lock;
 #if SI_CFG_UART_TERMINAL_ENABLED && defined(CONFIG_HTTPD_WS_SUPPORT)
 static httpd_handle_t s_uart_ws_handle;
 static int s_uart_ws_fd = -1;
+static uint32_t s_uart_ws_epoch;
+static bool s_uart_ws_revoked;
+static uint32_t s_uart_ws_generation;
+static char s_uart_ws_session_id[SI_AUTH_SESSION_ID_MAX_LEN + 1];
 static StreamBufferHandle_t s_uart_ws_output_buffer;
 static TaskHandle_t s_uart_ws_output_task_handle;
 static portMUX_TYPE s_uart_ws_stats_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -725,7 +732,17 @@ static void uart_ws_send_work(void *arg)
         .payload = job->payload,
         .len = job->len,
     };
-    (void)httpd_ws_send_frame_async(job->handle, job->fd, &frame);
+    bool current = false;
+    if (s_uart_ws_lock &&
+        xSemaphoreTake(s_uart_ws_lock, pdMS_TO_TICKS(100)) == pdTRUE) {
+        current = s_uart_ws_handle == job->handle &&
+                  s_uart_ws_fd == job->fd && s_uart_ws_epoch == job->epoch &&
+                  !s_uart_ws_revoked;
+        xSemaphoreGive(s_uart_ws_lock);
+    }
+    if (current) {
+        (void)httpd_ws_send_frame_async(job->handle, job->fd, &frame);
+    }
     free(job);
 }
 
@@ -742,6 +759,7 @@ static esp_err_t uart_ws_send_async(httpd_handle_t handle, int fd,
     }
     job->handle = handle;
     job->fd = fd;
+    job->epoch = __atomic_load_n(&s_uart_ws_epoch, __ATOMIC_ACQUIRE);
     job->type = type;
     job->len = len;
     memcpy(job->payload, data, len);
@@ -845,6 +863,8 @@ static void uart_ws_ctx_free(void *ptr)
         if (s_uart_ws_handle == ctx->handle && s_uart_ws_fd == ctx->fd) {
             s_uart_ws_handle = NULL;
             s_uart_ws_fd = -1;
+            s_uart_ws_generation = 0;
+            s_uart_ws_session_id[0] = '\0';
             uart_ws_set_replaying(false);
         }
         xSemaphoreGive(s_uart_ws_lock);
@@ -888,9 +908,10 @@ static esp_err_t uart_ws_bridge_start(void)
 
 static esp_err_t uart_ws_pre_handshake(httpd_req_t *req)
 {
+    si_auth_session_context_t session = {0};
     esp_err_t auth_ret =
         si_http_require_action(req, SI_CAPABILITY_UART, "uart_terminal",
-                               SI_AUTHZ_RISK_MEDIUM, NULL);
+                               SI_AUTHZ_RISK_MEDIUM, &session);
     if (auth_ret != ESP_OK) {
         return auth_ret;
     }
@@ -917,6 +938,8 @@ static esp_err_t uart_ws_pre_handshake(httpd_req_t *req)
     }
     ctx->handle = req->handle;
     ctx->fd = httpd_req_to_sockfd(req);
+    ctx->auth_generation = session.generation;
+    strlcpy(ctx->session_id, session.session_id, sizeof(ctx->session_id));
     req->sess_ctx = ctx;
     req->free_ctx = uart_ws_ctx_free;
     return ESP_OK;
@@ -944,6 +967,11 @@ static esp_err_t uart_ws_post_handshake(httpd_req_t *req)
     }
     s_uart_ws_handle = ctx->handle;
     s_uart_ws_fd = ctx->fd;
+    s_uart_ws_revoked = false;
+    __atomic_add_fetch(&s_uart_ws_epoch, 1U, __ATOMIC_ACQ_REL);
+    s_uart_ws_generation = ctx->auth_generation;
+    strlcpy(s_uart_ws_session_id, ctx->session_id,
+            sizeof(s_uart_ws_session_id));
     uart_ws_set_replaying(true);
     xSemaphoreGive(s_uart_ws_lock);
 
@@ -1006,6 +1034,11 @@ static esp_err_t uart_ws_handler(httpd_req_t *req)
     if (!ctx) {
         return ESP_ERR_INVALID_STATE;
     }
+    si_auth_session_context_t live = {0};
+    if (!si_auth_session_get_live_context(ctx->session_id,
+                                          ctx->auth_generation, &live)) {
+        return ESP_ERR_INVALID_STATE;
+    }
 
     httpd_ws_frame_t frame = {0};
     frame.type = HTTPD_WS_TYPE_BINARY;
@@ -1024,7 +1057,13 @@ static esp_err_t uart_ws_handler(httpd_req_t *req)
         return ESP_OK;
     }
     if (frame.len > UART_WS_MAX_FRAME) {
-        return ESP_ERR_INVALID_SIZE;
+        ret = terminal_ws_discard_frame(req, &frame);
+        if (ret == ESP_OK) {
+            static const char message[] = "\r\n[uart: input over 16 KB discarded]\r\n";
+            (void)uart_ws_send_async(ctx->handle, ctx->fd, HTTPD_WS_TYPE_TEXT,
+                                     message, sizeof(message) - 1);
+        }
+        return ret;
     }
 
     uint8_t *data = malloc(frame.len);
@@ -1061,6 +1100,7 @@ static esp_err_t uart_ws_handler(httpd_req_t *req)
             (void)uart_ws_send_async(ctx->handle, ctx->fd,
                                      HTTPD_WS_TYPE_TEXT,
                                      message, strlen(message));
+            ret = ESP_OK;
         }
     }
     free(data);

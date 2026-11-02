@@ -36,6 +36,7 @@ static const char *TAG = "si-storage";
 
 static SemaphoreHandle_t s_storage_lock;
 static sdmmc_card_t *s_tf_card;
+static bool s_tf_spi_bus;
 static si_storage_tf_status_t s_tf_status;
 static si_storage_tf_status_t s_tf_snapshot;
 static portMUX_TYPE s_tf_snapshot_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -172,6 +173,31 @@ static esp_err_t mount_tf_sdmmc(const esp_vfs_fat_sdmmc_mount_config_t *mount_co
                                    mount_config, card);
 }
 
+static void unmount_tf_locked(const char *reason)
+{
+    esp_err_t ret = esp_vfs_fat_sdcard_unmount(SI_TF_MOUNT_POINT, s_tf_card);
+    if (s_tf_spi_bus) {
+        (void)spi_bus_free(SDSPI_DEFAULT_HOST);
+        s_tf_spi_bus = false;
+    }
+    s_tf_card = NULL;
+    s_tf_status.mounted = false;
+    s_tf_status.degraded_mode = false;
+    s_tf_status.bus_width = 0;
+    s_tf_status.bus_frequency_khz = 0;
+    s_tf_status.total_bytes = 0;
+    s_tf_status.free_bytes = 0;
+    s_tf_status.used_bytes = 0;
+    s_tf_status.usage_percent = 0.0;
+    snprintf(s_tf_status.bus_mode, sizeof(s_tf_status.bus_mode), "unavailable");
+    snprintf(s_tf_status.card_type, sizeof(s_tf_status.card_type), "--");
+    snprintf(s_tf_status.card_name, sizeof(s_tf_status.card_name), "--");
+    snprintf(s_tf_status.last_error, sizeof(s_tf_status.last_error),
+             "%s (unmount: %s)", reason, esp_err_to_name(ret));
+    ESP_LOGW(TAG, "TF card unmounted: %s (unmount: %s)", reason,
+             esp_err_to_name(ret));
+}
+
 static void refresh_tf_usage_locked(void)
 {
     if (!s_tf_status.mounted) {
@@ -185,6 +211,9 @@ static void refresh_tf_usage_locked(void)
         snprintf(s_tf_status.last_error, sizeof(s_tf_status.last_error),
                  "f_getfree failed: %d", (int)result);
         ESP_LOGW(TAG, "Failed to refresh TF card usage: %d", (int)result);
+        if (s_tf_card && sdmmc_get_status(s_tf_card) != ESP_OK) {
+            unmount_tf_locked("card removed");
+        }
         return;
     }
 
@@ -353,6 +382,7 @@ static esp_err_t mount_tf_locked(void)
                 active_width = 1;
                 active_freq_khz = 10 * 1000;
                 degraded_mode = true;
+                s_tf_spi_bus = true;
                 ESP_LOGW(TAG, "TF card initialized through SDSPI fallback at 10MHz");
             } else {
                 ESP_LOGW(TAG, "SDSPI fallback failed: %s", esp_err_to_name(ret));

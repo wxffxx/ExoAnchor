@@ -88,7 +88,7 @@ const char *si_agent_autonomy_level_label(si_agent_autonomy_level_t level)
 static bool word_char(char ch)
 {
     return ch && !isspace((unsigned char)ch) &&
-           !strchr("|;&<>()`$\"'", ch);
+           !strchr("|;&<>()`$", ch);
 }
 
 static void classify_parse(const char *command, classify_command_t *out)
@@ -115,6 +115,14 @@ static void classify_parse(const char *command, classify_command_t *out)
             p++;
             continue;
         }
+        if (ch == '\\') {
+            p++;
+            continue;
+        }
+        if (strncmp(p, "$ifs", 4) == 0 || strncmp(p, "${ifs}", 6) == 0) {
+            p += p[1] == '{' ? 6 : 4;
+            continue;
+        }
         if (strchr(";&`$()", ch)) {
             out->control = true;
             out->segments++;
@@ -136,6 +144,11 @@ static void classify_parse(const char *command, classify_command_t *out)
         classify_token_t *token = out->count < CLASSIFY_MAX_TOKENS ?
                                   &out->tokens[out->count] : NULL;
         while (word_char(*p)) {
+            /* Quotes and backslashes inside a word do not split it. */
+            if (*p == '\\' || *p == '"' || *p == '\'') {
+                p++;
+                continue;
+            }
             if (token && len + 1U < CLASSIFY_MAX_TOKEN) {
                 token->text[len++] = (char)tolower((unsigned char)*p);
             } else {

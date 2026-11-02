@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/socket.h>
+#include <sys/time.h>
 
 #include "agent_tools_settings.h"
 #include "auth_service.h"
@@ -184,7 +186,8 @@ static const char *mcp_policy_tool_for_request(const httpd_req_t *req)
         return "observe_status";
     }
     if (request_uri_starts_with(req, "/api/snapshot") ||
-        request_uri_starts_with(req, "/api/stream")) {
+        request_uri_starts_with(req, "/api/stream") ||
+        request_uri_starts_with(req, "/api/ws/video/")) {
         return "observe_screenshot";
     }
     if (request_uri_starts_with(req, "/api/video/lease")) {
@@ -327,6 +330,12 @@ esp_err_t si_http_send_text_status(httpd_req_t *req, const char *status,
     return httpd_resp_sendstr(req, message ? message : status);
 }
 
+/* The listener accepts sockets with a 1 s SO_RCVTIMEO. A body that pauses
+ * longer than that fails the recv; on the TLS listener mbedTLS then reports
+ * NET_RECV_FAILED and the session cannot be used again, so the whole body
+ * gets one budget instead, applied as the socket timeout of each recv. */
+#define SI_HTTP_RECV_BODY_BUDGET_MS 10000
+
 esp_err_t si_http_recv_body(httpd_req_t *req, char *buf, size_t buf_size)
 {
     if (!req || !buf || buf_size == 0) {
@@ -336,14 +345,42 @@ esp_err_t si_http_recv_body(httpd_req_t *req, char *buf, size_t buf_size)
         return ESP_ERR_INVALID_SIZE;
     }
 
+    int fd = httpd_req_to_sockfd(req);
+    struct timeval saved = {0};
+    socklen_t saved_len = sizeof(saved);
+    bool restore = fd >= 0 &&
+                   getsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &saved, &saved_len) == 0;
+    const int64_t deadline_us =
+        esp_timer_get_time() + (int64_t)SI_HTTP_RECV_BODY_BUDGET_MS * 1000LL;
+    esp_err_t ret = ESP_OK;
     size_t received = 0;
     while (received < req->content_len) {
-        int ret = httpd_req_recv(req, buf + received,
-                                 req->content_len - received);
-        if (ret <= 0) {
-            return ESP_FAIL;
+        if (restore) {
+            int64_t left_us = deadline_us - esp_timer_get_time();
+            if (left_us <= 0) {
+                ret = ESP_FAIL;
+                break;
+            }
+            struct timeval body_timeout = {
+                .tv_sec = (time_t)(left_us / 1000000LL),
+                .tv_usec = (suseconds_t)(left_us % 1000000LL),
+            };
+            (void)setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &body_timeout,
+                             sizeof(body_timeout));
         }
-        received += ret;
+        int n = httpd_req_recv(req, buf + received,
+                               req->content_len - received);
+        if (n <= 0) {
+            ret = ESP_FAIL;
+            break;
+        }
+        received += n;
+    }
+    if (restore) {
+        (void)setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &saved, sizeof(saved));
+    }
+    if (ret != ESP_OK) {
+        return ret;
     }
     buf[received] = '\0';
     return ESP_OK;

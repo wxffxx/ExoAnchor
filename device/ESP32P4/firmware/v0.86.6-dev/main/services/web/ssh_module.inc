@@ -325,6 +325,19 @@ static bool ssh_target_apply_sudo_password(char *dst, size_t dst_size)
     return false;
 }
 
+#define SSH_HOST_OVERRIDE_REJECTED \
+    "host override rejected: stored credentials are bound to the configured target"
+
+/* Stored SSH credentials (password, sudo password, private key) only go to
+ * the configured target; a request naming another host or port must bring
+ * its own password. */
+static bool ssh_target_matches(const ssh_target_settings_t *target,
+                               const char *host, uint16_t port)
+{
+    return target->host[0] && strcasecmp(host, target->host) == 0 &&
+           port == (target->port ? target->port : SSH_TARGET_DEFAULT_PORT);
+}
+
 static bool ssh_command_word_char(char c)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
@@ -967,12 +980,23 @@ static esp_err_t ssh_exec_handler_with_config(httpd_req_t *req,
     config->port = port_item && port_item->valueint > 0 ? (uint16_t)port_item->valueint :
                   (target.port ? target.port : SSH_TARGET_DEFAULT_PORT);
     strlcpy(config->username, username, sizeof(config->username));
+    bool use_key = auth_method && (strcasecmp(auth_method, "key") == 0 ||
+                                   strcasecmp(auth_method, "stored_key") == 0 ||
+                                   strcasecmp(auth_method, "publickey") == 0);
+    bool target_bound = ssh_target_matches(&target, config->host, config->port);
+    if (!target_bound && (!password || !password[0] || use_key)) {
+        cJSON_Delete(root);
+        memset(config, 0, sizeof(*config));
+        return si_http_send_text_status(req, "403 Forbidden",
+                                        "ssh " SSH_HOST_OVERRIDE_REJECTED);
+    }
     bool using_stored_password = false;
     bool has_password = ssh_target_apply_password(config->password, sizeof(config->password),
                                                   password, &using_stored_password);
     char sudo_password_buf[SI_SSH_PASSWORD_MAX_LEN] = {0};
-    bool sudo_password_available = ssh_target_apply_sudo_password(sudo_password_buf,
-                                                                  sizeof(sudo_password_buf));
+    bool sudo_password_available =
+        target_bound && ssh_target_apply_sudo_password(sudo_password_buf,
+                                                       sizeof(sudo_password_buf));
     bool sudo_applied = false;
     if (!ssh_prepare_sudo_command(command,
                                   sudo_password_available ? sudo_password_buf : NULL,
@@ -984,9 +1008,6 @@ static esp_err_t ssh_exec_handler_with_config(httpd_req_t *req,
                                    "ssh command too long after sudo wrapping");
     }
     memset(sudo_password_buf, 0, sizeof(sudo_password_buf));
-    bool use_key = auth_method && (strcasecmp(auth_method, "key") == 0 ||
-                                   strcasecmp(auth_method, "stored_key") == 0 ||
-                                   strcasecmp(auth_method, "publickey") == 0);
     bool auto_key = (!auth_method || strcasecmp(auth_method, "auto") == 0) &&
                     !has_password;
     if (use_key || auto_key) {
@@ -1111,56 +1132,7 @@ static esp_err_t ssh_exec_handler(httpd_req_t *req)
 }
 
 #ifdef CONFIG_HTTPD_WS_SUPPORT
-typedef struct {
-    httpd_handle_t handle;
-    int fd;
-    si_ssh_shell_t *shell;
-} ssh_ws_ctx_t;
-
-static SemaphoreHandle_t s_ssh_ws_lock;
-static httpd_handle_t s_ssh_ws_handle;
-static int s_ssh_ws_fd = -1;
-
-#define SSH_WS_CLEANUP_TASK_STACK 4096
-#define SSH_WS_REAPER_QUEUE_LEN 4U
-
-static QueueHandle_t s_ssh_ws_reaper_queue;
-
 #include "ssh_ws_transport_module.inc"
-
-static esp_err_t ssh_ws_send_terminal_json(const char *json, size_t len)
-{
-    httpd_handle_t handle = NULL;
-    int fd = -1;
-    if (!json || len == 0 || !s_ssh_ws_lock ||
-        xSemaphoreTake(s_ssh_ws_lock, pdMS_TO_TICKS(20)) != pdTRUE)
-        return ESP_ERR_INVALID_STATE;
-    handle = s_ssh_ws_handle;
-    fd = s_ssh_ws_fd;
-    xSemaphoreGive(s_ssh_ws_lock);
-    return handle && fd >= 0 ? ssh_ws_send_async(handle, fd, json, len) :
-                              ESP_ERR_NOT_FOUND;
-}
-
-static esp_err_t ssh_ws_send_terminal_output(const void *data, size_t len)
-{
-    return ssh_ws_send_terminal_json((const char *)data, len);
-}
-
-static esp_err_t ssh_ws_send_str(ssh_ws_ctx_t *ctx, const char *text)
-{
-    return text ? ssh_ws_send_async(ctx->handle, ctx->fd, text, strlen(text)) : ESP_ERR_INVALID_ARG;
-}
-
-static esp_err_t ssh_ws_output_cb(const uint8_t *data, size_t len, void *user_ctx)
-{
-    ssh_ws_ctx_t *ctx = (ssh_ws_ctx_t *)user_ctx;
-    if (!ctx || !data || len == 0) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    /* Runs on the SSH shell task: waiting here stops reading the channel. */
-    return ssh_ws_send_output_blocking(ctx->handle, ctx->fd, data, len);
-}
 
 static void ssh_ws_ctx_release(ssh_ws_ctx_t *ctx)
 {
@@ -1203,6 +1175,8 @@ static void ssh_ws_ctx_free(void *ptr)
         if (s_ssh_ws_handle == ctx->handle && s_ssh_ws_fd == ctx->fd) {
             s_ssh_ws_handle = NULL;
             s_ssh_ws_fd = -1;
+            s_ssh_ws_generation = 0;
+            s_ssh_ws_session_id[0] = '\0';
         }
         xSemaphoreGive(s_ssh_ws_lock);
     }
@@ -1276,13 +1250,19 @@ static esp_err_t ssh_ws_start_shell_with_config(ssh_ws_ctx_t *ctx, const char *j
     config->port = port_item && port_item->valueint > 0 ? (uint16_t)port_item->valueint :
                   (target.port ? target.port : SSH_TARGET_DEFAULT_PORT);
     strlcpy(config->username, username, sizeof(config->username));
+    bool use_key = auth_method && (strcasecmp(auth_method, "key") == 0 ||
+                                   strcasecmp(auth_method, "stored_key") == 0 ||
+                                   strcasecmp(auth_method, "publickey") == 0);
+    if (!ssh_target_matches(&target, config->host, config->port) &&
+        (!password || !password[0] || use_key)) {
+        ssh_ws_delete_connect_json(root);
+        ssh_secure_clear(config, sizeof(*config));
+        return ssh_ws_send_str(ctx, "\r\n[ssh: " SSH_HOST_OVERRIDE_REJECTED "]\r\n");
+    }
     bool using_stored_password = false;
     bool has_password = ssh_target_apply_password(config->password, sizeof(config->password),
                                                   password, &using_stored_password);
     (void)using_stored_password;
-    bool use_key = auth_method && (strcasecmp(auth_method, "key") == 0 ||
-                                   strcasecmp(auth_method, "stored_key") == 0 ||
-                                   strcasecmp(auth_method, "publickey") == 0);
     bool auto_key = (!auth_method || strcasecmp(auth_method, "auto") == 0) &&
                     !has_password;
     if (use_key || auto_key) {
@@ -1347,6 +1327,11 @@ static esp_err_t ssh_ws_handler(httpd_req_t *req)
     if (!ctx) {
         return ESP_ERR_INVALID_STATE;
     }
+    si_auth_session_context_t live = {0};
+    if (!si_auth_session_get_live_context(ctx->session_id,
+                                          ctx->auth_generation, &live)) {
+        return ESP_ERR_INVALID_STATE;
+    }
 
     httpd_ws_frame_t frame = {0};
     frame.type = HTTPD_WS_TYPE_TEXT;
@@ -1367,8 +1352,12 @@ static esp_err_t ssh_ws_handler(httpd_req_t *req)
     if (frame.len == 0) {
         return ESP_OK;
     }
-    if (frame.len > 4096) {
-        return ESP_ERR_INVALID_SIZE;
+    if (frame.len > SSH_WS_MAX_FRAME) {
+        ret = terminal_ws_discard_frame(req, &frame);
+        if (ret == ESP_OK) {
+            (void)ssh_ws_send_str(ctx, "\r\n[ssh: input over 16 KB discarded]\r\n");
+        }
+        return ret;
     }
 
     uint8_t *buf = calloc(1, frame.len + 1);
@@ -1385,12 +1374,21 @@ static esp_err_t ssh_ws_handler(httpd_req_t *req)
             terminal_control_publish_state(SI_TERMINAL_CHANNEL_SSH);
             ret = ESP_OK;
         } else {
-            ret = si_ssh_shell_write(ctx->shell, buf, frame.len, 100);
+            size_t offset = 0;
+            while (offset < frame.len) {
+                size_t chunk = frame.len - offset;
+                if (chunk > SSH_WS_WRITE_CHUNK) chunk = SSH_WS_WRITE_CHUNK;
+                ret = si_ssh_shell_write(ctx->shell, buf + offset, chunk,
+                                         SSH_WS_WRITE_CHUNK_TIMEOUT_MS);
+                if (ret != ESP_OK) break;
+                offset += chunk;
+            }
             if (ret != ESP_OK) {
                 char msg[80];
                 snprintf(msg, sizeof(msg), "\r\n[ssh: write failed: %s]\r\n",
                          esp_err_to_name(ret));
                 (void)ssh_ws_send_str(ctx, msg);
+                ret = ESP_OK;
             }
         }
     }
@@ -1421,8 +1419,10 @@ static esp_err_t ssh_ws_bridge_start(void)
 
 static esp_err_t ssh_ws_pre_handshake(httpd_req_t *req)
 {
+    si_auth_session_context_t session = {0};
     esp_err_t ret = si_http_require_action(
-        req, SI_CAPABILITY_SSH, "ssh_terminal", SI_AUTHZ_RISK_MEDIUM, NULL);
+        req, SI_CAPABILITY_SSH, "ssh_terminal", SI_AUTHZ_RISK_MEDIUM,
+        &session);
     if (ret != ESP_OK) return ret;
     if (xSemaphoreTake(s_ssh_ws_lock, pdMS_TO_TICKS(100)) != pdTRUE)
         return ESP_ERR_TIMEOUT;
@@ -1435,6 +1435,8 @@ static esp_err_t ssh_ws_pre_handshake(httpd_req_t *req)
     if (!ctx) return ESP_ERR_NO_MEM;
     ctx->handle = req->handle;
     ctx->fd = httpd_req_to_sockfd(req);
+    ctx->auth_generation = session.generation;
+    strlcpy(ctx->session_id, session.session_id, sizeof(ctx->session_id));
     req->sess_ctx = ctx;
     req->free_ctx = ssh_ws_ctx_free;
     return ESP_OK;
@@ -1450,8 +1452,10 @@ static esp_err_t ssh_ws_post_handshake(httpd_req_t *req)
         xSemaphoreGive(s_ssh_ws_lock);
         return ESP_ERR_INVALID_STATE;
     }
-    s_ssh_ws_handle = ctx->handle;
-    s_ssh_ws_fd = ctx->fd;
+    ssh_ws_publish_connection(ctx->handle, ctx->fd);
+    s_ssh_ws_generation = ctx->auth_generation;
+    strlcpy(s_ssh_ws_session_id, ctx->session_id,
+            sizeof(s_ssh_ws_session_id));
     xSemaphoreGive(s_ssh_ws_lock);
     terminal_control_publish_state(SI_TERMINAL_CHANNEL_SSH);
     si_web_log("INFO", "SSH WebSocket connected");

@@ -65,7 +65,9 @@ static si_agent_action_class_t agent_tool_action_class(
         if (!path) {
             path = json_string_any(args, "dir", "directory", "file");
         }
-        return si_agent_classify_path_write(path);
+        /* These primitives run through sudo, so the write is root's. */
+        return agent_action_class_max(si_agent_classify_path_write(path),
+                                      SI_AGENT_ACTION_SYSTEM);
     }
     if (strcmp(name, "uart_write") == 0) {
         /* Serial input lands in whatever console is attached. */

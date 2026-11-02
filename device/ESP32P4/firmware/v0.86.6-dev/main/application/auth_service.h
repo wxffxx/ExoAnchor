@@ -63,6 +63,11 @@ bool si_auth_token_get_context(const char *token, bool touch,
 bool si_auth_session_get_live_context(
     const char *session_id, uint32_t expected_generation,
     si_auth_session_context_t *context);
+typedef void (*si_auth_session_revoked_fn)(const char *session_id,
+                                           uint32_t generation,
+                                           void *context);
+esp_err_t si_auth_add_session_revoked_listener(
+    si_auth_session_revoked_fn listener, void *context);
 esp_err_t si_auth_create_session(char out_token[SI_AUTH_TOKEN_LEN + 1]);
 esp_err_t si_auth_create_session_for_client(
     const char *client, char out_token[SI_AUTH_TOKEN_LEN + 1]);

@@ -746,11 +746,15 @@ static esp_err_t agent_repository_run_checkpoint_write_locked(
                 agent_history_set_error("write %s failed errno=%d",
                                         AGENT_RUN_CHECKPOINT_TF_TMP, errno);
                 ret = ESP_FAIL;
-            } else if (rename(AGENT_RUN_CHECKPOINT_TF_TMP,
-                              AGENT_RUN_CHECKPOINT_TF_FILE) != 0) {
-                agent_history_set_error("rename Run checkpoint failed errno=%d",
-                                        errno);
-                ret = ESP_FAIL;
+            } else {
+                (void)remove(AGENT_RUN_CHECKPOINT_TF_FILE);
+                if (rename(AGENT_RUN_CHECKPOINT_TF_TMP,
+                           AGENT_RUN_CHECKPOINT_TF_FILE) != 0) {
+                    agent_history_set_error(
+                        "rename Run checkpoint failed errno=%d", errno);
+                    (void)remove(AGENT_RUN_CHECKPOINT_TF_TMP);
+                    ret = ESP_FAIL;
+                }
             }
         }
     }

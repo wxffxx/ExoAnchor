@@ -41,6 +41,7 @@ static const char *TAG = "si-video";
 #define SI_UVC_MISSING_DEVICE_RECOVERY_DELAY_MS 5000U
 #define SI_UVC_MISSING_DEVICE_RECOVERY_INTERVAL_MS 15000U
 #define SI_UVC_REENUMERATE_MS2109_OFF_MS 1000U
+#define SI_UVC_STOP_FAILURES_BEFORE_REPLUG 3U
 #define SI_UVC_INVALID_FRAME_FAULT_LIMIT 8U
 #define SI_UVC_HEALTHY_RESET_MS 2000U
 #define SI_UVC_HEALTHY_RESET_CALLBACKS 8U
@@ -1569,6 +1570,18 @@ static void uvc_supervisor_task(void *arg)
                                     ? close_disconnected_uvc_stream()
                                     : close_uvc_stream(true);
             if (!closed) {
+#if SI_CFG_MS2109_POWER_ENABLED
+                if (s_uvc_session_state == SI_UVC_SESSION_FAULTED &&
+                    s_uvc_stop_failures >= SI_UVC_STOP_FAILURES_BEFORE_REPLUG &&
+                    ms2109_rail_settled()) {
+                    ESP_LOGW(TAG,
+                             "UVC stop failed %u times; replugging MS2109",
+                             (unsigned)s_uvc_stop_failures);
+                    s_uvc_stop_failures = 0U;
+                    (void)si_ms2109_power_cycle(
+                        SI_UVC_REENUMERATE_MS2109_OFF_MS);
+                }
+#endif
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 continue;
             }

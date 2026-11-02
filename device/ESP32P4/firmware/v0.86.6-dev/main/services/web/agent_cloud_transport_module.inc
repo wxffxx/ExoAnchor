@@ -1,5 +1,6 @@
 /* Provider transport, bounded async retry, and heap diagnostics. */
 #define AGENT_CLOUD_IO_SLICE_MS 250
+#define AGENT_CLOUD_BODY_SLICE_MS 5000
 
 typedef struct {
     char *payload;
@@ -11,8 +12,19 @@ static esp_err_t agent_cloud_http_event(esp_http_client_event_t *event)
 {
     agent_cloud_response_t *response =
         event ? (agent_cloud_response_t *)event->user_data : NULL;
-    if (!response || event->event_id != HTTP_EVENT_ON_DATA ||
-        !event->data || event->data_len <= 0) {
+    if (!response) {
+        return ESP_OK;
+    }
+    if (event->event_id == HTTP_EVENT_ON_HEADER) {
+        /* Past the header phase the async client no longer maps a slice
+         * timeout to EAGAIN, so a body stall longer than the slice would
+         * fail the whole request. */
+        esp_http_client_set_timeout_ms(event->client,
+                                       AGENT_CLOUD_BODY_SLICE_MS);
+        return ESP_OK;
+    }
+    if (event->event_id != HTTP_EVENT_ON_DATA || !event->data ||
+        event->data_len <= 0) {
         return ESP_OK;
     }
     size_t data_len = (size_t)event->data_len;

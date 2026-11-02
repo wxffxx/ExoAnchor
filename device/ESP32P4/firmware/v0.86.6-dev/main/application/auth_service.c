@@ -131,6 +131,31 @@ static void session_clear_locked(auth_session_t *session,
     si_secret_store_clear(session, sizeof(*session));
 }
 
+#define AUTH_REVOKED_LISTENER_SLOTS 2
+
+typedef struct {
+    si_auth_session_revoked_fn listener;
+    void *context;
+} auth_revoked_listener_t;
+
+static auth_revoked_listener_t s_revoked_listeners[AUTH_REVOKED_LISTENER_SLOTS];
+
+esp_err_t si_auth_add_session_revoked_listener(
+    si_auth_session_revoked_fn listener, void *context)
+{
+    if (!listener) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    for (size_t i = 0; i < AUTH_REVOKED_LISTENER_SLOTS; i++) {
+        if (!s_revoked_listeners[i].listener) {
+            s_revoked_listeners[i].context = context;
+            s_revoked_listeners[i].listener = listener;
+            return ESP_OK;
+        }
+    }
+    return ESP_ERR_NO_MEM;
+}
+
 static void revoked_sessions_apply(
     const auth_revoked_sessions_t *revoked)
 {
@@ -141,6 +166,14 @@ static void revoked_sessions_apply(
         (void)si_control_lease_revoke_auth_session(
             revoked->sessions[i].session_id,
             revoked->sessions[i].generation);
+        for (size_t slot = 0; slot < AUTH_REVOKED_LISTENER_SLOTS; slot++) {
+            if (s_revoked_listeners[slot].listener) {
+                s_revoked_listeners[slot].listener(
+                    revoked->sessions[i].session_id,
+                    revoked->sessions[i].generation,
+                    s_revoked_listeners[slot].context);
+            }
+        }
     }
 }
 

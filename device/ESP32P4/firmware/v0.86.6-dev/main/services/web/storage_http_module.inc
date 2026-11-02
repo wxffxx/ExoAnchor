@@ -15,6 +15,63 @@ static bool storage_parent_dir_exists(const char *abs)
     return stat(parent, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
+/* FatFs runs without FS_LOCK: renaming or removing a file that another
+ * request is still reading frees its clusters under the reader.  Readers and
+ * the replace step of an upload claim the path here; FatFs names compare
+ * case-insensitively. */
+#define STORAGE_ACTIVE_FILES 4
+#define STORAGE_ACTIVE_CONFLICT (-2)
+typedef struct {
+    char rel[STORAGE_LIST_PATH_MAX];
+    bool replacing;
+} storage_active_file_t;
+static storage_active_file_t s_storage_active_files[STORAGE_ACTIVE_FILES];
+static portMUX_TYPE s_storage_active_mux = portMUX_INITIALIZER_UNLOCKED;
+
+/* Returns the claimed slot, -1 when the table is full, or
+ * STORAGE_ACTIVE_CONFLICT when a reader meets a replacement of the same path
+ * or a replacement meets any use of it. */
+static int storage_active_begin(const char *rel, bool replacing)
+{
+    int slot = -1;
+    bool conflict = false;
+    taskENTER_CRITICAL(&s_storage_active_mux);
+    for (int i = 0; i < STORAGE_ACTIVE_FILES; i++) {
+        storage_active_file_t *entry = &s_storage_active_files[i];
+        if (!entry->rel[0]) {
+            if (slot < 0) {
+                slot = i;
+            }
+        } else if (strcasecmp(entry->rel, rel) == 0 &&
+                   (replacing || entry->replacing)) {
+            conflict = true;
+        }
+    }
+    if (!conflict && slot >= 0) {
+        strlcpy(s_storage_active_files[slot].rel, rel, STORAGE_LIST_PATH_MAX);
+        s_storage_active_files[slot].replacing = replacing;
+    }
+    taskEXIT_CRITICAL(&s_storage_active_mux);
+    return conflict ? STORAGE_ACTIVE_CONFLICT : slot;
+}
+
+static void storage_active_end(int slot)
+{
+    if (slot < 0) {
+        return;
+    }
+    taskENTER_CRITICAL(&s_storage_active_mux);
+    s_storage_active_files[slot].rel[0] = '\0';
+    taskEXIT_CRITICAL(&s_storage_active_mux);
+}
+
+static esp_err_t storage_active_refused(httpd_req_t *req, int slot)
+{
+    return slot == STORAGE_ACTIVE_CONFLICT ?
+        si_http_send_text_status(req, "409 Conflict", "storage file is in use") :
+        si_http_send_text_status(req, "503 Service Unavailable", "too many storage transfers");
+}
+
 static esp_err_t storage_send_file(httpd_req_t *req, const char *abs,
                                    const char *rel, bool attachment)
 {
@@ -23,8 +80,13 @@ static esp_err_t storage_send_file(httpd_req_t *req, const char *abs,
         return si_http_send_text_status(req, "404 Not Found", "storage file not found");
     }
 
+    int download_slot = storage_active_begin(rel, false);
+    if (download_slot < 0) {
+        return storage_active_refused(req, download_slot);
+    }
     FILE *file = fopen(abs, "rb");
     if (!file) {
+        storage_active_end(download_slot);
         ESP_LOGW(TAG, "Failed to open storage file %s: errno=%d", abs, errno);
         return si_http_send_text_status(req, "500 Internal Server Error", "storage file open failed");
     }
@@ -41,6 +103,7 @@ static esp_err_t storage_send_file(httpd_req_t *req, const char *abs,
     char *buf = malloc(STORAGE_IO_BUFFER_SIZE);
     if (!buf) {
         fclose(file);
+        storage_active_end(download_slot);
         return ESP_ERR_NO_MEM;
     }
 
@@ -62,6 +125,7 @@ static esp_err_t storage_send_file(httpd_req_t *req, const char *abs,
     }
     free(buf);
     fclose(file);
+    storage_active_end(download_slot);
     return ret;
 }
 
@@ -296,6 +360,10 @@ static esp_err_t storage_upload_handler(httpd_req_t *req)
     if (ret != ESP_OK) {
         return si_http_send_text_status(req, "500 Internal Server Error", "storage layout unavailable");
     }
+    struct stat target_stat;
+    if (stat(abs, &target_stat) == 0 && S_ISDIR(target_stat.st_mode)) {
+        return si_http_send_text_status(req, "409 Conflict", "storage upload path is a directory");
+    }
     if (!storage_parent_dir_exists(abs)) {
         return si_http_send_text_status(req, "404 Not Found", "storage upload directory not found");
     }
@@ -355,8 +423,14 @@ static esp_err_t storage_upload_handler(httpd_req_t *req)
         return si_http_send_text_status(req, "500 Internal Server Error", "storage upload failed");
     }
 
+    int replace_slot = storage_active_begin(rel, true);
+    if (replace_slot < 0) {
+        (void)remove(temp_path);
+        return storage_active_refused(req, replace_slot);
+    }
     bool had_original = access(abs, F_OK) == 0;
     if (had_original && rename(abs, backup_path) != 0) {
+        storage_active_end(replace_slot);
         (void)remove(temp_path);
         return si_http_send_text_status(req, "500 Internal Server Error",
                                         "storage upload backup failed");
@@ -365,6 +439,7 @@ static esp_err_t storage_upload_handler(httpd_req_t *req)
         if (had_original) {
             (void)rename(backup_path, abs);
         }
+        storage_active_end(replace_slot);
         (void)remove(temp_path);
         return si_http_send_text_status(req, "500 Internal Server Error",
                                         "storage upload commit failed");
@@ -372,6 +447,7 @@ static esp_err_t storage_upload_handler(httpd_req_t *req)
     if (had_original) {
         (void)remove(backup_path);
     }
+    storage_active_end(replace_slot);
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddBoolToObject(root, "ok", true);

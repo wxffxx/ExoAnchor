@@ -204,13 +204,10 @@ static bool agent_run_finalize_task_service(const char *run_id,
     }
     if (!legacy_ok) {
         if (task_service_bound) {
-            esp_err_t terminal_result =
-                si_agent_task_service_set_step_status(
-                    run_id, AGENT_RUNTIME_V2_STEP_ID, SI_AGENT_STEP_FAILED);
-            if (terminal_result == ESP_OK) {
-                (void)si_agent_task_service_fail(
-                    run_id, error && error[0] ? error : "executor_failed");
-            }
+            (void)si_agent_task_service_set_step_status(
+                run_id, AGENT_RUNTIME_V2_STEP_ID, SI_AGENT_STEP_FAILED);
+            (void)si_agent_task_service_fail(
+                run_id, error && error[0] ? error : "executor_failed");
         }
         agent_json_set_string(result, "runtime_shadow",
                               task_service_bound ? "failed" : "degraded");
@@ -238,6 +235,10 @@ static bool agent_run_finalize_task_service(const char *run_id,
             si_agent_task_service_record_step_verification(
                 run_id, AGENT_RUNTIME_V2_STEP_ID,
                 SI_AGENT_VERIFICATION_OUTCOME_UNKNOWN, NULL);
+        if (unknown_result != ESP_OK) {
+            (void)si_agent_task_service_interrupt(
+                run_id, "unknown_outcome_record_failed");
+        }
         agent_json_set_string(result, "runtime_shadow",
                               unknown_result == ESP_OK ?
                                   "outcome_unknown" : "storage_failure");

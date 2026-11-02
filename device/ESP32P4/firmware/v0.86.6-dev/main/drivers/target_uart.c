@@ -9,11 +9,16 @@
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_timer.h"
 #include "freertos/stream_buffer.h"
 #include "freertos/task.h"
 #include "psram_stream_buffer.h"
 
 #define TARGET_UART_DRIVER_RX_BYTES 4096
+#define TARGET_UART_DRIVER_TX_BYTES 32768
+/* Driver event item plus up to three data item headers and alignment. */
+#define TARGET_UART_TX_ITEM_OVERHEAD 64U
+#define TARGET_UART_TX_WAIT_MS 200
 #define TARGET_UART_BACKLOG_BYTES 8192
 #define TARGET_UART_TASK_STACK 4096
 #define TARGET_UART_TASK_PRIORITY 10
@@ -147,7 +152,8 @@ esp_err_t si_target_uart_init(void)
     };
 
     esp_err_t ret = uart_driver_install(target_uart_port(),
-                                        TARGET_UART_DRIVER_RX_BYTES, 0,
+                                        TARGET_UART_DRIVER_RX_BYTES,
+                                        TARGET_UART_DRIVER_TX_BYTES,
                                         0, NULL, 0);
     if (ret != ESP_OK) {
         si_psram_stream_buffer_delete(s_http_backlog);
@@ -416,6 +422,19 @@ esp_err_t si_target_uart_write(const uint8_t *data, size_t len,
         return ESP_ERR_INVALID_STATE;
     }
 
+    /* uart_write_bytes spins without yielding while the TX ring buffer is
+     * full, so only hand it a write that fits now or after a short wait. */
+    const int64_t deadline_us =
+        esp_timer_get_time() + (int64_t)TARGET_UART_TX_WAIT_MS * 1000LL;
+    size_t free_bytes = 0;
+    while (uart_get_tx_buffer_free_size(target_uart_port(), &free_bytes) ==
+               ESP_OK &&
+           free_bytes < len + TARGET_UART_TX_ITEM_OVERHEAD) {
+        if (esp_timer_get_time() >= deadline_us) {
+            return ESP_ERR_TIMEOUT;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
     int result = uart_write_bytes(target_uart_port(), data, len);
     if (result < 0) {
         set_last_error("write", ESP_FAIL);
