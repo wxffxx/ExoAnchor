@@ -38,6 +38,7 @@ static char s_reason[SI_CONTROL_LEASE_REASON_MAX_LEN + 1];
 /* Protected by the HID authority gate, not s_lock. */
 static pending_revoke_t s_pending_revokes[LEASE_PENDING_REVOKES];
 static bool s_pending_revoke_fail_closed;
+static bool s_embedded_preempted;
 
 static void epoch_bump_locked(void)
 {
@@ -194,6 +195,7 @@ typedef struct {
     const si_hid_owner_token_t *expected_owner;
     bool active;
     bool force;
+    bool stale_retry;
     si_hid_live_guard_fn live_guard;
     void *guard_context;
     esp_err_t error;
@@ -247,6 +249,12 @@ static bool lease_transition_under_hid_gate(
                            "supervised" : context->mode;
         const char *reason = context->operation == LEASE_OP_TOUCH_BOOT ?
                              "boot-key sequence" : context->reason;
+        if (context->stale_retry &&
+            (s_embedded_preempted || (current && current->generation != 0U))) {
+            context->error = ESP_ERR_INVALID_STATE;
+            xSemaphoreGive(s_lock);
+            return false;
+        }
         si_hid_embedded_touch_decision_t touch =
             si_hid_embedded_touch_decide(
                 was_active, current, context->expected_owner,
@@ -258,6 +266,9 @@ static bool lease_transition_under_hid_gate(
             return false;
         }
         bool changed = !renewal || strcasecmp(s_mode, mode) != 0;
+        if (!context->expected_owner && !context->stale_retry) {
+            s_embedded_preempted = false;
+        }
         s_seen = true;
         s_last_ms = now_ms;
         s_auth_generation = 0U;
@@ -315,7 +326,10 @@ static bool lease_transition_under_hid_gate(
             xSemaphoreGive(s_lock);
             return false;
         }
+        bool embedded_held = was_active && s_auth_generation == 0U &&
+            strcmp(s_session_id, "embedded-agent") == 0;
         if (context->active) {
+            if (embedded_held && other) s_embedded_preempted = true;
             bool changed = !was_active || other ||
                 strcasecmp(s_mode, context->mode) != 0;
             s_seen = true;
@@ -335,6 +349,7 @@ static bool lease_transition_under_hid_gate(
                     (context->auth_generation == 0U ||
                      s_auth_generation == context->auth_generation))) {
             if (was_active) epoch_bump_locked();
+            if (embedded_held) s_embedded_preempted = true;
             s_seen = false;
             s_reason[0] = '\0';
             s_resource_id = 0U;
@@ -468,6 +483,7 @@ static esp_err_t touch_embedded_owned(lease_operation_t operation,
         if (!si_hid_owner_token_equal(&current, &expected)) {
             memset(&expected, 0, sizeof(expected));
             context.expected_owner = NULL;
+            context.stale_retry = true;
             context.error = ESP_FAIL;
             context.update_result = SI_CONTROL_LEASE_UPDATE_OK;
             context.state_changed = false;

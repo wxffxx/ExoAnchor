@@ -141,14 +141,35 @@ static void classify_parse(const char *command, classify_command_t *out)
             continue;
         }
         size_t len = 0;
+        size_t chars = 0;
+        bool name_ok = true;
+        bool assignment = false;
+        char quote = 0;
         classify_token_t *token = out->count < CLASSIFY_MAX_TOKENS ?
                                   &out->tokens[out->count] : NULL;
-        while (word_char(*p)) {
+        while (*p && (quote || word_char(*p))) {
             /* Quotes and backslashes inside a word do not split it. */
-            if (*p == '\\' || *p == '"' || *p == '\'') {
+            if (quote) {
+                if (*p == quote) {
+                    quote = 0;
+                    p++;
+                    continue;
+                }
+            } else if (*p == '\\' || *p == '"' || *p == '\'') {
+                if (assignment && *p != '\\') {
+                    quote = *p;
+                }
                 p++;
                 continue;
+            } else if (!assignment) {
+                if (*p == '=' && name_ok && chars > 0) {
+                    assignment = true;
+                } else if (!(isalnum((unsigned char)*p) || *p == '_') ||
+                           (chars == 0 && isdigit((unsigned char)*p))) {
+                    name_ok = false;
+                }
             }
+            chars++;
             if (token && len + 1U < CLASSIFY_MAX_TOKEN) {
                 token->text[len++] = (char)tolower((unsigned char)*p);
             } else {
@@ -363,6 +384,9 @@ static si_agent_action_class_t classify_irreversible_or_system(
         }
     }
 
+    static const char *const shell_keywords[] = {
+        "if", "then", "else", "elif", "do", "while", "until", "!", "{", NULL,
+    };
     bool system_hit = false;
     bool prefix_open = false;
     bool after_builtin = false;
@@ -377,7 +401,8 @@ static si_agent_action_class_t classify_irreversible_or_system(
         if (prefix_open) {
             if (strcmp(token, "command") == 0 || strcmp(token, "builtin") == 0) {
                 after_builtin = true;
-            } else if (!assignment_word(token) &&
+            } else if (!in_list(token, shell_keywords) &&
+                       !assignment_word(token) &&
                        !(after_builtin && token[0] == '-')) {
                 prefix_open = false;
             }

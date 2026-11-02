@@ -1126,6 +1126,7 @@ static esp_err_t ota_upload_handler(httpd_req_t *req)
 static void ota_restart_task(void *arg)
 {
     (void)arg;
+    (void)ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5000));
     vTaskDelay(pdMS_TO_TICKS(650));
     esp_restart();
 }
@@ -1143,8 +1144,9 @@ static esp_err_t ota_reboot_handler(httpd_req_t *req)
             req, "409 Conflict",
             "could not stop active Agent/MCP operations before reboot");
     }
+    TaskHandle_t restart_task = NULL;
     if (xTaskCreate(ota_restart_task, "si_ota_reboot", 2048, NULL,
-                    tskIDLE_PRIORITY + 3, NULL) != pdPASS) {
+                    tskIDLE_PRIORITY + 3, &restart_task) != pdPASS) {
         (void)resource_operation_finish(&maintenance);
         return si_http_send_text_status(req, "503 Service Unavailable",
                                         "could not schedule reboot");
@@ -1154,6 +1156,7 @@ static esp_err_t ota_reboot_handler(httpd_req_t *req)
     cJSON_AddStringToObject(resp, "message", "rebooting");
     ret = si_http_send_json(req, resp);
     cJSON_Delete(resp);
+    xTaskNotifyGive(restart_task);
     return ret;
 }
 

@@ -164,6 +164,14 @@ int main(void)
     expect_command("A=1 B=2 reboot", R2);
     expect_command("ls; X=1 rm -rf /home/u", R3);
     expect_command("echo X=1 rm -rf /home/u", R0);
+    expect_command("for f in *; do rm -rf \"$f\"; done", R3);
+    expect_command("if true; then rm -rf /x; fi", R3);
+    expect_command("! rm -rf /x", R3);
+    expect_command("{ rm -rf /x; }", R3);
+    expect_command("FOO=\"a b\" rm -rf /tmp/x", R3);
+    expect_command("X='a b' shutdown now", R3);
+    expect_command("do dd if=/dev/zero of=x", R3);
+    expect_command("echo \"a b\" rm -rf /x", R0);
 
     expect_path("notes.txt", R1);
     expect_path("/home/deploy/app/config.yml", R1);

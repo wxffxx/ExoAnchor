@@ -42,6 +42,7 @@ static si_storage_tf_status_t s_tf_status;
 static si_storage_tf_status_t s_tf_snapshot;
 static portMUX_TYPE s_tf_snapshot_mux = portMUX_INITIALIZER_UNLOCKED;
 static TaskHandle_t s_storage_maintenance_task;
+static bool s_tf_removed;
 #if SOC_SDMMC_IO_POWER_EXTERNAL && SOC_GP_LDO_SUPPORTED
 static sd_pwr_ctrl_handle_t s_tf_pwr_ctrl;
 #endif
@@ -217,7 +218,11 @@ static void refresh_tf_usage_locked(void)
     if (s_tf_card && sdmmc_get_status(s_tf_card) != ESP_OK) {
         vTaskDelay(pdMS_TO_TICKS(100));
         if (sdmmc_get_status(s_tf_card) != ESP_OK) {
-            unmount_tf_locked("card removed");
+            s_tf_removed = true;
+            s_tf_status.mounted = false;
+            snprintf(s_tf_status.last_error, sizeof(s_tf_status.last_error),
+                     "card removed");
+            ESP_LOGW(TAG, "TF card stopped responding; unmounting on next check");
             return;
         }
     }
@@ -294,6 +299,13 @@ static esp_err_t mount_tf_locked(void)
     if (s_tf_status.mounted) {
         refresh_tf_usage_locked();
         return ESP_OK;
+    }
+    if (s_tf_removed) {
+        FATFS *fs = NULL;
+        DWORD free_clusters = 0;
+        (void)f_getfree(SI_TF_MOUNT_POINT, &free_clusters, &fs);
+        unmount_tf_locked("card removed");
+        s_tf_removed = false;
     }
 
     esp_err_t ret;
