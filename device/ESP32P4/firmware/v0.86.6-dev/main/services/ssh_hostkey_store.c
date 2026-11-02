@@ -125,12 +125,21 @@ static esp_err_t ssh_hostkey_store_transaction(ssh_hostkey_request_t *request)
     return ret;
 }
 
+static bool ssh_hostkey_ptr_flash_safe(const void *ptr)
+{
+    return esp_ptr_in_dram(ptr)
+#if CONFIG_ESP_SYSTEM_ALLOW_RTC_FAST_MEM_AS_HEAP
+           || esp_ptr_in_rtc_dram_fast(ptr)
+#endif
+        ;
+}
+
 static void ssh_hostkey_broker_task(void *arg)
 {
     ssh_hostkey_request_t *request = (ssh_hostkey_request_t *)arg;
     volatile uint8_t stack_probe = 0;
-    if (!esp_ptr_in_dram((const void *)&stack_probe) ||
-        !esp_ptr_in_dram((const void *)request)) {
+    if (!ssh_hostkey_ptr_flash_safe((const void *)&stack_probe) ||
+        !ssh_hostkey_ptr_flash_safe((const void *)request)) {
         request->result = ESP_ERR_INVALID_STATE;
     } else {
         request->result = ssh_hostkey_store_transaction(request);

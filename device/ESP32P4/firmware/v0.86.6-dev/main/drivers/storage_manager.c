@@ -16,6 +16,7 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_memory_utils.h"
 #include "esp_vfs_fat.h"
 #include "ff.h"
 #include "freertos/FreeRTOS.h"
@@ -135,12 +136,21 @@ static void *tf_dma_aligned_buffer(void)
     return buffer;
 }
 
+static bool tf_check_buffer_alignment(int slot, const void *buf, size_t size)
+{
+    if (buf && !esp_ptr_dma_capable(buf) && !esp_ptr_external_ram(buf)) {
+        return false;
+    }
+    return sdmmc_host_check_buffer_alignment(slot, buf, size);
+}
+
 static esp_err_t mount_tf_sdmmc(const esp_vfs_fat_sdmmc_mount_config_t *mount_config,
                                 int bus_width, int max_freq_khz,
                                 int card_detect_level, sdmmc_card_t **card)
 {
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
     host.max_freq_khz = max_freq_khz;
+    host.check_buffer_alignment = tf_check_buffer_alignment;
 #if SOC_SDMMC_PSRAM_DMA_CAPABLE
     host.dma_aligned_buffer = tf_dma_aligned_buffer();
 #endif
