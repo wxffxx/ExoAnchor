@@ -172,6 +172,23 @@ int main(void)
     expect_command("X='a b' shutdown now", R3);
     expect_command("do dd if=/dev/zero of=x", R3);
     expect_command("echo \"a b\" rm -rf /x", R0);
+    expect_command("FOO=\"$(rm -rf /x)\" true", R3);
+    expect_command("X=\"$(shutdown now)\"", R3);
+    expect_command("FOO=\"`shutdown now`\" true", R3);
+    expect_command("FOO=\"a\\\"b\" ; rm -rf /x", R3);
+    expect_command("FOO=a\\\"b; rm -rf /x", R3);
+    expect_command("FOO=\"a\\\\\" rm -rf /x", R3);
+    expect_command("FOO=\"a\\\\\" shutdown now", R3);
+    expect_command("FOO=$HOME rm -rf /x", R3);
+    expect_command("FOO=\"$HOME/x\" rm -rf /x", R3);
+    expect_command("FOO=${HOME} rm -rf /x", R3);
+    expect_command("PATH=$PATH:/x shutdown now", R3);
+    expect_command("FOO=\"a;b\" rm -rf /x", R3);
+    expect_command("FOO=\"a|b\" rm -rf /x", R3);
+    expect_command("FOO=\"a&b\" shutdown now", R3);
+    expect_command("FOO=\"a<b\" rm -rf /x", R3);
+    expect_command("FOO='a;b' rm -rf /x", R3);
+    expect_command("FOO=a\\ b rm -rf /x", R3);
 
     expect_path("notes.txt", R1);
     expect_path("/home/deploy/app/config.yml", R1);

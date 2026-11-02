@@ -147,16 +147,28 @@ static void classify_parse(const char *command, classify_command_t *out)
         char quote = 0;
         classify_token_t *token = out->count < CLASSIFY_MAX_TOKENS ?
                                   &out->tokens[out->count] : NULL;
-        while (*p && (quote || word_char(*p))) {
+        while (word_char(*p) || (quote && isspace((unsigned char)*p))) {
             /* Quotes and backslashes inside a word do not split it. */
-            if (quote) {
+            if (*p == '\\') {
+                p++;
+                if (!*p) {
+                    break;
+                }
+                if (*p == '"' || *p == '\'') {
+                    p++;
+                    continue;
+                }
+                if (!assignment) {
+                    name_ok = false;
+                }
+            } else if (quote) {
                 if (*p == quote) {
                     quote = 0;
                     p++;
                     continue;
                 }
-            } else if (*p == '\\' || *p == '"' || *p == '\'') {
-                if (assignment && *p != '\\') {
+            } else if (*p == '"' || *p == '\'') {
+                if (assignment) {
                     quote = *p;
                 }
                 p++;
@@ -390,6 +402,7 @@ static si_agent_action_class_t classify_irreversible_or_system(
     bool system_hit = false;
     bool prefix_open = false;
     bool after_builtin = false;
+    bool assignment_seen = false;
     for (size_t i = 0; i < cmd->count; i++) {
         const char *token = cmd->tokens[i].text;
         const char *program = program_name(token);
@@ -397,12 +410,13 @@ static si_agent_action_class_t classify_irreversible_or_system(
             prefix_open = true;
             after_builtin = false;
         }
-        bool command_word = prefix_open;
+        bool command_word = prefix_open || assignment_seen;
         if (prefix_open) {
             if (strcmp(token, "command") == 0 || strcmp(token, "builtin") == 0) {
                 after_builtin = true;
+            } else if (assignment_word(token)) {
+                assignment_seen = true;
             } else if (!in_list(token, shell_keywords) &&
-                       !assignment_word(token) &&
                        !(after_builtin && token[0] == '-')) {
                 prefix_open = false;
             }
