@@ -2,6 +2,8 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <sys/time.h>
 
 #include "auth_service.h"
 #include "authorization.h"
@@ -16,6 +18,17 @@ void si_http_set_security_headers(httpd_req_t *req);
 esp_err_t si_http_send_text_status(httpd_req_t *req, const char *status,
                                    const char *message);
 
+typedef struct {
+    int fd;
+    struct timeval saved;
+    bool active;
+} si_http_recv_timeout_t;
+
+bool si_http_recv_timeout_begin(httpd_req_t *req,
+                                si_http_recv_timeout_t *timeout);
+void si_http_recv_timeout_set(const si_http_recv_timeout_t *timeout,
+                              int64_t timeout_us);
+void si_http_recv_timeout_end(const si_http_recv_timeout_t *timeout);
 esp_err_t si_http_recv_body(httpd_req_t *req, char *buf, size_t buf_size);
 esp_err_t si_http_recv_json(httpd_req_t *req, char *buf, size_t buf_size,
                             cJSON **out_root);

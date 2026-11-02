@@ -2597,12 +2597,14 @@ esp_err_t si_video_acquire_jpeg(uint8_t **out_buf, size_t *out_len,
 
 esp_err_t si_video_begin_mjpeg_send(uint32_t timeout_ms)
 {
-    if (!s_transport_gate) {
+    if (!s_transport_gate ||
+        __atomic_load_n(&s_h264_transport_active, __ATOMIC_ACQUIRE)) {
         return ESP_ERR_INVALID_STATE;
     }
     if (xSemaphoreTake(s_transport_gate,
                        pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
-        return ESP_ERR_TIMEOUT;
+        return __atomic_load_n(&s_h264_transport_active, __ATOMIC_ACQUIRE) ?
+               ESP_ERR_INVALID_STATE : ESP_ERR_TIMEOUT;
     }
     if (__atomic_load_n(&s_h264_transport_active, __ATOMIC_ACQUIRE)) {
         xSemaphoreGive(s_transport_gate);

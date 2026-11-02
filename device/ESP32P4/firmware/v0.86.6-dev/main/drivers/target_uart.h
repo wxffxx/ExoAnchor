@@ -54,5 +54,7 @@ void si_target_uart_set_rx_callback(si_target_uart_rx_callback_t callback,
 size_t si_target_uart_read(uint8_t *data, size_t len, TickType_t wait_ticks);
 size_t si_target_uart_read_cli(uint8_t *data, size_t len,
                                TickType_t wait_ticks);
+void si_target_uart_redact_echo(const uint8_t *secret, size_t len,
+                                uint32_t window_ms);
 esp_err_t si_target_uart_write(const uint8_t *data, size_t len,
                                size_t *written);

@@ -4035,8 +4035,10 @@ static esp_err_t stream_attach(httpd_req_t *req)
     ESP_RETURN_ON_ERROR(parse_stream_id(req, &stream_id,
                                         &stream_id_present),
                         TAG, "invalid H.264 stream id");
-    if (stream_id_present &&
-        !si_video_control_kvm_stream_is_current(stream_id)) {
+    if (!stream_id_present) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!si_video_control_kvm_stream_is_current(stream_id)) {
         return ESP_ERR_INVALID_STATE;
     }
     int new_fd = httpd_req_to_sockfd(req);

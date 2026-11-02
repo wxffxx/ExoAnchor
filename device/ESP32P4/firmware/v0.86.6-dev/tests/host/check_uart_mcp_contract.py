@@ -97,6 +97,23 @@ def main() -> int:
         if marker not in dispatch:
             fail(f"Agent sensitive payload boundary missing {marker}")
 
+    auth = re.search(
+        r"static esp_err_t uart_authenticate_local\(.*?\n\}", uart, re.S
+    )
+    if not auth:
+        fail("cannot find uart_authenticate_local")
+    arm = auth.group(0).find("si_target_uart_redact_echo(payload, secret_len")
+    write = auth.group(0).find("si_target_uart_write(payload")
+    if arm < 0 or write < 0 or arm > write:
+        fail("credential echo must be masked in the UART journal before the secret is written")
+
+    for handler in ("uart_write_handler", "uart_baud_handler"):
+        body = re.search(
+            rf"static esp_err_t {handler}\(.*?\n\}}", uart, re.S
+        )
+        if not body or "terminal_control_manual_input_allowed(SI_TERMINAL_CHANNEL_UART)" not in body.group(0):
+            fail(f"{handler} must refuse browser input while UART automation is active")
+
     print("UART MCP contract: PASS")
     return 0
 

@@ -2971,6 +2971,16 @@ def main() -> int:
         failures.append(
             "H.264 WebSocket must reject unvalidated capture rates before starting its worker"
         )
+    if not ordered(
+        post_handshake,
+        "parse_stream_id(req, &stream_id,",
+        "if (!stream_id_present) {",
+        "return ESP_ERR_INVALID_ARG;",
+        "int new_fd = httpd_req_to_sockfd(req);",
+    ):
+        failures.append(
+            "H.264 WebSocket without a KVM stream_id must be rejected before it can replace the leased session"
+        )
     stream_loop = section(
         h264, "static void h264_stream_task(void *arg)",
         "static esp_err_t ensure_stream_task(void)")

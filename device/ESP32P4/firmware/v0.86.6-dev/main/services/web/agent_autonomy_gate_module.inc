@@ -84,7 +84,14 @@ static si_agent_action_class_t agent_tool_action_class(
             return SI_AGENT_ACTION_OPERATE;
         }
         if (action && (strcasecmp(action, "force_off") == 0 ||
+                       strcasecmp(action, "forceoff") == 0 ||
                        strcasecmp(action, "hold_power") == 0)) {
+            return SI_AGENT_ACTION_IRREVERSIBLE;
+        }
+        const cJSON *duration = json_number_any(args, "duration_ms", "duration");
+        if (action && duration && duration->valuedouble >= 4000.0 &&
+            (strcasecmp(action, "power") == 0 ||
+             strcasecmp(action, "press_power") == 0)) {
             return SI_AGENT_ACTION_IRREVERSIBLE;
         }
         return SI_AGENT_ACTION_SYSTEM;

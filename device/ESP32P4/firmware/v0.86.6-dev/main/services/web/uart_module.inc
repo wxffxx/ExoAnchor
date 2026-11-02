@@ -256,6 +256,7 @@ static esp_err_t uart_authenticate_local(
     uint8_t payload[SI_SSH_PASSWORD_MAX_LEN + 1U] = {0};
     memcpy(payload, secret, secret_len);
     payload[secret_len] = '\r';
+    si_target_uart_redact_echo(payload, secret_len, 5000U);
     ret = si_target_uart_write(payload, secret_len + 1U,
                                &result->bytes_written);
     si_secret_store_clear(payload, sizeof(payload));
@@ -444,6 +445,12 @@ static esp_err_t uart_baud_handler(httpd_req_t *req)
         if (automated) (void)terminal_control_finish(&control);
         return uart_mutation_denied_response(req, ret);
     }
+    if (!automated &&
+        !terminal_control_manual_input_allowed(SI_TERMINAL_CHANNEL_UART)) {
+        uart_mutation_end();
+        return si_http_send_text_status(req, "409 Conflict",
+                                        "UART automation active");
+    }
     ret = si_target_uart_set_baud_rate(baud_rate);
     uart_mutation_end();
     if (automated) (void)terminal_control_finish(&control);
@@ -623,6 +630,13 @@ static esp_err_t uart_write_handler(httpd_req_t *req)
         if (automated) (void)terminal_control_finish(&control);
         cJSON_Delete(root);
         return uart_mutation_denied_response(req, ret);
+    }
+    if (!automated &&
+        !terminal_control_manual_input_allowed(SI_TERMINAL_CHANNEL_UART)) {
+        uart_mutation_end();
+        cJSON_Delete(root);
+        return si_http_send_text_status(req, "409 Conflict",
+                                        "UART automation active");
     }
 
     size_t written = 0;

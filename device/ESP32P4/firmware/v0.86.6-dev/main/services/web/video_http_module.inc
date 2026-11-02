@@ -662,7 +662,12 @@ static esp_err_t stream_handler(httpd_req_t *req)
         if (gate_ret == ESP_ERR_INVALID_STATE) {
             /* Output changed to H.264. End the superseded multipart response
              * instead of spinning until the browser happens to abort it. */
-            return video_stream_ended(agent_stream, stream_id, "output mode changed");
+            (void)video_stream_ended(agent_stream, stream_id, "output mode changed");
+            if (last_frame_id == 0) {
+                return si_http_send_text_status(req, "503 Service Unavailable",
+                                                "output mode changed");
+            }
+            return ESP_OK;
         }
         if (gate_ret != ESP_OK) {
             continue;

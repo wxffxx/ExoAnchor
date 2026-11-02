@@ -27,6 +27,7 @@ typedef struct {
     httpd_handle_t handle;
     int fd;
     uint32_t epoch;
+    bool binary;
     size_t len;
     uint8_t payload[];
 } ssh_ws_send_job_t;
@@ -93,7 +94,7 @@ static void ssh_ws_send_work(void *arg)
         return;
     }
     httpd_ws_frame_t frame = {
-        .type = HTTPD_WS_TYPE_TEXT,
+        .type = job->binary ? HTTPD_WS_TYPE_BINARY : HTTPD_WS_TYPE_TEXT,
         .payload = job->payload,
         .len = job->len,
     };
@@ -115,7 +116,8 @@ static esp_err_t ssh_ws_queue_job(ssh_ws_send_job_t *job)
 }
 
 static ssh_ws_send_job_t *ssh_ws_job_create(httpd_handle_t handle, int fd,
-                                            const void *data, size_t len)
+                                            const void *data, size_t len,
+                                            bool binary)
 {
     if (!handle || fd < 0 || !data || len == 0) {
         return NULL;
@@ -126,6 +128,7 @@ static ssh_ws_send_job_t *ssh_ws_job_create(httpd_handle_t handle, int fd,
         job->handle = handle;
         job->fd = fd;
         job->epoch = __atomic_load_n(&s_ssh_ws_epoch, __ATOMIC_ACQUIRE);
+        job->binary = binary;
         job->len = len;
         memcpy(job->payload, data, len);
     }
@@ -133,9 +136,10 @@ static ssh_ws_send_job_t *ssh_ws_job_create(httpd_handle_t handle, int fd,
 }
 
 /* Non-blocking: also called from HTTPD handlers. */
-static esp_err_t ssh_ws_send_async(httpd_handle_t handle, int fd, const void *data, size_t len)
+static esp_err_t ssh_ws_send_async(httpd_handle_t handle, int fd,
+                                   const void *data, size_t len, bool binary)
 {
-    ssh_ws_send_job_t *job = ssh_ws_job_create(handle, fd, data, len);
+    ssh_ws_send_job_t *job = ssh_ws_job_create(handle, fd, data, len, binary);
     if (!job) {
         return handle && fd >= 0 && data && len ? ESP_ERR_NO_MEM : ESP_ERR_INVALID_ARG;
     }
@@ -149,9 +153,10 @@ static esp_err_t ssh_ws_send_async(httpd_handle_t handle, int fd, const void *da
 /* SSH shell task only: waits for a job slot and retries a full control queue,
  * so the remote side is throttled by TCP instead of output being dropped. */
 static esp_err_t ssh_ws_send_output_blocking(httpd_handle_t handle, int fd,
-                                             const void *data, size_t len)
+                                             const void *data, size_t len,
+                                             bool binary)
 {
-    ssh_ws_send_job_t *job = ssh_ws_job_create(handle, fd, data, len);
+    ssh_ws_send_job_t *job = ssh_ws_job_create(handle, fd, data, len, binary);
     if (!job) {
         return handle && fd >= 0 && data && len ? ESP_ERR_NO_MEM : ESP_ERR_INVALID_ARG;
     }
@@ -170,36 +175,43 @@ static esp_err_t ssh_ws_send_output_blocking(httpd_handle_t handle, int fd,
     return ret;
 }
 
-static esp_err_t ssh_ws_send_terminal_json(const char *json, size_t len)
+static esp_err_t ssh_ws_send_terminal_frame(const void *data, size_t len,
+                                            bool binary)
 {
     httpd_handle_t handle = NULL;
     int fd = -1;
-    if (!json || len == 0 || !s_ssh_ws_lock ||
+    if (!data || len == 0 || !s_ssh_ws_lock ||
         xSemaphoreTake(s_ssh_ws_lock, pdMS_TO_TICKS(20)) != pdTRUE)
         return ESP_ERR_INVALID_STATE;
     handle = s_ssh_ws_handle;
     fd = s_ssh_ws_fd;
     xSemaphoreGive(s_ssh_ws_lock);
-    return handle && fd >= 0 ? ssh_ws_send_async(handle, fd, json, len) :
+    return handle && fd >= 0 ? ssh_ws_send_async(handle, fd, data, len, binary) :
                               ESP_ERR_NOT_FOUND;
+}
+
+static esp_err_t ssh_ws_send_terminal_json(const char *json, size_t len)
+{
+    return ssh_ws_send_terminal_frame(json, len, false);
 }
 
 static esp_err_t ssh_ws_send_terminal_output(const void *data, size_t len)
 {
-    return ssh_ws_send_terminal_json((const char *)data, len);
+    return ssh_ws_send_terminal_frame(data, len, true);
 }
 
 static esp_err_t ssh_ws_send_str(ssh_ws_ctx_t *ctx, const char *text)
 {
-    return text ? ssh_ws_send_async(ctx->handle, ctx->fd, text, strlen(text)) : ESP_ERR_INVALID_ARG;
+    return text ? ssh_ws_send_async(ctx->handle, ctx->fd, text, strlen(text), false) : ESP_ERR_INVALID_ARG;
 }
 
-static esp_err_t ssh_ws_output_cb(const uint8_t *data, size_t len, void *user_ctx)
+static esp_err_t ssh_ws_output_cb(const uint8_t *data, size_t len, bool remote,
+                                  void *user_ctx)
 {
     ssh_ws_ctx_t *ctx = (ssh_ws_ctx_t *)user_ctx;
     if (!ctx || !data || len == 0) {
         return ESP_ERR_INVALID_ARG;
     }
     /* Runs on the SSH shell task: waiting here stops reading the channel. */
-    return ssh_ws_send_output_blocking(ctx->handle, ctx->fd, data, len);
+    return ssh_ws_send_output_blocking(ctx->handle, ctx->fd, data, len, remote);
 }

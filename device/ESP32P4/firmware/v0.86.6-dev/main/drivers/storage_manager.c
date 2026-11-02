@@ -204,6 +204,14 @@ static void refresh_tf_usage_locked(void)
         return;
     }
 
+    if (s_tf_card && sdmmc_get_status(s_tf_card) != ESP_OK) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        if (sdmmc_get_status(s_tf_card) != ESP_OK) {
+            unmount_tf_locked("card removed");
+            return;
+        }
+    }
+
     FATFS *fs = NULL;
     DWORD free_clusters = 0;
     FRESULT result = f_getfree(SI_TF_MOUNT_POINT, &free_clusters, &fs);
@@ -211,9 +219,6 @@ static void refresh_tf_usage_locked(void)
         snprintf(s_tf_status.last_error, sizeof(s_tf_status.last_error),
                  "f_getfree failed: %d", (int)result);
         ESP_LOGW(TAG, "Failed to refresh TF card usage: %d", (int)result);
-        if (s_tf_card && sdmmc_get_status(s_tf_card) != ESP_OK) {
-            unmount_tf_locked("card removed");
-        }
         return;
     }
 

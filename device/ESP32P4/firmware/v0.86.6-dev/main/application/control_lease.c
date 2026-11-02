@@ -460,7 +460,21 @@ static esp_err_t touch_embedded_owned(lease_operation_t operation,
         .expected_owner = expected.generation != 0U ? &expected : NULL,
     };
     si_hid_owner_token_t granted = {0};
-    if (!run_transition(&context, &granted)) {
+    bool ok = run_transition(&context, &granted);
+    if (!ok && context.error == ESP_ERR_INVALID_STATE &&
+        expected.generation != 0U) {
+        si_hid_owner_token_t current = {0};
+        (void)si_hid_owner_get_current(&current);
+        if (!si_hid_owner_token_equal(&current, &expected)) {
+            memset(&expected, 0, sizeof(expected));
+            context.expected_owner = NULL;
+            context.error = ESP_FAIL;
+            context.update_result = SI_CONTROL_LEASE_UPDATE_OK;
+            context.state_changed = false;
+            ok = run_transition(&context, &granted);
+        }
+    }
+    if (!ok) {
         if (context.error == ESP_ERR_NOT_FINISHED &&
             expected.generation == 0U) {
             lease_transition_context_t abandon = {

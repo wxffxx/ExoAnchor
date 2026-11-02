@@ -336,6 +336,43 @@ esp_err_t si_http_send_text_status(httpd_req_t *req, const char *status,
  * gets one budget instead, applied as the socket timeout of each recv. */
 #define SI_HTTP_RECV_BODY_BUDGET_MS 10000
 
+bool si_http_recv_timeout_begin(httpd_req_t *req,
+                                si_http_recv_timeout_t *timeout)
+{
+    if (!timeout) {
+        return false;
+    }
+    memset(timeout, 0, sizeof(*timeout));
+    timeout->fd = req ? httpd_req_to_sockfd(req) : -1;
+    socklen_t saved_len = sizeof(timeout->saved);
+    timeout->active = timeout->fd >= 0 &&
+        getsockopt(timeout->fd, SOL_SOCKET, SO_RCVTIMEO, &timeout->saved,
+                   &saved_len) == 0;
+    return timeout->active;
+}
+
+void si_http_recv_timeout_set(const si_http_recv_timeout_t *timeout,
+                              int64_t timeout_us)
+{
+    if (!timeout || !timeout->active || timeout_us <= 0) {
+        return;
+    }
+    struct timeval value = {
+        .tv_sec = (time_t)(timeout_us / 1000000LL),
+        .tv_usec = (suseconds_t)(timeout_us % 1000000LL),
+    };
+    (void)setsockopt(timeout->fd, SOL_SOCKET, SO_RCVTIMEO, &value,
+                     sizeof(value));
+}
+
+void si_http_recv_timeout_end(const si_http_recv_timeout_t *timeout)
+{
+    if (timeout && timeout->active) {
+        (void)setsockopt(timeout->fd, SOL_SOCKET, SO_RCVTIMEO,
+                         &timeout->saved, sizeof(timeout->saved));
+    }
+}
+
 esp_err_t si_http_recv_body(httpd_req_t *req, char *buf, size_t buf_size)
 {
     if (!req || !buf || buf_size == 0) {
@@ -345,28 +382,20 @@ esp_err_t si_http_recv_body(httpd_req_t *req, char *buf, size_t buf_size)
         return ESP_ERR_INVALID_SIZE;
     }
 
-    int fd = httpd_req_to_sockfd(req);
-    struct timeval saved = {0};
-    socklen_t saved_len = sizeof(saved);
-    bool restore = fd >= 0 &&
-                   getsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &saved, &saved_len) == 0;
+    si_http_recv_timeout_t timeout;
+    bool limited = si_http_recv_timeout_begin(req, &timeout);
     const int64_t deadline_us =
         esp_timer_get_time() + (int64_t)SI_HTTP_RECV_BODY_BUDGET_MS * 1000LL;
     esp_err_t ret = ESP_OK;
     size_t received = 0;
     while (received < req->content_len) {
-        if (restore) {
+        if (limited) {
             int64_t left_us = deadline_us - esp_timer_get_time();
             if (left_us <= 0) {
                 ret = ESP_FAIL;
                 break;
             }
-            struct timeval body_timeout = {
-                .tv_sec = (time_t)(left_us / 1000000LL),
-                .tv_usec = (suseconds_t)(left_us % 1000000LL),
-            };
-            (void)setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &body_timeout,
-                             sizeof(body_timeout));
+            si_http_recv_timeout_set(&timeout, left_us);
         }
         int n = httpd_req_recv(req, buf + received,
                                req->content_len - received);
@@ -376,9 +405,7 @@ esp_err_t si_http_recv_body(httpd_req_t *req, char *buf, size_t buf_size)
         }
         received += n;
     }
-    if (restore) {
-        (void)setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &saved, sizeof(saved));
-    }
+    si_http_recv_timeout_end(&timeout);
     if (ret != ESP_OK) {
         return ret;
     }

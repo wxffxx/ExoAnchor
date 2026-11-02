@@ -1116,9 +1116,10 @@ void si_auth_get_status(si_auth_status_t *status)
     }
     memset(status, 0, sizeof(*status));
     load_credentials();
-    status->enabled = s_verifier[0] != '\0';
-    status->using_default = s_using_default;
-    status->setup_required = si_auth_setup_required();
+    bool enforced = si_auth_is_enabled();
+    status->enabled = enforced && s_verifier[0] != '\0';
+    status->using_default = enforced && s_using_default;
+    status->setup_required = enforced && si_auth_setup_required();
     status->legacy_password = s_legacy_password;
     status->login_count = si_auth_login_count();
     strlcpy(status->username, s_username, sizeof(status->username));

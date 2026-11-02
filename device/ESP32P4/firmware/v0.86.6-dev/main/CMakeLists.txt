@@ -24,6 +24,7 @@ set(SI_MAIN_SRCS
         "core/boot_key_sequence.c"
         "core/device_observation_utils.c"
         "core/discovery_rate_limit.c"
+        "core/echo_redact.c"
         "core/host_display_mode.c"
         "core/hid_abort_fence.c"
         "core/hid_owner.c"

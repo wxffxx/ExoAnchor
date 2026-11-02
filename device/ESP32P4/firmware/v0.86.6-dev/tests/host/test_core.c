@@ -14,6 +14,7 @@
 #include "model_provider.h"
 #include "network_config.h"
 #include "discovery_rate_limit.h"
+#include "echo_redact.h"
 #include "product_identity.h"
 #include "resource_operation_state.h"
 #include "storage_path.h"
@@ -754,6 +755,51 @@ static void test_agent_cloud_retry_policy(void)
     assert(si_agent_cloud_async_error_is_fatal(0, 0, 1));
 }
 
+static void redact_run(si_echo_redact_t *r, const char *const *chunks,
+                       char *out, size_t out_size)
+{
+    size_t total = 0;
+    uint8_t buf[256 + SI_ECHO_REDACT_MAX];
+    for (size_t i = 0; chunks[i]; i++) {
+        size_t n = si_echo_redact_feed(r, (const uint8_t *)chunks[i],
+                                       strlen(chunks[i]), buf);
+        assert(total + n < out_size);
+        memcpy(out + total, buf, n);
+        total += n;
+    }
+    total += si_echo_redact_flush(r, (uint8_t *)out + total);
+    out[total] = '\0';
+}
+
+static void test_echo_redact(void)
+{
+    si_echo_redact_t r;
+    char out[256];
+    const char *secret = "aab";
+
+    si_echo_redact_arm(&r, (const uint8_t *)secret, strlen(secret));
+    redact_run(&r, (const char *const[]){"xaaab\r\n$ ", NULL}, out, sizeof(out));
+    assert(strcmp(out, "xa***\r\n$ ") == 0);
+
+    si_echo_redact_arm(&r, (const uint8_t *)"hunter2", 7);
+    redact_run(&r, (const char *const[]){"Password: hun", "te", "r2\r\n", NULL},
+               out, sizeof(out));
+    assert(strcmp(out, "Password: *******\r\n") == 0);
+
+    si_echo_redact_arm(&r, (const uint8_t *)"hunter2", 7);
+    redact_run(&r, (const char *const[]){"hunterX hunt", NULL}, out, sizeof(out));
+    assert(strcmp(out, "hunterX ****") == 0);
+
+    si_echo_redact_arm(&r, (const uint8_t *)"ab", 2);
+    redact_run(&r, (const char *const[]){"abab", "a", "b", NULL}, out, sizeof(out));
+    assert(strcmp(out, "******") == 0);
+
+    si_echo_redact_disarm(&r);
+    assert(!si_echo_redact_armed(&r));
+    redact_run(&r, (const char *const[]){"hunter2", NULL}, out, sizeof(out));
+    assert(strcmp(out, "hunter2") == 0);
+}
+
 int main(void)
 {
     test_agent_router();
@@ -773,6 +819,7 @@ int main(void)
     test_product_identity();
     test_network_config();
     test_discovery_rate_limit();
+    test_echo_redact();
     test_agent_cloud_retry_policy();
     puts("host core tests: PASS");
     return 0;

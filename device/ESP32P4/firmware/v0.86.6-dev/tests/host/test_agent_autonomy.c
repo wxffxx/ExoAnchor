@@ -157,6 +157,13 @@ int main(void)
     expect_command("r''m -rf /var/www/old", R3);
     expect_command("r\"m\" -rf /var/www/old", R3);
     expect_command("s''udo reboot", R2);
+    expect_command("X=1 rm -rf /home/u", R3);
+    expect_command("command rm -rf /etc", R3);
+    expect_command("command -p rm -rf /etc", R3);
+    expect_command("IFS= poweroff", R3);
+    expect_command("A=1 B=2 reboot", R2);
+    expect_command("ls; X=1 rm -rf /home/u", R3);
+    expect_command("echo X=1 rm -rf /home/u", R0);
 
     expect_path("notes.txt", R1);
     expect_path("/home/deploy/app/config.yml", R1);

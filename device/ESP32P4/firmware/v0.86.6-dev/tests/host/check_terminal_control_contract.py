@@ -46,5 +46,11 @@ assert 'control.type==="terminal.input"' in terminal
 assert "term.options.disableStdin=active" in terminal
 assert "立即终止" in terminal
 assert "UI.lifecycle.interval(loadStatus,1000)" in terminal
+ssh_transport = read("main/services/web/ssh_ws_transport_module.inc")
+assert "ssh_ws_send_output_blocking(ctx->handle, ctx->fd, data, len, remote)" in ssh_transport
+assert "return ssh_ws_send_terminal_frame(data, len, true);" in ssh_transport
+assert "job->binary ? HTTPD_WS_TYPE_BINARY : HTTPD_WS_TYPE_TEXT" in ssh_transport
+assert "shell_emit(shell, io, (size_t)nread, true);" in read("main/services/ssh_client.c")
+assert 'socket.binaryType="arraybuffer"' in terminal
 
 print("terminal Agent/MCP ownership contract: PASS")

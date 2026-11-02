@@ -168,6 +168,17 @@ static void classify_parse(const char *command, classify_command_t *out)
     }
 }
 
+static bool assignment_word(const char *token)
+{
+    if (!isalpha((unsigned char)*token) && *token != '_') {
+        return false;
+    }
+    while (isalnum((unsigned char)*token) || *token == '_') {
+        token++;
+    }
+    return *token == '=';
+}
+
 static bool in_list(const char *word, const char *const *list)
 {
     for (size_t i = 0; list[i]; i++) {
@@ -353,11 +364,24 @@ static si_agent_action_class_t classify_irreversible_or_system(
     }
 
     bool system_hit = false;
+    bool prefix_open = false;
+    bool after_builtin = false;
     for (size_t i = 0; i < cmd->count; i++) {
         const char *token = cmd->tokens[i].text;
         const char *program = program_name(token);
-        bool command_word = i == 0 ||
-            cmd->tokens[i - 1].segment != cmd->tokens[i].segment;
+        if (i == 0 || cmd->tokens[i - 1].segment != cmd->tokens[i].segment) {
+            prefix_open = true;
+            after_builtin = false;
+        }
+        bool command_word = prefix_open;
+        if (prefix_open) {
+            if (strcmp(token, "command") == 0 || strcmp(token, "builtin") == 0) {
+                after_builtin = true;
+            } else if (!assignment_word(token) &&
+                       !(after_builtin && token[0] == '-')) {
+                prefix_open = false;
+            }
+        }
         for (size_t r = 0; !command_word && r < runner_count; r++) {
             command_word = runner_segments[r] == cmd->tokens[i].segment;
         }

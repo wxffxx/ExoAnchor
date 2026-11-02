@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "board_config.h"
+#include "echo_redact.h"
 #include "driver/uart.h"
 #include "esp_check.h"
 #include "esp_attr.h"
@@ -43,6 +44,8 @@ static uint64_t s_journal_next_seq = 1;
 static char s_last_error[96];
 static si_target_uart_rx_callback_t s_rx_callback;
 static void *s_rx_callback_ctx;
+static si_echo_redact_t s_redact;
+static int64_t s_redact_until_us;
 
 static uart_port_t target_uart_port(void)
 {
@@ -65,25 +68,25 @@ static void target_uart_rx_task(void *arg)
 {
     (void)arg;
     uint8_t data[256];
+    static uint8_t out[sizeof(data) + SI_ECHO_REDACT_MAX];
 
     while (true) {
         int received = uart_read_bytes(target_uart_port(), data, sizeof(data),
                                        pdMS_TO_TICKS(100));
-        if (received <= 0) {
-            continue;
-        }
-
-        size_t len = (size_t)received;
-        size_t http_buffered =
-            xStreamBufferSend(s_http_backlog, data, len, 0);
-        size_t cli_buffered =
-            xStreamBufferSend(s_cli_backlog, data, len, 0);
+        size_t len = received > 0 ? (size_t)received : 0U;
+        size_t out_len = 0;
         si_target_uart_rx_callback_t callback = NULL;
         void *callback_ctx = NULL;
 
         portENTER_CRITICAL(&s_lock);
-        for (size_t i = 0; i < len; i++) {
-            s_journal[s_journal_write_pos] = data[i];
+        out_len = si_echo_redact_feed(&s_redact, data, len, out);
+        if (si_echo_redact_armed(&s_redact) &&
+            esp_timer_get_time() >= s_redact_until_us) {
+            out_len += si_echo_redact_flush(&s_redact, out + out_len);
+            si_echo_redact_disarm(&s_redact);
+        }
+        for (size_t i = 0; i < out_len; i++) {
+            s_journal[s_journal_write_pos] = out[i];
             s_journal_write_pos =
                 (s_journal_write_pos + 1U) % sizeof(s_journal);
             if (s_journal_count < sizeof(s_journal)) {
@@ -92,15 +95,39 @@ static void target_uart_rx_task(void *arg)
             s_journal_next_seq++;
         }
         s_rx_bytes += len;
-        s_dropped_bytes += (len - http_buffered) + (len - cli_buffered);
         callback = s_rx_callback;
         callback_ctx = s_rx_callback_ctx;
         portEXIT_CRITICAL(&s_lock);
+        if (out_len == 0) {
+            continue;
+        }
+
+        size_t http_buffered =
+            xStreamBufferSend(s_http_backlog, out, out_len, 0);
+        size_t cli_buffered =
+            xStreamBufferSend(s_cli_backlog, out, out_len, 0);
+        portENTER_CRITICAL(&s_lock);
+        s_dropped_bytes +=
+            (out_len - http_buffered) + (out_len - cli_buffered);
+        portEXIT_CRITICAL(&s_lock);
 
         if (callback) {
-            callback(data, len, callback_ctx);
+            callback(out, out_len, callback_ctx);
         }
     }
+}
+
+void si_target_uart_redact_echo(const uint8_t *secret, size_t len,
+                                uint32_t window_ms)
+{
+    si_echo_redact_t armed;
+    si_echo_redact_arm(&armed, secret, len);
+    portENTER_CRITICAL(&s_lock);
+    s_redact = armed;
+    s_redact_until_us =
+        esp_timer_get_time() + (int64_t)window_ms * 1000LL;
+    portEXIT_CRITICAL(&s_lock);
+    si_echo_redact_disarm(&armed);
 }
 
 esp_err_t si_target_uart_init(void)

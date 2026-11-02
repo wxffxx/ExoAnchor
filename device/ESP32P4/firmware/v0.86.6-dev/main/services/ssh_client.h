@@ -56,7 +56,8 @@ esp_err_t si_ssh_exec(const si_ssh_exec_config_t *config, si_ssh_exec_result_t *
 
 typedef struct si_ssh_shell si_ssh_shell_t;
 
-typedef esp_err_t (*si_ssh_shell_output_cb_t)(const uint8_t *data, size_t len, void *user_ctx);
+typedef esp_err_t (*si_ssh_shell_output_cb_t)(const uint8_t *data, size_t len,
+                                             bool remote, void *user_ctx);
 
 typedef struct {
     char host[SI_SSH_HOST_MAX_LEN];

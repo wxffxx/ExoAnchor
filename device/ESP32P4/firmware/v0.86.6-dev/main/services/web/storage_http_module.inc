@@ -392,6 +392,11 @@ static esp_err_t storage_upload_handler(httpd_req_t *req)
 
     size_t remaining = req->content_len;
     size_t written = 0;
+    si_http_recv_timeout_t recv_timeout;
+    if (si_http_recv_timeout_begin(req, &recv_timeout)) {
+        si_http_recv_timeout_set(&recv_timeout,
+                                 (int64_t)STORAGE_UPLOAD_STALL_MS * 1000LL);
+    }
     while (remaining > 0) {
         size_t to_read = MIN(remaining, (size_t)STORAGE_IO_BUFFER_SIZE);
         int read_len = httpd_req_recv(req, buf, to_read);
@@ -406,6 +411,7 @@ static esp_err_t storage_upload_handler(httpd_req_t *req)
         remaining -= (size_t)read_len;
         written += (size_t)read_len;
     }
+    si_http_recv_timeout_end(&recv_timeout);
 
     free(buf);
     if (ret == ESP_OK && fflush(file) != 0) {

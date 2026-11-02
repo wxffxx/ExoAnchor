@@ -1143,12 +1143,17 @@ static esp_err_t ota_reboot_handler(httpd_req_t *req)
             req, "409 Conflict",
             "could not stop active Agent/MCP operations before reboot");
     }
+    if (xTaskCreate(ota_restart_task, "si_ota_reboot", 2048, NULL,
+                    tskIDLE_PRIORITY + 3, NULL) != pdPASS) {
+        (void)resource_operation_finish(&maintenance);
+        return si_http_send_text_status(req, "503 Service Unavailable",
+                                        "could not schedule reboot");
+    }
     cJSON *resp = cJSON_CreateObject();
     cJSON_AddBoolToObject(resp, "ok", true);
     cJSON_AddStringToObject(resp, "message", "rebooting");
     ret = si_http_send_json(req, resp);
     cJSON_Delete(resp);
-    (void)xTaskCreate(ota_restart_task, "si_ota_reboot", 2048, NULL, tskIDLE_PRIORITY + 3, NULL);
     return ret;
 }
 

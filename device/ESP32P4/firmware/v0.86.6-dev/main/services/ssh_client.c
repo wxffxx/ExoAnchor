@@ -717,18 +717,20 @@ esp_err_t si_ssh_exec(const si_ssh_exec_config_t *config, si_ssh_exec_result_t *
     return ret;
 }
 
-static void shell_emit(si_ssh_shell_t *shell, const void *data, size_t len)
+static void shell_emit(si_ssh_shell_t *shell, const void *data, size_t len,
+                       bool remote)
 {
     if (!shell || !shell->output_cb || !data || len == 0) {
         return;
     }
-    (void)shell->output_cb((const uint8_t *)data, len, shell->user_ctx);
+    (void)shell->output_cb((const uint8_t *)data, len, remote,
+                           shell->user_ctx);
 }
 
 static void shell_emit_str(si_ssh_shell_t *shell, const char *text)
 {
     if (text) {
-        shell_emit(shell, text, strlen(text));
+        shell_emit(shell, text, strlen(text), false);
     }
 }
 
@@ -952,7 +954,7 @@ static esp_err_t ssh_shell_worker(si_ssh_shell_t *shell)
         while (!shell->stop_requested) {
             ssize_t nread = libssh2_channel_read(channel, (char *)io, sizeof(io));
             if (nread > 0) {
-                shell_emit(shell, io, (size_t)nread);
+                shell_emit(shell, io, (size_t)nread, true);
                 did_work = true;
                 continue;
             }

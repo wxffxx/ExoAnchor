@@ -92,6 +92,8 @@ for marker, reason in (
      "SSH host/account overrides must escalate the class"),
     ("SI_AGENT_ACTION_SYSTEM);", "SSH override escalation must reach the system class"),
     ('strcasecmp(action, "force_off") == 0', "forced power-off must be classified"),
+    ('strcasecmp(action, "forceoff") == 0', "the executor's forceoff alias must be classified like force_off"),
+    ("duration->valuedouble >= 4000.0", "a 4 s power hold forces the host off and must be irreversible"),
     ("return SI_AGENT_ACTION_IRREVERSIBLE;", "irreversible class missing"),
     ("si_agent_classify_path_write(path)", "file targets must be classified by path"),
 ):

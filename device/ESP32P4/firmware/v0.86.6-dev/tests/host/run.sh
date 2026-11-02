@@ -80,6 +80,7 @@ mkdir "$AGENT_EVENT_STORE_TEST_DIR"
     "$PROJECT_DIR/main/core/model_provider.c" \
     "$PROJECT_DIR/main/core/network_config.c" \
     "$PROJECT_DIR/main/core/discovery_rate_limit.c" \
+    "$PROJECT_DIR/main/core/echo_redact.c" \
     "$PROJECT_DIR/main/core/product_identity.c" \
     "$PROJECT_DIR/main/core/utf8_utils.c" \
     "$PROJECT_DIR/main/core/version_utils.c" \
