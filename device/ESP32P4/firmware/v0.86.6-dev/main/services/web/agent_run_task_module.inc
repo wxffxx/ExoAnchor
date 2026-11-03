@@ -396,7 +396,8 @@ static void agent_run_task(void *arg)
             binding_locked =
                 !(strcmp(s_agent_run_job.job_id, run->job_id) == 0 &&
                   s_agent_run_job.task_service_bound &&
-                  s_agent_run_job.task_service_control_pending);
+                  s_agent_run_job.task_service_control_pending &&
+                  !s_agent_run_job.cancel_requested);
             if (binding_locked) {
                 break;
             }
