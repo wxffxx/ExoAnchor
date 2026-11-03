@@ -819,7 +819,8 @@ static void uart_ws_output_task(void *arg)
         uint32_t epoch = __atomic_load_n(&s_uart_ws_epoch, __ATOMIC_ACQUIRE);
 
         vTaskDelay(pdMS_TO_TICKS(UART_WS_OUTPUT_COALESCE_MS));
-        while (len < sizeof(data)) {
+        while (len < sizeof(data) &&
+               __atomic_load_n(&s_uart_ws_epoch, __ATOMIC_ACQUIRE) == epoch) {
             size_t more = xStreamBufferReceive(s_uart_ws_output_buffer,
                                                data + len,
                                                sizeof(data) - len, 0);
