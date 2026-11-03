@@ -27,6 +27,8 @@ static esp_err_t agent_run_prepare_task_service(const char *run_id)
     return ret;
 }
 
+static void agent_task_service_retry_if_storage_ready(void);
+
 static esp_err_t agent_run_status_handler(httpd_req_t *req)
 {
     esp_err_t auth_ret =
@@ -34,6 +36,7 @@ static esp_err_t agent_run_status_handler(httpd_req_t *req)
     if (auth_ret != ESP_OK) {
         return auth_ret;
     }
+    agent_task_service_retry_if_storage_ready();
     char expected_run_id[AGENT_RUN_JOB_ID_MAX_LEN + 1] = {0};
     bool exact = false;
     size_t query_len = httpd_req_get_url_query_len(req);

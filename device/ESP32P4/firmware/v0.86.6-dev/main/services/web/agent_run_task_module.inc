@@ -95,6 +95,22 @@ static void agent_task_service_start_shadow_async(void)
     }
 }
 
+static void agent_task_service_retry_if_storage_ready(void)
+{
+    si_storage_tf_status_t tf_status;
+    si_storage_get_tf_status(&tf_status);
+    if (!tf_status.mounted || !si_agent_task_service_rearm_recovery()) {
+        return;
+    }
+    BaseType_t created = xTaskCreateWithCaps(
+        agent_task_service_recovery_task, "si_agent_recover",
+        AGENT_TASK_SERVICE_RECOVERY_STACK, NULL, tskIDLE_PRIORITY + 1,
+        NULL, AGENT_RUN_TASK_MEMORY_CAPS);
+    if (created != pdPASS) {
+        si_agent_task_service_cancel_rearm();
+    }
+}
+
 static void agent_run_task_arg_free(agent_run_task_arg_t *run)
 {
     if (!run) {

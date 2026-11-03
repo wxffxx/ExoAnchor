@@ -359,7 +359,9 @@ static void test_storage_resolve(void)
                                    relative, sizeof(relative),
                                    absolute, sizeof(absolute)) ==
            SI_STORAGE_PATH_INVALID_ARGUMENT);
-    const char *control_paths[] = {"LOGS/x.txt\n", "LOGS/x\t.txt", "LOGS/\x01x", "LOGS/x\x7f"};
+    const char *control_paths[] = {"LOGS/x.txt\n", "LOGS/x\t.txt", "LOGS/\x01x", "LOGS/x\x7f",
+                                   "AGENT./MEMORY.LOG", "AGENT /TASKS.LOG", "/EA/AGENT./x",
+                                   "LOGS/ x.txt", "LOGS/x.txt.", "LOGS/x.txt "};
     for (size_t i = 0; i < sizeof(control_paths) / sizeof(control_paths[0]); i++) {
         assert(si_storage_resolve_path(control_paths[i], "/sdcard/EA",
                                        relative, sizeof(relative),

@@ -181,6 +181,8 @@ esp_err_t si_agent_task_service_prepare(void);
 /* Web startup reserves recovery before it begins accepting requests. */
 esp_err_t si_agent_task_service_reserve_recovery(void);
 esp_err_t si_agent_task_service_recover_reserved(void);
+bool si_agent_task_service_rearm_recovery(void);
+void si_agent_task_service_cancel_rearm(void);
 esp_err_t si_agent_task_service_start(void);
 
 esp_err_t si_agent_task_service_submit(const si_agent_task_submit_t *input,

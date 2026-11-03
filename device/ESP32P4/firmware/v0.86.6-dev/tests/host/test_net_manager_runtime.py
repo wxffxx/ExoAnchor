@@ -326,6 +326,21 @@ int main(void)
     rollback_result = ESP_OK;
     retry_rollback_persist();
     assert(rollbacks == 2 && !persisted.pending && !s_rollback_persist_pending);
+    assert(s_status.config_generation == 10 && strcmp(s_status.config_state, "active") == 0);
+
+    /* Reset ends a pending persistence retry so it cannot clobber a later stage. */
+    reset_test();
+    begin_static();
+    rollback_result = ESP_FAIL;
+    static_acd_callback(NULL, ACD_DECLINE);
+    poll_static_acd();
+    assert(s_rollback_persist_pending);
+    assert(si_net_reset_config() == ESP_OK && !s_rollback_persist_pending);
+    rollback_result = ESP_OK;
+    begin_static();
+    now_us = s_rollback_persist_retry_us;
+    retry_rollback_persist();
+    assert(persisted.pending && persisted.have_staged && rollbacks == 1);
 
     /* Persistence failure on timeout still restores the active interface. */
     reset_test();

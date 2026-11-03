@@ -217,6 +217,7 @@ static void reset_task_service(bool clear_log)
     s_id_counter = 0U;
     s_lifecycle = TASK_SERVICE_LIFECYCLE_COLD;
     s_start_result = ESP_ERR_INVALID_STATE;
+    s_start_retryable = false;
     s_storage_healthy = false;
     s_recovery_status = SI_AGENT_EVENT_RECOVERY_IO_ERROR;
     s_last_error[0] = '\0';
@@ -841,22 +842,40 @@ static void test_start_failure_is_stable_degraded_and_fail_closed(void)
 static void test_start_retries_after_tf_card_appears(void)
 {
     reset_task_service(true);
+    assert(!si_agent_task_service_rearm_recovery());
     s_fake_fail_init = true;
     s_fake_init_result = ESP_ERR_NOT_FOUND;
     assert(si_agent_task_service_start() == ESP_ERR_NOT_FOUND);
     assert(s_lifecycle == TASK_SERVICE_LIFECYCLE_FAILED);
     assert(si_agent_task_service_start() == ESP_ERR_NOT_FOUND);
-    assert(s_fake_init_calls == 2U);
+    assert(s_fake_init_calls == 1U);
+
+    assert(si_agent_task_service_rearm_recovery());
+    si_agent_task_service_cancel_rearm();
+    assert(s_lifecycle == TASK_SERVICE_LIFECYCLE_FAILED);
 
     s_fake_fail_init = false;
-    assert(si_agent_task_service_start() == ESP_OK);
+    assert(si_agent_task_service_rearm_recovery());
+    assert(!si_agent_task_service_rearm_recovery());
+    assert(si_agent_task_service_start() == ESP_ERR_INVALID_STATE);
+    assert(s_fake_init_calls == 1U);
+    assert(si_agent_task_service_recover_reserved() == ESP_OK);
     assert(s_lifecycle == TASK_SERVICE_LIFECYCLE_READY);
     assert(s_storage_healthy);
-    assert(s_fake_init_calls == 3U);
+    assert(s_fake_init_calls == 2U);
     si_agent_task_submit_t input = valid_system_submit("after-card");
     si_agent_task_receipt_t receipt = {0};
     assert(si_agent_task_service_submit(&input, &receipt) == ESP_OK);
     assert(receipt.accepted);
+}
+
+static void test_start_failure_not_rearmed_for_other_errors(void)
+{
+    reset_task_service(true);
+    s_fake_fail_init = true;
+    assert(si_agent_task_service_start() == ESP_FAIL);
+    assert(!si_agent_task_service_rearm_recovery());
+    assert(s_lifecycle == TASK_SERVICE_LIFECYCLE_FAILED);
 }
 
 static void test_reserved_recovery_never_runs_on_public_caller(void)
@@ -917,6 +936,7 @@ int main(void)
     test_source_auth_binding_is_trusted_and_separate_from_thread();
     test_start_failure_is_stable_degraded_and_fail_closed();
     test_start_retries_after_tf_card_appears();
+    test_start_failure_not_rearmed_for_other_errors();
     test_reserved_recovery_never_runs_on_public_caller();
     test_device_correlated_identity_is_exact_and_never_queued();
     reset_task_service(true);

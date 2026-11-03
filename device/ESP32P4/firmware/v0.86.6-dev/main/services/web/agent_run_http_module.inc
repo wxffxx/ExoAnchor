@@ -7,6 +7,7 @@ static esp_err_t agent_run_handler(httpd_req_t *req)
         return si_http_send_text_status(req, "403 Forbidden",
                                         "embedded Agent disabled in Settings");
     }
+    agent_task_service_retry_if_storage_ready();
     si_auth_session_context_t session = {0};
     esp_err_t auth_ret =
         si_http_require_capability(req, SI_CAPABILITY_AGENT_RUN, &session);

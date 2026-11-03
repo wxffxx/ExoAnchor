@@ -559,6 +559,19 @@ static QueueHandle_t s_ota_chunk_queue;
 static SemaphoreHandle_t s_ota_chunk_worker_lock;
 static bool s_ota_chunk_worker_running;
 
+static void ota_chunk_drain_body(httpd_req_t *req)
+{
+    char sink[512];
+    size_t drained = 0;
+    while (drained <= OTA_UPLOAD_CHUNK_MAX_SIZE) {
+        int read_len = httpd_req_recv(req, sink, sizeof(sink));
+        if (read_len <= 0) {
+            break;
+        }
+        drained += (size_t)read_len;
+    }
+}
+
 static void ota_chunk_worker(void *arg)
 {
     (void)arg;
@@ -567,6 +580,7 @@ static void ota_chunk_worker(void *arg)
         if (xQueueReceive(s_ota_chunk_queue, &req,
                           pdMS_TO_TICKS(OTA_CHUNK_WORKER_IDLE_MS)) == pdTRUE) {
             (void)ota_upload_chunk_handler(req);
+            ota_chunk_drain_body(req);
             (void)httpd_req_async_handler_complete(req);
             continue;
         }
@@ -603,7 +617,21 @@ static esp_err_t ota_upload_chunk_dispatch_handler(httpd_req_t *req)
         return si_http_send_text_status(req, "503 Service Unavailable",
                                         "OTA chunk worker unavailable");
     }
+    esp_err_t auth_ret = ota_require_auth(req);
+    if (auth_ret != ESP_OK) {
+        return auth_ret;
+    }
+    if (req->content_len <= 0 ||
+        req->content_len > (int)OTA_UPLOAD_CHUNK_MAX_SIZE) {
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                                   "invalid OTA chunk size");
+    }
     xSemaphoreTake(s_ota_chunk_worker_lock, portMAX_DELAY);
+    if (uxQueueSpacesAvailable(s_ota_chunk_queue) == 0) {
+        xSemaphoreGive(s_ota_chunk_worker_lock);
+        return si_http_send_text_status(req, "409 Conflict",
+                                        "OTA operation already running");
+    }
     if (!s_ota_chunk_worker_running) {
         if (xTaskCreateWithCaps(ota_chunk_worker, "si_ota_chunk",
                                 OTA_CHUNK_WORKER_STACK, NULL,
@@ -628,13 +656,7 @@ static esp_err_t ota_upload_chunk_dispatch_handler(httpd_req_t *req)
         return si_http_send_text_status(req, "503 Service Unavailable",
                                         "async request unavailable");
     }
-    if (xQueueSend(s_ota_chunk_queue, &async_req, 0) != pdTRUE) {
-        xSemaphoreGive(s_ota_chunk_worker_lock);
-        (void)si_http_send_text_status(async_req, "409 Conflict",
-                                       "OTA operation already running");
-        (void)httpd_req_async_handler_complete(async_req);
-        return ESP_OK;
-    }
+    (void)xQueueSend(s_ota_chunk_queue, &async_req, 0);
     xSemaphoreGive(s_ota_chunk_worker_lock);
     return ESP_OK;
 }

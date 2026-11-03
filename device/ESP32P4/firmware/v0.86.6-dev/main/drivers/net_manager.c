@@ -642,6 +642,14 @@ static void retry_rollback_persist(void)
         s_rollback_persist_pending = ret != ESP_OK;
         s_rollback_persist_retry_us =
             esp_timer_get_time() + NETWORK_ROLLBACK_PERSIST_RETRY_US;
+        si_network_settings_status_t settings;
+        if (ret == ESP_OK && si_network_settings_get(&settings) == ESP_OK) {
+            status_lock();
+            s_status.pending_confirmation = false;
+            s_status.confirm_remaining_seconds = 0;
+            update_config_status_locked(&settings.active, "active");
+            status_unlock();
+        }
     }
     xSemaphoreGive(s_operation_lock);
     if (attempted) {
@@ -1016,6 +1024,7 @@ esp_err_t si_net_stage_config(const si_network_config_t *config)
     }
     if (ret == ESP_OK) {
         s_pending_applied = false;
+        s_rollback_persist_pending = false;
         status_lock();
         strlcpy(s_status.config_state, "staged",
                 sizeof(s_status.config_state));
@@ -1139,6 +1148,7 @@ esp_err_t si_net_reset_config(void)
     stop_static_acd();
     esp_err_t ret = si_network_settings_reset(&s_factory_config);
     if (ret == ESP_OK) {
+        s_rollback_persist_pending = false;
         s_pending_deadline_us = 0;
         status_lock();
         s_status.pending_confirmation = false;

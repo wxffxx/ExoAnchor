@@ -175,6 +175,12 @@ si_storage_path_result_t si_storage_resolve_path(const char *input,
         if ((unsigned char)*p < 0x20U || *p == 0x7F) {
             return SI_STORAGE_PATH_INVALID_ARGUMENT;
         }
+        bool segment_start = p == path || p[-1] == '/';
+        bool segment_end = p[1] == '\0' || p[1] == '/';
+        if ((segment_start && *p == ' ') ||
+            (segment_end && (*p == '.' || *p == ' '))) {
+            return SI_STORAGE_PATH_INVALID_ARGUMENT;
+        }
     }
 
     si_storage_path_result_t ret =

@@ -859,6 +859,23 @@ esp_err_t si_agent_task_service_recover_reserved(void)
     return result;
 }
 
+bool si_agent_task_service_rearm_recovery(void)
+{
+    uint32_t expected = TASK_SERVICE_LIFECYCLE_FAILED;
+    return __atomic_load_n(&s_start_retryable, __ATOMIC_ACQUIRE) &&
+           __atomic_compare_exchange_n(
+               &s_lifecycle, &expected, TASK_SERVICE_LIFECYCLE_RESERVED,
+               false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+}
+
+void si_agent_task_service_cancel_rearm(void)
+{
+    uint32_t expected = TASK_SERVICE_LIFECYCLE_RESERVED;
+    (void)__atomic_compare_exchange_n(
+        &s_lifecycle, &expected, TASK_SERVICE_LIFECYCLE_FAILED, false,
+        __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+}
+
 esp_err_t si_agent_task_service_start(void)
 {
     for (;;) {
@@ -868,14 +885,7 @@ esp_err_t si_agent_task_service_start(void)
             return ESP_OK;
         }
         if (lifecycle == TASK_SERVICE_LIFECYCLE_FAILED) {
-            if (!s_start_retryable) {
-                return s_start_result;
-            }
-            uint32_t failed = TASK_SERVICE_LIFECYCLE_FAILED;
-            (void)__atomic_compare_exchange_n(
-                &s_lifecycle, &failed, TASK_SERVICE_LIFECYCLE_COLD, false,
-                __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
-            continue;
+            return s_start_result;
         }
         if (lifecycle == TASK_SERVICE_LIFECYCLE_RESERVED) {
             return ESP_ERR_INVALID_STATE;
