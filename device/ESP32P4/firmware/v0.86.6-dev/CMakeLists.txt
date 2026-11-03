@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-set(SI_VERSION_BASE "0.88.5")
+set(SI_VERSION_BASE "0.88.6")
 if(NOT DEFINED PROJECT_VER)
     set(PROJECT_VER "${SI_VERSION_BASE}-dev")
 endif()
