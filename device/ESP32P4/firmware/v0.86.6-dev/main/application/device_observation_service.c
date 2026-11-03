@@ -239,6 +239,7 @@ void si_device_observation_get_hid(si_device_hid_observation_t *out)
     out->initialized = status.initialized;
     out->mounted = status.mounted;
     out->ready = status.ready;
+    out->suspended = status.suspended;
     out->keyboard_writable = status.keyboard_writable;
     out->mouse_writable = status.mouse_writable;
     out->absolute_pointer_writable = status.absolute_pointer_writable;
@@ -246,6 +247,8 @@ void si_device_observation_get_hid(si_device_hid_observation_t *out)
     out->dp_gpio = status.dp_gpio;
     out->tx_messages = status.tx_messages;
     out->failed_messages = status.failed_messages;
+    out->remote_wakeup_signals = status.remote_wakeup_signals;
+    out->remote_wakeup_rejected = status.remote_wakeup_rejected;
     strlcpy(out->mode, status.mode, sizeof(out->mode));
     strlcpy(out->port, status.port, sizeof(out->port));
     strlcpy(out->transport, status.transport, sizeof(out->transport));

@@ -247,10 +247,18 @@ esp_err_t hid_ws_handler(httpd_req_t *req)
         req->free_ctx = NULL;
         return ESP_OK;
     }
-    if (frame.type != HTTPD_WS_TYPE_TEXT) {
-        return ESP_OK;
+    if (frame.type == HTTPD_WS_TYPE_CONTINUE || !frame.final) {
+        return ESP_ERR_INVALID_STATE;
     }
-    if (frame.len == 0) {
+    if (frame.type != HTTPD_WS_TYPE_TEXT && frame.len > 0) {
+        uint8_t control[125];
+        if (frame.len > sizeof(control)) {
+            return ESP_ERR_INVALID_SIZE;
+        }
+        frame.payload = control;
+        return httpd_ws_recv_frame(req, &frame, frame.len);
+    }
+    if (frame.type != HTTPD_WS_TYPE_TEXT || frame.len == 0) {
         return ESP_OK;
     }
     if (frame.len > HID_WS_MAX_FRAME) {
@@ -273,6 +281,14 @@ esp_err_t hid_ws_handler(httpd_req_t *req)
                 (void)si_boot_key_cancel_for_manual_hid();
             }
             if (hid_ret == ESP_ERR_INVALID_STATE) {
+                si_hid_owner_token_t current = {0};
+                if (si_hid_owner_get_current(&current) &&
+                    si_hid_owner_token_equal(&current, &ctx->owner) &&
+                    hid_ws_live_guard(ctx)) {
+                    cJSON_Delete(root);
+                    free(buf);
+                    return ESP_OK;
+                }
                 (void)si_hid_owner_release_if_current(&ctx->owner);
                 cJSON_Delete(root);
                 free(buf);

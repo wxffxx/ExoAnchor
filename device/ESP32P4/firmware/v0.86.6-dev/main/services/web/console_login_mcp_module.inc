@@ -201,7 +201,7 @@ static esp_err_t console_login_mcp_handler(httpd_req_t *req)
             req, HTTPD_403_FORBIDDEN, "MCP controller required");
     }
     if (req->content_len <= 0 ||
-        req->content_len > CONSOLE_LOGIN_MCP_MAX_BODY) {
+        req->content_len >= CONSOLE_LOGIN_MCP_MAX_BODY) {
         return httpd_resp_send_err(
             req, HTTPD_400_BAD_REQUEST, "json body required");
     }

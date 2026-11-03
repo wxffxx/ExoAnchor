@@ -42,6 +42,8 @@ static TaskHandle_t s_uart_ws_output_task_handle;
 static portMUX_TYPE s_uart_ws_stats_lock = portMUX_INITIALIZER_UNLOCKED;
 static uint64_t s_uart_ws_dropped_bytes;
 static bool s_uart_ws_replaying;
+static uint64_t s_uart_ws_live_generation;
+static uint64_t s_uart_ws_live_from_seq;
 
 static void uart_ws_set_replaying(bool replaying)
 {
@@ -814,6 +816,7 @@ static void uart_ws_output_task(void *arg)
         if (len == 0) {
             continue;
         }
+        uint32_t epoch = __atomic_load_n(&s_uart_ws_epoch, __ATOMIC_ACQUIRE);
 
         vTaskDelay(pdMS_TO_TICKS(UART_WS_OUTPUT_COALESCE_MS));
         while (len < sizeof(data)) {
@@ -834,8 +837,10 @@ static void uart_ws_output_task(void *arg)
         if (s_uart_ws_lock &&
             xSemaphoreTake(s_uart_ws_lock,
                            pdMS_TO_TICKS(20)) == pdTRUE) {
-            handle = s_uart_ws_handle;
-            fd = s_uart_ws_fd;
+            if (s_uart_ws_epoch == epoch) {
+                handle = s_uart_ws_handle;
+                fd = s_uart_ws_fd;
+            }
             xSemaphoreGive(s_uart_ws_lock);
         }
         if (handle && fd >= 0) {
@@ -847,21 +852,28 @@ static void uart_ws_output_task(void *arg)
 }
 
 static void uart_ws_output_callback(const uint8_t *data, size_t len,
+                                    uint64_t generation, uint64_t first_seq,
                                     void *user_ctx)
 {
     (void)user_ctx;
     bool connected = false;
+    size_t skip = 0;
     if (!s_uart_ws_lock ||
         xSemaphoreTake(s_uart_ws_lock, pdMS_TO_TICKS(100)) != pdTRUE) {
         return;
     }
     connected = s_uart_ws_handle != NULL && s_uart_ws_fd >= 0;
+    if (connected && generation == s_uart_ws_live_generation &&
+        first_seq < s_uart_ws_live_from_seq) {
+        uint64_t replayed = s_uart_ws_live_from_seq - first_seq;
+        skip = replayed < len ? (size_t)replayed : len;
+    }
     xSemaphoreGive(s_uart_ws_lock);
-    if (connected && s_uart_ws_output_buffer) {
-        size_t buffered =
-            xStreamBufferSend(s_uart_ws_output_buffer, data, len, 0);
+    if (connected && skip < len && s_uart_ws_output_buffer) {
+        size_t buffered = xStreamBufferSend(s_uart_ws_output_buffer,
+                                            data + skip, len - skip, 0);
         portENTER_CRITICAL(&s_uart_ws_stats_lock);
-        s_uart_ws_dropped_bytes += len - buffered;
+        s_uart_ws_dropped_bytes += (len - skip) - buffered;
         portEXIT_CRITICAL(&s_uart_ws_stats_lock);
     }
 }
@@ -968,17 +980,35 @@ static esp_err_t uart_ws_post_handshake(httpd_req_t *req)
     if (!ctx) {
         return ESP_ERR_INVALID_STATE;
     }
+    uint8_t *replay = heap_caps_malloc(
+        UART_WS_OUTPUT_BUFFER_BYTES,
+        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!replay) {
+        replay = malloc(UART_WS_OUTPUT_BUFFER_BYTES);
+    }
     if (xSemaphoreTake(s_uart_ws_lock, pdMS_TO_TICKS(100)) != pdTRUE) {
+        free(replay);
         return ESP_ERR_TIMEOUT;
     }
     if (s_uart_ws_handle != NULL && s_uart_ws_fd >= 0) {
         xSemaphoreGive(s_uart_ws_lock);
+        free(replay);
         return ESP_ERR_INVALID_STATE;
     }
     uint8_t stale[UART_WS_OUTPUT_BATCH_BYTES];
     while (xStreamBufferReceive(s_uart_ws_output_buffer, stale,
                                 sizeof(stale), 0) > 0) {
     }
+    si_target_uart_journal_t journal = {0};
+    size_t replay_len = 0;
+    if (replay) {
+        replay_len = si_target_uart_journal_read(
+            replay, UART_WS_OUTPUT_BUFFER_BYTES, &journal);
+    } else {
+        (void)si_target_uart_journal_read(NULL, 0, &journal);
+    }
+    s_uart_ws_live_generation = journal.generation;
+    s_uart_ws_live_from_seq = journal.next_seq;
     s_uart_ws_handle = ctx->handle;
     s_uart_ws_fd = ctx->fd;
     s_uart_ws_revoked = false;
@@ -989,20 +1019,6 @@ static esp_err_t uart_ws_post_handshake(httpd_req_t *req)
     uart_ws_set_replaying(true);
     xSemaphoreGive(s_uart_ws_lock);
 
-    uint8_t *replay = heap_caps_malloc(
-        UART_WS_OUTPUT_BUFFER_BYTES,
-        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!replay) {
-        replay = malloc(UART_WS_OUTPUT_BUFFER_BYTES);
-    }
-    si_target_uart_journal_t journal = {0};
-    size_t replay_len = 0;
-    if (replay) {
-        replay_len = si_target_uart_journal_read(
-            replay, UART_WS_OUTPUT_BUFFER_BYTES, &journal);
-    } else {
-        (void)si_target_uart_journal_read(NULL, 0, &journal);
-    }
     char replay_meta[256];
     snprintf(replay_meta, sizeof(replay_meta),
              "{\"type\":\"uart.replay\",\"boot_id\":\"%016" PRIx64
@@ -1066,8 +1082,14 @@ static esp_err_t uart_ws_handler(httpd_req_t *req)
         req->free_ctx = NULL;
         return ESP_OK;
     }
-    if ((frame.type != HTTPD_WS_TYPE_TEXT &&
-         frame.type != HTTPD_WS_TYPE_BINARY) || frame.len == 0) {
+    if (frame.type == HTTPD_WS_TYPE_CONTINUE || !frame.final) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (frame.type != HTTPD_WS_TYPE_TEXT &&
+        frame.type != HTTPD_WS_TYPE_BINARY) {
+        return frame.len ? terminal_ws_discard_frame(req, &frame) : ESP_OK;
+    }
+    if (frame.len == 0) {
         return ESP_OK;
     }
     if (frame.len > UART_WS_MAX_FRAME) {

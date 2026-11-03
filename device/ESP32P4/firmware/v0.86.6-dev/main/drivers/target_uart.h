@@ -8,6 +8,8 @@
 #include "freertos/FreeRTOS.h"
 
 typedef void (*si_target_uart_rx_callback_t)(const uint8_t *data, size_t len,
+                                             uint64_t generation,
+                                             uint64_t first_seq,
                                              void *user_ctx);
 
 typedef struct {
@@ -51,7 +53,6 @@ size_t si_target_uart_journal_read_from(uint64_t cursor, uint8_t *data,
                                         si_target_uart_journal_t *journal);
 void si_target_uart_set_rx_callback(si_target_uart_rx_callback_t callback,
                                     void *user_ctx);
-size_t si_target_uart_read(uint8_t *data, size_t len, TickType_t wait_ticks);
 size_t si_target_uart_read_cli(uint8_t *data, size_t len,
                                TickType_t wait_ticks);
 void si_target_uart_redact_echo(const uint8_t *secret, size_t len,

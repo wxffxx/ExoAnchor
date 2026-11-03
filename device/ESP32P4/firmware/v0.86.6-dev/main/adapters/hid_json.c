@@ -11,6 +11,17 @@ static int json_int(const cJSON *object, const char *name, int fallback)
     return cJSON_IsNumber(item) ? item->valueint : fallback;
 }
 
+static int8_t json_i8(const cJSON *object, const char *name)
+{
+    int value = json_int(object, name, 0);
+    if (value > 127) {
+        value = 127;
+    } else if (value < -127) {
+        value = -127;
+    }
+    return (int8_t)value;
+}
+
 static double json_double(const cJSON *object, const char *name, double fallback)
 {
     const cJSON *item = cJSON_GetObjectItemCaseSensitive(object, name);
@@ -153,8 +164,8 @@ static esp_err_t hid_json_execute_internal(const cJSON *message,
         command.button = (uint8_t)json_int(message, "button", 0);
     } else if (strcmp(type, "wheel") == 0) {
         command.type = SI_HID_COMMAND_WHEEL;
-        command.wheel_y = (int8_t)json_int(message, "deltaY", 0);
-        command.wheel_x = (int8_t)json_int(message, "deltaX", 0);
+        command.wheel_y = json_i8(message, "deltaY");
+        command.wheel_x = json_i8(message, "deltaX");
     } else if (strcmp(type, "combo") == 0) {
         command.type = SI_HID_COMMAND_COMBO;
         parse_combo(message, &command);

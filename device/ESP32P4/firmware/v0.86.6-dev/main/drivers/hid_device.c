@@ -10,6 +10,7 @@
 #include "class/hid/hid_device.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
@@ -29,6 +30,7 @@ static const char *TAG = "si-hid";
 #define HID_EP_SIZE 8
 #define HID_CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + 3 * TUD_HID_DESC_LEN)
 #define HID_EMBEDDED_PRODUCER_SLOTS 8U
+#define HID_REMOTE_WAKEUP_WAIT_US 150000
 
 typedef struct {
     const char *code;
@@ -146,6 +148,8 @@ static uint16_t s_abs_x = SI_HID_ABS_MAX / 2;
 static uint16_t s_abs_y = SI_HID_ABS_MAX / 2;
 static uint32_t s_tx_messages;
 static uint32_t s_failed_messages;
+static uint32_t s_remote_wakeup_signals;
+static uint32_t s_remote_wakeup_rejected;
 static char s_last_error[96];
 /*
  * Lock order is authority gate -> short-lived auth/video/lease locks ->
@@ -505,6 +509,7 @@ void si_hid_get_status(si_hid_status_t *status)
     status->initialized = s_installed;
     status->mounted = si_hid_is_mounted();
     status->ready = si_hid_is_ready();
+    status->suspended = status->mounted && tud_suspended();
     status->keyboard_writable =
         status->mounted && tud_hid_n_ready(HID_ITF_KEYBOARD);
     status->mouse_writable =
@@ -515,6 +520,8 @@ void si_hid_get_status(si_hid_status_t *status)
     status->dp_gpio = SI_CFG_HID_DP_GPIO;
     status->tx_messages = s_tx_messages;
     status->failed_messages = s_failed_messages;
+    status->remote_wakeup_signals = s_remote_wakeup_signals;
+    status->remote_wakeup_rejected = s_remote_wakeup_rejected;
     snprintf(status->mode, sizeof(status->mode), "usb-fs-gpio%d-%d",
              SI_CFG_HID_DM_GPIO, SI_CFG_HID_DP_GPIO);
     snprintf(status->port, sizeof(status->port), "USB FS GPIO%d/%d",
@@ -965,6 +972,34 @@ static void send_combo(const si_hid_command_t *command)
                        "keyboard endpoint not writable");
 }
 
+static bool wake_suspended_host(const si_hid_command_t *command)
+{
+    switch (command->type) {
+    case SI_HID_COMMAND_KEY_DOWN:
+    case SI_HID_COMMAND_MOUSE_DOWN:
+    case SI_HID_COMMAND_CLICK:
+    case SI_HID_COMMAND_ABS_MOUSE_DOWN:
+    case SI_HID_COMMAND_ABS_CLICK:
+    case SI_HID_COMMAND_COMBO:
+        break;
+    default:
+        return true;
+    }
+    if (!tud_suspended()) {
+        return true;
+    }
+    if (!tud_remote_wakeup()) {
+        s_remote_wakeup_rejected++;
+        return false;
+    }
+    s_remote_wakeup_signals++;
+    int64_t deadline_us = esp_timer_get_time() + HID_REMOTE_WAKEUP_WAIT_US;
+    while (tud_suspended() && esp_timer_get_time() < deadline_us) {
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    return !tud_suspended();
+}
+
 esp_err_t si_hid_execute_owned(const si_hid_command_t *command,
                                const si_hid_owner_token_t *owner,
                                si_hid_authority_guard_fn guard,
@@ -1036,6 +1071,14 @@ esp_err_t si_hid_execute_owned(const si_hid_command_t *command,
         xSemaphoreGiveRecursive(s_authority_gate);
         s_failed_messages++;
         set_last_error("hid authority changed before command start",
+                       ESP_ERR_INVALID_STATE);
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (!wake_suspended_host(command)) {
+        xSemaphoreGive(s_command_lock);
+        xSemaphoreGiveRecursive(s_authority_gate);
+        s_failed_messages++;
+        set_last_error("host suspended, wakeup not completed",
                        ESP_ERR_INVALID_STATE);
         return ESP_ERR_INVALID_STATE;
     }

@@ -542,7 +542,7 @@ def main() -> int:
 
     target_uart_text = TARGET_UART.read_text(encoding="utf-8")
     for marker in (
-        "s_http_backlog", "s_cli_backlog", "si_target_uart_read_cli",
+        "s_cli_backlog", "si_target_uart_read_cli",
         "s_journal_next_seq", "si_target_uart_journal_read",
         "si_target_uart_journal_read_from",
         "journal_history_lost",

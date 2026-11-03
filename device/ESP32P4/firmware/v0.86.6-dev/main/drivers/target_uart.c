@@ -27,7 +27,6 @@
 static const char *TAG = "si-target-uart";
 
 static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
-static StreamBufferHandle_t s_http_backlog;
 static StreamBufferHandle_t s_cli_backlog;
 static TaskHandle_t s_rx_task;
 static bool s_initialized;
@@ -77,8 +76,12 @@ static void target_uart_rx_task(void *arg)
         size_t out_len = 0;
         si_target_uart_rx_callback_t callback = NULL;
         void *callback_ctx = NULL;
+        uint64_t generation = 0;
+        uint64_t first_seq = 0;
 
         portENTER_CRITICAL(&s_lock);
+        generation = s_generation;
+        first_seq = s_journal_next_seq;
         out_len = si_echo_redact_feed(&s_redact, data, len, out);
         if (si_echo_redact_armed(&s_redact) &&
             esp_timer_get_time() >= s_redact_until_us) {
@@ -102,17 +105,14 @@ static void target_uart_rx_task(void *arg)
             continue;
         }
 
-        size_t http_buffered =
-            xStreamBufferSend(s_http_backlog, out, out_len, 0);
         size_t cli_buffered =
             xStreamBufferSend(s_cli_backlog, out, out_len, 0);
         portENTER_CRITICAL(&s_lock);
-        s_dropped_bytes +=
-            (out_len - http_buffered) + (out_len - cli_buffered);
+        s_dropped_bytes += out_len - cli_buffered;
         portEXIT_CRITICAL(&s_lock);
 
         if (callback) {
-            callback(out, out_len, callback_ctx);
+            callback(out, out_len, generation, first_seq, callback_ctx);
         }
     }
 }
@@ -147,20 +147,11 @@ esp_err_t si_target_uart_init(void)
                             SI_CFG_TARGET_UART_TX_GPIO >= 0,
                         ESP_ERR_INVALID_ARG, TAG, "invalid UART pins");
 
-    /* Backlogs are read and written from tasks only (never from an ISR), so
-     * they can live in PSRAM instead of 16 KiB of scarce internal RAM. */
-    s_http_backlog = si_psram_stream_buffer_create(TARGET_UART_BACKLOG_BYTES, 1);
+    /* The backlog is read and written from tasks only (never from an ISR), so
+     * it can live in PSRAM instead of scarce internal RAM. */
     s_cli_backlog = si_psram_stream_buffer_create(TARGET_UART_BACKLOG_BYTES, 1);
-    if (!s_http_backlog || !s_cli_backlog) {
-        if (s_http_backlog) {
-            si_psram_stream_buffer_delete(s_http_backlog);
-        }
-        if (s_cli_backlog) {
-            si_psram_stream_buffer_delete(s_cli_backlog);
-        }
-        s_http_backlog = NULL;
-        s_cli_backlog = NULL;
-        set_last_error("create consumer backlogs", ESP_ERR_NO_MEM);
+    if (!s_cli_backlog) {
+        set_last_error("create consumer backlog", ESP_ERR_NO_MEM);
         return ESP_ERR_NO_MEM;
     }
 
@@ -183,9 +174,7 @@ esp_err_t si_target_uart_init(void)
                                         TARGET_UART_DRIVER_TX_BYTES,
                                         0, NULL, 0);
     if (ret != ESP_OK) {
-        si_psram_stream_buffer_delete(s_http_backlog);
         si_psram_stream_buffer_delete(s_cli_backlog);
-        s_http_backlog = NULL;
         s_cli_backlog = NULL;
         set_last_error("install driver", ret);
         return ret;
@@ -203,9 +192,7 @@ esp_err_t si_target_uart_init(void)
     }
     if (ret != ESP_OK) {
         (void)uart_driver_delete(target_uart_port());
-        si_psram_stream_buffer_delete(s_http_backlog);
         si_psram_stream_buffer_delete(s_cli_backlog);
-        s_http_backlog = NULL;
         s_cli_backlog = NULL;
         set_last_error("configure driver", ret);
         return ret;
@@ -216,9 +203,7 @@ esp_err_t si_target_uart_init(void)
                                       TARGET_UART_TASK_PRIORITY, &s_rx_task);
     if (task_ret != pdPASS) {
         (void)uart_driver_delete(target_uart_port());
-        si_psram_stream_buffer_delete(s_http_backlog);
         si_psram_stream_buffer_delete(s_cli_backlog);
-        s_http_backlog = NULL;
         s_cli_backlog = NULL;
         s_rx_task = NULL;
         set_last_error("create RX task", ESP_ERR_NO_MEM);
@@ -262,11 +247,6 @@ esp_err_t si_target_uart_set_baud_rate(int baud_rate)
     }
 
     uint8_t stale[64];
-    if (s_http_backlog) {
-        while (xStreamBufferReceive(s_http_backlog, stale,
-                                    sizeof(stale), 0) > 0) {
-        }
-    }
     if (s_cli_backlog) {
         while (xStreamBufferReceive(s_cli_backlog, stale,
                                     sizeof(stale), 0) > 0) {
@@ -316,8 +296,8 @@ void si_target_uart_get_status(si_target_uart_status_t *status)
     strlcpy(status->last_error, s_last_error, sizeof(status->last_error));
     portEXIT_CRITICAL(&s_lock);
 
-    status->buffered_bytes = s_http_backlog ?
-        xStreamBufferBytesAvailable(s_http_backlog) : 0;
+    status->buffered_bytes = s_cli_backlog ?
+        xStreamBufferBytesAvailable(s_cli_backlog) : 0;
 }
 
 size_t si_target_uart_journal_read(uint8_t *data, size_t len,
@@ -417,14 +397,6 @@ void si_target_uart_set_rx_callback(si_target_uart_rx_callback_t callback,
     s_rx_callback = callback;
     s_rx_callback_ctx = user_ctx;
     portEXIT_CRITICAL(&s_lock);
-}
-
-size_t si_target_uart_read(uint8_t *data, size_t len, TickType_t wait_ticks)
-{
-    if (!data || len == 0 || !s_initialized || !s_http_backlog) {
-        return 0;
-    }
-    return xStreamBufferReceive(s_http_backlog, data, len, wait_ticks);
 }
 
 size_t si_target_uart_read_cli(uint8_t *data, size_t len,

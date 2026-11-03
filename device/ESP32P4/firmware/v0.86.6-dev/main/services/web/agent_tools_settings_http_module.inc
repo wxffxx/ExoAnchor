@@ -133,7 +133,7 @@ static esp_err_t settings_agent_tools_handler(httpd_req_t *req)
     if (req->method != HTTP_POST) {
         return httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED, "method not allowed");
     }
-    if (req->content_len <= 0 || req->content_len > AGENT_TOOLS_MAX_BODY) {
+    if (req->content_len <= 0 || req->content_len >= AGENT_TOOLS_MAX_BODY) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "json body required");
     }
 

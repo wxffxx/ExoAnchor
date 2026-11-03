@@ -1110,6 +1110,7 @@ void si_device_http_add_hid_json(cJSON *root,
     cJSON_AddBoolToObject(root, "mounted", hid->mounted);
     cJSON_AddBoolToObject(root, "ready", hid->ready);
     cJSON_AddBoolToObject(root, "hid_ready", hid->ready);
+    cJSON_AddBoolToObject(root, "suspended", hid->suspended);
     cJSON_AddStringToObject(root, "mode", hid->mode);
     cJSON_AddStringToObject(root, "port", hid->port);
     cJSON_AddStringToObject(root, "transport", hid->transport);
@@ -1133,6 +1134,10 @@ void si_device_http_add_hid_json(cJSON *root,
     cJSON *stats = cJSON_AddObjectToObject(root, "stats");
     cJSON_AddNumberToObject(stats, "tx_messages", hid->tx_messages);
     cJSON_AddNumberToObject(stats, "failed_messages", hid->failed_messages);
+    cJSON_AddNumberToObject(stats, "remote_wakeup_signals",
+                            hid->remote_wakeup_signals);
+    cJSON_AddNumberToObject(stats, "remote_wakeup_rejected",
+                            hid->remote_wakeup_rejected);
     cJSON_AddStringToObject(root, "last_error", hid->last_error);
 }
 

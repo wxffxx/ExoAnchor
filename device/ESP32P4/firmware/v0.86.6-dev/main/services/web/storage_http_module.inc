@@ -211,8 +211,15 @@ static esp_err_t storage_list_handler(httpd_req_t *req)
 
     char query[STORAGE_LIST_QUERY_MAX] = {0};
     char requested[STORAGE_LIST_PATH_MAX] = {0};
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
-        (void)httpd_query_key_value(query, "path", requested, sizeof(requested));
+    esp_err_t query_ret = httpd_req_get_url_query_str(req, query, sizeof(query));
+    if (query_ret == ESP_OK) {
+        esp_err_t key_ret =
+            httpd_query_key_value(query, "path", requested, sizeof(requested));
+        if (key_ret != ESP_OK && key_ret != ESP_ERR_NOT_FOUND) {
+            return si_http_send_text_status(req, "400 Bad Request", "storage path too long");
+        }
+    } else if (query_ret != ESP_ERR_NOT_FOUND) {
+        return si_http_send_text_status(req, "400 Bad Request", "storage path too long");
     }
     if (si_storage_url_decode_inplace(requested) != SI_STORAGE_PATH_OK) {
         return si_http_send_text_status(req, "400 Bad Request", "invalid storage path encoding");

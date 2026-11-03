@@ -1815,6 +1815,7 @@ static void uvc_supervisor_task(void *arg)
                 continue;
             }
         }
+        __atomic_store_n(&s_uvc_transport_fault, false, __ATOMIC_RELEASE);
         if (s_uvc_session_state == SI_UVC_SESSION_OPEN_STOPPED) {
             ret = uvc_host_stream_start(opened);
         } else if (s_uvc_session_state != SI_UVC_SESSION_STARTED) {
@@ -1839,7 +1840,6 @@ static void uvc_supervisor_task(void *arg)
             s_status.last_error[0] = '\0';
             xSemaphoreGive(s_lock);
         }
-        __atomic_store_n(&s_uvc_transport_fault, false, __ATOMIC_RELEASE);
         uint32_t last_callbacks =
             __atomic_load_n(&s_uvc_callbacks, __ATOMIC_RELAXED);
         TickType_t no_frame_since = xTaskGetTickCount();
@@ -1852,7 +1852,9 @@ static void uvc_supervisor_task(void *arg)
         while (true) {
             if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) > 0U) {
                 if (__atomic_exchange_n(&s_uvc_transport_fault, false,
-                                        __ATOMIC_ACQ_REL)) {
+                                        __ATOMIC_ACQ_REL) ||
+                    __atomic_load_n(&s_uvc_device_gone_pending,
+                                    __ATOMIC_ACQUIRE)) {
                     transport_fault = true;
                     break;
                 }
@@ -1898,6 +1900,11 @@ static void uvc_supervisor_task(void *arg)
             }
         }
 
+        if (transport_fault &&
+            __atomic_load_n(&s_uvc_device_gone_pending, __ATOMIC_ACQUIRE)) {
+            s_uvc_close_pending = true;
+            continue;
+        }
         bool stopped = true;
         bool closed = false;
         if (transport_fault) {

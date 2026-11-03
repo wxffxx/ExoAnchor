@@ -121,6 +121,7 @@ typedef struct {
     bool initialized;
     bool mounted;
     bool ready;
+    bool suspended;
     bool keyboard_writable;
     bool mouse_writable;
     bool absolute_pointer_writable;
@@ -128,6 +129,8 @@ typedef struct {
     int dp_gpio;
     uint32_t tx_messages;
     uint32_t failed_messages;
+    uint32_t remote_wakeup_signals;
+    uint32_t remote_wakeup_rejected;
     char mode[32];
     char port[32];
     char transport[24];

@@ -72,7 +72,7 @@ static esp_err_t settings_console_credentials_handler(httpd_req_t *req)
             "stop the active Agent/HID operation before changing Console credentials");
     }
     if (req->content_len <= 0 ||
-        req->content_len > CONSOLE_CREDENTIALS_MAX_BODY) {
+        req->content_len >= CONSOLE_CREDENTIALS_MAX_BODY) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
                                    "json body required");
     }

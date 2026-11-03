@@ -486,7 +486,7 @@ static esp_err_t settings_ssh_target_handler(httpd_req_t *req)
             req, "409 Conflict",
             "stop the active Agent/MCP SSH operation before changing its target");
     }
-    if (req->content_len <= 0 || req->content_len > SSH_TARGET_MAX_BODY) {
+    if (req->content_len <= 0 || req->content_len >= SSH_TARGET_MAX_BODY) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "json body required");
     }
 
@@ -777,7 +777,7 @@ static esp_err_t settings_ssh_key_handler(httpd_req_t *req)
             req, "409 Conflict",
             "stop the active Agent/MCP SSH operation before changing its key");
     }
-    if (req->content_len <= 0 || req->content_len > SSH_KEY_MAX_BODY) {
+    if (req->content_len <= 0 || req->content_len >= SSH_KEY_MAX_BODY) {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "json body required");
     }
 
@@ -1347,8 +1347,11 @@ static esp_err_t ssh_ws_handler(httpd_req_t *req)
         req->free_ctx = NULL;
         return ESP_OK;
     }
+    if (frame.type == HTTPD_WS_TYPE_CONTINUE || !frame.final) {
+        return ESP_ERR_INVALID_STATE;
+    }
     if (frame.type != HTTPD_WS_TYPE_TEXT && frame.type != HTTPD_WS_TYPE_BINARY) {
-        return ESP_OK;
+        return frame.len ? terminal_ws_discard_frame(req, &frame) : ESP_OK;
     }
     if (frame.len == 0) {
         return ESP_OK;

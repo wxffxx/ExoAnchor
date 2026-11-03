@@ -9,6 +9,8 @@
 static si_hid_command_type_t s_type;
 static char s_error[64];
 static char s_code[32];
+static int8_t s_wheel_y;
+static int8_t s_wheel_x;
 
 const char *esp_err_to_name(esp_err_t err)
 {
@@ -30,6 +32,8 @@ esp_err_t si_hid_execute_owned(const si_hid_command_t *command,
              command && command->error ? command->error : "");
     snprintf(s_code, sizeof(s_code), "%s",
              command && command->code ? command->code : "");
+    s_wheel_y = command ? command->wheel_y : 0;
+    s_wheel_x = command ? command->wheel_x : 0;
     return ESP_OK;
 }
 
@@ -59,6 +63,15 @@ int main(void)
     execute_json("{\"type\":\"mousemove\",\"dx\":0.5,\"dy\":-0.25}");
     assert(s_type == SI_HID_COMMAND_MOUSE_MOVE);
     assert(s_error[0] == '\0');
+
+    execute_json("{\"type\":\"wheel\",\"deltaY\":150,\"deltaX\":-300}");
+    assert(s_type == SI_HID_COMMAND_WHEEL);
+    assert(s_wheel_y == 127);
+    assert(s_wheel_x == -127);
+
+    execute_json("{\"type\":\"wheel\",\"deltaY\":-1}");
+    assert(s_wheel_y == -1);
+    assert(s_wheel_x == 0);
 
     execute_json("{\"type\":\"releaseall\"}");
     assert(s_type == SI_HID_COMMAND_RELEASE_ALL);

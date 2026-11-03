@@ -603,8 +603,10 @@ esp_err_t si_ms2109_test_program_eeprom(const uint8_t *image, size_t size,
     esp_err_t ret = readback ? ESP_OK : ESP_ERR_NO_MEM;
     si_ms2109_transaction_t transaction;
     memset(&transaction, 0, sizeof(transaction));
+    bool opened = false;
     if (ret == ESP_OK) {
         ret = transaction_open(&transaction);
+        opened = ret == ESP_OK;
     }
     uint8_t address_mask = 0;
     if (ret == ESP_OK) {
@@ -635,7 +637,9 @@ esp_err_t si_ms2109_test_program_eeprom(const uint8_t *image, size_t size,
         *verified = matches;
     }
 
-    transaction_close(&transaction);
+    if (opened) {
+        transaction_close(&transaction);
+    }
     free(readback);
     s_status.operation_count++;
     s_status.last_programmed_bytes = ret == ESP_OK ? size : 0;
