@@ -7,6 +7,7 @@
  * "connecting". Video workers use PSRAM stacks, so headroom is cheap. */
 #define SI_VIDEO_HTTP_MAX_WORKERS 4
 #define SI_LONG_HTTP_TASK_STACK_SIZE 12288
+#define SI_LONG_HTTP_DRAIN_MAX 16384
 
 typedef esp_err_t (*si_http_handler_fn_t)(httpd_req_t *req);
 
@@ -43,6 +44,30 @@ static esp_err_t init_http_worker_slots(void)
     return s_long_http_slots && s_video_http_slots ? ESP_OK : ESP_ERR_NO_MEM;
 }
 
+static esp_err_t long_http_finish_request(httpd_req_t *req, bool drain)
+{
+    int fd = httpd_req_to_sockfd(req);
+    httpd_handle_t server = req->handle;
+    bool close = !drain;
+    if (drain) {
+        char sink[256];
+        size_t drained = 0;
+        int read_len;
+        while ((read_len = httpd_req_recv(req, sink, sizeof(sink))) > 0) {
+            drained += (size_t)read_len;
+            if (drained > SI_LONG_HTTP_DRAIN_MAX) {
+                break;
+            }
+        }
+        close = read_len != 0;
+    }
+    esp_err_t ret = httpd_req_async_handler_complete(req);
+    if (close && fd >= 0) {
+        (void)httpd_sess_trigger_close(server, fd);
+    }
+    return ret;
+}
+
 static void long_http_worker(void *arg)
 {
     long_http_task_t *task = (long_http_task_t *)arg;
@@ -56,8 +81,7 @@ static void long_http_worker(void *arg)
                      task->name ? task->name : "operation", elapsed_ms,
                      esp_err_to_name(ret));
         }
-        esp_err_t complete_ret =
-            httpd_req_async_handler_complete(task->req);
+        esp_err_t complete_ret = long_http_finish_request(task->req, true);
         if (complete_ret != ESP_OK) {
             ESP_LOGW(TAG, "async HTTP %s completion failed: %s",
                      task->name ? task->name : "operation",
@@ -109,7 +133,7 @@ static esp_err_t dispatch_http_worker(httpd_req_t *req,
         (void)httpd_resp_send_err(async_req,
                                   HTTPD_500_INTERNAL_SERVER_ERROR,
                                   "async request alloc failed");
-        (void)httpd_req_async_handler_complete(async_req);
+        (void)long_http_finish_request(async_req, async_req->content_len == 0);
         xSemaphoreGive(slot_pool);
         return ESP_OK;
     }
@@ -128,7 +152,7 @@ static esp_err_t dispatch_http_worker(httpd_req_t *req,
         httpd_resp_set_status(async_req, "503 Service Unavailable");
         (void)httpd_resp_sendstr(async_req,
                                  "async worker unavailable");
-        (void)httpd_req_async_handler_complete(async_req);
+        (void)long_http_finish_request(async_req, async_req->content_len == 0);
         xSemaphoreGive(slot_pool);
         return ESP_OK;
     }
