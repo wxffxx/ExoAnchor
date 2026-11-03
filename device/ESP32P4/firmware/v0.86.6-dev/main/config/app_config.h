@@ -7,7 +7,7 @@
 #include "sdkconfig.h"
 
 #ifndef SI_BMC_VERSION
-#define SI_BMC_VERSION "0.88.4-dev"
+#define SI_BMC_VERSION "0.88.5-dev"
 #endif
 #define SI_BMC_HOSTNAME CONFIG_SI_BOARD_HOSTNAME
 #define SI_BMC_BOARD CONFIG_SI_BOARD_NAME
