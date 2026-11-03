@@ -450,6 +450,12 @@ static void agent_run_close_steer_window(const char *job_id, cJSON *resp)
             strlcpy(dropped, s_agent_run_job.pending_steer, sizeof(dropped));
             s_agent_run_job.pending_steer[0] = '\0';
             revision = s_agent_run_job.intent_revision;
+            if (s_agent_run_job.intent_revision > 1U) {
+                s_agent_run_job.intent_revision--;
+            }
+            if (s_agent_run_job.plan_version > 1U) {
+                s_agent_run_job.plan_version--;
+            }
             s_agent_run_job.updated_ms = si_monotonic_ms();
         }
     }

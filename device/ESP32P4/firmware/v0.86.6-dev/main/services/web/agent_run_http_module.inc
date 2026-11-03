@@ -346,6 +346,9 @@ static esp_err_t agent_run_steer_handler(httpd_req_t *req)
             } else if (same_active && s_agent_run_job.steer_closed) {
                 steer_ret = ESP_ERR_INVALID_STATE;
                 reject_reason = "run_finishing";
+            } else if (same_active && s_agent_run_job.pending_steer[0]) {
+                steer_ret = ESP_ERR_INVALID_STATE;
+                reject_reason = "steer_pending";
             } else if (same_active) {
                 revision = ++s_agent_run_job.intent_revision;
                 s_agent_run_job.plan_version++;
@@ -1292,6 +1295,9 @@ static void web_debug_agent_run_steer(const char *expected_run_id,
             } else if (same_active && s_agent_run_job.steer_closed) {
                 steer_ret = ESP_ERR_INVALID_STATE;
                 reject_reason = "run_finishing";
+            } else if (same_active && s_agent_run_job.pending_steer[0]) {
+                steer_ret = ESP_ERR_INVALID_STATE;
+                reject_reason = "steer_pending";
             } else if (same_active) {
                 revision = ++s_agent_run_job.intent_revision;
                 s_agent_run_job.plan_version++;

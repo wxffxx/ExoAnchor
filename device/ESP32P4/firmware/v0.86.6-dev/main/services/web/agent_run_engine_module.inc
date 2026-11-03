@@ -452,6 +452,10 @@ static void agent_run_execute_tool_loop(agent_run_loop_context_t *ctx,
                 "loop stopped · repeated failed batches");
             break;
         }
+        if (has_steer && !agent_run_wait_control_settled(ctx->job_id)) {
+            cJSON_AddStringToObject(ctx->resp, "loop_error", "run aborted");
+            break;
+        }
         if (has_steer) {
             bool shadow_bound = false;
             if (xSemaphoreTake(s_agent_run_lock,
@@ -876,6 +880,9 @@ static esp_err_t agent_run_execute_to_json(const char *job_id,
     }
     si_agent_route_t route;
     si_agent_route_detect(message, include_screenshot, allow_web_search, &route);
+    if (route.max_tool_loops < 2) {
+        agent_run_close_steer_window(job_id, NULL);
+    }
     bool screenshot_effective =
         include_screenshot && route.prefer_screenshot;
     agent_run_set_stage(job_id, "意图路由", "根据用户输入选择 Agent prompt profile 和工具策略");

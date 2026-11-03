@@ -195,6 +195,17 @@ static bool agent_run_task_service_control_pending(const char *job_id)
 #endif
 }
 
+static bool agent_run_wait_control_settled(const char *job_id)
+{
+    while (agent_run_task_service_control_pending(job_id)) {
+        if (!agent_run_control_point(job_id)) {
+            return false;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    return true;
+}
+
 static bool agent_recovery_tool_allowed(const char *name, const cJSON *call)
 {
     if (!name) {
@@ -400,22 +411,17 @@ static void agent_execute_tool_calls(const char *job_id, const cJSON *tool_calls
                 continue;
             }
             risk = agent_action_class_risk(action_class);
-            bool task_service_bound =
+            const bool task_service_bound =
                 agent_run_task_service_is_bound(job_id);
-            bool control_aborted = false;
-            while (!task_service_bound &&
-                   agent_run_task_service_control_pending(job_id)) {
-                if (!agent_run_control_point(job_id)) {
-                    control_aborted = true;
+            if (!task_service_bound &&
+                agent_run_task_service_control_pending(job_id)) {
+                if (!agent_run_wait_control_settled(job_id)) {
+                    agent_add_tool_error(results, i, policy_name, "run aborted");
+                    all_ok = false;
                     break;
                 }
-                vTaskDelay(pdMS_TO_TICKS(10));
-                task_service_bound = agent_run_task_service_is_bound(job_id);
-            }
-            if (control_aborted) {
-                agent_add_tool_error(results, i, policy_name, "run aborted");
-                all_ok = false;
-                break;
+                --i;
+                continue;
             }
             if (!task_service_bound &&
                 !agent_compat_degraded_readonly(

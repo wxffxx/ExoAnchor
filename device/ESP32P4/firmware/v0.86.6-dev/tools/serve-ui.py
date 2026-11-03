@@ -1814,6 +1814,7 @@ class Handler(BaseHTTPRequestHandler):
                                  "time_ready": True, "recovery_remaining": len(MockState.two_step_recovery)})
             return
         if path == "/api/auth/status":
+            token_valid = _auth_header_valid(self.headers)
             self._send_json({
                 "enabled": True,
                 "setup_required": not MockState.local_credentials,
@@ -1821,13 +1822,13 @@ class Handler(BaseHTTPRequestHandler):
                 "two_step_enabled": bool(MockState.two_step_secret),
                 "two_step_time_ready": True,
                 "two_step_storage_ok": True,
-                "username": MockState.username,
+                "username": MockState.username if token_valid or not MockState.local_credentials else "",
                 "default_username": MockState.default_username,
                 "local_password": MockState.local_credentials,
                 "local_credentials": MockState.local_credentials,
                 "using_default": not MockState.local_credentials,
                 "must_change_credentials": not MockState.local_credentials,
-                "token_valid": _auth_header_valid(self.headers),
+                "token_valid": token_valid,
                 "username_max_length": 32,
                 "min_length": 6,
                 "max_length": 64,

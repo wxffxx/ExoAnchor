@@ -390,7 +390,19 @@ static void agent_run_task(void *arg)
     bool aborted = false;
     bool live_task_service_bound = false;
     uint32_t binding_waits = 0U;
-    while (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(200)) != pdTRUE) {
+    bool binding_locked = false;
+    while (!binding_locked) {
+        if (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(200)) == pdTRUE) {
+            binding_locked =
+                !(strcmp(s_agent_run_job.job_id, run->job_id) == 0 &&
+                  s_agent_run_job.task_service_bound &&
+                  s_agent_run_job.task_service_control_pending);
+            if (binding_locked) {
+                break;
+            }
+            xSemaphoreGive(s_agent_run_lock);
+            vTaskDelay(pdMS_TO_TICKS(20));
+        }
         if (++binding_waits % 25U == 0U) {
             ESP_LOGW(TAG,
                      "Agent finalizer is waiting for the live shadow binding");
@@ -507,6 +519,17 @@ static void agent_run_task(void *arg)
 #endif
 #if AGENT_RUNTIME_V2_SHADOW_BINDING_ENABLED
     agent_run_start_next_queued();
+#endif
+#if SI_CFG_VIDEO_H264_ENABLED
+    if (run->h264_resource_token != 0U) {
+        const si_h264_resource_token_t resource_token =
+            run->h264_resource_token;
+        run->h264_resource_token = 0U;
+        if (!si_h264_stream_release_agent_resources(resource_token)) {
+            ESP_LOGW(TAG,
+                     "ignored stale Agent/H.264 resource token during cleanup");
+        }
+    }
 #endif
     uint32_t cleanup_waits = 0U;
     while (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(200)) != pdTRUE) {
