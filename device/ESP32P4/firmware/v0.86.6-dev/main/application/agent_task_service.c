@@ -98,6 +98,7 @@ typedef enum {
  * written before FAILED and read only after an acquire load observes FAILED. */
 static uint32_t s_lifecycle = TASK_SERVICE_LIFECYCLE_COLD;
 static esp_err_t s_start_result = ESP_ERR_INVALID_STATE;
+static bool s_start_retryable;
 static bool s_storage_healthy;
 static si_agent_event_recovery_status_t s_recovery_status =
     SI_AGENT_EVENT_RECOVERY_IO_ERROR;
@@ -759,6 +760,7 @@ static esp_err_t task_service_start_internal(void)
         return ESP_ERR_TIMEOUT;
     }
     s_start_result = ESP_FAIL;
+    s_start_retryable = false;
 
     memset(&s_runtime, 0, sizeof(s_runtime));
     memset(s_records, 0, sizeof(s_records));
@@ -786,6 +788,7 @@ static esp_err_t task_service_start_internal(void)
         set_error("event store init failed: %s",
                   si_agent_event_store_last_error());
         s_start_result = result;
+        s_start_retryable = result == ESP_ERR_NOT_FOUND;
         xSemaphoreGive(s_task_lock);
         return s_start_result;
     }
@@ -865,7 +868,14 @@ esp_err_t si_agent_task_service_start(void)
             return ESP_OK;
         }
         if (lifecycle == TASK_SERVICE_LIFECYCLE_FAILED) {
-            return s_start_result;
+            if (!s_start_retryable) {
+                return s_start_result;
+            }
+            uint32_t failed = TASK_SERVICE_LIFECYCLE_FAILED;
+            (void)__atomic_compare_exchange_n(
+                &s_lifecycle, &failed, TASK_SERVICE_LIFECYCLE_COLD, false,
+                __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+            continue;
         }
         if (lifecycle == TASK_SERVICE_LIFECYCLE_RESERVED) {
             return ESP_ERR_INVALID_STATE;

@@ -672,17 +672,72 @@ esp_err_t agent_memory_file_append_locked(const char *json, size_t json_len,
         return ESP_ERR_INVALID_ARG;
     }
 
+    struct stat before = {0};
+    size_t prior_bytes = 0;
+    if (stat(AGENT_MEMORY_TF_FILE, &before) == 0) {
+        if (before.st_size < 0) {
+            agent_history_set_error("stat %s before append failed", AGENT_MEMORY_TF_FILE);
+            return ESP_FAIL;
+        }
+        prior_bytes = (size_t)before.st_size;
+    } else if (errno != ENOENT) {
+        agent_history_set_error("stat %s before append failed errno=%d",
+                                AGENT_MEMORY_TF_FILE, errno);
+        return ESP_FAIL;
+    }
+    bool needs_newline = false;
+    if (prior_bytes > 0) {
+        FILE *tail = fopen(AGENT_MEMORY_TF_FILE, "r");
+        if (!tail) {
+            agent_history_set_error("read %s failed errno=%d", AGENT_MEMORY_TF_FILE, errno);
+            return ESP_FAIL;
+        }
+        int last = fseek(tail, -1L, SEEK_END) == 0 ? fgetc(tail) : EOF;
+        fclose(tail);
+        if (last == EOF) {
+            agent_history_set_error("read %s tail failed", AGENT_MEMORY_TF_FILE);
+            return ESP_FAIL;
+        }
+        needs_newline = last != '\n';
+    }
+
     FILE *file = fopen(AGENT_MEMORY_TF_FILE, "a");
     if (!file) {
         agent_history_set_error("append %s failed errno=%d", AGENT_MEMORY_TF_FILE, errno);
         ESP_LOGW(TAG, "Failed to append %s: errno=%d", AGENT_MEMORY_TF_FILE, errno);
         return ESP_FAIL;
     }
-    size_t written = fwrite(json, 1, json_len, file);
-    bool ok = written == json_len && fputc('\n', file) != EOF && fflush(file) == 0;
-    fclose(file);
+    errno = 0;
+    bool ok = !needs_newline || fputc('\n', file) != EOF;
+    if (ok) {
+        ok = fwrite(json, 1, json_len, file) == json_len &&
+             fputc('\n', file) != EOF;
+    }
+    if (ok) {
+        ok = fflush(file) == 0;
+    }
+    if (ok) {
+        int fd = fileno(file);
+        ok = fd >= 0 && fsync(fd) == 0;
+    }
+    int write_errno = errno;
+    if (fclose(file) != 0) {
+        ok = false;
+        if (write_errno == 0) {
+            write_errno = errno;
+        }
+    }
     if (!ok) {
-        agent_history_set_error("write %s failed errno=%d", AGENT_MEMORY_TF_FILE, errno);
+        errno = 0;
+        int rollback_ret = truncate(AGENT_MEMORY_TF_FILE, (off_t)prior_bytes);
+        int rollback_errno = errno;
+        if (rollback_ret == 0) {
+            agent_history_set_error("durable write %s failed errno=%d rollback=ok",
+                                    AGENT_MEMORY_TF_FILE, write_errno);
+        } else {
+            agent_history_set_error("durable write %s failed errno=%d rollback_errno=%d",
+                                    AGENT_MEMORY_TF_FILE, write_errno, rollback_errno);
+        }
         return ESP_FAIL;
     }
     return agent_memory_file_stats_locked(used_bytes_out, record_count_out);

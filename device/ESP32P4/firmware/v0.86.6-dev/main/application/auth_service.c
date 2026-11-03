@@ -1051,12 +1051,18 @@ static esp_err_t set_credentials_internal(const char *username,
         ret = si_settings_store_set_u32(&store, AUTH_PASSWORD_ITERATIONS_KEY,
                                         AUTH_PASSWORD_ITERATIONS);
     }
+    uint8_t setup_flag = bootstrap_required && allow_setup ? 1U : 0U;
+    if (ret == ESP_OK && !setup_flag) {
+        ret = si_settings_store_set_u8(&store, "setup", 0U);
+    }
     if (ret == ESP_OK) {
         ret = si_settings_store_set_u8(
             &store, AUTH_BOOTSTRAP_REQUIRED_KEY,
             bootstrap_required ? 1U : 0U);
     }
-    if (ret == ESP_OK) ret = si_settings_store_set_u8(&store, "setup", bootstrap_required && allow_setup ? 1U : 0U);
+    if (ret == ESP_OK && setup_flag) {
+        ret = si_settings_store_set_u8(&store, "setup", 1U);
+    }
     if (ret == ESP_OK) {
         ret = si_settings_store_commit(&store);
     }

@@ -359,6 +359,20 @@ static void test_storage_resolve(void)
                                    relative, sizeof(relative),
                                    absolute, sizeof(absolute)) ==
            SI_STORAGE_PATH_INVALID_ARGUMENT);
+    const char *control_paths[] = {"LOGS/x.txt\n", "LOGS/x\t.txt", "LOGS/\x01x", "LOGS/x\x7f"};
+    for (size_t i = 0; i < sizeof(control_paths) / sizeof(control_paths[0]); i++) {
+        assert(si_storage_resolve_path(control_paths[i], "/sdcard/EA",
+                                       relative, sizeof(relative),
+                                       absolute, sizeof(absolute)) ==
+               SI_STORAGE_PATH_INVALID_ARGUMENT);
+    }
+    assert(si_storage_resolve_path("/EA/agent/tasks.log", "/sdcard/EA",
+                                   relative, sizeof(relative),
+                                   absolute, sizeof(absolute)) == SI_STORAGE_PATH_OK);
+    assert(si_storage_path_is_internal(relative));
+    assert(si_storage_path_is_internal("AGENT"));
+    assert(!si_storage_path_is_internal("AGENTS/x"));
+    assert(!si_storage_path_is_internal("LOGS/AGENT"));
 }
 
 static void test_device_observation_mapping(void)

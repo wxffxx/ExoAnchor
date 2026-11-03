@@ -587,17 +587,16 @@ static esp_err_t pulse_role(power_role_t role, uint32_t duration_ms,
               cancelled ? ESP_ERR_INVALID_STATE : ESP_OK;
     }
 
-    if (xSemaphoreTake(s_lock, pdMS_TO_TICKS(100)) == pdTRUE) {
-        s_status.busy = false;
-        if (ret == ESP_OK) {
-            s_status.action_count++;
-            set_last_error(NULL, ESP_OK);
-        } else {
-            set_last_error("gpio pulse", ret);
-        }
-        sync_status_locked();
-        xSemaphoreGive(s_lock);
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    s_status.busy = false;
+    if (ret == ESP_OK) {
+        s_status.action_count++;
+        set_last_error(NULL, ESP_OK);
+    } else {
+        set_last_error("gpio pulse", ret);
     }
+    sync_status_locked();
+    xSemaphoreGive(s_lock);
     return ret;
 }
 

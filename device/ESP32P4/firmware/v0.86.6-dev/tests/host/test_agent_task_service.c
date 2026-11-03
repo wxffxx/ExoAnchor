@@ -16,6 +16,7 @@ static fake_event_t s_fake_events[FAKE_EVENT_CAPACITY];
 static size_t s_fake_event_count;
 static bool s_fake_fail_next_append;
 static bool s_fake_fail_init;
+static esp_err_t s_fake_init_result = ESP_FAIL;
 static unsigned s_fake_init_calls;
 static uint32_t s_fake_now_ms = 1000U;
 static char s_fake_store_error[96];
@@ -66,7 +67,7 @@ esp_err_t si_agent_event_store_init(si_agent_event_recovery_t *recovery_out)
         }
         snprintf(s_fake_store_error, sizeof(s_fake_store_error),
                  "injected init failure");
-        return ESP_FAIL;
+        return s_fake_init_result;
     }
     fake_recovery(recovery_out);
     return ESP_OK;
@@ -222,6 +223,7 @@ static void reset_task_service(bool clear_log)
     s_host_random = 0x6d2b79f5U;
     s_fake_now_ms = 1000U;
     s_fake_fail_init = false;
+    s_fake_init_result = ESP_FAIL;
     s_fake_init_calls = 0U;
     if (clear_log) {
         fake_log_clear();
@@ -836,6 +838,27 @@ static void test_start_failure_is_stable_degraded_and_fail_closed(void)
     assert(!s_runtime.has_active_turn);
 }
 
+static void test_start_retries_after_tf_card_appears(void)
+{
+    reset_task_service(true);
+    s_fake_fail_init = true;
+    s_fake_init_result = ESP_ERR_NOT_FOUND;
+    assert(si_agent_task_service_start() == ESP_ERR_NOT_FOUND);
+    assert(s_lifecycle == TASK_SERVICE_LIFECYCLE_FAILED);
+    assert(si_agent_task_service_start() == ESP_ERR_NOT_FOUND);
+    assert(s_fake_init_calls == 2U);
+
+    s_fake_fail_init = false;
+    assert(si_agent_task_service_start() == ESP_OK);
+    assert(s_lifecycle == TASK_SERVICE_LIFECYCLE_READY);
+    assert(s_storage_healthy);
+    assert(s_fake_init_calls == 3U);
+    si_agent_task_submit_t input = valid_system_submit("after-card");
+    si_agent_task_receipt_t receipt = {0};
+    assert(si_agent_task_service_submit(&input, &receipt) == ESP_OK);
+    assert(receipt.accepted);
+}
+
 static void test_reserved_recovery_never_runs_on_public_caller(void)
 {
     reset_task_service(true);
@@ -893,6 +916,7 @@ int main(void)
     test_mutation_and_storage_failure_cannot_issue_artifact();
     test_source_auth_binding_is_trusted_and_separate_from_thread();
     test_start_failure_is_stable_degraded_and_fail_closed();
+    test_start_retries_after_tf_card_appears();
     test_reserved_recovery_never_runs_on_public_caller();
     test_device_correlated_identity_is_exact_and_never_queued();
     reset_task_service(true);

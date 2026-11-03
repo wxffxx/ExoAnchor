@@ -301,7 +301,12 @@ void app_main(void)
                  esp_err_to_name(feature_ret));
     }
 
-    ESP_ERROR_CHECK(si_auth_initialize());
+    esp_err_t auth_ret = si_auth_initialize();
+    if (auth_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Login is unavailable until local recovery (auth-reset CONFIRM): %s",
+                 esp_err_to_name(auth_ret));
+        si_web_log("ERROR", "Login unavailable; run auth-reset CONFIRM on the serial console");
+    }
 
     esp_err_t target_uart_ret = si_target_uart_init();
     if (target_uart_ret == ESP_OK) {

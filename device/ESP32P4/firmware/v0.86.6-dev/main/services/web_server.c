@@ -763,7 +763,7 @@ esp_err_t si_web_server_start(void)
     register_uri(s_server, "/api/ota/upload/start", HTTP_POST,
                  ota_upload_start_handler, false);
     register_uri(s_server, "/api/ota/upload/chunk", HTTP_POST,
-                 ota_upload_chunk_handler, false);
+                 ota_upload_chunk_dispatch_handler, false);
     register_uri(s_server, "/api/ota/upload/status", HTTP_GET,
                  ota_upload_status_handler, false);
     register_uri(s_server, "/api/ota/upload/finish", HTTP_POST,

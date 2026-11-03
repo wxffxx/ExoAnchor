@@ -33,6 +33,7 @@ static const char *TAG = "si-net";
 #define ETH_DRIVER_INSTALL_ATTEMPTS 3
 #define ETH_DRIVER_INSTALL_RETRY_DELAY_MS 250
 #define NETWORK_MANAGER_INTERVAL_MS 250
+#define NETWORK_ROLLBACK_PERSIST_RETRY_US (5LL * 1000000LL)
 #define NETWORK_LINK_REFRESH_MS 1000
 #define NETWORK_CONFIRM_TIMEOUT_SECONDS 120U
 #define NETWORK_STATIC_ACD_TIMEOUT_SECONDS 12U
@@ -61,6 +62,8 @@ static int64_t s_static_acd_deadline_us;
 /* Protected by s_operation_lock; an ACD callback alone never makes a
  * candidate eligible for persistence. */
 static bool s_pending_applied;
+static bool s_rollback_persist_pending;
+static int64_t s_rollback_persist_retry_us;
 static int s_logged_speed_mbps;
 static bool s_logged_full_duplex;
 static struct acd s_static_acd;
@@ -550,6 +553,9 @@ static void finish_static_acd(static_acd_result_t result)
         if (settings.have_staged) {
             rollback_ret = rollback_settings_on_internal_stack();
         }
+        s_rollback_persist_pending = rollback_ret != ESP_OK;
+        s_rollback_persist_retry_us =
+            esp_timer_get_time() + NETWORK_ROLLBACK_PERSIST_RETRY_US;
         s_pending_deadline_us = 0;
         status_lock();
         s_status.pending_confirmation = false;
@@ -605,19 +611,42 @@ static esp_err_t rollback_pending_locked(void)
     stop_static_acd();
     si_network_settings_status_t settings;
     esp_err_t ret = si_network_settings_get(&settings);
-    if (ret == ESP_OK) {
+    if (ret != ESP_OK) {
+        return ret;
+    }
+    ret = rollback_settings_on_internal_stack();
+    s_rollback_persist_pending = ret != ESP_OK;
+    s_rollback_persist_retry_us =
+        esp_timer_get_time() + NETWORK_ROLLBACK_PERSIST_RETRY_US;
+    s_pending_deadline_us = 0;
+    status_lock();
+    s_status.pending_confirmation = false;
+    s_status.confirm_remaining_seconds = 0;
+    update_config_status_locked(&settings.active, "active");
+    status_unlock();
+    esp_err_t apply_ret = apply_config(&settings.active);
+    return ret != ESP_OK ? ret : apply_ret;
+}
+
+static void retry_rollback_persist(void)
+{
+    if (!s_rollback_persist_pending ||
+        esp_timer_get_time() < s_rollback_persist_retry_us) {
+        return;
+    }
+    xSemaphoreTake(s_operation_lock, portMAX_DELAY);
+    esp_err_t ret = ESP_OK;
+    bool attempted = s_rollback_persist_pending;
+    if (attempted) {
         ret = rollback_settings_on_internal_stack();
+        s_rollback_persist_pending = ret != ESP_OK;
+        s_rollback_persist_retry_us =
+            esp_timer_get_time() + NETWORK_ROLLBACK_PERSIST_RETRY_US;
     }
-    if (ret == ESP_OK) {
-        s_pending_deadline_us = 0;
-        status_lock();
-        s_status.pending_confirmation = false;
-        s_status.confirm_remaining_seconds = 0;
-        update_config_status_locked(&settings.active, "active");
-        status_unlock();
-        ret = apply_config(&settings.active);
+    xSemaphoreGive(s_operation_lock);
+    if (attempted) {
+        set_last_error(ret, "rollback persistence");
     }
-    return ret;
 }
 
 static void eth_event_handler(void *arg, esp_event_base_t event_base,
@@ -786,6 +815,7 @@ static void manager_task(void *arg)
         }
 
         poll_static_acd();
+        retry_rollback_persist();
         vTaskDelay(pdMS_TO_TICKS(NETWORK_MANAGER_INTERVAL_MS));
     }
 }

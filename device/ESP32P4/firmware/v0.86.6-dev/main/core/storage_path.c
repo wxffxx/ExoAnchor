@@ -171,6 +171,11 @@ si_storage_path_result_t si_storage_resolve_path(const char *input,
         strchr(path, ':') || strstr(path, "..")) {
         return SI_STORAGE_PATH_INVALID_ARGUMENT;
     }
+    for (const char *p = path; *p; p++) {
+        if ((unsigned char)*p < 0x20U || *p == 0x7F) {
+            return SI_STORAGE_PATH_INVALID_ARGUMENT;
+        }
+    }
 
     si_storage_path_result_t ret =
         canonicalize_relative_path(path, relative_path, relative_path_size);
@@ -191,4 +196,10 @@ si_storage_path_result_t si_storage_resolve_path(const char *input,
 bool si_storage_path_is_file_target(const char *relative_path)
 {
     return relative_path && relative_path[0] != '\0';
+}
+
+bool si_storage_path_is_internal(const char *relative_path)
+{
+    return relative_path && strncmp(relative_path, "AGENT", 5) == 0 &&
+           (relative_path[5] == '\0' || relative_path[5] == '/');
 }

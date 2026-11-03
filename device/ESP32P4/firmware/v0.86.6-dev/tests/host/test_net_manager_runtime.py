@@ -27,7 +27,7 @@ enum_end = source.index("} static_acd_result_t;", enum_start) + len("} static_ac
 status_start = header.index("typedef struct {")
 status_end = header.index("} si_net_status_t;", status_start) + len("} si_net_status_t;")
 defines = "\n".join(re.findall(
-    r"^#define NETWORK_(?:CONFIRM_TIMEOUT_SECONDS|STATIC_ACD_TIMEOUT_SECONDS) .*",
+    r"^#define NETWORK_(?:CONFIRM_TIMEOUT_SECONDS|STATIC_ACD_TIMEOUT_SECONDS|ROLLBACK_PERSIST_RETRY_US) .*",
     source, re.MULTILINE,
 ))
 production = "\n".join(function(signature) for signature in (
@@ -35,6 +35,7 @@ production = "\n".join(function(signature) for signature in (
     "static void finish_static_acd(",
     "static void poll_static_acd(",
     "static esp_err_t rollback_pending_locked(",
+    "static void retry_rollback_persist(",
     "esp_err_t si_net_stage_config(",
     "esp_err_t si_net_apply_staged(",
     "esp_err_t si_net_commit_pending(",
@@ -45,6 +46,8 @@ harness = r'''
 static int s_operation_lock = 1;
 static int lock_depth;
 static bool s_pending_applied;
+static bool s_rollback_persist_pending;
+static int64_t s_rollback_persist_retry_us;
 static int64_t s_pending_deadline_us;
 static int64_t s_static_acd_deadline_us;
 static volatile static_acd_result_t s_static_acd_result;
@@ -203,6 +206,8 @@ static void reset_test(void)
     memset(&s_factory_config, 0, sizeof(s_factory_config));
     s_status.link_up = true;
     s_pending_applied = false;
+    s_rollback_persist_pending = false;
+    s_rollback_persist_retry_us = 0;
     s_pending_deadline_us = s_static_acd_deadline_us = 0;
     s_static_acd_result = STATIC_ACD_IDLE;
     persisted.active.generation = 10;
@@ -228,6 +233,13 @@ static void complete_static(void)
     static_acd_callback(NULL, ACD_IP_OK);
     poll_static_acd();
     assert(s_pending_applied && applies == 1);
+}
+static esp_err_t rollback_pending_locked_unlocked_for_test(void)
+{
+    xSemaphoreTake(s_operation_lock, portMAX_DELAY);
+    esp_err_t ret = rollback_pending_locked();
+    xSemaphoreGive(s_operation_lock);
+    return ret;
 }
 static void replace_before_poll_lock(void)
 {
@@ -307,6 +319,31 @@ int main(void)
     assert(persisted.pending && !s_pending_applied);
     assert(si_net_commit_pending() == ESP_ERR_INVALID_STATE && confirms == 0);
     assert(si_net_stage_config(&candidate) == ESP_ERR_INVALID_STATE);
+    assert(s_rollback_persist_pending);
+    retry_rollback_persist();
+    assert(rollbacks == 1);
+    now_us = s_rollback_persist_retry_us;
+    rollback_result = ESP_OK;
+    retry_rollback_persist();
+    assert(rollbacks == 2 && !persisted.pending && !s_rollback_persist_pending);
+
+    /* Persistence failure on timeout still restores the active interface. */
+    reset_test();
+    begin_static();
+    complete_static();
+    assert(s_runtime_config.generation == 11);
+    rollback_result = ESP_FAIL;
+    assert(rollback_pending_locked_unlocked_for_test() == ESP_FAIL);
+    assert(s_runtime_config.generation == 10 && !s_status.pending_confirmation);
+    assert(s_rollback_persist_pending && persisted.pending);
+    assert(si_net_commit_pending() == ESP_ERR_INVALID_STATE && confirms == 0);
+    now_us = s_rollback_persist_retry_us;
+    retry_rollback_persist();
+    assert(rollbacks == 2 && s_rollback_persist_pending);
+    rollback_result = ESP_OK;
+    now_us = s_rollback_persist_retry_us;
+    retry_rollback_persist();
+    assert(rollbacks == 3 && !persisted.pending && !s_rollback_persist_pending);
 
     reset_test();
     candidate.mode = SI_NETWORK_MODE_DHCP;

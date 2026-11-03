@@ -355,6 +355,9 @@ static esp_err_t storage_upload_handler(httpd_req_t *req)
         !si_storage_path_is_file_target(rel)) {
         return si_http_send_text_status(req, "400 Bad Request", "storage upload path is not allowed");
     }
+    if (si_storage_path_is_internal(rel)) {
+        return si_http_send_text_status(req, "403 Forbidden", "AGENT is managed by the device");
+    }
     esp_err_t ret = ESP_OK;
     ret = si_storage_ensure_layout();
     if (ret != ESP_OK) {

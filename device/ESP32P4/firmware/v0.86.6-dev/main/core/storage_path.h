@@ -19,3 +19,4 @@ si_storage_path_result_t si_storage_resolve_path(const char *input,
                                                  size_t absolute_path_size);
 
 bool si_storage_path_is_file_target(const char *relative_path);
+bool si_storage_path_is_internal(const char *relative_path);

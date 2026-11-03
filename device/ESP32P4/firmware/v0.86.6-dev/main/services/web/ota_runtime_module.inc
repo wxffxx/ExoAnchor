@@ -501,6 +501,11 @@ static esp_err_t ota_upload_chunk_handler(httpd_req_t *req)
     }
     uint32_t remaining = (uint32_t)req->content_len;
     int64_t last_receive_us = esp_timer_get_time();
+    si_http_recv_timeout_t recv_timeout;
+    if (si_http_recv_timeout_begin(req, &recv_timeout)) {
+        si_http_recv_timeout_set(&recv_timeout,
+                                 (int64_t)OTA_UPLOAD_IDLE_TIMEOUT_MS * 1000LL);
+    }
     while (ret == ESP_OK && remaining > 0) {
         int read_len = httpd_req_recv(
             req, (char *)buffer,
@@ -533,6 +538,7 @@ static esp_err_t ota_upload_chunk_handler(httpd_req_t *req)
         s_ota_upload_session.last_progress_us = esp_timer_get_time();
         last_receive_us = s_ota_upload_session.last_progress_us;
     }
+    si_http_recv_timeout_end(&recv_timeout);
     free(buffer);
     if (ret != ESP_OK) {
         ota_set_last_message("chunked OTA upload interrupted; resume from reported offset");
@@ -544,6 +550,93 @@ static esp_err_t ota_upload_chunk_handler(httpd_req_t *req)
     ret = ota_upload_send_session_json(req, true, "chunk accepted");
     xSemaphoreGive(s_ota_lock);
     return ret;
+}
+
+#define OTA_CHUNK_WORKER_STACK 12288
+#define OTA_CHUNK_WORKER_IDLE_MS 2000
+
+static QueueHandle_t s_ota_chunk_queue;
+static SemaphoreHandle_t s_ota_chunk_worker_lock;
+static bool s_ota_chunk_worker_running;
+
+static void ota_chunk_worker(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        httpd_req_t *req = NULL;
+        if (xQueueReceive(s_ota_chunk_queue, &req,
+                          pdMS_TO_TICKS(OTA_CHUNK_WORKER_IDLE_MS)) == pdTRUE) {
+            (void)ota_upload_chunk_handler(req);
+            (void)httpd_req_async_handler_complete(req);
+            continue;
+        }
+        bool session_active = true;
+        if (xSemaphoreTake(s_ota_lock, 0) == pdTRUE) {
+            session_active = s_ota_upload_session.active;
+            xSemaphoreGive(s_ota_lock);
+        }
+        if (session_active) {
+            continue;
+        }
+        xSemaphoreTake(s_ota_chunk_worker_lock, portMAX_DELAY);
+        bool idle = uxQueueMessagesWaiting(s_ota_chunk_queue) == 0;
+        if (idle) {
+            s_ota_chunk_worker_running = false;
+        }
+        xSemaphoreGive(s_ota_chunk_worker_lock);
+        if (idle) {
+            break;
+        }
+    }
+    vTaskDeleteWithCaps(NULL);
+}
+
+static esp_err_t ota_upload_chunk_dispatch_handler(httpd_req_t *req)
+{
+    if (!s_ota_chunk_queue) {
+        s_ota_chunk_queue = xQueueCreate(1, sizeof(httpd_req_t *));
+    }
+    if (!s_ota_chunk_worker_lock) {
+        s_ota_chunk_worker_lock = xSemaphoreCreateMutex();
+    }
+    if (!s_ota_chunk_queue || !s_ota_chunk_worker_lock) {
+        return si_http_send_text_status(req, "503 Service Unavailable",
+                                        "OTA chunk worker unavailable");
+    }
+    xSemaphoreTake(s_ota_chunk_worker_lock, portMAX_DELAY);
+    if (!s_ota_chunk_worker_running) {
+        if (xTaskCreateWithCaps(ota_chunk_worker, "si_ota_chunk",
+                                OTA_CHUNK_WORKER_STACK, NULL,
+                                tskIDLE_PRIORITY + 5, NULL,
+                                MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA |
+                                    MALLOC_CAP_8BIT) != pdPASS &&
+            xTaskCreateWithCaps(ota_chunk_worker, "si_ota_chunk",
+                                OTA_CHUNK_WORKER_STACK, NULL,
+                                tskIDLE_PRIORITY + 5, NULL,
+                                MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) != pdPASS) {
+            xSemaphoreGive(s_ota_chunk_worker_lock);
+            httpd_resp_set_hdr(req, "Retry-After", "1");
+            return si_http_send_text_status(req, "503 Service Unavailable",
+                                            "OTA chunk worker unavailable");
+        }
+        s_ota_chunk_worker_running = true;
+    }
+    httpd_req_t *async_req = NULL;
+    esp_err_t ret = httpd_req_async_handler_begin(req, &async_req);
+    if (ret != ESP_OK) {
+        xSemaphoreGive(s_ota_chunk_worker_lock);
+        return si_http_send_text_status(req, "503 Service Unavailable",
+                                        "async request unavailable");
+    }
+    if (xQueueSend(s_ota_chunk_queue, &async_req, 0) != pdTRUE) {
+        xSemaphoreGive(s_ota_chunk_worker_lock);
+        (void)si_http_send_text_status(async_req, "409 Conflict",
+                                       "OTA operation already running");
+        (void)httpd_req_async_handler_complete(async_req);
+        return ESP_OK;
+    }
+    xSemaphoreGive(s_ota_chunk_worker_lock);
+    return ESP_OK;
 }
 
 static esp_err_t ota_upload_status_handler(httpd_req_t *req)
@@ -811,6 +904,11 @@ static esp_err_t ota_apply_uploaded_firmware(httpd_req_t *req,
     uint32_t remaining = (uint32_t)req->content_len;
     uint32_t written = 0;
     int64_t last_progress_us = esp_timer_get_time();
+    si_http_recv_timeout_t recv_timeout;
+    if (si_http_recv_timeout_begin(req, &recv_timeout)) {
+        si_http_recv_timeout_set(&recv_timeout,
+                                 (int64_t)OTA_UPLOAD_IDLE_TIMEOUT_MS * 1000LL);
+    }
     while (ret == ESP_OK && remaining > 0) {
         size_t to_read = MIN((size_t)remaining, (size_t)OTA_IO_BUFFER_SIZE);
         int read_len = httpd_req_recv(req, (char *)buffer, to_read);
@@ -840,6 +938,7 @@ static esp_err_t ota_apply_uploaded_firmware(httpd_req_t *req,
         written += (uint32_t)read_len;
         last_progress_us = esp_timer_get_time();
     }
+    si_http_recv_timeout_end(&recv_timeout);
 
     uint8_t digest[32] = {0};
     if (ret == ESP_OK && mbedtls_sha256_finish(&sha, digest) != 0) {
