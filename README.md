@@ -32,7 +32,7 @@ ExoAnchor is a fully featured KVM released under the [MIT License](LICENSE),
 with the goal of opening everything from firmware to fabrication. It is an MCU-
 and RTOS-based embedded hardware project with an optional AI Agent layer.
 
-> Current development firmware: `0.88.7-dev AzureDanube`.
+> Current development firmware: `0.88.8-dev AzureDanube`.
 
 **We commit to releasing everything, from R&D to manufacturing, under the MIT
 License.**
@@ -169,7 +169,7 @@ destructive EEPROM test controls and is not a product image.
 | ExoAnchor PrototypeV2.3 | Dev | `exoanchor-prototype-v2.3 + esp32p4-rev3` | 5.5.5 | [V2.3 build](device/ESP32P4/firmware/v0.86.6-dev/README.md#prototypev23rev3已完全验证) |
 | ExoAnchor PrototypeV2.4 / V2.4a6 | Dev | `exoanchor-prototype-v2.4 + esp32p4-rev3` | 5.5.5 | [V2.4 build and capability boundary](device/ESP32P4/firmware/v0.86.6-dev/README.md) |
 
-Dev is the current KVM + embedded Agent development line and runs `0.88.7-dev`;
+Dev is the current KVM + embedded Agent development line and runs `0.88.8-dev`;
 Stable is an independent pure-KVM source line without the embedded Agent. See
 the [firmware version index](device/ESP32P4/firmware/README.md) for all
 versions, upgrade requirements, and entry points.
