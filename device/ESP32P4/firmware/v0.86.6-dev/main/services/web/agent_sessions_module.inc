@@ -63,7 +63,7 @@ static void agent_session_apply_record(agent_session_summary_t *sessions, uint32
         session->deleted = false;
         cJSON *title = cJSON_GetObjectItemCaseSensitive(entry, "title");
         if (cJSON_IsString(title) && title->valuestring && title->valuestring[0]) {
-            strlcpy(session->title, title->valuestring, sizeof(session->title));
+            si_utf8_strlcpy(session->title, title->valuestring, sizeof(session->title));
         }
         return;
     }
@@ -277,7 +277,7 @@ static esp_err_t agent_sessions_post_handler(httpd_req_t *req)
         }
         cJSON *title_item = cJSON_GetObjectItemCaseSensitive(root, "title");
         if (cJSON_IsString(title_item) && title_item->valuestring) {
-            strlcpy(title, title_item->valuestring, sizeof(title));
+            si_utf8_strlcpy(title, title_item->valuestring, sizeof(title));
         }
         cJSON_Delete(root);
     }

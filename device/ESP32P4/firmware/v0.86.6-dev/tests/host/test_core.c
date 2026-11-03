@@ -167,6 +167,14 @@ static void test_utf8_sanitize(void)
     assert(strstr(safe, "?") != NULL);
     assert(strstr(safe, "[truncated]") != NULL);
     free(safe);
+
+    assert(si_utf8_prefix_len("ab\xE6\x97\xA5", 5, 4) == 2);
+    assert(si_utf8_prefix_len("ab\xE6\x97\xA5", 5, 5) == 5);
+    char title[6];
+    si_utf8_strlcpy(title, "a\xE6\x97\xA5\xE5\xBF\x97", sizeof(title));
+    assert(strcmp(title, "a\xE6\x97\xA5") == 0);
+    si_utf8_strlcpy(title, "abc", sizeof(title));
+    assert(strcmp(title, "abc") == 0);
 }
 
 static void test_hid_ascii_mapping(void)

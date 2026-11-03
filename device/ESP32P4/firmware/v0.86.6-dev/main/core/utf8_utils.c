@@ -55,3 +55,19 @@ char *si_utf8_sanitize(const char *content, size_t max_len)
     out[o] = 0;
     return out;
 }
+
+size_t si_utf8_prefix_len(const char *text, size_t len, size_t max_len)
+{
+    if (len <= max_len) return len;
+    size_t cut = max_len;
+    while (cut > 0 && continuation((uint8_t)text[cut])) --cut;
+    return cut;
+}
+
+void si_utf8_strlcpy(char *dst, const char *src, size_t dst_size)
+{
+    if (!dst || dst_size == 0) return;
+    size_t n = src ? si_utf8_prefix_len(src, strlen(src), dst_size - 1) : 0;
+    if (n) memcpy(dst, src, n);
+    dst[n] = 0;
+}

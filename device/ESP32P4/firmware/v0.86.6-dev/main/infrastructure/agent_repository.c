@@ -85,11 +85,9 @@ void agent_session_title_from_content(const char *content, char *out, size_t out
         strlcpy(out, "新会话", out_size);
         return;
     }
-    size_t n = 0;
-    while (content[n] && content[n] != '\n' && n + 1 < out_size && n < 36) {
-        out[n] = content[n];
-        n++;
-    }
+    size_t limit = out_size - 1 < 36 ? out_size - 1 : 36;
+    size_t n = si_utf8_prefix_len(content, strcspn(content, "\n"), limit);
+    memcpy(out, content, n);
     out[n] = '\0';
 }
 

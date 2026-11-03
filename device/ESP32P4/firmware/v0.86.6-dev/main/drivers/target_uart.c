@@ -11,6 +11,7 @@
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
+#include "freertos/semphr.h"
 #include "freertos/stream_buffer.h"
 #include "freertos/task.h"
 #include "psram_stream_buffer.h"
@@ -20,6 +21,7 @@
 /* Driver event item plus up to three data item headers and alignment. */
 #define TARGET_UART_TX_ITEM_OVERHEAD 64U
 #define TARGET_UART_TX_WAIT_MS 200
+#define TARGET_UART_TX_CHUNK 1024U
 #define TARGET_UART_BACKLOG_BYTES 8192
 #define TARGET_UART_TASK_STACK 4096
 #define TARGET_UART_TASK_PRIORITY 10
@@ -27,6 +29,8 @@
 static const char *TAG = "si-target-uart";
 
 static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
+static SemaphoreHandle_t s_tx_mutex;
+static StaticSemaphore_t s_tx_mutex_buffer;
 static StreamBufferHandle_t s_cli_backlog;
 static TaskHandle_t s_rx_task;
 static bool s_initialized;
@@ -138,6 +142,9 @@ esp_err_t si_target_uart_init(void)
 #else
     if (s_initialized) {
         return ESP_OK;
+    }
+    if (!s_tx_mutex) {
+        s_tx_mutex = xSemaphoreCreateMutexStatic(&s_tx_mutex_buffer);
     }
 
     ESP_RETURN_ON_FALSE(SI_CFG_TARGET_UART_PORT > 0 &&
@@ -408,6 +415,20 @@ size_t si_target_uart_read_cli(uint8_t *data, size_t len,
     return xStreamBufferReceive(s_cli_backlog, data, len, wait_ticks);
 }
 
+static bool wait_tx_space(size_t need, int64_t deadline_us)
+{
+    size_t free_bytes = 0;
+    while (uart_get_tx_buffer_free_size(target_uart_port(), &free_bytes) ==
+               ESP_OK &&
+           free_bytes < need) {
+        if (esp_timer_get_time() >= deadline_us) {
+            return false;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    return true;
+}
+
 esp_err_t si_target_uart_write(const uint8_t *data, size_t len,
                                size_t *written)
 {
@@ -425,26 +446,39 @@ esp_err_t si_target_uart_write(const uint8_t *data, size_t len,
      * full, so only hand it a write that fits now or after a short wait. */
     const int64_t deadline_us =
         esp_timer_get_time() + (int64_t)TARGET_UART_TX_WAIT_MS * 1000LL;
-    size_t free_bytes = 0;
-    while (uart_get_tx_buffer_free_size(target_uart_port(), &free_bytes) ==
-               ESP_OK &&
-           free_bytes < len + TARGET_UART_TX_ITEM_OVERHEAD) {
-        if (esp_timer_get_time() >= deadline_us) {
-            return ESP_ERR_TIMEOUT;
+    if (xSemaphoreTake(s_tx_mutex, pdMS_TO_TICKS(TARGET_UART_TX_WAIT_MS)) !=
+        pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+    const size_t chunks = (len + TARGET_UART_TX_CHUNK - 1U) / TARGET_UART_TX_CHUNK;
+    esp_err_t ret = ESP_OK;
+    size_t sent = 0;
+    if (!wait_tx_space(len + chunks * TARGET_UART_TX_ITEM_OVERHEAD +
+                           2U * (TARGET_UART_TX_CHUNK + TARGET_UART_TX_ITEM_OVERHEAD),
+                       deadline_us)) {
+        ret = ESP_ERR_TIMEOUT;
+    }
+    while (ret == ESP_OK && sent < len) {
+        size_t n = len - sent < TARGET_UART_TX_CHUNK ? len - sent : TARGET_UART_TX_CHUNK;
+        if (!wait_tx_space(2U * (n + TARGET_UART_TX_ITEM_OVERHEAD), deadline_us)) {
+            ret = ESP_ERR_TIMEOUT;
+            break;
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        int result = uart_write_bytes(target_uart_port(), data + sent, n);
+        if (result < 0) {
+            set_last_error("write", ESP_FAIL);
+            ret = ESP_FAIL;
+            break;
+        }
+        sent += (size_t)result;
     }
-    int result = uart_write_bytes(target_uart_port(), data, len);
-    if (result < 0) {
-        set_last_error("write", ESP_FAIL);
-        return ESP_FAIL;
-    }
+    xSemaphoreGive(s_tx_mutex);
 
     portENTER_CRITICAL(&s_lock);
-    s_tx_bytes += (size_t)result;
+    s_tx_bytes += sent;
     portEXIT_CRITICAL(&s_lock);
     if (written) {
-        *written = (size_t)result;
+        *written = sent;
     }
-    return (size_t)result == len ? ESP_OK : ESP_ERR_TIMEOUT;
+    return ret;
 }
