@@ -8,6 +8,7 @@
 #define SI_VIDEO_HTTP_MAX_WORKERS 4
 #define SI_LONG_HTTP_TASK_STACK_SIZE 12288
 #define SI_LONG_HTTP_DRAIN_MAX 16384
+#define SI_LONG_HTTP_DRAIN_MS 2000
 
 typedef esp_err_t (*si_http_handler_fn_t)(httpd_req_t *req);
 
@@ -46,26 +47,27 @@ static esp_err_t init_http_worker_slots(void)
 
 static esp_err_t long_http_finish_request(httpd_req_t *req, bool drain)
 {
-    int fd = httpd_req_to_sockfd(req);
-    httpd_handle_t server = req->handle;
     bool close = !drain;
     if (drain) {
+        const int64_t deadline_us =
+            esp_timer_get_time() + (int64_t)SI_LONG_HTTP_DRAIN_MS * 1000LL;
         char sink[256];
         size_t drained = 0;
         int read_len;
         while ((read_len = httpd_req_recv(req, sink, sizeof(sink))) > 0) {
             drained += (size_t)read_len;
-            if (drained > SI_LONG_HTTP_DRAIN_MAX) {
+            if (drained > SI_LONG_HTTP_DRAIN_MAX ||
+                esp_timer_get_time() >= deadline_us) {
                 break;
             }
         }
         close = read_len != 0;
     }
-    esp_err_t ret = httpd_req_async_handler_complete(req);
+    int fd = httpd_req_to_sockfd(req);
     if (close && fd >= 0) {
-        (void)httpd_sess_trigger_close(server, fd);
+        (void)shutdown(fd, SHUT_WR);
     }
-    return ret;
+    return httpd_req_async_handler_complete(req);
 }
 
 static void long_http_worker(void *arg)
