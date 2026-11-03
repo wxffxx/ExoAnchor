@@ -47,6 +47,7 @@ typedef struct {
     char idempotency_fingerprint[65];
     char goal[AGENT_RUN_GOAL_MAX_LEN + 1];
     char pending_steer[AGENT_RUN_STEER_MAX_LEN + 1];
+    bool steer_closed;
     uint32_t intent_revision;
     uint32_t plan_version;
     char profile[AGENT_API_PROFILE_ID_MAX_LEN + 1];

@@ -577,7 +577,7 @@
       }
       byId("authMsg").textContent = "";
       byId("authMsg").className = "msg";
-      byId("authCurrentUsername").value = this.state.username || this.state.default_username || api.username || "admin";
+      byId("authCurrentUsername").value = this.state.username || api.username || this.state.default_username || "admin";
       byId("authNewUsername").value = this.state.username || api.username || "admin";
       byId("authCurrentPassword").value = "";
       byId("authOtp").value = "";
@@ -804,7 +804,8 @@
             try {
               const state = await api.getSilent("/api/auth/status");
               if (state.enabled && !state.must_change_credentials &&
-                  !state.using_default && state.username === username) {
+                  !state.using_default &&
+                  (!state.username || state.username === username)) {
                 const result = await api.login(username, nextPassword);
                 this.finishAuthentication(result);
                 return;

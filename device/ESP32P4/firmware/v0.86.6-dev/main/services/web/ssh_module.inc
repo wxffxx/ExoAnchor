@@ -413,7 +413,7 @@ static bool ssh_prepare_sudo_command(const char *command,
     }
 
     int written = snprintf(config->command, sizeof(config->command),
-                           "sudo -S -p '' sh -lc %s", quoted);
+                           "sudo -S -p '' sh -lc 'exec </dev/null; '%s", quoted);
     if (written < 0 || (size_t)written >= sizeof(config->command)) {
         return false;
     }

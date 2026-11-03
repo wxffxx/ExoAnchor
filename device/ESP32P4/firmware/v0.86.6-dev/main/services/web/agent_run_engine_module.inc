@@ -611,6 +611,15 @@ static void agent_run_execute_tool_loop(agent_run_loop_context_t *ctx,
                                   next_tool_calls, next_hid_actions);
         ctx->last_tool_count = cJSON_GetArraySize(next_tool_calls);
         ctx->last_hid_count = cJSON_GetArraySize(next_hid_actions);
+        if (ctx->last_tool_count == 0 && ctx->last_hid_count == 0 &&
+            iteration < ctx->route->max_tool_loops &&
+            agent_run_has_pending_steer(ctx->job_id)) {
+            cJSON_Delete(next_tool_calls);
+            cJSON_Delete(next_hid_actions);
+            cJSON_Delete(continue_json);
+            cJSON_Delete(continue_api_root);
+            continue;
+        }
         if (ctx->last_tool_count == 0 && ctx->last_hid_count == 0) {
             cJSON_AddBoolToObject(ctx->resp, "loop_done", true);
             agent_run_add_eventf(ctx->job_id, "info",
@@ -1217,6 +1226,7 @@ static esp_err_t agent_run_execute_to_json(const char *job_id,
     cJSON_Delete(loop.previous_assistant_message);
     loop.previous_assistant_message = NULL;
     memset(api_key, 0, sizeof(api_key));
+    agent_run_close_steer_window(job_id, resp);
 
     int tool_count = cJSON_GetArraySize(tool_calls_out);
     int hid_count = cJSON_GetArraySize(hid_actions_out);

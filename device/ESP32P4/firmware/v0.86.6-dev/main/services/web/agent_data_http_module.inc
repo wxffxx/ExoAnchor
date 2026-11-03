@@ -31,7 +31,8 @@ static esp_err_t agent_data_clear_all(si_agent_data_clear_result_t *result)
         xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(2000)) != pdTRUE) {
         return ESP_ERR_TIMEOUT;
     }
-    if (agent_run_state_is_active(s_agent_run_job.state)) {
+    if (agent_run_state_is_active(s_agent_run_job.state) ||
+        s_agent_run_job.task != NULL) {
         xSemaphoreGive(s_agent_run_lock);
         return ESP_ERR_INVALID_STATE;
     }
@@ -88,7 +89,7 @@ static esp_err_t agent_data_clear_handler(httpd_req_t *req)
     if (ret == ESP_ERR_INVALID_STATE) {
         return si_http_send_text_status(
             req, "409 Conflict",
-            "stop the active Agent task before deleting conversations and memory");
+            "stop the active Agent task, or wait for it to finish, before deleting conversations and memory");
     }
 
     cJSON *resp = cJSON_CreateObject();

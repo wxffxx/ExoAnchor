@@ -468,7 +468,7 @@ static esp_err_t append_event_stored(const char *event_type,
         .artifact_id = artifact_id,
         .event_type = event_type,
         .server_time_ms = server_time_ms(),
-        .monotonic_time_ms = (int64_t)si_monotonic_ms(),
+        .monotonic_time_ms = (int64_t)si_monotonic_ms64(),
         .payload = payload,
     };
     si_agent_event_record_t stored = {0};
@@ -1383,7 +1383,7 @@ esp_err_t si_agent_task_service_set_phase(const char *run_id,
         s_runtime = s_runtime_candidate;
         if (phase == SI_AGENT_TURN_EXECUTING &&
             record->execution_started_ms == 0U) {
-            record->execution_started_ms = si_monotonic_ms();
+            record->execution_started_ms = si_monotonic_ms64();
             if (record->execution_started_ms == 0U) {
                 record->execution_started_ms = 1U;
             }
@@ -1735,7 +1735,7 @@ esp_err_t si_agent_task_service_record_readonly_completion_artifact(
         xSemaphoreGive(s_task_lock);
         return ESP_ERR_INVALID_STATE;
     }
-    uint64_t now_ms = si_monotonic_ms();
+    uint64_t now_ms = si_monotonic_ms64();
     if (now_ms <= record->execution_started_ms) {
         xSemaphoreGive(s_task_lock);
         return ESP_ERR_INVALID_STATE;

@@ -114,7 +114,7 @@ static esp_err_t agent_run_checkpoint_append_unknown(
         .event_type = "turn.outcome_unknown",
         /* SNTP may not be ready when the web service starts. */
         .server_time_ms = 0,
-        .monotonic_time_ms = (int64_t)si_monotonic_ms(),
+        .monotonic_time_ms = (int64_t)si_monotonic_ms64(),
         .payload = payload,
     };
     ret = si_agent_event_store_append(&event, NULL);

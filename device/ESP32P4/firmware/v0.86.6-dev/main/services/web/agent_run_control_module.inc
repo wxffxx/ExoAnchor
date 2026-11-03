@@ -270,11 +270,7 @@ static esp_err_t agent_run_control_exact(
         action == AGENT_RUN_CONTROL_RESUME ?
             si_agent_task_service_resume(exact_job) :
             si_agent_task_service_cancel(exact_job);
-    if (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(300)) != pdTRUE) {
-        /* Pause/abort are already fail-stopped. A resume remains paused and is
-         * safely retryable if this exact post-journal update cannot publish. */
-        return action == AGENT_RUN_CONTROL_RESUME ?
-            ESP_ERR_TIMEOUT : ESP_OK;
+    while (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(300)) != pdTRUE) {
     }
     bool same_job = strcmp(s_agent_run_job.job_id, exact_job) == 0;
     bool still_active = agent_run_control_state_active(s_agent_run_job.state);
@@ -424,4 +420,52 @@ static bool agent_run_page_context_request_lock(const char *job_id)
     }
     xSemaphoreGive(s_agent_run_lock);
     return false;
+}
+
+static bool agent_run_has_pending_steer(const char *job_id)
+{
+    if (!s_agent_run_lock ||
+        xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return false;
+    }
+    bool pending =
+        (!job_id || strcmp(s_agent_run_job.job_id, job_id) == 0) &&
+        s_agent_run_job.pending_steer[0] != '\0';
+    xSemaphoreGive(s_agent_run_lock);
+    return pending;
+}
+
+static void agent_run_close_steer_window(const char *job_id, cJSON *resp)
+{
+    char dropped[AGENT_RUN_STEER_MAX_LEN + 1] = {0};
+    uint32_t revision = 0;
+    if (!s_agent_run_lock) {
+        return;
+    }
+    while (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(200)) != pdTRUE) {
+    }
+    if (!job_id || strcmp(s_agent_run_job.job_id, job_id) == 0) {
+        s_agent_run_job.steer_closed = true;
+        if (s_agent_run_job.pending_steer[0]) {
+            strlcpy(dropped, s_agent_run_job.pending_steer, sizeof(dropped));
+            s_agent_run_job.pending_steer[0] = '\0';
+            revision = s_agent_run_job.intent_revision;
+            s_agent_run_job.updated_ms = si_monotonic_ms();
+        }
+    }
+    xSemaphoreGive(s_agent_run_lock);
+    if (!dropped[0]) {
+        return;
+    }
+    if (resp) {
+        cJSON_DeleteItemFromObjectCaseSensitive(resp, "steer_dropped");
+        cJSON *item = cJSON_AddObjectToObject(resp, "steer_dropped");
+        if (item) {
+            cJSON_AddStringToObject(item, "message", dropped);
+            cJSON_AddNumberToObject(item, "intent_revision", revision);
+        }
+    }
+    agent_run_add_eventf(job_id, "bad",
+                         "steer not applied · run finishing · revision=%" PRIu32,
+                         revision);
 }

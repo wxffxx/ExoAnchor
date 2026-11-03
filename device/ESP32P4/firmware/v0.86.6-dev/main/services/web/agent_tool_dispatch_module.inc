@@ -177,6 +177,24 @@ static bool agent_run_task_service_is_bound(const char *job_id)
 #endif
 }
 
+static bool agent_run_task_service_control_pending(const char *job_id)
+{
+#if AGENT_RUNTIME_RECOVERY_RAM_ONLY
+    (void)job_id;
+    return false;
+#else
+    bool pending = false;
+    if (job_id && s_agent_run_lock &&
+        xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(100)) == pdTRUE) {
+        pending = strcmp(s_agent_run_job.job_id, job_id) == 0 &&
+                  s_agent_run_job.task_service_bound &&
+                  s_agent_run_job.task_service_control_pending;
+        xSemaphoreGive(s_agent_run_lock);
+    }
+    return pending;
+#endif
+}
+
 static bool agent_recovery_tool_allowed(const char *name, const cJSON *call)
 {
     if (!name) {
@@ -382,8 +400,23 @@ static void agent_execute_tool_calls(const char *job_id, const cJSON *tool_calls
                 continue;
             }
             risk = agent_action_class_risk(action_class);
-            const bool task_service_bound =
+            bool task_service_bound =
                 agent_run_task_service_is_bound(job_id);
+            bool control_aborted = false;
+            while (!task_service_bound &&
+                   agent_run_task_service_control_pending(job_id)) {
+                if (!agent_run_control_point(job_id)) {
+                    control_aborted = true;
+                    break;
+                }
+                vTaskDelay(pdMS_TO_TICKS(10));
+                task_service_bound = agent_run_task_service_is_bound(job_id);
+            }
+            if (control_aborted) {
+                agent_add_tool_error(results, i, policy_name, "run aborted");
+                all_ok = false;
+                break;
+            }
             if (!task_service_bound &&
                 !agent_compat_degraded_readonly(
                     policy_name, call, risk, lease_required)) {

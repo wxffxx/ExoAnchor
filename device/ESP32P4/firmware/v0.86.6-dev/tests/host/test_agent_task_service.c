@@ -18,10 +18,15 @@ static bool s_fake_fail_next_append;
 static bool s_fake_fail_init;
 static esp_err_t s_fake_init_result = ESP_FAIL;
 static unsigned s_fake_init_calls;
-static uint32_t s_fake_now_ms = 1000U;
+static uint64_t s_fake_now_ms = 1000U;
 static char s_fake_store_error[96];
 
 uint32_t si_monotonic_ms(void)
+{
+    return (uint32_t)++s_fake_now_ms;
+}
+
+uint64_t si_monotonic_ms64(void)
 {
     return ++s_fake_now_ms;
 }
@@ -706,6 +711,31 @@ static void test_deliverable_artifact_binding_rejects_forgery(void)
     assert(event_count("turn.completed") == 1U);
 }
 
+static void test_completion_artifact_survives_32bit_ms_wrap(void)
+{
+    static const char *const artifact_hash =
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    reset_task_service(true);
+    s_fake_now_ms = UINT32_MAX - 2U;
+    si_agent_task_submit_t input = valid_system_submit("ms-wrap");
+    input.completion_criteria = "bounded response artifact is durable";
+    input.completion_criteria_kind = SI_AGENT_TASK_CRITERIA_DELIVERABLE;
+    si_agent_task_receipt_t receipt = {0};
+    assert(si_agent_task_service_submit(&input, &receipt) == ESP_OK);
+    prepare_active_step(&receipt);
+    assert(s_fake_now_ms > UINT32_MAX);
+
+    si_agent_completion_artifact_t artifact = {0};
+    assert(si_agent_task_service_record_readonly_completion_artifact(
+               receipt.run_id, "step-host", artifact_hash, 23U,
+               &artifact) == ESP_OK);
+    assert(artifact.captured_ms > UINT32_MAX);
+    si_agent_verification_result_t verdict = {0};
+    assert(si_agent_task_service_complete_readonly(
+               receipt.run_id, "step-host", &artifact, &verdict) == ESP_OK);
+    assert(verdict.status == SI_AGENT_VERIFY_PASSED);
+}
+
 static void test_mutation_and_storage_failure_cannot_issue_artifact(void)
 {
     static const char *const artifact_hash =
@@ -932,6 +962,7 @@ int main(void)
     test_scalar_api_cannot_self_issue_passed_verification();
     test_observation_response_artifact_cannot_self_verify();
     test_deliverable_artifact_binding_rejects_forgery();
+    test_completion_artifact_survives_32bit_ms_wrap();
     test_mutation_and_storage_failure_cannot_issue_artifact();
     test_source_auth_binding_is_trusted_and_separate_from_thread();
     test_start_failure_is_stable_degraded_and_fail_closed();

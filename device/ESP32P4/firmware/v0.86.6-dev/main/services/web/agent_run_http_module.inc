@@ -308,6 +308,7 @@ static esp_err_t agent_run_steer_handler(httpd_req_t *req)
     bool active = false;
     bool shadow_bound = false;
     bool run_mismatch = false;
+    const char *reject_reason = NULL;
     char expected_run[AGENT_RUN_JOB_ID_MAX_LEN + 1] = {0};
     strlcpy(expected_run, requested_run, sizeof(expected_run));
     if (agent_run_start() == ESP_OK && s_agent_run_lock &&
@@ -329,42 +330,25 @@ static esp_err_t agent_run_steer_handler(httpd_req_t *req)
         }
         xSemaphoreGive(s_agent_run_lock);
     }
-    si_agent_task_service_snapshot_t *task_snapshot = NULL;
     if (active && run_id[0]) {
         /* The durable turn.steered transition clears the Task Plan, so it
          * is applied by the executor at its next safe checkpoint, where it
          * re-plans immediately. Applying it here invalidated the plan under
          * a tool batch already in flight: every remaining call failed with
          * "not bound to the active Task Plan step" and the run failed. */
-        steer_ret = ESP_OK;
         if (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(300)) == pdTRUE) {
             bool same_active =
                 strcmp(s_agent_run_job.job_id, run_id) == 0 &&
                 agent_run_control_state_active(s_agent_run_job.state);
-            if (same_active && steer_ret != ESP_OK &&
-                s_agent_run_job.task_service_bound) {
-                s_agent_run_job.task_service_bound = false;
-                snprintf(s_agent_run_job.task_service_error,
-                         sizeof(s_agent_run_job.task_service_error),
-                         "steer storage_failure; shadow demoted: %s",
-                         esp_err_to_name(steer_ret));
-                shadow_bound = false;
-                steer_ret = ESP_OK;
-            }
-            if (same_active && steer_ret == ESP_OK) {
-                if (task_snapshot &&
-                    task_snapshot->runtime.has_active_turn &&
-                    strcmp(task_snapshot->runtime.active_turn.run_attempt
-                               .run_attempt_id, run_id) == 0) {
-                    revision = task_snapshot->runtime.active_turn
-                                   .intent_revision;
-                    s_agent_run_job.intent_revision = revision;
-                    s_agent_run_job.plan_version =
-                        task_snapshot->runtime.active_turn.plan_version;
-                } else {
-                    revision = ++s_agent_run_job.intent_revision;
-                    s_agent_run_job.plan_version++;
-                }
+            if (same_active && s_agent_run_job.dry_run) {
+                steer_ret = ESP_ERR_NOT_SUPPORTED;
+                reject_reason = "dry_run";
+            } else if (same_active && s_agent_run_job.steer_closed) {
+                steer_ret = ESP_ERR_INVALID_STATE;
+                reject_reason = "run_finishing";
+            } else if (same_active) {
+                revision = ++s_agent_run_job.intent_revision;
+                s_agent_run_job.plan_version++;
                 strlcpy(s_agent_run_job.pending_steer, message,
                         sizeof(s_agent_run_job.pending_steer));
                 s_agent_run_job.updated_ms = si_monotonic_ms();
@@ -374,16 +358,14 @@ static esp_err_t agent_run_steer_handler(httpd_req_t *req)
                     "已记录补充要求；将在下一个安全检查点持久化并更新计划" :
                     "Runtime V2 degraded；补充要求将在本地安全检查点生效",
                     sizeof(s_agent_run_job.detail));
+                steer_ret = ESP_OK;
                 accepted = true;
-            } else if (steer_ret == ESP_OK) {
-                steer_ret = ESP_ERR_INVALID_STATE;
             }
             xSemaphoreGive(s_agent_run_lock);
         } else {
             steer_ret = ESP_ERR_TIMEOUT;
         }
     }
-    free(task_snapshot);
     cJSON_Delete(root);
     if (accepted) {
         agent_run_add_action_eventf(
@@ -400,6 +382,9 @@ static esp_err_t agent_run_steer_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(resp, "intent_revision", revision);
     if (!accepted) {
         cJSON_AddStringToObject(resp, "error", esp_err_to_name(steer_ret));
+    }
+    if (reject_reason) {
+        cJSON_AddStringToObject(resp, "reason", reject_reason);
     }
     if (run_mismatch || steer_ret == ESP_ERR_NOT_FOUND) {
         httpd_resp_set_status(req, "409 Conflict");
@@ -1271,7 +1256,6 @@ static void web_debug_agent_run_steer(const char *expected_run_id,
     bool run_matches = false;
     bool source_matches = false;
     bool shadow_bound = false;
-    bool shadow_degraded = false;
     uint32_t revision = 0;
     esp_err_t steer_ret = agent_run_start();
     if (steer_ret == ESP_OK && s_agent_run_lock &&
@@ -1293,41 +1277,24 @@ static void web_debug_agent_run_steer(const char *expected_run_id,
         steer_ret = ESP_ERR_TIMEOUT;
     }
 
-    si_agent_task_service_snapshot_t *task_snapshot = NULL;
+    const char *reject_reason = NULL;
     if (steer_ret == ESP_OK) {
         /* Same boundary as the HTTP steer: the executor applies the durable
          * transition at its next safe checkpoint. */
-        steer_ret = ESP_OK;
         if (xSemaphoreTake(s_agent_run_lock, pdMS_TO_TICKS(300)) == pdTRUE) {
             bool same_active =
                 strcmp(s_agent_run_job.job_id, expected_run_id) == 0 &&
                 agent_run_control_state_active(s_agent_run_job.state) &&
                 web_debug_agent_run_has_diagnostics_source_locked();
-            if (same_active && steer_ret != ESP_OK &&
-                s_agent_run_job.task_service_bound) {
-                s_agent_run_job.task_service_bound = false;
-                snprintf(s_agent_run_job.task_service_error,
-                         sizeof(s_agent_run_job.task_service_error),
-                         "steer storage_failure; shadow demoted: %s",
-                         esp_err_to_name(steer_ret));
-                shadow_bound = false;
-                shadow_degraded = true;
-                steer_ret = ESP_OK;
-            }
-            if (same_active && steer_ret == ESP_OK) {
-                if (task_snapshot &&
-                    task_snapshot->runtime.has_active_turn &&
-                    strcmp(task_snapshot->runtime.active_turn.run_attempt
-                               .run_attempt_id, expected_run_id) == 0) {
-                    revision = task_snapshot->runtime.active_turn
-                                   .intent_revision;
-                    s_agent_run_job.intent_revision = revision;
-                    s_agent_run_job.plan_version =
-                        task_snapshot->runtime.active_turn.plan_version;
-                } else {
-                    revision = ++s_agent_run_job.intent_revision;
-                    s_agent_run_job.plan_version++;
-                }
+            if (same_active && s_agent_run_job.dry_run) {
+                steer_ret = ESP_ERR_NOT_SUPPORTED;
+                reject_reason = "dry_run";
+            } else if (same_active && s_agent_run_job.steer_closed) {
+                steer_ret = ESP_ERR_INVALID_STATE;
+                reject_reason = "run_finishing";
+            } else if (same_active) {
+                revision = ++s_agent_run_job.intent_revision;
+                s_agent_run_job.plan_version++;
                 strlcpy(s_agent_run_job.pending_steer, message,
                         sizeof(s_agent_run_job.pending_steer));
                 s_agent_run_job.updated_ms = si_monotonic_ms();
@@ -1337,7 +1304,7 @@ static void web_debug_agent_run_steer(const char *expected_run_id,
                     "已持久记录 UART 补充要求；将在下一个安全检查点更新计划" :
                     "Runtime V2 degraded；UART 补充要求将在本地安全检查点生效",
                     sizeof(s_agent_run_job.detail));
-            } else if (steer_ret == ESP_OK) {
+            } else {
                 steer_ret = ESP_ERR_INVALID_STATE;
             }
             xSemaphoreGive(s_agent_run_lock);
@@ -1345,7 +1312,6 @@ static void web_debug_agent_run_steer(const char *expected_run_id,
             steer_ret = ESP_ERR_TIMEOUT;
         }
     }
-    free(task_snapshot);
 
     if (steer_ret == ESP_OK) {
         agent_run_add_action_eventf(
@@ -1355,14 +1321,16 @@ static void web_debug_agent_run_steer(const char *expected_run_id,
     }
     diag_append(out, out_size,
                 "agent-steer accepted=%d run_id=%s revision=%" PRIu32
-                " shadow=%s result=%s%s\n",
+                " shadow=%s result=%s%s%s\n",
                 steer_ret == ESP_OK, expected_run_id, revision,
-                shadow_degraded ? "degraded" : "stable",
+                shadow_bound ? "stable" : "degraded",
                 esp_err_to_name(steer_ret),
                 steer_ret == ESP_ERR_NOT_FOUND ?
                     " reason=run_id_mismatch" :
                 steer_ret == ESP_ERR_NOT_ALLOWED ?
-                    " reason=cross_source_denied" : "");
+                    " reason=cross_source_denied" :
+                reject_reason ? " reason=" : "",
+                reject_reason ? reject_reason : "");
 }
 
 static void web_debug_agent_run_result(const char *expected_run_id,

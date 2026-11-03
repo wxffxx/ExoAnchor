@@ -6,3 +6,8 @@ uint32_t si_monotonic_ms(void)
 {
     return (uint32_t)(esp_timer_get_time() / 1000ULL);
 }
+
+uint64_t si_monotonic_ms64(void)
+{
+    return (uint64_t)(esp_timer_get_time() / 1000ULL);
+}

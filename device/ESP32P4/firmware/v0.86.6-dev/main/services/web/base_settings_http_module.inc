@@ -664,31 +664,6 @@ static esp_err_t auth_status_handler(httpd_req_t *req)
     cJSON_AddBoolToObject(root, "two_step_storage_ok", two.storage_ok);
     si_auth_status_t auth_status;
     si_auth_get_status(&auth_status);
-    cJSON_AddBoolToObject(root, "enabled", auth_status.enabled);
-    cJSON_AddBoolToObject(root, "setup_required", auth_status.setup_required);
-    cJSON_AddStringToObject(root, "username", auth_status.username);
-    cJSON_AddStringToObject(root, "default_username", si_auth_default_username());
-    cJSON_AddBoolToObject(root, "local_password", !auth_status.using_default);
-    cJSON_AddBoolToObject(root, "local_credentials", !auth_status.using_default);
-    cJSON_AddBoolToObject(root, "using_default",
-                          auth_status.using_default && auth_status.enabled);
-    cJSON_AddBoolToObject(root, "must_change_credentials",
-                          auth_status.using_default && auth_status.enabled);
-    cJSON_AddBoolToObject(root, "legacy_password",
-                          auth_status.legacy_password);
-    char boot_id[17];
-    snprintf(boot_id, sizeof(boot_id), "%016" PRIx64, s_server_boot_id);
-    cJSON_AddStringToObject(root, "boot_id", boot_id);
-    cJSON_AddNumberToObject(root, "server_uptime_seconds", uptime_sec());
-    cJSON_AddNumberToObject(root, "reset_reason", esp_reset_reason());
-    cJSON_AddStringToObject(root, "reset_reason_name",
-                            reset_reason_name(esp_reset_reason()));
-    si_session_settings_t session_settings;
-    si_session_settings_get(&session_settings);
-    cJSON_AddBoolToObject(root, "auto_logout_enabled",
-                          session_settings.auto_logout_enabled);
-    cJSON_AddNumberToObject(root, "auto_logout_minutes",
-                            session_settings.auto_logout_minutes);
     si_auth_session_context_t session;
     bool token_valid = si_http_get_session_context(req, &session);
     char refreshed_cookie[SI_HTTP_SESSION_COOKIE_MAX_LEN] = {0};
@@ -696,6 +671,28 @@ static esp_err_t auth_status_handler(httpd_req_t *req)
         (void)si_http_sync_browser_session_cookie_from_bearer(
             req, refreshed_cookie, sizeof(refreshed_cookie));
     }
+    bool detailed = token_valid || !auth_status.enabled;
+    cJSON_AddBoolToObject(root, "enabled", auth_status.enabled);
+    cJSON_AddBoolToObject(root, "setup_required", auth_status.setup_required);
+    cJSON_AddStringToObject(root, "username",
+                            detailed || auth_status.using_default ?
+                            auth_status.username : "");
+    cJSON_AddStringToObject(root, "default_username", si_auth_default_username());
+    cJSON_AddBoolToObject(root, "local_password", !auth_status.using_default);
+    cJSON_AddBoolToObject(root, "local_credentials", !auth_status.using_default);
+    cJSON_AddBoolToObject(root, "using_default",
+                          auth_status.using_default && auth_status.enabled);
+    cJSON_AddBoolToObject(root, "must_change_credentials",
+                          auth_status.using_default && auth_status.enabled);
+    char boot_id[17];
+    snprintf(boot_id, sizeof(boot_id), "%016" PRIx64, s_server_boot_id);
+    cJSON_AddStringToObject(root, "boot_id", boot_id);
+    si_session_settings_t session_settings;
+    si_session_settings_get(&session_settings);
+    cJSON_AddBoolToObject(root, "auto_logout_enabled",
+                          session_settings.auto_logout_enabled);
+    cJSON_AddNumberToObject(root, "auto_logout_minutes",
+                            session_settings.auto_logout_minutes);
     cJSON_AddBoolToObject(root, "token_valid", token_valid);
     cJSON_AddStringToObject(root, "session_id",
                             token_valid ? session.session_id : "");
@@ -703,24 +700,32 @@ static esp_err_t auth_status_handler(httpd_req_t *req)
         root, "principal",
         token_valid ? si_principal_kind_name(session.principal) :
                       "anonymous");
-    cJSON_AddNumberToObject(root, "login_count", auth_status.login_count);
-    si_auth_runtime_status_t runtime_status;
-    si_auth_get_runtime_status(&runtime_status);
-    cJSON *sessions = cJSON_AddObjectToObject(root, "sessions");
-    cJSON_AddNumberToObject(sessions, "browser_active",
-                            runtime_status.browser_active);
-    cJSON_AddNumberToObject(sessions, "mcp_active",
-                            runtime_status.mcp_active);
-    cJSON_AddNumberToObject(sessions, "restored",
-                            runtime_status.restored);
-    cJSON_AddNumberToObject(sessions, "evictions",
-                            runtime_status.evictions);
-    cJSON_AddNumberToObject(sessions, "expirations",
-                            runtime_status.expirations);
-    cJSON_AddNumberToObject(sessions, "validation_misses",
-                            runtime_status.validation_misses);
-    cJSON_AddNumberToObject(sessions, "lock_timeouts",
-                            runtime_status.lock_timeouts);
+    if (detailed) {
+        cJSON_AddBoolToObject(root, "legacy_password",
+                              auth_status.legacy_password);
+        cJSON_AddNumberToObject(root, "server_uptime_seconds", uptime_sec());
+        cJSON_AddNumberToObject(root, "reset_reason", esp_reset_reason());
+        cJSON_AddStringToObject(root, "reset_reason_name",
+                                reset_reason_name(esp_reset_reason()));
+        cJSON_AddNumberToObject(root, "login_count", auth_status.login_count);
+        si_auth_runtime_status_t runtime_status;
+        si_auth_get_runtime_status(&runtime_status);
+        cJSON *sessions = cJSON_AddObjectToObject(root, "sessions");
+        cJSON_AddNumberToObject(sessions, "browser_active",
+                                runtime_status.browser_active);
+        cJSON_AddNumberToObject(sessions, "mcp_active",
+                                runtime_status.mcp_active);
+        cJSON_AddNumberToObject(sessions, "restored",
+                                runtime_status.restored);
+        cJSON_AddNumberToObject(sessions, "evictions",
+                                runtime_status.evictions);
+        cJSON_AddNumberToObject(sessions, "expirations",
+                                runtime_status.expirations);
+        cJSON_AddNumberToObject(sessions, "validation_misses",
+                                runtime_status.validation_misses);
+        cJSON_AddNumberToObject(sessions, "lock_timeouts",
+                                runtime_status.lock_timeouts);
+    }
     cJSON_AddNumberToObject(root, "username_max_length", SI_AUTH_USERNAME_MAX_LEN);
     cJSON_AddNumberToObject(root, "min_length", SI_AUTH_PASSWORD_MIN_LEN);
     cJSON_AddNumberToObject(root, "max_length", SI_AUTH_PASSWORD_MAX_LEN);

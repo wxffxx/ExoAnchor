@@ -386,6 +386,7 @@ static void agent_run_task(void *arg)
         }
     }
     cJSON_AddStringToObject(result, "job_id", run->job_id);
+    agent_run_close_steer_window(run->job_id, result);
     bool aborted = false;
     bool live_task_service_bound = false;
     uint32_t binding_waits = 0U;

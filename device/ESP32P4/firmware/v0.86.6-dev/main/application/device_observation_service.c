@@ -52,6 +52,8 @@ static portMUX_TYPE s_log_mux = portMUX_INITIALIZER_UNLOCKED;
 static bool s_cpu_usage_valid;
 static int64_t s_cpu_prev_wall_us;
 static configRUN_TIME_COUNTER_TYPE s_cpu_prev_idle[SI_DEVICE_CPU_MAX_CORES];
+static portMUX_TYPE s_cpu_mux = portMUX_INITIALIZER_UNLOCKED;
+static si_device_cpu_observation_t s_cpu_last;
 
 static void *observation_calloc(size_t count, size_t size)
 {
@@ -566,24 +568,45 @@ static void collect_cpu(si_device_cpu_observation_t *out)
     /* ulTaskGetIdleRunTimeCounter() only reports the calling core's idle
      * task on SMP, which made one busy core read as ~50-95 % overall.
      * Sample every core's idle task explicitly. */
-    int64_t wall_us = esp_timer_get_time();
-    uint64_t wall_delta = s_cpu_usage_valid && wall_us > s_cpu_prev_wall_us ?
-                          (uint64_t)(wall_us - s_cpu_prev_wall_us) : 0;
-    uint64_t idle_total = 0;
+    configRUN_TIME_COUNTER_TYPE idle_now[SI_DEVICE_CPU_MAX_CORES] = {0};
+    configRUN_TIME_COUNTER_TYPE idle_prev[SI_DEVICE_CPU_MAX_CORES] = {0};
+    int cores = 0;
     for (int core = 0; core < CONFIG_FREERTOS_NUMBER_OF_CORES &&
                        core < SI_DEVICE_CPU_MAX_CORES; ++core) {
         TaskStatus_t idle_status = {0};
         vTaskGetInfo(xTaskGetIdleTaskHandleForCore(core), &idle_status,
                      pdFALSE, eInvalid);
-        configRUN_TIME_COUNTER_TYPE idle_runtime = idle_status.ulRunTimeCounter;
-        uint64_t idle_delta = s_cpu_usage_valid ?
-                              (uint64_t)(idle_runtime - s_cpu_prev_idle[core]) : 0;
+        idle_now[core] = idle_status.ulRunTimeCounter;
+        cores = core + 1;
+    }
+    int64_t wall_us = esp_timer_get_time();
+
+    taskENTER_CRITICAL(&s_cpu_mux);
+    if (s_cpu_usage_valid && wall_us - s_cpu_prev_wall_us < 500000) {
+        *out = s_cpu_last;
+        taskEXIT_CRITICAL(&s_cpu_mux);
+        out->core_count = CONFIG_FREERTOS_NUMBER_OF_CORES;
+        return;
+    }
+    bool prev_valid = s_cpu_usage_valid;
+    int64_t prev_wall_us = s_cpu_prev_wall_us;
+    memcpy(idle_prev, s_cpu_prev_idle, sizeof(idle_prev));
+    memcpy(s_cpu_prev_idle, idle_now, sizeof(idle_now));
+    s_cpu_prev_wall_us = wall_us;
+    s_cpu_usage_valid = true;
+    taskEXIT_CRITICAL(&s_cpu_mux);
+
+    uint64_t wall_delta = prev_valid && wall_us > prev_wall_us ?
+                          (uint64_t)(wall_us - prev_wall_us) : 0;
+    uint64_t idle_total = 0;
+    for (int core = 0; core < cores; ++core) {
+        uint64_t idle_delta = prev_valid ?
+                              (uint64_t)(idle_now[core] - idle_prev[core]) : 0;
         idle_total += idle_delta;
         if (wall_delta > 0) {
             out->core_percent[core] = clamp_percent(100.0 -
                 (((double)idle_delta * 100.0) / (double)wall_delta));
         }
-        s_cpu_prev_idle[core] = idle_runtime;
     }
     if (wall_delta > 0) {
         double capacity = (double)wall_delta * (double)CONFIG_FREERTOS_NUMBER_OF_CORES;
@@ -592,8 +615,9 @@ static void collect_cpu(si_device_cpu_observation_t *out)
         out->sample_window_ms = (uint32_t)(wall_delta / 1000U);
         out->valid = true;
     }
-    s_cpu_prev_wall_us = wall_us;
-    s_cpu_usage_valid = true;
+    taskENTER_CRITICAL(&s_cpu_mux);
+    s_cpu_last = *out;
+    taskEXIT_CRITICAL(&s_cpu_mux);
 #endif
 }
 
